@@ -1,0 +1,26 @@
+# Data
+data/*.gpkg
+data/*.geojson
+data/*.tif
+data/*.csv
+data/*.rds
+data/*.parquet
+data/raw/
+data/stac/
+
+# R
+.Rhistory
+.RData
+.Rproj.user
+README.html
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# Secrets
+.env
+*.tfvars
