@@ -5,16 +5,23 @@ the shared `images.a11s.one` endpoint. No modelling here — stage → COG → t
 the outputs already produced by the `floodplains` driver.
 
 ## Phase 1: Scaffold pipeline
-- [ ] `01_stage.R` — discover WSGs under `$FLOODPLAINS_DATA` (default `../floodplains/data`) that
-      have an `ff04` floodplain; copy classified/transition rasters + `floodplain_landcover.gpkg`
-      into `data/raw/<wsg>/`. Read species/scenario from `floodplains/config/<wsg>/area.yml`.
-- [ ] `02_cog.R` — `terra::writeRaster(..., filetype = "COG", DEFLATE)` → `data/stac/<wsg>/`.
-- [ ] `03_cog_tag.py` — rasterio `update_tags`: WSG, SPECIES, SCENARIO, YEAR, FLOODPLAIN_KM2,
-      GROSS_LOSS_HA, GROSS_GAIN_HA, NET_HA (loss/gain/net from the transition gpkg layer).
-- [ ] `04_s3_upload.R` — `aws s3 sync data/stac s3://stac-floodplains-bc`.
-- [ ] `05_stac_register.py` — pystac collection + one item per WSG; raster + vector assets;
-      validate.
-- [ ] `run_pipeline.sh` — chain 01–05; footer prints the geoserv pypgstac load command.
+- [x] `01_stage.R` — discover Fraser-region WSGs under `$FLOODPLAINS_DATA` (default
+      `../floodplains/data`) with an `ff04` floodplain; copy classified/transition rasters into
+      `data/raw/<wsg>/` + `floodplain_landcover.gpkg` into `data/stac/<wsg>/`. Reads
+      species/scenario from `config/<wsg>/area.yml`; derives floodplain km², footprint geometry,
+      and loss/gain/net from the transition layer into `data/raw/<wsg>/meta.json` (sidecar the
+      Python steps consume, since the conda env has no vector reader).
+- [x] `02_cog.R` — `terra::writeRaster(..., filetype = "COG", DEFLATE, NEAREST overviews)` →
+      `data/stac/<wsg>/`.
+- [x] `03_cog_tag.py` — rasterio `update_tags` from `meta.json`: WSG, SPECIES, SCENARIO, REGION,
+      FLOODPLAIN_KM2, GROSS_LOSS_HA, GROSS_GAIN_HA, NET_HA, per-asset YEAR/span.
+- [x] `04_s3_upload.R` — `aws s3 sync data/stac s3://stac-floodplains-bc` (COGs + gpkg).
+- [x] `05_stac_register.py` — pystac collection + one item per WSG; raster + vector assets;
+      footprint geometry + loss/gain/net properties; validate; upload JSON to S3.
+- [x] `run_pipeline.sh` — chain 01–05; footer prints the geoserv pypgstac load command.
+
+  Phase 1 is scaffold-only: all six files written and syntax-checked (R parse, `py_compile`,
+  `bash -n`). End-to-end execution against real data is Phase 2.
 
 ## Phase 2: Prove end-to-end on one WSG (UFRA)
 - [ ] Run the full pipeline for UFRA only.
