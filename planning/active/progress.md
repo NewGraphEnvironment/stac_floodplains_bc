@@ -24,5 +24,17 @@
 - Added `scripts/test_pipeline.R` — single-WSG (default UFRA) local-only smoke test, mirroring
   airphoto's precedent. New flags: `WSG_ONLY` (01) and `SKIP_S3_UPLOAD` (05) keep a one-item test
   run from clobbering the live 8-item collection.
-- Next: run `scripts/test_pipeline.R` for UFRA once conda env + `$FLOODPLAINS_DATA` are in place
-  (Phase 2), then the real UFRA S3 publish + titiler/rstac verification.
+- Ran the UFRA smoke test — **PASS** end-to-end (stage → COG → tag → register → validate, no S3).
+  Loss/gain/net 544.5/719.0/174.6 ha; independently recomputed from the source transition gpkg via
+  GDAL-sqlite (544.46/719.02) → matches R/sf. Item + collection validate; PARTIAL_STAGE guard and
+  SKIP_S3_UPLOAD both behaved.
+- **Migrated conda → uv** (dem#16 pilot). Empirical basis: `uv pip install` of the full stack took
+  ~1-2s from PyPI wheels (GDAL 3.12.1 raster I/O verified) and the pipeline's Python steps ran on
+  it; conda `env create` failed 3× on the Anaconda ToS gate (defaults channel) — the committed
+  `nodefaults` fix doesn't bypass it (base condarc triggers the check). Added `pyproject.toml` +
+  `uv.lock`, swapped the two `conda run` calls for `uv run` (auto-syncs), removed `environment.yml`,
+  updated README/CLAUDE/scripts docs, gitignored `.venv/`. Re-ran the smoke test through the
+  migrated `uv run` path — still PASS. Note: `environment.yml` nodefaults commit `91dc61b` was made
+  by a parallel Opus session; now moot (file removed).
+- Next: real UFRA S3 publish + titiler/rstac verification (needs AWS creds); then all-8 (Phase 3).
+  Post the uv finding to `stac_dem_bc#16`. Confirm uv on the Linux VM before Phase 3 automation.

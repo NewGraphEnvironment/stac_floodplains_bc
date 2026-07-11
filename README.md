@@ -66,5 +66,6 @@ r <- rstac::items_fetch(q)
 
 ## Prerequisites
 
-`conda env create -f environment.yml` (pystac / rasterio); R with `terra`, `sf`, `readr`;
+[`uv`](https://docs.astral.sh/uv/) for the Python steps (`uv run` auto-syncs the env from
+`pyproject.toml` + `uv.lock` — pystac / rasterio); R with `terra`, `sf`, `readr`;
 AWS credentials for `s3://stac-floodplains-bc`; a populated `floodplains/data/<wsg>/` tree.

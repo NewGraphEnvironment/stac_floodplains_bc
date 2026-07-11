@@ -27,16 +27,19 @@ the outputs already produced by the `floodplains` driver.
 - [x] Smoke-test harness `scripts/test_pipeline.R` (single WSG, local-only via `WSG_ONLY` +
       `SKIP_S3_UPLOAD` so a one-item run can't clobber the live collection) — mirrors airphoto's
       `test_pipeline.R`.
-- [ ] Run `scripts/test_pipeline.R` for UFRA (needs conda env + `$FLOODPLAINS_DATA`): confirm item
-      validates and loss/gain/net are populated locally.
+- [x] Run `scripts/test_pipeline.R` for UFRA (local, no S3): item validates; loss/gain/net
+      populated (544.5 / 719.0 / 174.6 ha) and cross-checked against the source transition layer
+      via an independent GDAL-sqlite recompute (544.46 / 719.02 → match).
 - [ ] Run the full pipeline for UFRA only (with S3): confirm item validates, S3 objects present,
       titiler renders a COG, rstac returns the item.
-- [ ] Verify `gross_loss_ha` / `gross_gain_ha` / `net_ha` match the floodplains run numbers.
+- [ ] Verify `gross_loss_ha` / `gross_gain_ha` / `net_ha` match the floodplains driver's own summary
+      (`lulc_summary_ch_ff04.rds`), not just an independent recompute of the same layer.
 
-Environment: stays on **conda** (`environment.yml`, floor-pinned spec — not a stamped lock).
-uv migration is family-wide roadmap owned by `stac_dem_bc#16` (blocker: GDAL/rasterio wheels under
-uv, untested); floodplains inherits it when that lands. No vector reader in any conda env — R/sf
-does the vector work across the family, matching our step-01 design.
+Environment: **piloting uv** here (`pyproject.toml` + `uv.lock`, run via `uv run`). The
+`stac_dem_bc#16` conda→uv blocker (GDAL/rasterio wheels without conda-forge) was cleared
+empirically — uv installs the full stack in ~2s and the pipeline runs on it; conda was blocked on
+this machine by the Anaconda ToS gate. No vector reader in the Python env either way — R/sf does the
+vector work (step-01 design). Not yet proven on the Linux VM (geopro), which dem#16 also wants.
 
 ## Phase 3: Publish all 8
 - [ ] Stage + COG + tag + upload + register LCHL, LSAL, WILL, TABR, UFRA, NECR, MORK, FRAN.

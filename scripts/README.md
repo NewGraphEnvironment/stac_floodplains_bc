@@ -18,7 +18,7 @@ The tree-loss numbers (`gross_loss_ha`, `gross_gain_ha`, `net_ha`) are computed 
 staging, from each WSG's `transition_<sp>_ff04_2017_2023` gpkg layer (`from_class == "Trees"` vs
 `to_class == "Trees"`, summing `area_ha`) and written to `meta.json` — so the tag and register
 steps publish identical figures that trace directly to the modelled transition patches. Metrics
-are computed in R (step 01) because the publish conda env carries no vector reader.
+are computed in R (step 01) because the publish Python env carries no vector reader.
 
 ## Smoke test
 

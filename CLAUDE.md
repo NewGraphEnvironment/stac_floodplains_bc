@@ -18,7 +18,9 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 - `scripts/01_stage.R` … `05_stac_register.py` — the five publish steps (see `scripts/README.md`).
   `run_pipeline.sh` chains them. Source data comes from `$FLOODPLAINS_DATA` (default
   `../floodplains/data`).
-- `environment.yml` — conda env `stac-floodplains-bc` (pystac / rasterio) for steps 03 + 05.
+- `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for steps 03 + 05, run via
+  `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
+  the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically.
 - `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs).
 
 ## Collection model

@@ -3,13 +3,12 @@
 #
 # Usage: bash scripts/run_pipeline.sh
 #
-# Requires: R with sf/terra/yaml/jsonlite, conda env stac-floodplains-bc,
-#           AWS credentials for the S3 sync + register upload.
+# Requires: R with sf/terra/yaml/jsonlite, uv (Python env from pyproject.toml/uv.lock —
+#           `uv run` auto-syncs it), AWS credentials for the S3 sync + register upload.
 # Source data: $FLOODPLAINS_DATA (default ../floodplains/data).
 
 set -euo pipefail
 
-CONDA_ENV="stac-floodplains-bc"
 S3_BASE="https://stac-floodplains-bc.s3.us-west-2.amazonaws.com"
 
 echo "=== 01: STAGE ==="
@@ -21,7 +20,7 @@ Rscript scripts/02_cog.R
 
 echo ""
 echo "=== 03: TAG ==="
-conda run -n "$CONDA_ENV" python scripts/03_cog_tag.py
+uv run python scripts/03_cog_tag.py
 
 echo ""
 echo "=== 04: S3 UPLOAD ==="
@@ -29,7 +28,7 @@ Rscript scripts/04_s3_upload.R
 
 echo ""
 echo "=== 05: STAC REGISTER ==="
-conda run -n "$CONDA_ENV" python scripts/05_stac_register.py
+uv run python scripts/05_stac_register.py
 
 echo ""
 echo "=== DONE ==="

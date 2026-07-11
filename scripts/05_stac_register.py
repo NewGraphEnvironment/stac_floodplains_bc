@@ -12,8 +12,7 @@ Writes collection.json + <item_id>.json under data/stac/ and (if AWS creds are
 present) syncs them to the bucket so the geoserv pypgstac loader can read them.
 
 Usage:
-    conda activate stac-floodplains-bc
-    python scripts/05_stac_register.py
+    uv run python scripts/05_stac_register.py
 """
 
 import json

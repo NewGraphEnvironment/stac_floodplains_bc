@@ -8,13 +8,12 @@
 #   Rscript scripts/test_pipeline.R            # defaults to UFRA
 #   WSG=necr Rscript scripts/test_pipeline.R   # any Fraser WSG
 #
-# Requires: R (sf/terra/yaml/jsonlite), conda env stac-floodplains-bc, and the
-# source data under $FLOODPLAINS_DATA. No AWS credentials needed.
+# Requires: R (sf/terra/yaml/jsonlite), uv (Python env from pyproject.toml/uv.lock —
+# `uv run` auto-syncs it), and the source data under $FLOODPLAINS_DATA. No AWS creds needed.
 
 library(jsonlite)
 
 wsg <- tolower(Sys.getenv("WSG", unset = "ufra"))
-conda_env <- "stac-floodplains-bc"
 
 message("=== SMOKE TEST: ", toupper(wsg), " (local only, no S3) ===\n")
 
@@ -30,14 +29,13 @@ source("scripts/02_cog.R")
 
 # --- 03 TAG ---------------------------------------------------------------
 message("\n=== 03: TAG ===")
-if (system(sprintf("conda run -n %s python scripts/03_cog_tag.py", conda_env)) != 0) {
+if (system("uv run python scripts/03_cog_tag.py") != 0) {
   stop("03_cog_tag.py failed")
 }
 
 # --- 05 REGISTER (build + validate locally, skip the S3 upload) -----------
 message("\n=== 05: STAC REGISTER (SKIP_S3_UPLOAD) ===")
-if (system(sprintf("SKIP_S3_UPLOAD=1 conda run -n %s python scripts/05_stac_register.py",
-                   conda_env)) != 0) {
+if (system("SKIP_S3_UPLOAD=1 uv run python scripts/05_stac_register.py") != 0) {
   stop("05_stac_register.py failed validation")
 }
 
