@@ -57,7 +57,7 @@ vector work (step-01 design). Not yet proven on the Linux VM (geopro), which dem
 ## Phase 4: Verify + document
 - [x] STAC-API round-trip against `images.a11s.one`: collection 200, all 8 items returned with
       correct loss/gain/net (rstac equivalent). QGIS round-trip still optional/manual.
-- [ ] README coverage table + query examples.
+- [x] README coverage table + query examples (verified against live API).
 - [x] Confirm the rtj `stac_register-all.sh` entry lands — done, rtj#177 CLOSED.
 
 ## Validation
