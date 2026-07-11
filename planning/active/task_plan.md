@@ -24,9 +24,19 @@ the outputs already produced by the `floodplains` driver.
   `bash -n`). End-to-end execution against real data is Phase 2.
 
 ## Phase 2: Prove end-to-end on one WSG (UFRA)
-- [ ] Run the full pipeline for UFRA only.
-- [ ] Confirm item validates, S3 objects present, titiler renders a COG, rstac returns the item.
+- [x] Smoke-test harness `scripts/test_pipeline.R` (single WSG, local-only via `WSG_ONLY` +
+      `SKIP_S3_UPLOAD` so a one-item run can't clobber the live collection) — mirrors airphoto's
+      `test_pipeline.R`.
+- [ ] Run `scripts/test_pipeline.R` for UFRA (needs conda env + `$FLOODPLAINS_DATA`): confirm item
+      validates and loss/gain/net are populated locally.
+- [ ] Run the full pipeline for UFRA only (with S3): confirm item validates, S3 objects present,
+      titiler renders a COG, rstac returns the item.
 - [ ] Verify `gross_loss_ha` / `gross_gain_ha` / `net_ha` match the floodplains run numbers.
+
+Environment: stays on **conda** (`environment.yml`, floor-pinned spec — not a stamped lock).
+uv migration is family-wide roadmap owned by `stac_dem_bc#16` (blocker: GDAL/rasterio wheels under
+uv, untested); floodplains inherits it when that lands. No vector reader in any conda env — R/sf
+does the vector work across the family, matching our step-01 design.
 
 ## Phase 3: Publish all 8
 - [ ] Stage + COG + tag + upload + register LCHL, LSAL, WILL, TABR, UFRA, NECR, MORK, FRAN.

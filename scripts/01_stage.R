@@ -27,14 +27,30 @@ stac_dir <- file.path("data", "stac")
 
 # Clean rebuild: drop prior staging so a WSG dropped from the region (or a changed
 # scenario/span) can't leave stale artifacts that 03/04/05 would silently re-publish.
+# The wipe also clears any prior PARTIAL_STAGE marker — a full run leaves none.
 unlink(raw_dir, recursive = TRUE)
 unlink(stac_dir, recursive = TRUE)
+dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
 
 # --- Resolve the region's watershed groups --------------------------------
 
 region_cfg <- yaml::read_yaml(file.path(CONFIG_DIR, "regions", paste0(REGION, ".yml")))
 wsgs <- tolower(region_cfg$watershed_groups)
-message(length(wsgs), " WSGs in region '", REGION, "': ", paste(wsgs, collapse = ", "))
+
+# WSG_ONLY restricts staging to a single group (used by the smoke test). A partial
+# stage must never be published over the live collection: we drop a PARTIAL_STAGE
+# marker that 05 refuses to upload past unless SKIP_S3_UPLOAD is set.
+wsg_only <- tolower(Sys.getenv("WSG_ONLY", unset = ""))
+if (nzchar(wsg_only)) {
+  if (!wsg_only %in% wsgs) {
+    stop("WSG_ONLY='", wsg_only, "' is not a ", REGION, " WSG (",
+         paste(wsgs, collapse = ", "), ")")
+  }
+  wsgs <- wsg_only
+  writeLines(wsg_only, file.path(raw_dir, "PARTIAL_STAGE"))
+}
+message(length(wsgs), " WSG(s) to stage in region '", REGION, "': ",
+        paste(wsgs, collapse = ", "))
 
 # --- Metrics from the transition layer ------------------------------------
 # Gross loss  = tree-covered in 2017, something else in 2023.

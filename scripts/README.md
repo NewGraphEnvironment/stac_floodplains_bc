@@ -20,4 +20,21 @@ staging, from each WSG's `transition_<sp>_ff04_2017_2023` gpkg layer (`from_clas
 steps publish identical figures that trace directly to the modelled transition patches. Metrics
 are computed in R (step 01) because the publish conda env carries no vector reader.
 
+## Smoke test
+
+`test_pipeline.R` runs one watershed group end-to-end (`stage → COG → tag → STAC`)
+**without touching S3** — it builds and validates the item locally. Use it after any
+change to the scripts, the floodplains data layout, or the STAC schema, before a real
+all-8 publish.
+
+```
+Rscript scripts/test_pipeline.R            # defaults to UFRA
+WSG=necr Rscript scripts/test_pipeline.R   # any Fraser WSG
+```
+
+It relies on two flags the pipeline scripts honour: `WSG_ONLY=<wsg>` restricts `01_stage.R`
+to a single group, and `SKIP_S3_UPLOAD=1` makes `05_stac_register.py` build + validate
+locally without uploading — so a one-item test run can never clobber the live 8-item
+collection.
+
 Catalog load runs on the geoserv server via `stac_register-pypgstac.sh` (in `rtj`), not here.

@@ -17,6 +17,7 @@ Usage:
 """
 
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -204,17 +205,28 @@ print(f"{len(items)} items + collection valid")
 # --- Push generated JSON to S3 (COGs/gpkg already synced by 04) ------------
 
 json_files = [collection_path] + [STAC_DIR / f"{i.id}.json" for i in items]
-try:
-    for jf in json_files:
-        subprocess.run(
-            ["aws", "s3", "cp", str(jf), f"s3://{BUCKET}/{jf.name}"],
-            check=True, capture_output=True, text=True,
-        )
-    print(f"Synced {len(json_files)} JSON files to s3://{BUCKET}")
-except FileNotFoundError:
-    print("  NOTE: aws CLI not found; collection.json is local only")
-except subprocess.CalledProcessError as e:
-    raise SystemExit(f"JSON upload to s3://{BUCKET} failed: {e.stderr or e}")
+partial_marker = RAW_DIR / "PARTIAL_STAGE"
+if os.environ.get("SKIP_S3_UPLOAD"):
+    print("SKIP_S3_UPLOAD set — collection.json + items are local only")
+elif partial_marker.exists():
+    # 01 staged only WSG_ONLY=<wsg>; uploading now would clobber the live collection
+    # with a reduced one. Re-run 01 without WSG_ONLY to publish, or set SKIP_S3_UPLOAD.
+    raise SystemExit(
+        f"Refusing to upload: staging was partial ({partial_marker.read_text().strip()}). "
+        "Re-run 01_stage.R without WSG_ONLY for a full publish, or set SKIP_S3_UPLOAD=1."
+    )
+else:
+    try:
+        for jf in json_files:
+            subprocess.run(
+                ["aws", "s3", "cp", str(jf), f"s3://{BUCKET}/{jf.name}"],
+                check=True, capture_output=True, text=True,
+            )
+        print(f"Synced {len(json_files)} JSON files to s3://{BUCKET}")
+    except FileNotFoundError:
+        print("  NOTE: aws CLI not found; collection.json is local only")
+    except subprocess.CalledProcessError as e:
+        raise SystemExit(f"JSON upload to s3://{BUCKET} failed: {e.stderr or e}")
 
 print(f"\nCollection written to {collection_path}")
 print(f"Load into the catalog from rtj:")

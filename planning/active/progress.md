@@ -14,5 +14,15 @@
   is `"Trees"`, fields `from_class`/`to_class`/`area_ha`, floodplain CRS EPSG:3005. Publish conda
   env has no vector reader, so metrics + footprint are computed in R (step 01) and passed to the
   Python tag/register steps via `data/raw/<wsg>/meta.json`. All six files syntax-check clean.
-- Next: Phase 2 — run the full pipeline for UFRA only and verify item/S3/titiler/rstac round-trip
-  and that loss/gain/net match the floodplains numbers.
+- Environment review (across all 5 stac_*_bc repos + issues): family is on **conda**; uv is
+  roadmap only (no repo has pyproject/uv.lock). `stac_dem_bc#16` owns the conda→uv migration and is
+  OPEN — blocker is whether GDAL/rasterio/rio-cogeo wheels install under uv without conda-forge.
+  Decision: floodplains stays on conda, inherits uv when dem lands it. Our `environment.yml` is a
+  floor-pinned spec, not a stamped lock (the "no lockfile" gap dem#16 cites); stamp via
+  `conda env export` after the env is first built if reproducibility is needed. No conda env in the
+  family carries a vector reader — R/sf does vector work everywhere, validating the step-01 design.
+- Added `scripts/test_pipeline.R` — single-WSG (default UFRA) local-only smoke test, mirroring
+  airphoto's precedent. New flags: `WSG_ONLY` (01) and `SKIP_S3_UPLOAD` (05) keep a one-item test
+  run from clobbering the live 8-item collection.
+- Next: run `scripts/test_pipeline.R` for UFRA once conda env + `$FLOODPLAINS_DATA` are in place
+  (Phase 2), then the real UFRA S3 publish + titiler/rstac verification.
