@@ -17,8 +17,25 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `sta
 
 ## Coverage
 
-Initial publish: the 8 **Fraser-region** watershed groups (chinook, functional floodplain
-`ff04`) — LCHL, LSAL, WILL, TABR, UFRA, NECR, MORK, FRAN. One STAC **item per watershed group**.
+Published and live at <https://images.a11s.one> — the 8 **Fraser-region** watershed groups
+(chinook, functional floodplain `ff04`), one STAC **item per watershed group**. Tree-cover change
+over the floodplain, 2017 → 2023:
+
+| WSG | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
+|----|----:|----:|----:|----:|
+| LCHL | 325 | 1,261 | 1,747 | +486 |
+| LSAL | 256 | 986 | 1,006 | +21 |
+| WILL | 305 | 645 | 576 | -69 |
+| TABR | 233 | 608 | 352 | -257 |
+| UFRA | 188 | 544 | 719 | +175 |
+| NECR | 551 | 2,854 | 1,450 | -1,404 |
+| MORK | 626 | 946 | 1,212 | +266 |
+| FRAN | 883 | 7,177 | 897 | -6,280 |
+| **Total** | **3,366** | **15,022** | **7,958** | **-7,064** |
+
+Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
+(negative = net tree loss). Figures are aggregated from each group's transition layer. Per-row
+values are rounded to whole units, so a column may not sum exactly to the (unrounded) total.
 
 ## Pipeline
 
@@ -29,15 +46,18 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 |----|----|----|
 | Stage | `01_stage.R` | Discover WSGs; copy each `rasters/<sp>_ff04/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` into `data/raw/<wsg>/` |
 | COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<wsg>/` |
-| Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `YEAR`, `FLOODPLAIN_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA` |
+| Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
 | S3 | `04_s3_upload.R` | `aws s3 sync data/stac s3://stac-floodplains-bc` |
 | STAC | `05_stac_register.py` | Generate STAC collection + items, validate with pystac |
 
-Bulk-load into the catalog on the geoserv server (shared `stac` DB → `images.a11s.one`):
+Catalog load (shared `stac` DB → `images.a11s.one`) runs from the
+[`rtj`](https://github.com/NewGraphEnvironment/rtj) repo, which manages the geoserv server, once
+the items are in S3:
 
 ```bash
-ssh root@<geopro> 'bash /tmp/stac_register-pypgstac.sh \
-  stac-floodplains-bc https://stac-floodplains-bc.s3.us-west-2.amazonaws.com'
+# in rtj — collection is listed in stac_register-all.sh (rtj#177)
+scripts/geoserv/stac_register-pypgstac.sh \
+  stac-floodplains-bc https://stac-floodplains-bc.s3.us-west-2.amazonaws.com
 ```
 
 ## Item model
@@ -49,7 +69,7 @@ datetime range 2017 → 2023.
   `classified_2023`, `transition_2017_2023`
 - **Vector asset** (download): `floodplain` → `floodplain_landcover.gpkg` (floodplain polygon +
   transition patches)
-- **Properties** (labelled, computed from the transition layer at register time): `wsg`,
+- **Properties** (labelled, aggregated from the transition layer during staging): `wsg`,
   `species`, `region`, `floodplain_km2`, `gross_loss_ha`, `gross_gain_ha`, `net_ha`
 
 ## Query with rstac
@@ -57,11 +77,25 @@ datetime range 2017 → 2023.
 ```r
 library(rstac)
 
-q <- rstac::stac("https://images.a11s.one/") |>
+items <- rstac::stac("https://images.a11s.one/") |>
   rstac::stac_search(collections = "stac-floodplains-bc") |>
-  rstac::post_request()
+  rstac::post_request() |>
+  rstac::items_fetch()
 
-r <- rstac::items_fetch(q)
+# tree-cover change per watershed group
+purrr::map_dfr(items$features, \(f) {
+  p <- f$properties
+  tibble::tibble(
+    wsg            = p$wsg,
+    floodplain_km2 = p$floodplain_km2,
+    gross_loss_ha  = p$gross_loss_ha,
+    gross_gain_ha  = p$gross_gain_ha,
+    net_ha         = p$net_ha
+  )
+})
+
+# render a classified COG asset URL in QGIS / titiler, e.g.:
+items$features[[1]]$assets$classified_2023$href
 ```
 
 ## Prerequisites
