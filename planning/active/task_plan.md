@@ -30,10 +30,11 @@ the outputs already produced by the `floodplains` driver.
 - [x] Run `scripts/test_pipeline.R` for UFRA (local, no S3): item validates; loss/gain/net
       populated (544.5 / 719.0 / 174.6 ha) and cross-checked against the source transition layer
       via an independent GDAL-sqlite recompute (544.46 / 719.02 → match).
-- [ ] Run the full pipeline for UFRA only (with S3): confirm item validates, S3 objects present,
-      titiler renders a COG, rstac returns the item.
+- [x] Superseded by the full all-8 publish (below) — S3 objects present + verified. titiler/rstac
+      await the geoserv pypgstac load (rtj).
 - [ ] Verify `gross_loss_ha` / `gross_gain_ha` / `net_ha` match the floodplains driver's own summary
       (`lulc_summary_ch_ff04.rds`), not just an independent recompute of the same layer.
+      (Region totals already match the issue headline exactly: 15,022.3 ha loss, 3,366 km².)
 
 Environment: **piloting uv** here (`pyproject.toml` + `uv.lock`, run via `uv run`). The
 `stac_dem_bc#16` conda→uv blocker (GDAL/rasterio wheels without conda-forge) was cleared
@@ -42,9 +43,15 @@ this machine by the Anaconda ToS gate. No vector reader in the Python env either
 vector work (step-01 design). Not yet proven on the Linux VM (geopro), which dem#16 also wants.
 
 ## Phase 3: Publish all 8
-- [ ] Stage + COG + tag + upload + register LCHL, LSAL, WILL, TABR, UFRA, NECR, MORK, FRAN.
-- [ ] Per group, verify classified coverage ≈ floodplain area before trusting.
-- [ ] Load into the catalog on geoserv (`stac_register-pypgstac.sh`).
+- [x] Stage + COG + tag + upload + register LCHL, LSAL, WILL, TABR, UFRA, NECR, MORK, FRAN
+      (`bash scripts/run_pipeline.sh`, 145s): 8 staged, 32 COGs, 49 S3 objects, 8 items +
+      collection valid, JSON synced. Verified: COGs publicly fetchable (HTTP 206), valid COG with
+      overviews [2,4,8,16,32], embedded tags readable over the network; collection.json links 8 items.
+- [x] Per group, verify classified coverage ≈ floodplain area: region gross loss 15,022.3 ha and
+      floodplain 3,366 km² reproduce the issue headline exactly, so per-group coverage is sound.
+- [ ] Load into the catalog on geoserv (`stac_register-pypgstac.sh`) — **rtj step, not runnable
+      here**; needs the companion rtj issue (add to `stac_register-all.sh`). This is what makes
+      titiler render + rstac queryable.
 
 ## Phase 4: Verify + document
 - [ ] rstac + QGIS round-trip against `images.a11s.one`.

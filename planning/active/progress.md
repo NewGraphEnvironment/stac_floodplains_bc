@@ -36,5 +36,15 @@
   updated README/CLAUDE/scripts docs, gitignored `.venv/`. Re-ran the smoke test through the
   migrated `uv run` path — still PASS. Note: `environment.yml` nodefaults commit `91dc61b` was made
   by a parallel Opus session; now moot (file removed).
-- Next: real UFRA S3 publish + titiler/rstac verification (needs AWS creds); then all-8 (Phase 3).
-  Post the uv finding to `stac_dem_bc#16`. Confirm uv on the Linux VM before Phase 3 automation.
+- Posted the uv finding to `stac_dem_bc#16` (issuecomment-4947934417).
+- **PUBLISHED all 8 to S3** (`bash scripts/run_pipeline.sh`, 145s, exit 0). Bucket was empty →
+  clean first publish. 8 WSGs staged, 32 COGs converted + tagged, 190 MiB synced, 8 items +
+  collection validate, 9 JSON files uploaded. S3 now holds 49 objects (32 tif + 8 gpkg + 8 item
+  json + collection.json), no stray dotfiles. Verified: objects public over HTTPS (206 range
+  requests), a COG reads remotely as valid GeoTIFF with overviews [2,4,8,16,32] + embedded tags,
+  collection.json links 8 items. Region totals reproduce the issue headline exactly — gross loss
+  15,022.3 ha, floodplain 3,366 km².
+- Remaining: geoserv **pypgstac catalog load** (rtj: `scripts/geoserv/stac_register-pypgstac.sh
+  stac-floodplains-bc <s3-base>`) — NOT runnable from this repo; needs the companion rtj issue
+  (add to `stac_register-all.sh`). That step makes titiler render + rstac queryable on
+  `images.a11s.one`. Then Phase 4 (rstac/QGIS round-trip, README coverage table).
