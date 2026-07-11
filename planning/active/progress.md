@@ -44,7 +44,10 @@
   requests), a COG reads remotely as valid GeoTIFF with overviews [2,4,8,16,32] + embedded tags,
   collection.json links 8 items. Region totals reproduce the issue headline exactly — gross loss
   15,022.3 ha, floodplain 3,366 km².
-- Remaining: geoserv **pypgstac catalog load** (rtj: `scripts/geoserv/stac_register-pypgstac.sh
-  stac-floodplains-bc <s3-base>`) — NOT runnable from this repo; needs the companion rtj issue
-  (add to `stac_register-all.sh`). That step makes titiler render + rstac queryable on
-  `images.a11s.one`. Then Phase 4 (rstac/QGIS round-trip, README coverage table).
+- Catalog load DONE via **rtj#177** (CLOSED 2026-07-11, by a parallel session): floodplains added
+  to `stac_register-all.sh` COLLECTIONS + rtj CLAUDE.md, pypgstac load run on geopro. **Collection
+  is LIVE** — verified `GET images.a11s.one/collections/stac-floodplains-bc` → 200 and `/items` →
+  all 8 with correct loss/gain/net. End-to-end round-trip (S3 → pgstac → STAC API) confirmed.
+- Remaining (all in this repo, non-blocking): README coverage table + query examples; optional QGIS
+  round-trip; then `/planning-archive` and PR. Issue #1 is functionally complete — the collection
+  is published and queryable.

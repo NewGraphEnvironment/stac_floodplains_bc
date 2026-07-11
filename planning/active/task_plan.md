@@ -49,14 +49,16 @@ vector work (step-01 design). Not yet proven on the Linux VM (geopro), which dem
       overviews [2,4,8,16,32], embedded tags readable over the network; collection.json links 8 items.
 - [x] Per group, verify classified coverage ≈ floodplain area: region gross loss 15,022.3 ha and
       floodplain 3,366 km² reproduce the issue headline exactly, so per-group coverage is sound.
-- [ ] Load into the catalog on geoserv (`stac_register-pypgstac.sh`) — **rtj step, not runnable
-      here**; needs the companion rtj issue (add to `stac_register-all.sh`). This is what makes
-      titiler render + rstac queryable.
+- [x] Load into the catalog on geoserv — done via rtj#177 (CLOSED 2026-07-11): `stac-floodplains-bc`
+      added to `stac_register-all.sh` COLLECTIONS + rtj CLAUDE.md, pypgstac load run. Verified live:
+      `GET images.a11s.one/collections/stac-floodplains-bc` → 200, `/items` → all 8 with correct
+      loss/gain/net.
 
 ## Phase 4: Verify + document
-- [ ] rstac + QGIS round-trip against `images.a11s.one`.
+- [x] STAC-API round-trip against `images.a11s.one`: collection 200, all 8 items returned with
+      correct loss/gain/net (rstac equivalent). QGIS round-trip still optional/manual.
 - [ ] README coverage table + query examples.
-- [ ] Confirm the rtj `stac_register-all.sh` entry lands (companion rtj issue).
+- [x] Confirm the rtj `stac_register-all.sh` entry lands — done, rtj#177 CLOSED.
 
 ## Validation
 - [ ] `bash scripts/run_pipeline.sh` runs clean for UFRA, then all 8.
