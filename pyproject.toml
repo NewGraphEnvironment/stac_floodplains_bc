@@ -1,0 +1,18 @@
+[project]
+name = "stac-floodplains-bc"
+version = "0.1.0"
+description = "Publish layer for the stac-floodplains-bc STAC collection (COG + STAC register steps)."
+requires-python = ">=3.10"
+dependencies = [
+    "pystac>=1.12.0",
+    "rio-stac>=0.11.0",
+    "rasterio>=1.4.0",
+    "shapely",
+    "pyarrow",
+    "tqdm",
+    "jsonschema",
+]
+
+# Scripts-only repo — not an installable package; uv just manages the dependency env.
+[tool.uv]
+package = false
