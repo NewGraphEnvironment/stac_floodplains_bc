@@ -1,9 +1,9 @@
 # 01_stage.R — stage the floodplains ff04 outputs for the publish pipeline.
 #
-# Discovers the watershed groups (WSGs) in the Fraser region that carry an `ff04`
-# floodplain, copies their classified/transition rasters + landcover GeoPackage into
+# Discovers the watershed groups (WSGs) listed in any config/regions/*.yml that carry an
+# `ff04` floodplain, copies their classified/transition rasters + landcover GeoPackage into
 # `data/`, and derives the per-WSG publish metrics (floodplain area, tree loss/gain/net)
-# from the upstream transition layer.
+# from the upstream transition layer. Each WSG's `region` is the region roster that lists it.
 #
 # No modelling here: loss/gain/net are aggregations of the transition patches already
 # produced by the `floodplains` driver. They are computed once, at staging, and written
@@ -18,7 +18,6 @@ library(jsonlite)
 
 FLOODPLAINS_DATA <- Sys.getenv("FLOODPLAINS_DATA", unset = "../floodplains/data")
 CONFIG_DIR <- file.path(dirname(FLOODPLAINS_DATA), "config")
-REGION <- "fraser"
 YEARS <- c(2017, 2020, 2023)
 TRANSITION_SPAN <- c(2017, 2023)
 
@@ -32,10 +31,30 @@ unlink(raw_dir, recursive = TRUE)
 unlink(stac_dir, recursive = TRUE)
 dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
 
-# --- Resolve the region's watershed groups --------------------------------
+# --- Resolve watershed groups across all region configs -------------------
+# The region config is the source of truth: every config/regions/*.yml contributes
+# its watershed_groups, and a group's `region` property is the region that lists it.
+# Groups absent from every roster (e.g. coho co_ff04) are not published.
 
-region_cfg <- yaml::read_yaml(file.path(CONFIG_DIR, "regions", paste0(REGION, ".yml")))
-wsgs <- tolower(region_cfg$watershed_groups)
+region_files <- list.files(file.path(CONFIG_DIR, "regions"),
+                           pattern = "\\.yml$", full.names = TRUE)
+wsg_region <- list()
+for (rf in region_files) {
+  rc <- yaml::read_yaml(rf)
+  # A missing `region:` would make `wsg_region[[g]] <- NULL` silently drop the group.
+  if (is.null(rc$region) || !nzchar(rc$region)) {
+    stop("Region config ", rf, " has no `region:` field")
+  }
+  for (g in tolower(rc$watershed_groups)) {
+    if (!is.null(wsg_region[[g]]) && wsg_region[[g]] != rc$region) {
+      warning("WSG '", g, "' listed in regions '", wsg_region[[g]], "' and '",
+              rc$region, "' — keeping '", wsg_region[[g]], "'")
+    } else {
+      wsg_region[[g]] <- rc$region
+    }
+  }
+}
+wsgs <- names(wsg_region)
 
 # WSG_ONLY restricts staging to a single group (used by the smoke test). A partial
 # stage must never be published over the live collection: we drop a PARTIAL_STAGE
@@ -43,13 +62,14 @@ wsgs <- tolower(region_cfg$watershed_groups)
 wsg_only <- tolower(Sys.getenv("WSG_ONLY", unset = ""))
 if (nzchar(wsg_only)) {
   if (!wsg_only %in% wsgs) {
-    stop("WSG_ONLY='", wsg_only, "' is not a ", REGION, " WSG (",
+    stop("WSG_ONLY='", wsg_only, "' is not in any region roster (",
          paste(wsgs, collapse = ", "), ")")
   }
   wsgs <- wsg_only
   writeLines(wsg_only, file.path(raw_dir, "PARTIAL_STAGE"))
 }
-message(length(wsgs), " WSG(s) to stage in region '", REGION, "': ",
+message(length(wsgs), " WSG(s) to stage across ",
+        length(unique(unlist(wsg_region[wsgs]))), " region(s): ",
         paste(wsgs, collapse = ", "))
 
 # --- Metrics from the transition layer ------------------------------------
@@ -138,7 +158,7 @@ for (wsg in wsgs) {
     wsg_lower = wsg,
     species = species,
     scenario = scenario,
-    region = REGION,
+    region = wsg_region[[wsg]],
     item_id = paste0(wsg, "_", scenario),
     years = YEARS,
     transition_span = TRANSITION_SPAN,
