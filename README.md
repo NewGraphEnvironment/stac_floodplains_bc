@@ -17,21 +17,26 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `sta
 
 ## Coverage
 
-Published and live at <https://images.a11s.one> — the 8 **Fraser-region** watershed groups
-(chinook, functional floodplain `ff04`), one STAC **item per watershed group**. Tree-cover change
-over the floodplain, 2017 → 2023:
+Published and live at <https://images.a11s.one> — **13 watershed groups** across the **Fraser**
+(chinook) and **Peace** (bull trout) regions, functional floodplain `ff04`, one STAC **item per
+watershed group**. Tree-cover change over the floodplain, 2017 → 2023:
 
-| WSG | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
-|----|----:|----:|----:|----:|
-| LCHL | 325 | 1,261 | 1,747 | +486 |
-| LSAL | 256 | 986 | 1,006 | +21 |
-| WILL | 305 | 645 | 576 | -69 |
-| TABR | 233 | 608 | 352 | -257 |
-| UFRA | 188 | 544 | 719 | +175 |
-| NECR | 551 | 2,854 | 1,450 | -1,404 |
-| MORK | 626 | 946 | 1,212 | +266 |
-| FRAN | 883 | 7,177 | 897 | -6,280 |
-| **Total** | **3,366** | **15,022** | **7,958** | **-7,064** |
+| WSG | Region | Species | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
+|----|----|----|----:|----:|----:|----:|
+| LCHL | Fraser | chinook | 325 | 1,261 | 1,747 | +486 |
+| LSAL | Fraser | chinook | 256 | 986 | 1,006 | +21 |
+| WILL | Fraser | chinook | 305 | 645 | 576 | -69 |
+| TABR | Fraser | chinook | 233 | 608 | 352 | -257 |
+| UFRA | Fraser | chinook | 188 | 544 | 719 | +175 |
+| NECR | Fraser | chinook | 551 | 2,854 | 1,450 | -1,404 |
+| MORK | Fraser | chinook | 626 | 946 | 1,212 | +266 |
+| FRAN | Fraser | chinook | 883 | 7,177 | 897 | -6,280 |
+| BOWR | Fraser | chinook | 298 | 461 | 287 | -174 |
+| MCGR | Fraser | chinook | 290 | 510 | 817 | +307 |
+| PCEA | Peace | bull trout | 1,068 | 101 | 210 | +109 |
+| PARS | Peace | bull trout | 485 | 1,439 | 3,233 | +1,794 |
+| PINE | Peace | bull trout | 380 | 763 | 1,497 | +734 |
+| **Total** | | | **5,887** | **18,296** | **14,002** | **-4,294** |
 
 Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
 (negative = net tree loss). Figures are aggregated from each group's transition layer. Per-row
