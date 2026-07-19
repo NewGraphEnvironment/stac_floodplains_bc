@@ -129,14 +129,41 @@ for (wsg in wsgs) {
     file.copy(src, dst, overwrite = TRUE)
   }
 
-  # Vector asset → data/stac/<wsg>/ (publish-ready, no COG conversion).
+  # Vector assets → data/stac/<wsg>/ (publish-ready, no COG conversion): the land-cover
+  # gpkg and the floodplain-delineation gpkg (ff02/ff04/ff06 polygons).
   file.copy(file.path(src_wsg, "floodplain_landcover.gpkg"),
             file.path(dst_stac, "floodplain_landcover.gpkg"), overwrite = TRUE)
+  file.copy(file.path(src_wsg, "floodplain.gpkg"),
+            file.path(dst_stac, "floodplain.gpkg"), overwrite = TRUE)
 
-  # Footprint geometry + area from the floodplain polygon.
-  fp <- sf::st_read(file.path(src_wsg, "floodplain.gpkg"), layer = scenario, quiet = TRUE)
+  # Areas from the three run=TRUE flood-factor delineations in floodplain.gpkg; the ff04
+  # layer is also the item footprint. Sibling layer names derive from the ff04 primary by
+  # species prefix (co_/ch_/bt_ + ff0N) — selected by prefix, never positionally, so a second
+  # species' layers in the same gpkg (floodplains#23) are correctly ignored.
+  if (!endsWith(scenario, "_ff04")) {
+    stop("primary_scenario '", scenario, "' is not ff04 — the ff02/ff06 token-swap and the ",
+         "ff04 footprint both assume an ff04 primary")
+  }
+  fp_gpkg <- file.path(src_wsg, "floodplain.gpkg")
+  sp_prefix <- sub("_ff.*$", "", scenario)
+  ff_layers <- setNames(paste0(sp_prefix, "_ff", c("02", "04", "06")),
+                        c("ff02", "ff04", "ff06"))
+  missing_layers <- setdiff(ff_layers, sf::st_layers(fp_gpkg)$name)
+  if (length(missing_layers)) {
+    stop("floodplain.gpkg for ", toupper(wsg), " missing delineation layer(s): ",
+         paste(missing_layers, collapse = ", "))
+  }
+  read_area_km2 <- function(layer) {
+    poly <- sf::st_read(fp_gpkg, layer = layer, quiet = TRUE)
+    round(as.numeric(sum(sf::st_area(poly))) / 1e6, 2)
+  }
+  floodplain_ff02_km2 <- read_area_km2(ff_layers[["ff02"]])
+  floodplain_ff06_km2 <- read_area_km2(ff_layers[["ff06"]])
+
+  # Footprint geometry from the ff04 delineation.
+  fp <- sf::st_read(fp_gpkg, layer = ff_layers[["ff04"]], quiet = TRUE)
   epsg <- sf::st_crs(fp)$epsg
-  floodplain_km2 <- round(as.numeric(sum(sf::st_area(fp))) / 1e6, 2)
+  floodplain_ff04_km2 <- round(as.numeric(sum(sf::st_area(fp))) / 1e6, 2)
   fp_wgs <- sf::st_transform(sf::st_union(fp), 4326)
   bbox <- as.numeric(sf::st_bbox(fp_wgs))
   # Emit GeoJSON via the GDAL GeoJSON driver (no geojsonsf dependency), then read
@@ -163,7 +190,9 @@ for (wsg in wsgs) {
     years = YEARS,
     transition_span = TRANSITION_SPAN,
     epsg = epsg,
-    floodplain_km2 = floodplain_km2,
+    floodplain_ff02_km2 = floodplain_ff02_km2,
+    floodplain_ff04_km2 = floodplain_ff04_km2,
+    floodplain_ff06_km2 = floodplain_ff06_km2,
     gross_loss_ha = metrics$gross_loss_ha,
     gross_gain_ha = metrics$gross_gain_ha,
     net_ha = metrics$net_ha,
@@ -173,9 +202,10 @@ for (wsg in wsgs) {
   jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
                        auto_unbox = TRUE, pretty = TRUE, digits = 10)
 
-  message(sprintf("STAGED %s (%s): %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha",
-                  toupper(wsg), scenario, floodplain_km2,
-                  metrics$gross_loss_ha, metrics$gross_gain_ha, metrics$net_ha))
+  message(sprintf(
+    "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha",
+    toupper(wsg), scenario, floodplain_ff02_km2, floodplain_ff04_km2, floodplain_ff06_km2,
+    metrics$gross_loss_ha, metrics$gross_gain_ha, metrics$net_ha))
   staged <- c(staged, wsg)
 }
 

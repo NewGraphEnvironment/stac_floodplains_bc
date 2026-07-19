@@ -21,7 +21,8 @@ STAC_DIR = Path("data/stac")
 # Scalar tags shared by every asset in a WSG.
 SHARED_FIELDS = [
     "wsg", "species", "scenario", "region",
-    "floodplain_km2", "gross_loss_ha", "gross_gain_ha", "net_ha",
+    "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
+    "gross_loss_ha", "gross_gain_ha", "net_ha",
 ]
 
 

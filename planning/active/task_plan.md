@@ -34,25 +34,25 @@ break — no back-compat alias. Item count stays 15; ff04 stays the footprint.
 
 ## Phase 2: Stage three extents + copy the delineation gpkg (`01_stage.R`)
 
-- [ ] Copy `floodplain.gpkg` into `data/stac/<wsg>/` (beside the landcover copy at `:133`).
-- [ ] `stopifnot(endsWith(scenario, "_ff04"))` before deriving siblings.
-- [ ] Compute all three areas via token-swap layer names + `st_area`; `stop()` if any layer absent.
-      **Select strictly by the primary-species prefix** (`sub("_ff.*","",scenario)`), never
-      positionally — keeps it correct when floodplains#23 lands a second species' `<sp2>_ff0x`
-      layers in the same `floodplain.gpkg`.
-- [ ] Keep the ff04 layer as footprint geometry (`:136-137`, unchanged).
-- [ ] Replace `floodplain_km2` in `meta.json` (`:166`) with the three keys; update log (`:177`).
+- [x] Copy `floodplain.gpkg` into `data/stac/<wsg>/` (beside the landcover copy).
+- [x] `endsWith(scenario, "_ff04")` guard before deriving siblings.
+- [x] Compute all three areas via token-swap layer names + `st_area`; `stop()` if any layer absent.
+      Selected strictly by primary-species prefix (`sub("_ff.*","",scenario)`), never positionally
+      — correct when floodplains#23 lands a second species' `<sp2>_ff0x` layers.
+- [x] Keep the ff04 layer as footprint geometry (unchanged).
+- [x] Replace `floodplain_km2` in `meta.json` with the three keys; update the staging log.
 
 ## Phase 3: Tag + register the asset and properties (`03_cog_tag.py`, `05_stac_register.py`)
 
 > Bundle the Phase-2 + Phase-3 **property rename** into one commit (05 KeyErrors otherwise). The
 > new `floodplain` *asset* may be its own commit.
 
-- [ ] `03_cog_tag.py:24` — swap `floodplain_km2` in `SHARED_FIELDS` for the three keys.
-- [ ] `05_stac_register.py` — add `floodplain` vector asset → `floodplain.gpkg` (`:77-82`
-      template); add `floodplain.gpkg` to the expected-assets guard (`:131-138`); replace
-      `floodplain_km2` in properties (`:90`) with the three keys; update the docstring (`:3-9`)
-      and collection description (`:164-170`).
+- [x] `03_cog_tag.py` — swapped `floodplain_km2` in `SHARED_FIELDS` for the three keys.
+- [x] `05_stac_register.py` — added `floodplain` vector asset → `floodplain.gpkg`; added
+      `floodplain.gpkg` to the expected-assets guard; replaced `floodplain_km2` in properties
+      with the three keys; updated docstring + collection description.
+- [x] Smoke test green (`WSG=bulk`); independent `st_area` recompute matches
+      (ff02 428.29 / ff04 490.47 / ff06 540.03); code-check round 1 Clean.
 
 ## Phase 4: Sweep + docs
 
