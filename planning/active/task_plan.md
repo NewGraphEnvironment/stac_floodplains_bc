@@ -56,12 +56,13 @@ break — no back-compat alias. Item count stays 15; ff04 stays the footprint.
 
 ## Phase 4: Sweep + docs
 
-- [ ] `grep -rn floodplain_km2` across repo → zero hits.
-- [ ] Root `README.md` — fix the landcover mislabel (`floodplain` → `floodplain_landcover`),
-      add the new `floodplain` asset, document three ff extent layers + three area properties,
-      update the rstac example (`:97`).
-- [ ] `scripts/README.md` — hand-edit the prose asset-copy / tag / gpkg rows.
-- [ ] `grep floodplain_km2` in `~/Projects/repo/rtj`; record in findings.md (no rename expected).
+- [x] `grep -rin floodplain_km2` across repo → only the intentional `is.null()` test assertion.
+- [x] Root `README.md` — fixed the landcover mislabel (`floodplain` → `floodplain_landcover`),
+      added the new `floodplain` asset, documented three ff extent layers + three area properties,
+      updated the pipeline-table `FLOODPLAIN_KM2` tag row and the rstac example.
+- [x] `scripts/README.md` — updated the stage/tag/S3 prose (gpkgs + per-flood-factor areas; also
+      corrected the stale "Fraser-region" in the edited cell → "rostered").
+- [x] `grep floodplain_km2` in `~/Projects/repo/rtj` → zero references (downstream clean).
 
 ## Phase 5: Publish + verify live
 

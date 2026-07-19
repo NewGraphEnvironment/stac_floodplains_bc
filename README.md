@@ -49,9 +49,9 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 
 | Step | Script | What |
 |----|----|----|
-| Stage | `01_stage.R` | Discover WSGs; copy each `rasters/<sp>_ff04/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` into `data/raw/<wsg>/` |
+| Stage | `01_stage.R` | Discover WSGs; stage each `rasters/<sp>_ff04/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations); compute per-flood-factor floodplain areas |
 | COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<wsg>/` |
-| Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
+| Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF02_KM2`, `FLOODPLAIN_FF04_KM2`, `FLOODPLAIN_FF06_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
 | S3 | `04_s3_upload.R` | `aws s3 sync data/stac s3://stac-floodplains-bc` |
 | STAC | `05_stac_register.py` | Generate STAC collection + items, validate with pystac |
 
@@ -72,10 +72,14 @@ datetime range 2017 → 2023.
 
 - **Raster assets** (titiler-renderable COGs): `classified_2017`, `classified_2020`,
   `classified_2023`, `transition_2017_2023`
-- **Vector asset** (download): `floodplain` → `floodplain_landcover.gpkg` (floodplain polygon +
-  transition patches)
-- **Properties** (labelled, aggregated from the transition layer during staging): `wsg`,
-  `species`, `region`, `floodplain_km2`, `gross_loss_ha`, `gross_gain_ha`, `net_ha`
+- **Vector assets** (download):
+  - `floodplain_landcover` → `floodplain_landcover.gpkg` (per-year classified polygons +
+    transition patches)
+  - `floodplain` → `floodplain.gpkg` (delineated floodplain extents at three flood factors:
+    `<sp>_ff02`, `<sp>_ff04`, `<sp>_ff06`)
+- **Properties** (labelled, aggregated during staging): `wsg`, `species`, `region`,
+  `floodplain_ff02_km2`, `floodplain_ff04_km2`, `floodplain_ff06_km2` (floodplain area per flood
+  factor), `gross_loss_ha`, `gross_gain_ha`, `net_ha` (tree change from the transition layer)
 
 ## Query with rstac
 
@@ -91,11 +95,13 @@ items <- rstac::stac("https://images.a11s.one/") |>
 purrr::map_dfr(items$features, \(f) {
   p <- f$properties
   tibble::tibble(
-    wsg            = p$wsg,
-    floodplain_km2 = p$floodplain_km2,
-    gross_loss_ha  = p$gross_loss_ha,
-    gross_gain_ha  = p$gross_gain_ha,
-    net_ha         = p$net_ha
+    wsg                 = p$wsg,
+    floodplain_ff02_km2 = p$floodplain_ff02_km2,
+    floodplain_ff04_km2 = p$floodplain_ff04_km2,
+    floodplain_ff06_km2 = p$floodplain_ff06_km2,
+    gross_loss_ha       = p$gross_loss_ha,
+    gross_gain_ha       = p$gross_gain_ha,
+    net_ha              = p$net_ha
   )
 })
 

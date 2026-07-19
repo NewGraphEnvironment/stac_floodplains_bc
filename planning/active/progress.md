@@ -24,3 +24,10 @@
   three area props; docstring + collection description updated.
 - Bundled 2+3 in one commit (05 KeyErrors on missing floodplain_km2).
 - WSG=bulk smoke test PASS; independent recompute matches; code-check round 1 Clean.
+
+### Phase 4 — sweep + docs
+- README.md: two vector assets (fixed `floodplain` mislabel), three ff extent layers, three area
+  properties; pipeline-table tag row + rstac example updated.
+- scripts/README.md: gpkgs + per-flood-factor areas; "Fraser-region" -> "rostered" in edited cell.
+- Sweep: only remaining floodplain_km2 is the intentional is.null() test assertion.
+- Downstream rtj: zero floodplain_km2 references.
