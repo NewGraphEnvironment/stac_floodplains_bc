@@ -10,3 +10,8 @@
 - Created branch `8-publish-floodplain-gpkg-delineations-ff0` off main.
 - Scaffolded PWF baseline from issue #8 with approved phases.
 - Next: start Phase 1 (smoke-test contract).
+
+### Phase 1 — smoke-test contract (RED)
+- test_pipeline.R: assert 2 gpkgs incl floodplain.gpkg, three floodplain_ff0{2,4,6}_km2 > 0
+  (isTRUE-guarded), is.null(floodplain_km2); summary prints three areas.
+- Confirmed red on current pipeline: `WSG=bulk` halts at "expected 2 gpkgs".

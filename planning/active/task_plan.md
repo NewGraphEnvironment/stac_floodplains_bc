@@ -27,10 +27,10 @@ break — no back-compat alias. Item count stays 15; ff04 stays the footprint.
 
 ## Phase 1: Encode the new contract in the smoke test (tests first)
 
-- [ ] `test_pipeline.R` — replace `floodplain_km2 > 0` (`:53`) with all three
-      `meta$floodplain_ff0{2,4,6}_km2 > 0`; assert `floodplain.gpkg` present in
-      `data/stac/<wsg>/`; assert `is.null(meta$floodplain_km2)`; update the summary print
-      (`:60`). Fails until Phases 2–3 land.
+- [x] `test_pipeline.R` — replace `floodplain_km2 > 0` (`:53`) with all three
+      `meta$floodplain_ff0{2,4,6}_km2 > 0` (isTRUE-guarded); assert `floodplain.gpkg` present +
+      2 gpkgs in `data/stac/<wsg>/`; assert `is.null(meta$floodplain_km2)`; update the summary
+      print. Confirmed RED: `WSG=bulk` fails at `expected 2 gpkgs`.
 
 ## Phase 2: Stage three extents + copy the delineation gpkg (`01_stage.R`)
 
