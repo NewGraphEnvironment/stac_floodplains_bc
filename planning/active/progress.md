@@ -31,3 +31,12 @@
 - scripts/README.md: gpkgs + per-flood-factor areas; "Fraser-region" -> "rostered" in edited cell.
 - Sweep: only remaining floodplain_km2 is the intentional is.null() test assertion.
 - Downstream rtj: zero floodplain_km2 references.
+
+### Phase 5 — publish + verify (LIVE PENDING rtj reload)
+- User approved production publish (schema break on live collection).
+- run_pipeline.sh: 15 items re-published to S3 with new schema; 15/15 floodplain.gpkg uploaded;
+  collection.json links 15; validated. Verified bulk + fran carry floodplain_ff0{2,4,6}_km2 + both
+  gpkg assets on S3.
+- Local positive check: 15/15 pass (three nested ff areas > 0, floodplain asset, no floodplain_km2).
+- Commented on rtj#190 — one pgstac reload subsumes the coho load AND the schema migration.
+- Remaining: rtj runs the reload (out-of-repo) → verify images.a11s.one serves 15 w/ new schema.

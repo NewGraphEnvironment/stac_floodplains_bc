@@ -66,13 +66,16 @@ break — no back-compat alias. Item count stays 15; ff04 stays the footprint.
 
 ## Phase 5: Publish + verify live
 
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` — new assertions pass; independently recompute
-      ff02/ff06 areas via `ogrinfo`/`st_area` and confirm they match `meta.json`.
-- [ ] `bash scripts/run_pipeline.sh` — 15 items republished; `collection.json` links 15.
-- [ ] Positive check: all 15 `data/stac/*.json` carry the `floodplain` asset + three
-      `floodplain_ff0{2,4,6}_km2` (> 0); grep for `floodplain_km2` → zero.
-- [ ] File the rtj pgstac reload follow-on (as with rtj#190); verify `images.a11s.one` serves 15
-      with the new asset + props.
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` — assertions pass; independent `st_area`
+      recompute matches meta.json (ff02 428.29 / ff04 490.47 / ff06 540.03).
+- [x] `bash scripts/run_pipeline.sh` — 15 items republished to S3; `collection.json` links 15;
+      all 15 `floodplain.gpkg` uploaded; item JSONs carry the new schema (verified `bulk`+`fran`).
+- [x] Positive check: all 15 local `data/stac/*.json` carry the `floodplain` asset + three
+      nested `floodplain_ff0{2,4,6}_km2` (> 0); zero `floodplain_km2` in generated JSON.
+- [x] rtj reload updated — commented on rtj#190 (one reload now subsumes the coho load AND the
+      schema migration).
+- [ ] **Pending (out-of-repo):** rtj runs the pgstac reload → then verify `images.a11s.one`
+      serves 15 with `floodplain_ff0{2,4,6}_km2` + `floodplain` asset.
 
 ## Validation
 
