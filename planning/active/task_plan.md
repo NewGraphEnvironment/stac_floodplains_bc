@@ -61,8 +61,10 @@ Decisions: **config-driven** discovery (declare targets in `area.yml`, don't inf
 
 ## Phase 5: Docs
 
-- [ ] `README.md` + `scripts/README.md` — multiple items per WSG (one per declared target); asset
-      paths `s3://…/<item_id>/<asset>`; MORR worked example.
+- [x] `README.md` — item model (one-or-more items per WSG, item-keyed asset prefix), coverage now
+      16 items / 15 WSGs with a MORR chinook row (+ MORR-counted-once footnote), pipeline-table
+      `<item_id>` paths, `species` added to the rstac example. `scripts/README.md` — stage/COG/STAC
+      rows re-keyed to `<item_id>`.
 
 ## Phase 6: Publish + migrate layout + verify live
 

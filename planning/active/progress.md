@@ -21,3 +21,9 @@
 - test_pipeline.R iterates data/raw/*/meta.json (item dirs), asserts item-id-keyed staging, per-item
   structure, staged count == declared targets, and morr => {morr_co_ff04, morr_ch_ff06}.
 - Confirmed red on current pipeline: WSG=morr halts at "staged item count != declared targets".
+
+### Phase 5 — docs
+- README.md: item model = one-or-more items per WSG, item-keyed asset prefix; coverage 16 items /
+  15 WSGs (added MORR chinook row, MORR-floodplain-counted-once footnote); pipeline table <item_id>
+  paths; species added to rstac example.
+- scripts/README.md: stage/COG/STAC rows re-keyed to <item_id>.
