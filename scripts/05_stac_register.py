@@ -3,10 +3,11 @@
 One STAC item per watershed group (`<wsg>_<sp>_ff04`):
   - geometry  = the ff04 floodplain footprint (from data/raw/<wsg>/meta.json)
   - datetime  = 2017 -> 2023 land-cover-change span
-  - assets    = classified_2017/2020/2023 + transition_2017_2023 COGs, and the
-                floodplain_landcover.gpkg vector
-  - labelled properties: wsg, species, region, floodplain_km2, and the tree
-    loss/gain/net figures staged from the transition layer.
+  - assets    = classified_2017/2020/2023 + transition_2017_2023 COGs, the
+                floodplain_landcover.gpkg vector, and the floodplain.gpkg
+                delineations (ff02/ff04/ff06 extents)
+  - labelled properties: wsg, species, region, floodplain_ff02/04/06_km2, and the
+    tree loss/gain/net figures staged from the transition layer.
 
 Writes collection.json + <item_id>.json under data/stac/ and (if AWS creds are
 present) syncs them to the bucket so the geoserv pypgstac loader can read them.
@@ -80,6 +81,12 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         title="Floodplain land cover + transition (GeoPackage)",
         roles=["data"],
     )
+    assets["floodplain"] = pystac.Asset(
+        href=s3_href(f"{meta['wsg_lower']}/floodplain.gpkg"),
+        media_type=GPKG_MEDIA_TYPE,
+        title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
+        roles=["data"],
+    )
 
     properties = {
         "title": f"{meta['wsg']} {meta['scenario']} floodplain land-cover change "
@@ -87,7 +94,9 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         "wsg": meta["wsg"],
         "species": meta["species"],
         "region": meta["region"],
-        "floodplain_km2": meta["floodplain_km2"],
+        "floodplain_ff02_km2": meta["floodplain_ff02_km2"],
+        "floodplain_ff04_km2": meta["floodplain_ff04_km2"],
+        "floodplain_ff06_km2": meta["floodplain_ff06_km2"],
         "gross_loss_ha": meta["gross_loss_ha"],
         "gross_gain_ha": meta["gross_gain_ha"],
         "net_ha": meta["net_ha"],
@@ -132,6 +141,7 @@ for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
         [wsg_dir / f"classified_{yr}.tif" for yr in meta["years"]]
         + [wsg_dir / f"transition_{span[0]}_{span[1]}.tif"]
         + [wsg_dir / "floodplain_landcover.gpkg"]
+        + [wsg_dir / "floodplain.gpkg"]
     )
     missing = [p.name for p in expected if not p.exists()]
     if missing:
@@ -162,11 +172,12 @@ collection = pystac.Collection(
     id=COLLECTION_ID,
     title="Floodplain Land-Cover Change in British Columbia",
     description=(
-        "Functional-floodplain (ff04) land-cover classification and 2017-2023 "
-        "transition for British Columbia watershed groups. One item per watershed "
-        "group: three classified years, a transition raster, and a land-cover "
-        "GeoPackage. Tree loss/gain/net properties are aggregated from the "
-        "transition layer produced by the `floodplains` driver."
+        "Floodplain land-cover classification and 2017-2023 transition for British "
+        "Columbia watershed groups. One item per watershed group: three classified "
+        "years, a transition raster, a land-cover GeoPackage, and a floodplain "
+        "delineation GeoPackage (ff02/ff04/ff06 extents). Floodplain area per "
+        "flood-factor and tree loss/gain/net properties are aggregated from the "
+        "layers produced by the `floodplains` driver."
     ),
     extent=pystac.Extent(spatial=spatial_extent, temporal=temporal_extent),
     license="proprietary",
