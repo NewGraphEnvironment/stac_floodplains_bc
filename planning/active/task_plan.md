@@ -41,23 +41,23 @@ Decisions: **config-driven** discovery (declare targets in `area.yml`, don't inf
 
 ## Phase 3: Discovery + item-keyed staging + footprint/guard (`01_stage.R`)
 
-- [ ] Per-WSG target list: `area$targets` if present, else `[{species, primary_scenario}]`. Loop
-      targets → one item each; `item_id <- paste0(wsg, "_", scenario)`.
-- [ ] Key staging dirs + meta.json by **item_id**; rasters from `rasters/<scenario>/`; metrics from
-      `transition_<scenario>_2017_2023`.
-- [ ] Footprint = the item's `scenario` layer (geometry/bbox/epsg); compute all three areas via
-      species-prefix token-swap independently (`floodplain_ff04_km2` still reads the ff04 layer).
-      Relax #8's guard: drop `endsWith(scenario,"_ff04")`; require the scenario layer + the three
-      ff02/04/06 layers exist.
-- [ ] `meta` carries `item_id`; `WSG_ONLY` stages all of a WSG's targets; keep `PARTIAL_STAGE`.
-- [ ] **Bundle with Phase 4's `05` href change in one commit** (atomic item-key migration).
+- [x] Per-WSG target list: `area$targets` if present, else `[{species, primary_scenario}]`. Nested
+      loop → one item each; `item_id <- paste0(wsg, "_", scenario)`.
+- [x] Staging dirs + meta.json keyed by **item_id**; rasters from `rasters/<scenario>/`; metrics
+      from `transition_<scenario>_2017_2023`.
+- [x] Footprint = the item's `scenario` layer; all three areas via species-prefix token-swap
+      (ff04 read separately). Dropped `endsWith(scenario,"_ff04")`; guard requires the scenario
+      layer + the three ff02/04/06 layers exist.
+- [x] `meta` carries `item_id`; `WSG_ONLY` stages all of a WSG's targets; `PARTIAL_STAGE` kept.
+- [x] Bundled with Phase 4's `05` href change in one commit.
+- [x] Verified: `WSG=bulk` (fallback → 1 item, item-keyed dir + hrefs); `WSG=morr` (2 items:
+      morr_co_ff04 + morr_ch_ff06, ch footprint from ch_ff06). code-check Clean.
 
 ## Phase 4: Item-keyed asset paths in register/tag (`05_stac_register.py`, `03_cog_tag.py`)
 
-- [ ] `05` — asset hrefs use `meta['item_id']`; `wsg_dir`/expected-assets guard key off the item-id
-      dir; docstring + collection description → "one or more items per WSG (per modelled
-      species/scenario)".
-- [ ] `03_cog_tag.py` — confirm dir-agnostic (no change expected).
+- [x] `05` — asset hrefs use `meta['item_id']` (all 4); `wsg_dir`/expected-assets guard key off the
+      item-id dir; docstring + collection description → "one or more items per WSG".
+- [x] `03_cog_tag.py` — confirmed dir-agnostic (no change; tags come from per-item meta.json).
 
 ## Phase 5: Docs
 

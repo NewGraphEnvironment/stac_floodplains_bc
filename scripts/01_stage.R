@@ -100,113 +100,125 @@ for (wsg in wsgs) {
     next
   }
   area <- yaml::read_yaml(area_yml)
-  scenario <- area$primary_scenario                 # e.g. ch_ff04
-  species <- area$species
+
+  # Publish targets: one item per declared (species, scenario). Areas without an explicit
+  # `targets` list fall back to a single {species, primary_scenario} item (unchanged behaviour).
+  targets <- area$targets
+  if (is.null(targets)) {
+    targets <- list(list(species = area$species, scenario = area$primary_scenario))
+  }
 
   src_wsg <- file.path(FLOODPLAINS_DATA, wsg)
-  src_rasters <- file.path(src_wsg, "rasters", scenario)
-  if (!dir.exists(src_rasters)) {
-    message("SKIPPED ", toupper(wsg), " — no rasters at ", src_rasters)
-    skipped <- c(skipped, wsg)
-    next
+
+  for (tgt in targets) {
+    scenario <- tgt$scenario                        # e.g. co_ff04, ch_ff06
+    species <- tgt$species
+    item_id <- paste0(wsg, "_", scenario)
+
+    src_rasters <- file.path(src_wsg, "rasters", scenario)
+    if (!dir.exists(src_rasters)) {
+      message("SKIPPED ", item_id, " — no rasters at ", src_rasters)
+      skipped <- c(skipped, item_id)
+      next
+    }
+
+    # Staging dirs + assets are item-id-keyed so multiple items per WSG never collide.
+    dst_raw <- file.path(raw_dir, item_id)
+    dst_stac <- file.path(stac_dir, item_id)
+    dir.create(dst_raw, recursive = TRUE, showWarnings = FALSE)
+    dir.create(dst_stac, recursive = TRUE, showWarnings = FALSE)
+
+    # Rasters → data/raw/<item_id>/ with self-describing published basenames.
+    raster_map <- c(
+      setNames(sprintf("classified_%d.tif", YEARS), sprintf("classified_%d.tif", YEARS)),
+      setNames("transition.tif",
+               sprintf("transition_%d_%d.tif", TRANSITION_SPAN[1], TRANSITION_SPAN[2]))
+    )
+    for (i in seq_along(raster_map)) {
+      src <- file.path(src_rasters, raster_map[[i]])
+      dst <- file.path(dst_raw, names(raster_map)[i])
+      if (!file.exists(src)) stop("Missing source raster: ", src)
+      file.copy(src, dst, overwrite = TRUE)
+    }
+
+    # Vector assets → data/stac/<item_id>/ (publish-ready, no COG conversion): the land-cover
+    # gpkg and the floodplain-delineation gpkg. Both are copied whole; their layers are
+    # species-prefixed, so a gpkg shared by two species' items is self-describing per item.
+    file.copy(file.path(src_wsg, "floodplain_landcover.gpkg"),
+              file.path(dst_stac, "floodplain_landcover.gpkg"), overwrite = TRUE)
+    file.copy(file.path(src_wsg, "floodplain.gpkg"),
+              file.path(dst_stac, "floodplain.gpkg"), overwrite = TRUE)
+
+    # Areas from the three run=TRUE flood-factor delineations. Sibling layer names derive from
+    # the item's scenario by species prefix (co_/ch_/bt_ + ff0N) — selected by prefix, never
+    # positionally, so a second species' layers in the same gpkg are correctly ignored.
+    fp_gpkg <- file.path(src_wsg, "floodplain.gpkg")
+    sp_prefix <- sub("_ff.*$", "", scenario)
+    ff_layers <- setNames(paste0(sp_prefix, "_ff", c("02", "04", "06")),
+                          c("ff02", "ff04", "ff06"))
+    # The item's own headline-scenario layer is the footprint (may be ff06, e.g. chinook, not
+    # necessarily ff04); it plus the three ff layers must all exist.
+    needed <- unique(c(scenario, ff_layers))
+    missing_layers <- setdiff(needed, sf::st_layers(fp_gpkg)$name)
+    if (length(missing_layers)) {
+      stop("floodplain.gpkg for ", item_id, " missing layer(s): ",
+           paste(missing_layers, collapse = ", "))
+    }
+    read_area_km2 <- function(layer) {
+      poly <- sf::st_read(fp_gpkg, layer = layer, quiet = TRUE)
+      round(as.numeric(sum(sf::st_area(poly))) / 1e6, 2)
+    }
+    floodplain_ff02_km2 <- read_area_km2(ff_layers[["ff02"]])
+    floodplain_ff04_km2 <- read_area_km2(ff_layers[["ff04"]])
+    floodplain_ff06_km2 <- read_area_km2(ff_layers[["ff06"]])
+
+    # Footprint geometry from the item's OWN headline-scenario layer (not necessarily ff04).
+    fp <- sf::st_read(fp_gpkg, layer = scenario, quiet = TRUE)
+    epsg <- sf::st_crs(fp)$epsg
+    fp_wgs <- sf::st_transform(sf::st_union(fp), 4326)
+    bbox <- as.numeric(sf::st_bbox(fp_wgs))
+    # Emit GeoJSON via the GDAL GeoJSON driver (no geojsonsf dependency), then read
+    # it back as a nested list so meta.json carries a ready-to-use STAC geometry.
+    geojson_tmp <- tempfile(fileext = ".geojson")
+    sf::st_write(sf::st_sf(geometry = fp_wgs), geojson_tmp,
+                 driver = "GeoJSON", quiet = TRUE)
+    geometry <- jsonlite::fromJSON(geojson_tmp, simplifyVector = FALSE)$features[[1]]$geometry
+    unlink(geojson_tmp)
+
+    # Loss/gain/net from the item's transition layer.
+    metrics <- tree_transition_metrics(
+      file.path(src_wsg, "floodplain_landcover.gpkg"),
+      paste0("transition_", scenario, "_", TRANSITION_SPAN[1], "_", TRANSITION_SPAN[2])
+    )
+
+    meta <- list(
+      wsg = toupper(wsg),
+      wsg_lower = wsg,
+      species = species,
+      scenario = scenario,
+      region = wsg_region[[wsg]],
+      item_id = item_id,
+      years = YEARS,
+      transition_span = TRANSITION_SPAN,
+      epsg = epsg,
+      floodplain_ff02_km2 = floodplain_ff02_km2,
+      floodplain_ff04_km2 = floodplain_ff04_km2,
+      floodplain_ff06_km2 = floodplain_ff06_km2,
+      gross_loss_ha = metrics$gross_loss_ha,
+      gross_gain_ha = metrics$gross_gain_ha,
+      net_ha = metrics$net_ha,
+      bbox_wgs84 = bbox,
+      geometry = geometry
+    )
+    jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
+                         auto_unbox = TRUE, pretty = TRUE, digits = 10)
+
+    message(sprintf(
+      "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha",
+      item_id, scenario, floodplain_ff02_km2, floodplain_ff04_km2, floodplain_ff06_km2,
+      metrics$gross_loss_ha, metrics$gross_gain_ha, metrics$net_ha))
+    staged <- c(staged, item_id)
   }
-
-  dst_raw <- file.path(raw_dir, wsg)
-  dst_stac <- file.path(stac_dir, wsg)
-  dir.create(dst_raw, recursive = TRUE, showWarnings = FALSE)
-  dir.create(dst_stac, recursive = TRUE, showWarnings = FALSE)
-
-  # Rasters → data/raw/<wsg>/ with self-describing published basenames.
-  raster_map <- c(
-    setNames(sprintf("classified_%d.tif", YEARS), sprintf("classified_%d.tif", YEARS)),
-    setNames("transition.tif",
-             sprintf("transition_%d_%d.tif", TRANSITION_SPAN[1], TRANSITION_SPAN[2]))
-  )
-  for (i in seq_along(raster_map)) {
-    src <- file.path(src_rasters, raster_map[[i]])
-    dst <- file.path(dst_raw, names(raster_map)[i])
-    if (!file.exists(src)) stop("Missing source raster: ", src)
-    file.copy(src, dst, overwrite = TRUE)
-  }
-
-  # Vector assets → data/stac/<wsg>/ (publish-ready, no COG conversion): the land-cover
-  # gpkg and the floodplain-delineation gpkg (ff02/ff04/ff06 polygons).
-  file.copy(file.path(src_wsg, "floodplain_landcover.gpkg"),
-            file.path(dst_stac, "floodplain_landcover.gpkg"), overwrite = TRUE)
-  file.copy(file.path(src_wsg, "floodplain.gpkg"),
-            file.path(dst_stac, "floodplain.gpkg"), overwrite = TRUE)
-
-  # Areas from the three run=TRUE flood-factor delineations in floodplain.gpkg; the ff04
-  # layer is also the item footprint. Sibling layer names derive from the ff04 primary by
-  # species prefix (co_/ch_/bt_ + ff0N) — selected by prefix, never positionally, so a second
-  # species' layers in the same gpkg (floodplains#23) are correctly ignored.
-  if (!endsWith(scenario, "_ff04")) {
-    stop("primary_scenario '", scenario, "' is not ff04 — the ff02/ff06 token-swap and the ",
-         "ff04 footprint both assume an ff04 primary")
-  }
-  fp_gpkg <- file.path(src_wsg, "floodplain.gpkg")
-  sp_prefix <- sub("_ff.*$", "", scenario)
-  ff_layers <- setNames(paste0(sp_prefix, "_ff", c("02", "04", "06")),
-                        c("ff02", "ff04", "ff06"))
-  missing_layers <- setdiff(ff_layers, sf::st_layers(fp_gpkg)$name)
-  if (length(missing_layers)) {
-    stop("floodplain.gpkg for ", toupper(wsg), " missing delineation layer(s): ",
-         paste(missing_layers, collapse = ", "))
-  }
-  read_area_km2 <- function(layer) {
-    poly <- sf::st_read(fp_gpkg, layer = layer, quiet = TRUE)
-    round(as.numeric(sum(sf::st_area(poly))) / 1e6, 2)
-  }
-  floodplain_ff02_km2 <- read_area_km2(ff_layers[["ff02"]])
-  floodplain_ff06_km2 <- read_area_km2(ff_layers[["ff06"]])
-
-  # Footprint geometry from the ff04 delineation.
-  fp <- sf::st_read(fp_gpkg, layer = ff_layers[["ff04"]], quiet = TRUE)
-  epsg <- sf::st_crs(fp)$epsg
-  floodplain_ff04_km2 <- round(as.numeric(sum(sf::st_area(fp))) / 1e6, 2)
-  fp_wgs <- sf::st_transform(sf::st_union(fp), 4326)
-  bbox <- as.numeric(sf::st_bbox(fp_wgs))
-  # Emit GeoJSON via the GDAL GeoJSON driver (no geojsonsf dependency), then read
-  # it back as a nested list so meta.json carries a ready-to-use STAC geometry.
-  geojson_tmp <- tempfile(fileext = ".geojson")
-  sf::st_write(sf::st_sf(geometry = fp_wgs), geojson_tmp,
-               driver = "GeoJSON", quiet = TRUE)
-  geometry <- jsonlite::fromJSON(geojson_tmp, simplifyVector = FALSE)$features[[1]]$geometry
-  unlink(geojson_tmp)
-
-  # Loss/gain/net from the transition layer.
-  metrics <- tree_transition_metrics(
-    file.path(src_wsg, "floodplain_landcover.gpkg"),
-    paste0("transition_", scenario, "_", TRANSITION_SPAN[1], "_", TRANSITION_SPAN[2])
-  )
-
-  meta <- list(
-    wsg = toupper(wsg),
-    wsg_lower = wsg,
-    species = species,
-    scenario = scenario,
-    region = wsg_region[[wsg]],
-    item_id = paste0(wsg, "_", scenario),
-    years = YEARS,
-    transition_span = TRANSITION_SPAN,
-    epsg = epsg,
-    floodplain_ff02_km2 = floodplain_ff02_km2,
-    floodplain_ff04_km2 = floodplain_ff04_km2,
-    floodplain_ff06_km2 = floodplain_ff06_km2,
-    gross_loss_ha = metrics$gross_loss_ha,
-    gross_gain_ha = metrics$gross_gain_ha,
-    net_ha = metrics$net_ha,
-    bbox_wgs84 = bbox,
-    geometry = geometry
-  )
-  jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
-                       auto_unbox = TRUE, pretty = TRUE, digits = 10)
-
-  message(sprintf(
-    "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha",
-    toupper(wsg), scenario, floodplain_ff02_km2, floodplain_ff04_km2, floodplain_ff06_km2,
-    metrics$gross_loss_ha, metrics$gross_gain_ha, metrics$net_ha))
-  staged <- c(staged, wsg)
 }
 
 message("\n", length(staged), " staged, ", length(skipped), " skipped")

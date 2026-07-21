@@ -92,3 +92,20 @@ the then-current collection.json).
   PARTIAL_STAGE single root marker, extent aggregation item-count-agnostic, fallback safe.
 - Base: branched off main AFTER PR #7 (coho) + PR #10 (#8) merged, so 01/05 carry #8's
   three-area/footprint/guard code that #11 extends.
+
+## Observation: MORR co and ch floodplain delineations are identical (upstream data)
+
+WSG=morr smoke test: morr_co_ff04 and morr_ch_ff06 report IDENTICAL floodplain areas
+(ff02 379 / ff04 411.13 / ff06 432.38) — confirmed by independent ogrinfo: co_ff0N == ch_ff0N
+geometry in morr/floodplain.gpkg. Not a publish-layer bug (code reads species-specific layers by
+prefix; they coincide in the source). Loss/gain/net DO differ (species-specific transition layers:
+ch 482.4/730.6/248.2 vs co 433.8/684.5/250.7). Flag to the floodplains team: are MORR's chinook
+floodplain polygons meant to be independently delineated from coho's? Out of scope for #11.
+
+## Phases 3+4 — item-keyed multi-item staging (GREEN)
+- 01_stage.R: nested target loop; item-id-keyed dirs; footprint from item's scenario layer; three
+  areas via species-prefix token-swap (ff04 read separately); guard relaxed off ff04-only.
+- 05_stac_register.py: asset hrefs meta['item_id']; docstring + collection description updated.
+- 03_cog_tag.py / 02_cog.R / 04_s3_upload.R unchanged (dir-agnostic).
+- WSG=bulk (1 item, fallback) + WSG=morr (2 items) pass; hrefs under <item_id>/; code-check Clean.
+- floodplains area.yml targets tested via transient overlay + restore (user's #19 branch untouched).
