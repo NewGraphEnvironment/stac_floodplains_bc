@@ -27,10 +27,9 @@ Decisions: **config-driven** discovery (declare targets in `area.yml`, don't inf
 
 ## Phase 1: Upstream floodplains — declare MORR's two targets (prerequisite)
 
-- [ ] Add a `targets` list to `floodplains/config/morr/area.yml`:
-      `targets: [{species: co, scenario: co_ff04}, {species: ch, scenario: ch_ff06}]`. Keep existing
-      `species`/`primary_scenario`. Branch + PR.
-- [ ] No change to the other 14 area.yml — STAC layer falls back to a 1-target list (Phase 3).
+- [x] Added a `targets` list to `floodplains/config/morr/area.yml` (co/co_ff04 + ch/ch_ff06);
+      kept `species`/`primary_scenario`. floodplains PR #25. Validated it parses (R yaml).
+- [x] No change to the other 14 area.yml — STAC layer falls back to a 1-target list (Phase 3).
 
 ## Phase 2: Encode the new contract in the smoke test (tests first)
 

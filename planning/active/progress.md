@@ -10,3 +10,9 @@
 - Created branch `11-publish-multiple-species-items-per-water` off main.
 - Scaffolded PWF baseline.
 - Next: start Phase 1 (upstream floodplains area.yml targets list).
+
+### Phase 1 — upstream floodplains targets (DONE)
+- floodplains config/morr/area.yml: added targets [co/co_ff04, ch/ch_ff06]; PR #25.
+- Backward compatible (primary_scenario fallback for the other 14). Parses via R yaml.
+- Local floodplains checkout on branch morr-publish-targets-co-ch, so the stac pipeline reads
+  the targets during #11 development.
