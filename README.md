@@ -17,9 +17,9 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `sta
 
 ## Coverage
 
-Published and live at <https://images.a11s.one> — **13 watershed groups** across the **Fraser**
-(chinook) and **Peace** (bull trout) regions, functional floodplain `ff04`, one STAC **item per
-watershed group**. Tree-cover change over the floodplain, 2017 → 2023:
+Published and live at <https://images.a11s.one> — **15 watershed groups** across the **Fraser**
+(chinook), **Peace** (bull trout), and **Skeena** (coho) regions, functional floodplain `ff04`,
+one STAC **item per watershed group**. Tree-cover change over the floodplain, 2017 → 2023:
 
 | WSG | Region | Species | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |----|----|----|----:|----:|----:|----:|
@@ -36,7 +36,9 @@ watershed group**. Tree-cover change over the floodplain, 2017 → 2023:
 | PCEA | Peace | bull trout | 1,068 | 101 | 210 | +109 |
 | PARS | Peace | bull trout | 485 | 1,439 | 3,233 | +1,794 |
 | PINE | Peace | bull trout | 380 | 763 | 1,497 | +734 |
-| **Total** | | | **5,887** | **18,296** | **14,002** | **-4,294** |
+| BULK | Skeena | coho | 490 | 2,073 | 1,074 | -1,000 |
+| MORR | Skeena | coho | 411 | 434 | 685 | +251 |
+| **Total** | | | **6,789** | **20,803** | **15,760** | **-5,043** |
 
 Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
 (negative = net tree loss). Figures are aggregated from each group's transition layer. Per-row
