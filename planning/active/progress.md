@@ -16,3 +16,8 @@
 - Backward compatible (primary_scenario fallback for the other 14). Parses via R yaml.
 - Local floodplains checkout on branch morr-publish-targets-co-ch, so the stac pipeline reads
   the targets during #11 development.
+
+### Phase 2 — smoke-test contract re-keyed (RED)
+- test_pipeline.R iterates data/raw/*/meta.json (item dirs), asserts item-id-keyed staging, per-item
+  structure, staged count == declared targets, and morr => {morr_co_ff04, morr_ch_ff06}.
+- Confirmed red on current pipeline: WSG=morr halts at "staged item count != declared targets".

@@ -33,10 +33,11 @@ Decisions: **config-driven** discovery (declare targets in `area.yml`, don't inf
 
 ## Phase 2: Encode the new contract in the smoke test (tests first)
 
-- [ ] `test_pipeline.R` — fully re-key off `data/stac/<wsg>/` (every line is wsg-keyed today).
-      Iterate the item dirs produced for the WSG; per item assert item-keyed dir, 4 COGs + 2 gpkgs,
-      three `floodplain_ff0{2,4,6}_km2` > 0, footprint area == item's headline-scenario area, item
-      JSON validated. `WSG=morr` → exactly two items. Red until Phases 3–4.
+- [x] `test_pipeline.R` — re-keyed to iterate `data/raw/*/meta.json`; per item assert item-id dir
+      (`basename(dirname(mp)) == item_id`), 4 COGs + 2 gpkgs, three `floodplain_ff0{2,4,6}_km2` > 0,
+      no `floodplain_km2`, item JSON. Asserts staged count == declared targets; `WSG=morr` → exactly
+      `morr_co_ff04` + `morr_ch_ff06`. Confirmed RED: `WSG=morr` halts at "staged item count !=
+      declared targets" (old staging = 1).
 
 ## Phase 3: Discovery + item-keyed staging + footprint/guard (`01_stage.R`)
 
