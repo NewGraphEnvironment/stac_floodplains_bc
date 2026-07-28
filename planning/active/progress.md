@@ -27,3 +27,12 @@
   15 WSGs (added MORR chinook row, MORR-floodplain-counted-once footnote); pipeline table <item_id>
   paths; species added to rstac example.
 - scripts/README.md: stage/COG/STAC rows re-keyed to <item_id>.
+
+### Phase 6 (steps 1-2) — config merged + full local dry-run (VALIDATED)
+- floodplains PR #25 (targets) merged to main; #19 disturbance also merged (#26). floodplains
+  checkout now on main with targets committed — the earlier overlay dependency is gone.
+- Full local dry-run (SKIP_S3): 16 items staged/COG'd/tagged/registered + pystac-valid.
+- Positive check PASS across all 16: three nested ff areas > 0, floodplain + floodplain_landcover
+  assets, no floodplain_km2, every asset href under <item_id>/; collection links 16; no bare-<wsg>/
+  hrefs. morr_co_ff04 + morr_ch_ff06 both present.
+- HELD at step 3 (production publish to S3 + reload + trailing-slash cleanup) for user go-ahead.
