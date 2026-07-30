@@ -8,11 +8,11 @@ Run end-to-end: `bash scripts/run_pipeline.sh`
 
 | Step | Script | What |
 |----|----|----|
-| Stage | `01_stage.R` | Discover rostered WSGs with an `ff04` floodplain; copy the classified/transition rasters into `data/raw/<wsg>/` and both `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<wsg>/`; derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<wsg>/meta.json` |
-| COG | `02_cog.R` | Convert the staged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<wsg>/` |
+| Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and both `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`; derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
+| COG | `02_cog.R` | Convert the staged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` |
 | Tag | `03_cog_tag.py` | Embed GDAL metadata tags from `meta.json` (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, per-asset year) |
 | S3 | `04_s3_upload.R` | `aws s3 sync data/stac s3://stac-floodplains-bc` (COGs + gpkgs; JSON handled by 05) |
-| STAC | `05_stac_register.py` | Generate + validate the STAC collection and one item per WSG; upload the JSON to S3 |
+| STAC | `05_stac_register.py` | Generate + validate the STAC collection and one item per staged target (`<item_id>.json`); asset hrefs under `<item_id>/`; upload the JSON to S3 |
 
 The tree-loss numbers (`gross_loss_ha`, `gross_gain_ha`, `net_ha`) are computed once, during
 staging, from each WSG's `transition_<sp>_ff04_2017_2023` gpkg layer (`from_class == "Trees"` vs

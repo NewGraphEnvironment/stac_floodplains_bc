@@ -1,7 +1,9 @@
 """05_stac_register.py — build + validate the stac-floodplains-bc collection.
 
-One STAC item per watershed group (`<wsg>_<sp>_ff04`):
-  - geometry  = the ff04 floodplain footprint (from data/raw/<wsg>/meta.json)
+One or more STAC items per watershed group — one per modelled (species, scenario)
+target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06`). Item id is the key
+for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
+  - geometry  = the item's headline-scenario floodplain footprint (from meta.json)
   - datetime  = 2017 -> 2023 land-cover-change span
   - assets    = classified_2017/2020/2023 + transition_2017_2023 COGs, the
                 floodplain_landcover.gpkg vector, and the floodplain.gpkg
@@ -61,14 +63,14 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
     # Raster assets — one per classified year plus the transition.
     assets = {}
     for yr in years:
-        rel = f"{meta['wsg_lower']}/classified_{yr}.tif"
+        rel = f"{meta['item_id']}/classified_{yr}.tif"
         assets[f"classified_{yr}"] = pystac.Asset(
             href=s3_href(rel),
             media_type=pystac.MediaType.COG,
             title=f"Classified land cover {yr}",
             roles=["data"],
         )
-    trans_rel = f"{meta['wsg_lower']}/transition_{span[0]}_{span[1]}.tif"
+    trans_rel = f"{meta['item_id']}/transition_{span[0]}_{span[1]}.tif"
     assets[f"transition_{span[0]}_{span[1]}"] = pystac.Asset(
         href=s3_href(trans_rel),
         media_type=pystac.MediaType.COG,
@@ -76,13 +78,13 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         roles=["data"],
     )
     assets["floodplain_landcover"] = pystac.Asset(
-        href=s3_href(f"{meta['wsg_lower']}/floodplain_landcover.gpkg"),
+        href=s3_href(f"{meta['item_id']}/floodplain_landcover.gpkg"),
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain land cover + transition (GeoPackage)",
         roles=["data"],
     )
     assets["floodplain"] = pystac.Asset(
-        href=s3_href(f"{meta['wsg_lower']}/floodplain.gpkg"),
+        href=s3_href(f"{meta['item_id']}/floodplain.gpkg"),
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
         roles=["data"],
@@ -173,11 +175,11 @@ collection = pystac.Collection(
     title="Floodplain Land-Cover Change in British Columbia",
     description=(
         "Floodplain land-cover classification and 2017-2023 transition for British "
-        "Columbia watershed groups. One item per watershed group: three classified "
-        "years, a transition raster, a land-cover GeoPackage, and a floodplain "
-        "delineation GeoPackage (ff02/ff04/ff06 extents). Floodplain area per "
-        "flood-factor and tree loss/gain/net properties are aggregated from the "
-        "layers produced by the `floodplains` driver."
+        "Columbia watershed groups. One or more items per watershed group (one per "
+        "modelled species/scenario): three classified years, a transition raster, a "
+        "land-cover GeoPackage, and a floodplain delineation GeoPackage (ff02/ff04/ff06 "
+        "extents). Floodplain area per flood-factor and tree loss/gain/net properties "
+        "are aggregated from the layers produced by the `floodplains` driver."
     ),
     extent=pystac.Extent(spatial=spatial_extent, temporal=temporal_extent),
     license="proprietary",

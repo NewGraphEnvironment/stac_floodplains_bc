@@ -17,9 +17,11 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `sta
 
 ## Coverage
 
-Published and live at <https://images.a11s.one> — **15 watershed groups** across the **Fraser**
-(chinook), **Peace** (bull trout), and **Skeena** (coho) regions, functional floodplain `ff04`,
-one STAC **item per watershed group**. Tree-cover change over the floodplain, 2017 → 2023:
+Published and live at <https://images.a11s.one> — **16 STAC items** across **15 watershed groups**
+in the **Fraser** (chinook), **Peace** (bull trout), and **Skeena** (coho + chinook) regions. Most
+groups have one item; **MORR** carries two (coho and chinook). The `Floodplain (km²)` column is the
+functional-floodplain `ff04` extent (each item also publishes ff02/ff06 areas). Tree-cover change
+over the floodplain, 2017 → 2023:
 
 | WSG | Region | Species | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |----|----|----|----:|----:|----:|----:|
@@ -38,11 +40,14 @@ one STAC **item per watershed group**. Tree-cover change over the floodplain, 20
 | PINE | Peace | bull trout | 380 | 763 | 1,497 | +734 |
 | BULK | Skeena | coho | 490 | 2,073 | 1,074 | -1,000 |
 | MORR | Skeena | coho | 411 | 434 | 685 | +251 |
-| **Total** | | | **6,789** | **20,803** | **15,760** | **-5,043** |
+| MORR | Skeena | chinook | 411 | 482 | 731 | +248 |
+| **Total** | | | **6,789** | **21,285** | **16,491** | **-4,795** |
 
 Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
-(negative = net tree loss). Figures are aggregated from each group's transition layer. Per-row
-values are rounded to whole units, so a column may not sum exactly to the (unrounded) total.
+(negative = net tree loss). Figures are aggregated from each item's transition layer. Per-row
+values are rounded to whole units, so a column may not sum exactly to the (unrounded) total. MORR
+contributes two items (coho + chinook): its floodplain is one physical extent counted **once** in
+the km² total, while each item's tree-change is listed and summed separately.
 
 ## Pipeline
 
@@ -51,8 +56,8 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 
 | Step | Script | What |
 |----|----|----|
-| Stage | `01_stage.R` | Discover WSGs; stage each `rasters/<sp>_ff04/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations); compute per-flood-factor floodplain areas |
-| COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<wsg>/` |
+| Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`; compute per-flood-factor floodplain areas |
+| COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<item_id>/` |
 | Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF02_KM2`, `FLOODPLAIN_FF04_KM2`, `FLOODPLAIN_FF06_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
 | S3 | `04_s3_upload.R` | `aws s3 sync data/stac s3://stac-floodplains-bc` |
 | STAC | `05_stac_register.py` | Generate STAC collection + items, validate with pystac |
@@ -69,8 +74,10 @@ scripts/geoserv/stac_register-pypgstac.sh \
 
 ## Item model
 
-One item per watershed group (`<wsg>_<sp>_ff04`), geometry = the `ff04` floodplain footprint,
-datetime range 2017 → 2023.
+One or more items per watershed group — one per modelled `(species, scenario)` target, id
+`<wsg>_<scenario>` (e.g. `morr_co_ff04` + `morr_ch_ff06`). Geometry = the item's headline-scenario
+floodplain footprint; datetime range 2017 → 2023. Assets live under the item-keyed S3 prefix
+`s3://stac-floodplains-bc/<item_id>/`.
 
 - **Raster assets** (titiler-renderable COGs): `classified_2017`, `classified_2020`,
   `classified_2023`, `transition_2017_2023`
@@ -98,6 +105,7 @@ purrr::map_dfr(items$features, \(f) {
   p <- f$properties
   tibble::tibble(
     wsg                 = p$wsg,
+    species             = p$species,
     floodplain_ff02_km2 = p$floodplain_ff02_km2,
     floodplain_ff04_km2 = p$floodplain_ff04_km2,
     floodplain_ff06_km2 = p$floodplain_ff06_km2,
