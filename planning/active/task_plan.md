@@ -33,8 +33,8 @@ delivered by the same republish/PR.
 
 ## Phase 0: File the KISP issue + align #5's acceptance
 
-- [ ] File "Publish KISP (Skeena chinook)".
-- [ ] Amend #5's acceptance (says "all 16") to 17, cross-referencing the KISP issue.
+- [x] Filed #13 "Publish KISP (Kispiox, Skeena chinook) as a new item".
+- [x] Amended #5's acceptance to 17 (and corrected its gpkg-scope wording after the code-check).
 
 ## Phase 1: Assert the contract in the smoke test
 
@@ -57,14 +57,14 @@ Regression guard, **not** red-green TDD — it passes immediately (columns alrea
 
 ## Phase 3: Snapshot → republish 17 → verify against S3
 
-- [ ] **Snapshot first:** `aws s3 cp` the 16 item JSONs + collection.json to scratch.
-- [ ] `bash scripts/run_pipeline.sh` → 17 items; collection.json links 17.
-- [ ] Diff vs snapshot: the 16 keep identical `id`, `bbox`, `geometry`, 9 numeric properties.
-- [ ] From S3: download one `floodplain_landcover.gpkg` per region, assert `wsg`; assert all 17
-      gpkg objects' `LastModified` >= publish start.
-- [ ] Positive check across 17 (ff areas nested, both gpkg assets, no `floodplain_km2`, item-keyed
-      hrefs).
-- [ ] Recovery note: if `05` fails after `04`, re-run `05_stac_register.py` alone.
+- [x] Snapshotted the 16 item JSONs + collection.json to scratch (publish start 2026-08-05T20:47:04Z).
+- [x] `run_pipeline.sh` → 17 staged/68 COGs/17 items valid; collection.json links 17.
+- [x] Snapshot diff: all 16 pre-existing items **unchanged** on id/bbox/geometry/9 properties.
+- [x] From S3: 17/17 `floodplain_landcover.gpkg` objects refreshed after publish start; gpkgs
+      downloaded back from S3 carry the right `wsg` (LCHL/PARS/KISP).
+- [x] Positive check across 17: PASS (nested ff areas, both gpkg assets, no `floodplain_km2`,
+      item-keyed hrefs); `kisp_ch_ff04` present.
+- [x] Recovery path noted (re-run `05` alone) — not needed.
 
 ## Phase 4: Docs
 
@@ -75,14 +75,14 @@ Regression guard, **not** red-green TDD — it passes immediately (columns alrea
 
 ## Phase 5: Reload + close out
 
-- [ ] File the rtj reload follow-on (precedent rtj#198); verify live 17 + KISP + `wsg` in a
-      downloaded asset.
+- [x] Filed the rtj reload follow-on: **rtj#202**.
+- [ ] After it runs: verify live 17 + KISP present.
 - [ ] `/planning-archive`; PR references both #5 and the KISP issue.
 
 ## Validation
 
-- [ ] All 16 groups + KISP pass the smoke test with the new assertion
+- [x] All 16 groups + KISP pass the smoke test with the new assertion
 - [ ] `/code-check` clean on each commit
 - [ ] PWF checkboxes match landed work
-- [ ] Snapshot diff proves the 16 unchanged; S3 `LastModified` proves the refresh is non-silent
+- [x] Snapshot diff proves the 16 unchanged; S3 `LastModified` proves the refresh is non-silent
 - [ ] `/planning-archive` on completion

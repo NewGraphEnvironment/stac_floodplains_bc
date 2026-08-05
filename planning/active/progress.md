@@ -21,3 +21,14 @@
 - Phase 2: 16/16 groups pass; KISP metrics match independent recompute; floodplain.gpkg wsg
   swept across all 16 areas (all layers ok).
 - Phase 4: README coverage 17 items/16 WSGs + KISP row + new totals; scripts/README refreshed.
+
+### Phase 3 + 5 — republish 17 + reload filed
+- Snapshotted 16 item JSONs + collection.json before publishing (bucket versioning is Suspended,
+  so there is no rollback). Publish start 2026-08-05T20:47:04Z.
+- run_pipeline.sh: 17 staged, 68 COGs, 17 items + collection valid, 18 JSON synced.
+- Snapshot diff: all 16 pre-existing items byte-identical on id/bbox/geometry/9 properties ->
+  upstream changed SCHEMA ONLY, as predicted.
+- S3-side acceptance: 17/17 floodplain_landcover.gpkg refreshed after publish start (proves the
+  sync was not a silent no-op); gpkgs downloaded from S3 carry correct wsg (LCHL/PARS/KISP).
+- Positive check across 17 item JSONs: PASS; kisp_ch_ff04 present.
+- rtj#202 filed for the pgstac reload. No cleanup step (paths already item-keyed).
