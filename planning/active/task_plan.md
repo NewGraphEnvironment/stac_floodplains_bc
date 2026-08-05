@@ -40,16 +40,20 @@ delivered by the same republish/PR.
 
 Regression guard, **not** red-green TDD — it passes immediately (columns already exist upstream).
 
-- [ ] `test_pipeline.R`: add explicit `library(sf)` (today only transitive via `01_stage.R`).
-- [ ] Add `"floodplain_landcover.gpkg" %in% gpkgs` to the existing `stopifnot()` before the loop.
-- [ ] In the per-item loop, open **`floodplain_landcover.gpkg` only**; assert every layer carries
-      `wsg` and `wsg == meta$wsg`.
+- [x] `test_pipeline.R`: added explicit `library(sf)`.
+- [x] Added `"floodplain_landcover.gpkg" %in% gpkgs` to the existing `stopifnot()`.
+- [x] Per-item loop asserts every layer of **both** gpkgs carries `wsg` == `meta$wsg`.
+      **Corrected mid-phase:** the plan (via the Plan agent) claimed `floodplain.gpkg` was
+      geometry-only; code-check disproved it — it carries `valley`/`wsg`/`species`/`scenario` and
+      upstream backfills BOTH files. Scoping to one gpkg would have let a regression pass green.
+      README + issue #5 wording corrected too. Zero-row layers now report `<no rows>`.
 
 ## Phase 2: Verify across all groups
 
-- [ ] `WSG=kisp` — `kisp_ch_ff04`, `region=skeena`, validates; independently recompute areas +
-      loss/gain/net vs meta.json (expect ff04 246.74; 267.9 / 937.2 / +669.3).
-- [ ] Loop the smoke test over **all 16 groups** — `run_pipeline.sh` does NOT invoke it.
+- [x] `WSG=kisp` PASS — `kisp_ch_ff04`, ff02 210.86 / ff04 246.74 / ff06 274.74; loss/gain/net
+      267.9 / 937.2 / +669.3 — matches the independent recompute exactly.
+- [x] Looped all 16 groups: **16/16 passed**. After widening to both gpkgs, re-ran kisp + morr
+      (the multi-target, 18-layer case) and swept `floodplain.gpkg` schema across all 16 — all ok.
 
 ## Phase 3: Snapshot → republish 17 → verify against S3
 
@@ -64,9 +68,10 @@ Regression guard, **not** red-green TDD — it passes immediately (columns alrea
 
 ## Phase 4: Docs
 
-- [ ] `README.md` — KISP row; totals 7,036 / 21,553 / 17,428 / −4,126; "17 STAC items across 16
-      watershed groups"; item model notes the gpkg attribute contract.
-- [ ] `scripts/README.md` — attribute note + fix stale "all-8 publish" / "live 8-item collection".
+- [x] `README.md` — KISP row; totals 7,036 / 21,553 / 17,428 / −4,126; "17 STAC items across 16
+      watershed groups"; item model documents the attribute contract on **both** gpkgs.
+- [x] `scripts/README.md` — attribute note, multi-target example, stale "all-8 publish" /
+      "live 8-item collection" corrected.
 
 ## Phase 5: Reload + close out
 

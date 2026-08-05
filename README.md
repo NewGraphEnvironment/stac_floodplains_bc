@@ -17,7 +17,7 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `sta
 
 ## Coverage
 
-Published and live at <https://images.a11s.one> — **16 STAC items** across **15 watershed groups**
+Published and live at <https://images.a11s.one> — **17 STAC items** across **16 watershed groups**
 in the **Fraser** (chinook), **Peace** (bull trout), and **Skeena** (coho + chinook) regions. Most
 groups have one item; **MORR** carries two (coho and chinook). The `Floodplain (km²)` column is the
 functional-floodplain `ff04` extent (each item also publishes ff02/ff06 areas). Tree-cover change
@@ -41,7 +41,8 @@ over the floodplain, 2017 → 2023:
 | BULK | Skeena | coho | 490 | 2,073 | 1,074 | -1,000 |
 | MORR | Skeena | coho | 411 | 434 | 685 | +251 |
 | MORR | Skeena | chinook | 411 | 482 | 731 | +248 |
-| **Total** | | | **6,789** | **21,285** | **16,491** | **-4,795** |
+| KISP | Skeena | chinook | 247 | 268 | 937 | +669 |
+| **Total** | | | **7,036** | **21,553** | **17,428** | **-4,126** |
 
 Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
 (negative = net tree loss). Figures are aggregated from each item's transition layer. Per-row
@@ -86,6 +87,10 @@ floodplain footprint; datetime range 2017 → 2023. Assets live under the item-k
     transition patches)
   - `floodplain` → `floodplain.gpkg` (delineated floodplain extents at three flood factors:
     `<sp>_ff02`, `<sp>_ff04`, `<sp>_ff06`)
+
+  Every layer of **both** GeoPackages carries `wsg`, `species`, and `scenario` columns, so several
+  items can be merged into one GeoPackage and kept separable **by attribute** — filter, categorize,
+  or replace a single area (`DELETE WHERE wsg = …`) without per-area layer names.
 - **Properties** (labelled, aggregated during staging): `wsg`, `species`, `region`,
   `floodplain_ff02_km2`, `floodplain_ff04_km2`, `floodplain_ff06_km2` (floodplain area per flood
   factor), `gross_loss_ha`, `gross_gain_ha`, `net_ha` (tree change from the transition layer)
