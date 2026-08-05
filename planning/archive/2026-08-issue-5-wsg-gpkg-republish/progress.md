@@ -32,3 +32,15 @@
   sync was not a silent no-op); gpkgs downloaded from S3 carry correct wsg (LCHL/PARS/KISP).
 - Positive check across 17 item JSONs: PASS; kisp_ch_ff04 present.
 - rtj#202 filed for the pgstac reload. No cleanup step (paths already item-keyed).
+
+### Phase 5 close-out — reload verified live
+- Reload was run from the M4 (rtj#202). Live catalog now serves **17** items including
+  `kisp_ch_ff04`; collection spatial extent widened to cover Kispiox.
+- KISP's live properties match the independent recompute exactly, so the published figures trace
+  back to the model with no drift through COG -> tag -> STAC -> pgstac.
+- Swept all 17 live items: 6 assets each, three positive ff areas, no stale `floodplain_km2`,
+  every asset href under its own `<item_id>/` prefix.
+- Worth recording: an `/items` probe minutes before the verification returned **16 without KISP**,
+  the next returned 17 — the reload landed mid-session (or a replica lagged). A single count check
+  is not by itself proof; the property/asset sweep is what makes this non-silent.
+- Archived; PR covers #5 and #13.

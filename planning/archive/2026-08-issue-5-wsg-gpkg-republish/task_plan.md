@@ -76,13 +76,17 @@ Regression guard, **not** red-green TDD — it passes immediately (columns alrea
 ## Phase 5: Reload + close out
 
 - [x] Filed the rtj reload follow-on: **rtj#202**.
-- [ ] After it runs: verify live 17 + KISP present.
-- [ ] `/planning-archive`; PR references both #5 and the KISP issue.
+- [x] Reload run from the M4. Live verified: **17 items**, `kisp_ch_ff04` present (HTTP 200) on
+      both `/items` and `POST /search`. KISP properties match the independent recompute exactly
+      (ff02 210.86 / ff04 246.74 / ff06 274.74; loss 267.9 / gain 937.2 / net +669.3). All 17
+      carry 6 assets + 3 positive ff areas, no stale `floodplain_km2`, every href item-keyed.
+      Collection extent widened to include KISP.
+- [x] `/planning-archive`; PR references both #5 and the KISP issue.
 
 ## Validation
 
 - [x] All 16 groups + KISP pass the smoke test with the new assertion
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
+- [x] `/code-check` clean on each commit
+- [x] PWF checkboxes match landed work
 - [x] Snapshot diff proves the 16 unchanged; S3 `LastModified` proves the refresh is non-silent
-- [ ] `/planning-archive` on completion
+- [x] `/planning-archive` on completion
