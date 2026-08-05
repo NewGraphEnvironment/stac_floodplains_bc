@@ -23,18 +23,21 @@ are computed in R (step 01) because the publish Python env carries no vector rea
 ## Smoke test
 
 `test_pipeline.R` runs one watershed group end-to-end (`stage → COG → tag → STAC`)
-**without touching S3** — it builds and validates the item locally. Use it after any
-change to the scripts, the floodplains data layout, or the STAC schema, before a real
-all-8 publish.
+**without touching S3** — it builds and validates every item that group stages (a group may
+declare more than one `(species, scenario)` target). It also asserts the attribute contract:
+each `floodplain_landcover.gpkg` layer carries `wsg`/`species`/`scenario`, with `wsg` matching
+the item. Use it after any change to the scripts, the floodplains data layout, or the STAC
+schema, before a real full publish.
 
 ```
 Rscript scripts/test_pipeline.R            # defaults to UFRA
-WSG=necr Rscript scripts/test_pipeline.R   # any Fraser WSG
+WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
+WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
 ```
 
 It relies on two flags the pipeline scripts honour: `WSG_ONLY=<wsg>` restricts `01_stage.R`
 to a single group, and `SKIP_S3_UPLOAD=1` makes `05_stac_register.py` build + validate
-locally without uploading — so a one-item test run can never clobber the live 8-item
-collection.
+locally without uploading — so a single-group test run can never clobber the live
+17-item collection.
 
 Catalog load runs on the geoserv server via `stac_register-pypgstac.sh` (in `rtj`), not here.

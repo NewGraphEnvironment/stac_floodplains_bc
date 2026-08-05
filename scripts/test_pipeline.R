@@ -13,6 +13,7 @@
 
 library(jsonlite)
 library(yaml)
+library(sf)   # explicit: the gpkg attribute checks below must not rely on 01_stage.R's attach
 
 wsg <- tolower(Sys.getenv("WSG", unset = "ufra"))
 
@@ -69,6 +70,7 @@ for (mp in meta_paths) {
     "expected 4 COGs (3 classified + transition)" = length(cogs) == 4L,
     "expected 2 gpkgs (floodplain delineation + landcover)" = length(gpkgs) == 2L,
     "floodplain.gpkg not staged" = "floodplain.gpkg" %in% gpkgs,
+    "floodplain_landcover.gpkg not staged" = "floodplain_landcover.gpkg" %in% gpkgs,
     "item JSON not written" = file.exists(item_json),
     "floodplain_ff02_km2 not positive" = isTRUE(meta$floodplain_ff02_km2 > 0),
     "floodplain_ff04_km2 not positive" = isTRUE(meta$floodplain_ff04_km2 > 0),
@@ -76,6 +78,37 @@ for (mp in meta_paths) {
     "old floodplain_km2 still present (schema break incomplete)" = is.null(meta$floodplain_km2),
     "gross_loss_ha missing" = !is.null(meta$gross_loss_ha)
   )
+
+  # Attribute contract (floodplains#30): every layer of BOTH published GeoPackages carries the
+  # area identifier, so downstream consumers can merge many items into one gpkg and separate
+  # them by attribute. Upstream backfills both files (gpkg_backfill-wsg.R), so both are guarded
+  # — checking only one would let a regression in the other pass green. Passes today.
+  #
+  # Only `wsg` is asserted, not `species`/`scenario`: 01_stage.R copies the whole-WSG gpkgs into
+  # EACH item dir, so a multi-target group (MORR) ships the other species' layers too — `wsg` is
+  # the one key that is item-invariant under that copy.
+  #
+  # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
+  # layer itself), and passing both emits a warning.
+  for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
+    gpkg <- file.path(item_dir, gp)
+    for (lyr in sf::st_layers(gpkg)$name) {
+      cols <- names(sf::st_read(gpkg, quiet = TRUE,
+                                query = sprintf('SELECT * FROM "%s" LIMIT 0', lyr)))
+      if (!"wsg" %in% cols) {
+        stop("layer '", lyr, "' in ", gpkg, " has no `wsg` column (upstream floodplains#30)")
+      }
+      vals <- unique(sf::st_read(gpkg, quiet = TRUE,
+                                 query = sprintf('SELECT DISTINCT wsg FROM "%s"', lyr))$wsg)
+      # length check first: a zero-feature layer would otherwise report an empty value.
+      if (length(vals) != 1L || !identical(vals, meta$wsg)) {
+        stop("layer '", lyr, "' in ", gp, " has wsg = ",
+             if (length(vals)) paste(vals, collapse = "/") else "<no rows>",
+             " but item is ", meta$wsg)
+      }
+    }
+  }
+
   items[[meta$item_id]] <- meta
 }
 
