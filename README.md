@@ -60,30 +60,50 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 | Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`; compute per-flood-factor floodplain areas |
 | COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<item_id>/` |
 | Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF02_KM2`, `FLOODPLAIN_FF04_KM2`, `FLOODPLAIN_FF06_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
-| Gate | `05_stac_register.py` | Build + pystac-validate every item and the collection locally (`SKIP_S3_UPLOAD=1`). Hard-fails **before** anything reaches S3 |
-| S3 | `04_s3_upload.R` | `aws s3 sync data/stac s3://stac-floodplains-bc` |
-| STAC | `05_stac_register.py` | Same build again, then upload the item + collection JSON to S3 |
+| STAC | `05_stac_register.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
+| Validate | `item_validate.py` | pystac-validate every document on disk; nonzero exit on any failure |
 
-Validation runs **before** the asset sync, so a bad build cannot push ~700 MB of COGs and
-GeoPackages to a bucket whose versioning is Suspended. `05` therefore runs twice — once as a
-local gate, once to upload the JSON after the assets it references have landed.
-
-Two further interlocks guard against publishing a *short* collection over the live one, which
-would be unrecoverable. Staging that skips a rostered group (missing upstream rasters) drops a
-`PARTIAL_STAGE` marker that blocks the sync; and immediately before the sync the pipeline
-compares the build against the live collection and refuses if any live item is absent. The
-second catches what the first cannot — a region roster missing entirely, whose groups are never
-counted as "skipped" because the stage loop never reaches them.
-
-Catalog load (shared `stac` DB → `images.a11s.one`) runs from the
-[`rtj`](https://github.com/NewGraphEnvironment/rtj) repo, which manages the geoserv server, once
-the items are in S3:
+**`run_pipeline.sh` makes no network writes.** Publishing is a separate command, so a rebuild —
+or a smoke test — cannot reach S3 or the live catalog at all:
 
 ```bash
-# in rtj — collection is listed in stac_register-all.sh (rtj#177)
-scripts/geoserv/stac_register-pypgstac.sh \
-  stac-floodplains-bc https://stac-floodplains-bc.s3.us-west-2.amazonaws.com
+bash scripts/catalogue_release.sh          # validate → sync → register → verify
 ```
+
+That split also means a release can be cut from any machine with AWS credentials and SSH to the
+catalog host; only the *rebuild* needs the ~900 MB `floodplains` source tree.
+
+### Guards
+
+Bucket versioning is **Suspended**, so publishing a short collection over the live one is
+unrecoverable. Three interlocks, each catching what the previous cannot:
+
+1. Staging that skips a rostered group (missing `area.yml` or rasters) drops a `PARTIAL_STAGE`
+   marker the release refuses to publish past.
+2. `item_validate.py` requires exactly the number of items that were staged — a wrong path or an
+   empty tree fails rather than reporting `valid: 0` and exiting 0.
+3. Before syncing, the release compares the build against the **live** collection and refuses if
+   any live item is absent. This catches the case the marker structurally cannot: a region roster
+   missing entirely, whose groups are never counted as "skipped" because the loop never reaches
+   them.
+
+Removal is always deliberate — registration is an upsert, so nothing is deleted implicitly. See
+the retraction recipe in `scripts/README.md`.
+
+Catalog load (shared `stac` DB → `images.a11s.one`) is **owned by this repo** — `catalogue_release.sh`
+registers over SSH with `pypgstac`, which the [`rtj`](https://github.com/NewGraphEnvironment/rtj)
+server build installs on the host. The API itself is deliberately read-only (transactions
+extension off, `POST` returns 405), so writes go through pypgstac rather than the API.
+
+| Script | Does |
+|----|----|
+| `collection_register.sh <collection.json>` | upsert the collection document |
+| `item_register.sh <item.json>...` | upsert items (NDJSON over SSH, count-checked) |
+| `item_unregister.sh <item-id>...` | delete items from the API (idempotent) |
+
+Registration is an **upsert**: nothing is deleted implicitly, and there is no window where the
+collection serves zero items. `${GEOSERV_HOST:-root@geopro}` selects the host — the tailnet node
+name rather than the reserved IP, which changes on a droplet rebuild.
 
 ## Item model
 

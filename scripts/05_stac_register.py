@@ -1,4 +1,4 @@
-"""05_stac_register.py — build + validate the stac-floodplains-bc collection.
+"""05_stac_register.py — build the stac-floodplains-bc collection + item JSON.
 
 One or more STAC items per watershed group — one per modelled (species, scenario)
 target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06`). Item id is the key
@@ -11,16 +11,20 @@ for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
   - labelled properties: wsg, species, region, floodplain_ff02/04/06_km2, and the
     tree loss/gain/net figures staged from the transition layer.
 
-Writes collection.json + <item_id>.json under data/stac/ and (if AWS creds are
-present) syncs them to the bucket so the geoserv pypgstac loader can read them.
+Writes collection.json + <item_id>.json under data/stac/ and stops there. Build
+only: no validation, no S3, no network. Validation is item_validate.py (it checks
+the bytes on disk, so a second in-process copy here would only drift), and
+publishing is catalogue_release.sh. That split is what lets validation gate the
+asset sync rather than run after it.
+
+The name is now a misnomer — it registers nothing. Renaming is deferred with the
+STAC Version Extension work so the ~10 references move once.
 
 Usage:
     uv run python scripts/05_stac_register.py
 """
 
 import json
-import os
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -194,52 +198,5 @@ for item in items:
 collection_path = STAC_DIR / "collection.json"
 collection_path.write_text(json.dumps(collection.to_dict(), indent=2))
 
-# --- Validate -------------------------------------------------------------
-
-print("Validating...")
-errors = 0
-for item in items:
-    try:
-        item.validate()
-    except Exception as e:  # noqa: BLE001
-        print(f"  FAIL: {item.id} — {e}")
-        errors += 1
-try:
-    collection.validate()
-except Exception as e:  # noqa: BLE001
-    print(f"  Collection FAIL: {e}")
-    errors += 1
-
-if errors:
-    raise SystemExit(f"VALIDATION FAILED: {errors} error(s)")
-print(f"{len(items)} items + collection valid")
-
-# --- Push generated JSON to S3 (COGs/gpkg already synced by 04) ------------
-
-json_files = [collection_path] + [STAC_DIR / f"{i.id}.json" for i in items]
-partial_marker = RAW_DIR / "PARTIAL_STAGE"
-if os.environ.get("SKIP_S3_UPLOAD"):
-    print("SKIP_S3_UPLOAD set — collection.json + items are local only")
-elif partial_marker.exists():
-    # 01 staged only WSG_ONLY=<wsg>; uploading now would clobber the live collection
-    # with a reduced one. Re-run 01 without WSG_ONLY to publish, or set SKIP_S3_UPLOAD.
-    raise SystemExit(
-        f"Refusing to upload: staging was partial ({partial_marker.read_text().strip()}). "
-        "Re-run 01_stage.R without WSG_ONLY for a full publish, or set SKIP_S3_UPLOAD=1."
-    )
-else:
-    try:
-        for jf in json_files:
-            subprocess.run(
-                ["aws", "s3", "cp", str(jf), f"s3://{BUCKET}/{jf.name}"],
-                check=True, capture_output=True, text=True,
-            )
-        print(f"Synced {len(json_files)} JSON files to s3://{BUCKET}")
-    except FileNotFoundError:
-        print("  NOTE: aws CLI not found; collection.json is local only")
-    except subprocess.CalledProcessError as e:
-        raise SystemExit(f"JSON upload to s3://{BUCKET} failed: {e.stderr or e}")
-
-print(f"\nCollection written to {collection_path}")
-print(f"Load into the catalog from rtj:")
-print(f"  scripts/geoserv/stac_register-pypgstac.sh {COLLECTION_ID} {S3_BASE}")
+print(f"{len(items)} items + collection written to {STAC_DIR}/")
+print("Next: uv run python scripts/item_validate.py  (or bash scripts/catalogue_release.sh)")

@@ -1,12 +1,17 @@
-# test_pipeline.R — single-WSG smoke test of stage -> COG -> tag -> STAC.
+# test_pipeline.R — single-WSG smoke test of stage -> COG -> tag -> build -> validate.
 #
-# Runs ONE watershed group end-to-end WITHOUT touching S3 (no 04 sync, no JSON
-# upload): stages it, builds COGs, tags them, and builds + validates the STAC item
-# locally. Use to check the pipeline after changes to the scripts, the floodplains
-# data layout, or the STAC schema — before a real all-8 publish.
+# Runs ONE watershed group end-to-end: stages it, builds COGs, tags them, builds the
+# STAC JSON and validates it through the same gate a release uses. Use after changes
+# to the scripts, the floodplains data layout, or the STAC schema.
+#
+# It cannot touch S3 or the live catalog — none of the scripts it calls make network
+# writes; publishing is catalogue_release.sh alone. It also leaves data/raw/PARTIAL_STAGE
+# behind (01_stage.R writes it for WSG_ONLY), which catalogue_release.sh refuses to
+# publish past, so a one-group tree cannot be released by mistake either.
 #
 #   Rscript scripts/test_pipeline.R            # defaults to UFRA
-#   WSG=necr Rscript scripts/test_pipeline.R   # any Fraser WSG
+#   WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
+#   WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
 #
 # Requires: R (sf/terra/yaml/jsonlite), uv (Python env from pyproject.toml/uv.lock —
 # `uv run` auto-syncs it), and the source data under $FLOODPLAINS_DATA. No AWS creds needed.
@@ -35,10 +40,19 @@ if (system("uv run python scripts/03_cog_tag.py") != 0) {
   stop("03_cog_tag.py failed")
 }
 
-# --- 05 REGISTER (build + validate locally, skip the S3 upload) -----------
-message("\n=== 05: STAC REGISTER (SKIP_S3_UPLOAD) ===")
-if (system("SKIP_S3_UPLOAD=1 uv run python scripts/05_stac_register.py") != 0) {
-  stop("05_stac_register.py failed validation")
+# --- 05 BUILD -------------------------------------------------------------
+message("\n=== 05: BUILD STAC JSON ===")
+if (system("uv run python scripts/05_stac_register.py") != 0) {
+  stop("05_stac_register.py failed")
+}
+
+# --- VALIDATE -------------------------------------------------------------
+# The same gate catalogue_release.sh runs, so the smoke test exercises it rather
+# than a separate code path. --expect defaults to the staged meta.json count, which
+# is 1 here (2 for MORR), so a partially-built group still fails.
+message("\n=== VALIDATE ===")
+if (system("uv run python scripts/item_validate.py") != 0) {
+  stop("item_validate.py failed — the built STAC JSON is invalid")
 }
 
 # --- Assertions -----------------------------------------------------------
@@ -128,4 +142,6 @@ for (meta in items) {
           meta$gross_loss_ha, " / ", meta$gross_gain_ha, " / ", meta$net_ha, " ha")
 }
 message("\nPASS — ", toupper(wsg), " round-trips stage -> COG -> tag -> STAC locally.")
-message("Publish for real with: bash scripts/run_pipeline.sh (all rostered WSGs, writes to S3).")
+message("This tree is a PARTIAL stage and cannot be published. For a real publish:")
+message("  bash scripts/run_pipeline.sh        # rebuild all rostered groups (no network writes)")
+message("  bash scripts/catalogue_release.sh   # validate -> sync -> register -> verify")
