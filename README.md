@@ -60,8 +60,20 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 | Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`; compute per-flood-factor floodplain areas |
 | COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<item_id>/` |
 | Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF02_KM2`, `FLOODPLAIN_FF04_KM2`, `FLOODPLAIN_FF06_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
+| Gate | `05_stac_register.py` | Build + pystac-validate every item and the collection locally (`SKIP_S3_UPLOAD=1`). Hard-fails **before** anything reaches S3 |
 | S3 | `04_s3_upload.R` | `aws s3 sync data/stac s3://stac-floodplains-bc` |
-| STAC | `05_stac_register.py` | Generate STAC collection + items, validate with pystac |
+| STAC | `05_stac_register.py` | Same build again, then upload the item + collection JSON to S3 |
+
+Validation runs **before** the asset sync, so a bad build cannot push ~700 MB of COGs and
+GeoPackages to a bucket whose versioning is Suspended. `05` therefore runs twice — once as a
+local gate, once to upload the JSON after the assets it references have landed.
+
+Two further interlocks guard against publishing a *short* collection over the live one, which
+would be unrecoverable. Staging that skips a rostered group (missing upstream rasters) drops a
+`PARTIAL_STAGE` marker that blocks the sync; and immediately before the sync the pipeline
+compares the build against the live collection and refuses if any live item is absent. The
+second catches what the first cannot — a region roster missing entirely, whose groups are never
+counted as "skipped" because the stage loop never reaches them.
 
 Catalog load (shared `stac` DB → `images.a11s.one`) runs from the
 [`rtj`](https://github.com/NewGraphEnvironment/rtj) repo, which manages the geoserv server, once
