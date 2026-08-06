@@ -32,17 +32,27 @@ A full `run_pipeline.sh` would be ~20 min of COG conversion for identical raster
 
 ## Phase 0: Baseline
 
-- [ ] Snapshot the live collection + 17 live item JSONs to scratch (versioning **Suspended**)
-- [ ] `md5` current `data/stac/*.json`; confirm 17 `data/raw/*/meta.json` so the fast path is
-      provably operating on the tree that produced what is live
+- [x] Snapshotted the live collection + 17 live item JSONs to scratch.
+- [x] Fast path proven safe: all 17 local item JSONs are **byte-identical to what is live**, and
+      `data/raw` holds 17 `meta.json` — so the rebuild operates on exactly the tree that produced
+      production.
 
 ## Phase 1: Add the properties
 
-- [ ] `05_stac_register.py` — add `scenario` + derived `flood_factor` to item `properties`; parse
-      the factor from the scenario suffix and **fail loudly** on a non-matching suffix rather than
-      emitting `None`
-- [ ] `05_stac_register.py` — collection `summaries` with distinct scenario values, computed from
-      the built items so it cannot drift
+- [x] `05_stac_register.py` — `scenario` + derived `flood_factor` added; `flood_factor()` raises on
+      a non-matching suffix (verified: `ch_ff` / `nonsense` / `ff04_ch` all rejected, exit 1).
+- [x] `05_stac_register.py` — collection `summaries` for scenario/species/region/flood_factor,
+      computed from the built items.
+- [x] **Review caught two real defects, both fixed:**
+      1. `flood_factor` was published as a **Range Object** `{minimum:4, maximum:6}` — a continuous
+         interval over a discrete set, so it advertised `flood_factor = 5` as available. A client
+         building a filter list from the summary would offer 5 and get nothing. Now a Set of Values,
+         `[4, 6]`.
+      2. Items are written to disk one at a time, so a `flood_factor()` failure partway would leave
+         a **mixture** of fresh and stale item JSONs beside a stale `collection.json` — and that
+         mixture passes every release guard (collection present, count right, all valid, no
+         orphans), so it would publish. Added a preflight over every scenario before the first
+         write. Verified: with a corrupted scenario, no item JSON is rewritten and `05` exits 1.
 
 ## Phase 2: Guard the contract
 
