@@ -74,12 +74,30 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
 
 ## Phase 1: Registration transport (additive) — PR 2 starts
 
-- [ ] `scripts/item_register.sh` (+ line-count guard, remote `trap`)
-- [ ] `scripts/collection_register.sh`
-- [ ] `scripts/item_unregister.sh` (keep injection guard + `EXCEPTION … RAISE WARNING`)
-- [ ] Smoke: single item register → 200
-- [ ] Smoke: truncation drill fails the count guard
-- [ ] Smoke: unregister round trip (404 → re-register → 200)
+- [x] `scripts/item_register.sh`, `collection_register.sh`, `item_unregister.sh` written.
+- [x] **Review found five defects in the port; all fixed and verified against upstream source:**
+      1. **Cross-collection deletion.** `pgstac.delete_item(_id)` leaves `_collection` NULL and its
+         body is `WHERE id = _id AND (_collection IS NULL OR collection=_collection)` — unscoped
+         across every collection in the shared `stac` db, which also hosts `imagery-uav-bc-prod`
+         and `stac-dem-bc`. Confirmed in pgstac v0.9.8 `003a_items.sql`. Now passes the collection.
+      2. **`EXCEPTION WHEN OTHERS` made `ON_ERROR_STOP=1` dead** — a permission denial or missing
+         `search_path` would report "not deleted (missing?)" for every id and exit 0 having deleted
+         nothing. Narrowed to `NO_DATA_FOUND`, which is exactly what `RETURNING * INTO STRICT`
+         raises for an absent id (verified in the same source).
+      3. **Fixed remote `/tmp` path** — a concurrent run could truncate this one's payload after its
+         count guard passed. Now a per-run remote `mktemp`.
+      4. **Password in `--dsn` sat in `argv`**, readable via `ps aux` on the droplet for the whole
+         multi-minute load. Now `PGPASSWORD` with a password-less DSN.
+      5. **The transfer guard failed OPEN.** `if [ "$got" -ne $N ]` is an if-condition, which
+         `set -e` exempts, so a non-numeric `$got` printed an error and fell through to the load.
+         Now a string compare with `||`.
+- [x] Verified locally without touching production: compaction produces one NDJSON line per file;
+      the local/remote `$` split renders correctly (`$N`/`$DB` local, `$F`/`$got`/`$PATH`/
+      `${POSTGRES_PASSWORD}` remote); `$$` dollar-quoting survives into valid SQL; injection guard
+      rejects `;`-bearing ids; usage guards exit 1; local temp cleaned by trap; the remote
+      count-guard logic refuses a simulated 12-of-17 truncation.
+- [ ] Smoke: single item register → 200 — **needs user go-ahead (writes to live pgstac)**
+- [ ] Smoke: unregister round trip (404 → re-register → 200) — **needs user go-ahead**
 
 ## Phase 2: Validation gate + rebuild/publish split
 
