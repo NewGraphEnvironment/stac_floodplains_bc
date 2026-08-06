@@ -192,8 +192,14 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
 
 ## Phase 5: Live release
 
-- [ ] Clean rebuild → release; 17 live, 0 orphans, asset probe 200
-- [ ] Keep rtj path as recovery until a couple of clean releases
+- [x] **Live release run 2026-08-06 via `catalogue_release.sh`, 1m59s.**
+      `live: 17 | built: 17` → validate 17+1 → assets synced (**0 re-uploaded**, correctly
+      unchanged) → 18 JSONs uploaded (93 MB) → collection + 17 items registered (38 MB NDJSON) →
+      asset probe matched → `RELEASE COMPLETE`.
+      Post-release: 17 items, id set identical to baseline, bucket still **120 objects**, and
+      `fran_ch_ff04` still reports −6,279.8 net ha. The manual rtj incantation is retired.
+- [x] rtj's `stac_register-pypgstac.sh` remains usable as a recovery path (`stac_register-all.sh`
+      still lists this collection, and step 3 keeps the bucket authoritative so a reload is a no-op).
 
 ## Validation
 
