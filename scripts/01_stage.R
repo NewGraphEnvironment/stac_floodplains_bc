@@ -58,7 +58,8 @@ wsgs <- names(wsg_region)
 
 # WSG_ONLY restricts staging to a single group (used by the smoke test). A partial
 # stage must never be published over the live collection: we drop a PARTIAL_STAGE
-# marker that 05 refuses to upload past unless SKIP_S3_UPLOAD is set.
+# marker that run_pipeline.sh refuses to SYNC past, and that 05 refuses to upload
+# past unless SKIP_S3_UPLOAD is set. See the skipped-target check at the end too.
 wsg_only <- tolower(Sys.getenv("WSG_ONLY", unset = ""))
 if (nzchar(wsg_only)) {
   if (!wsg_only %in% wsgs) {
@@ -223,3 +224,22 @@ for (wsg in wsgs) {
 
 message("\n", length(staged), " staged, ", length(skipped), " skipped")
 if (length(skipped)) message("Skipped: ", paste(toupper(skipped), collapse = ", "))
+
+# A skip is just as partial as WSG_ONLY: an upstream gap (no area.yml, or no rasters
+# because $FLOODPLAINS_DATA is stale or mid-recompute) silently drops a group, and
+# without a marker the pipeline would sync assets and publish a short collection.json
+# over the live one — unrecoverable, since bucket versioning is Suspended. Mark it so
+# run_pipeline.sh refuses to sync. ALLOW_SKIPPED=1 is the deliberate escape hatch for
+# rostered groups that are not modelled yet.
+partial_marker <- file.path(raw_dir, "PARTIAL_STAGE")
+if (length(skipped) && !file.exists(partial_marker)) {
+  # Strict truthiness: nzchar() would treat ALLOW_SKIPPED=0 as "enabled", so an
+  # operator trying to turn the override OFF would turn it on.
+  if (tolower(Sys.getenv("ALLOW_SKIPPED", unset = "")) %in% c("1", "true", "yes")) {
+    message("ALLOW_SKIPPED set — publishing without ", length(skipped), " skipped target(s)")
+  } else {
+    writeLines(paste(skipped, collapse = ", "), partial_marker)
+    message("PARTIAL_STAGE written — ", length(skipped), " target(s) skipped. ",
+            "Fix upstream, or set ALLOW_SKIPPED=1 to publish anyway.")
+  }
+}

@@ -38,11 +38,39 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
 
 ## Phase 0: Baseline, preflight, safety fix (PR 1)
 
-- [ ] Move validation ahead of the asset sync in `run_pipeline.sh`
-- [ ] Snapshot live: 17 ids + collection response
-- [ ] `md5` every `data/stac/*.json` — later phases must reproduce byte-identical
-- [ ] Preflight geopro (ssh reachable, `/tmp` headroom, `pgstac.delete_item` present)
-- [ ] File rtj issue to re-enable bucket versioning
+- [x] Move validation ahead of the asset sync in `run_pipeline.sh`.
+      **Not the two-line change the plan assumed** — validation lives inside `05`, which needs the
+      JSON built first, so the gate is `05` run with `SKIP_S3_UPLOAD=1` before `04`, then `05` again
+      to upload JSON after the assets land. `05` runs twice by design; costs 1m29s.
+- [x] Snapshot live: 17 ids + collection response → scratch. Local ids == live ids exactly.
+- [x] `md5` every `data/stac/*.json` (18 files) → scratch baseline.
+- [x] Proved the gate: `05a` ran clean (17 items + collection valid, no upload) and reproduced all
+      18 JSONs **byte-identical** → the build is deterministic, which is the Phase 2 baseline.
+- [x] Proved the negative: a failing gate aborts before `04` (`set -euo pipefail` honoured); bucket
+      `LastModified` unchanged.
+- [x] **`/code-check` found three real defects the gate did NOT close.** Fixed and each proven:
+      1. `05`'s upload block is `if SKIP_S3_UPLOAD … elif PARTIAL_STAGE`, so the gate *always* took
+         the skip branch and never evaluated the partial-stage refusal — `WSG_ONLY=morr bash
+         run_pipeline.sh` would have pushed a 2-item build's assets. Fixed with a fail-fast
+         `WSG_ONLY` guard plus a re-asserted marker check before `04`. (Not by reordering `05` —
+         `test_pipeline.R` depends on skip winning.)
+      2. An inherited `SKIP_S3_UPLOAD` would make `05b` a silent no-op — assets refreshed, JSON
+         stale, pipeline still printing DONE. Fixed with `env -u`.
+      3. `01_stage.R` **soft-skips** a group with no `area.yml`/rasters and exits 0 with no marker,
+         so a stale `$FLOODPLAINS_DATA` would publish a short collection over the live one. Now
+         writes `PARTIAL_STAGE` on any skip (`ALLOW_SKIPPED=1` escapes; strict truthiness so
+         `ALLOW_SKIPPED=0` reads as off).
+- [x] **Deepest hole, also from review:** `skipped` only counts groups the loop *reaches*. A missing
+      region roster yml drops its groups before they are counted, so no marker is written and a
+      short-but-valid collection passes the gate. Added a pre-sync check comparing the build against
+      the **live** collection; refuses if any live item is absent (`ALLOW_RETRACT=1` escapes).
+      Proven: 17/17 passes; a simulated dropped Peace region (14 vs 17) is blocked and names the
+      three missing ids; the override works.
+- [x] Docs: root `README.md` + `scripts/README.md` both describe the new order and carry an
+      env-flag table marking which two flags disable interlocks.
+- [ ] Preflight geopro (ssh reachable, `/tmp` headroom, `pgstac.delete_item` present) — **needs
+      user go-ahead; first action touching production**
+- [ ] File rtj issue to re-enable bucket versioning — **needs user go-ahead (cross-repo write)**
 
 ## Phase 1: Registration transport (additive) — PR 2 starts
 
