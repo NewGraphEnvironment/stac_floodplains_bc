@@ -50,7 +50,12 @@ SQL
 done
 
 echo "unregistering $# item(s) from $DB on $HOST"
-ssh "$HOST" "docker exec -i geoserv-db psql -U stac -d $DB -v ON_ERROR_STOP=1" < "$TMP"
+# client_min_messages=notice: the server defaults above NOTICE, so a SUCCESSFUL delete
+# printed nothing at all — only the missing-id WARNING surfaced. Silence is the wrong
+# signal for the one destructive script in the set. This also lets pgstac's own
+# partition/constraint chatter through; that noise is worth the "deleted: <id>" line.
+ssh "$HOST" "docker exec -i geoserv-db psql -U stac -d $DB -v ON_ERROR_STOP=1 \
+  -c 'SET client_min_messages TO notice' -f -" < "$TMP"
 
 echo "OK — verify 404: curl -s -o /dev/null -w '%{http_code}\n' \\"
 echo "  https://images.a11s.one/collections/${COLLECTION}/items/<item-id>"

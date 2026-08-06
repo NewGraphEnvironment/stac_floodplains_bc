@@ -96,8 +96,27 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
       `${POSTGRES_PASSWORD}` remote); `$$` dollar-quoting survives into valid SQL; injection guard
       rejects `;`-bearing ids; usage guards exit 1; local temp cleaned by trap; the remote
       count-guard logic refuses a simulated 12-of-17 truncation.
-- [ ] Smoke: single item register → 200 — **needs user go-ahead (writes to live pgstac)**
-- [ ] Smoke: unregister round trip (404 → re-register → 200) — **needs user go-ahead**
+- [x] **Unblocked:** `ssh root@geopro` was `Permission denied (publickey)` from the M1 — already
+      diagnosed as **rtj#193** (open since 2026-07-19; the same gap forced stac-dem-bc's
+      registration onto the M4 on 2026-07-18). Fixed via that issue's step 1, appending the M1 key
+      to geopro's root `authorized_keys` from the M4. The durable `ssh_key_ids` fix stays open
+      there because it can plan as a droplet replacement.
+- [x] Preflight: pgstac **0.9.8**; 65 GB free on `/`; `uv` at `/root/.local/bin`; all five
+      containers up; `delete_item(_id text, _collection text DEFAULT NULL::text)` confirmed.
+- [x] **The delete-scoping bug proven live, read-only.** The `stac` db hosts four collections
+      (`imagery-uav-bc-prod`, `stac-airphoto-bc`, `stac-dem-bc`, `stac-floodplains-bc`). For a real
+      `stac-dem-bc` id, the unscoped predicate matches **1** row; scoped to this collection it
+      matches **0**. The ported code would have deleted another collection's item.
+- [x] Smoke: register `kisp_ch_ff04` (2.25 MB) → 3.4 s → HTTP 200, all 9 properties and 6 assets
+      unchanged.
+- [x] Smoke: unregister a non-existent id → WARNING, exit 0 (idempotent).
+- [x] Smoke: full round trip → unregister → **404**, count 16 → re-register → **200**, count 17.
+      Live id set afterwards **byte-identical** to the pre-test baseline.
+- [x] Fixed: a successful delete printed nothing (server `client_min_messages` sits above NOTICE),
+      so the one destructive script was silent on success. Now sets `client_min_messages=notice`.
+- [ ] Noted: pypgstac emits `unknown PostgreSQL timezone: 'Canada/Pacific'; will use UTC` on every
+      register — the M1's TZ rides the ssh env. Harmless (UTC is deterministic, STAC datetimes are
+      explicit UTC), but worth silencing later.
 
 ## Phase 2: Validation gate + rebuild/publish split
 
