@@ -58,8 +58,8 @@ wsgs <- names(wsg_region)
 
 # WSG_ONLY restricts staging to a single group (used by the smoke test). A partial
 # stage must never be published over the live collection: we drop a PARTIAL_STAGE
-# marker that run_pipeline.sh refuses to SYNC past, and that 05 refuses to upload
-# past unless SKIP_S3_UPLOAD is set. See the skipped-target check at the end too.
+# marker that catalogue_release.sh refuses to publish past. See the skipped-target
+# check at the end of this script, which drops the same marker.
 wsg_only <- tolower(Sys.getenv("WSG_ONLY", unset = ""))
 if (nzchar(wsg_only)) {
   if (!wsg_only %in% wsgs) {

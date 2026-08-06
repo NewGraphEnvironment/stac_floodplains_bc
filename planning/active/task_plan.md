@@ -68,8 +68,7 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
       three missing ids; the override works.
 - [x] Docs: root `README.md` + `scripts/README.md` both describe the new order and carry an
       env-flag table marking which two flags disable interlocks.
-- [ ] Preflight geopro (ssh reachable, `/tmp` headroom, `pgstac.delete_item` present) — **needs
-      user go-ahead; first action touching production**
+- [x] Preflight geopro — done in Phase 1 once rtj#193 step 1 unblocked SSH (see below).
 - [ ] File rtj issue to re-enable bucket versioning — **needs user go-ahead (cross-repo write)**
 
 ## Phase 1: Registration transport (additive) — PR 2 starts
@@ -120,32 +119,57 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
 
 ## Phase 2: Validation gate + rebuild/publish split
 
-- [ ] `scripts/item_validate.py` — depth-1 `glob()`, `--expect N`, collect-all-then-exit-1
-- [ ] `05_stac_register.py` — drop in-process validate + upload; keep both preflight guards
-- [ ] Fold `04_s3_upload.R` into the release script and delete it (carry the no-`--size-only` comment)
-- [ ] `run_pipeline.sh` — no network writes at all
-- [ ] `01_stage.R` comment + `test_pipeline.R` call the same gate
-- [ ] Regression: md5 of 18 JSONs matches Phase 0
-- [ ] Negatives: corrupt `type` → exit 1; empty `--base` → exit 1
+- [x] `scripts/item_validate.py` — depth-1 `glob()` (the 68 `.tif.aux.json` sidecars are never in
+      scope), `--expect N`, collect-all-then-exit-1.
+- [x] `05_stac_register.py` — dropped in-process validate + upload; kept both preflight guards.
+      **1m29s → 3.9s**, and validation now runs once instead of twice.
+- [x] Deleted `04_s3_upload.R`, folded its sync into the release script with the no-`--size-only`
+      comment carried verbatim.
+- [x] `run_pipeline.sh` — no network writes at all; "a smoke test cannot clobber prod" is now
+      architectural rather than env-var-dependent.
+- [x] `01_stage.R` comment + `test_pipeline.R` now call the same gate a release uses.
+- [x] **Regression: all 18 JSONs byte-identical to the Phase 0 baseline** — the refactor changed
+      no output.
+- [x] Negatives all pass: empty `--base` → exit 1 (the original printed `valid: 0` and exited 0);
+      no `meta.json` → exit 1; 2 items when 17 expected → exit 1; corrupt `type` → named and exit 1.
 
-## Phase 3: `scripts/catalogue_release.sh`
+## Phase 3: `scripts/catalogue_release.sh` — written
 
-- [ ] Step 0 preflight (PARTIAL_STAGE, item count, ssh, orphan check + `--allow-retract`)
-- [ ] Step 1 validate gate
-- [ ] Step 2 sync assets (no `--delete`, no `--size-only`, keep `--exclude '*.json'`)
-- [ ] Step 3 sync JSON (keeps bucket authoritative for rtj's all-reload)
-- [ ] Step 4 register collection, then items
-- [ ] Step 5 verify (fielded search, `live == local` both ways, asset probe)
-- [ ] Headline test: post-smoke-test tree aborts at step 0 with zero S3/ssh calls
-- [ ] Orphan drill; idempotence (second run is a no-op)
-- [ ] **Dry run on `stac-floodplains-bc-test`, then unregister**
+- [x] Steps 0–5 implemented (preflight → validate → sync assets → sync JSON → register collection
+      then items → verify).
+- [x] **Headline test:** the post-smoke-test tree (`PARTIAL_STAGE` present) is refused at preflight
+      with **zero** validate, sync, ssh or register calls.
+- [x] Orphan drill: a build missing `pars_bt_ff04` is refused at preflight, the item is named, and
+      the exact `item_unregister.sh` command is printed. No sync, no register.
+- [x] **Review found five defects; all fixed:**
+      1. **The advertised split-machine workflow did not work.** `item_validate.py` derived
+         `--expect` from `data/raw/*/meta.json`, which a release-only machine does not have → 0 →
+         refuse. The release now passes `--expect "$n_local"`; detecting a *short* build is the
+         live-vs-build comparison's job, which needs no `data/raw`.
+      2. Preflight used an **unfielded** `GET /items` — measured **38 MB / 31.6 s**, already half
+         the 60 s timeout and growing with every group added. Now the same fielded `POST /search`
+         as verify: **8.5 KB / 0.21 s**.
+      3. The `ALLOW_SKIPPED` banner the README promises had been deleted with the old gate block.
+         Restored.
+      4. `test_pipeline.R`'s closing message still said to publish with `run_pipeline.sh`, which no
+         longer writes anything.
+      5. **The asset probe had no teeth** — it fetched the alphabetically-first asset, which exists
+         from every prior release and returns 200 even if the sync uploaded nothing. Now probes the
+         **largest** local asset and compares `Content-Length` to the local byte count (verified:
+         12,025,856 both sides; a missing object yields no header and fails).
+- [ ] Idempotence: two consecutive releases, second a clean no-op — **needs a real release**
+- [ ] **Dry run on `stac-floodplains-bc-test`, then unregister** — not yet run
 
 ## Phase 4: Docs + retraction recipe
 
-- [ ] `scripts/README.md` — two-command lifecycle + retraction recipe
-- [ ] `README.md` + `CLAUDE.md` — registration is repo-owned
-- [ ] Follow-up issue for deferred item 3
-- [ ] Decide + record the rtj `stac_register-all.sh:32` entry
+- [x] `scripts/README.md` — two-command lifecycle, rebuild + release tables, the retraction recipe,
+      and an env-flag table marking which flag disables an interlock.
+- [x] `README.md` — pipeline table, the guards section, and registration documented as repo-owned
+      (the rtj `stac_register-pypgstac.sh` block retired).
+- [x] Recorded why rtj's `stac_register-all.sh:32` entry can stay: step 3 syncs the JSON before
+      step 4 registers, so bucket and API always agree and an rtj all-reload is a no-op.
+- [ ] Follow-up issue for deferred item 3 (Version Extension + NEWS.md + tags, and the
+      `05_stac_register.py` rename)
 
 ## Phase 5: Live release
 
