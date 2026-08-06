@@ -14,17 +14,31 @@
 # Idempotent: the sync skips unchanged objects and the register is an upsert.
 set -euo pipefail
 
-BUCKET=stac-floodplains-bc
-COLLECTION=stac-floodplains-bc
+BUCKET="${BUCKET:-stac-floodplains-bc}"
+COLLECTION="${COLLECTION:-stac-floodplains-bc}"
 API_ROOT=https://images.a11s.one
 API="$API_ROOT/collections/$COLLECTION"
-STAC_DIR=data/stac
-RAW_DIR=data/raw
+STAC_DIR="${STAC_DIR:-data/stac}"
+RAW_DIR="${RAW_DIR:-data/raw}"
 HOST="${GEOSERV_HOST:-root@geopro}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 ALLOW_RETRACT=""
-[ "${1:-}" = "--allow-retract" ] && ALLOW_RETRACT=1
+SKIP_SYNC=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    # Publish a collection smaller than what is live. Required, because that is
+    # otherwise refused — the refusal is the guard against an accidental partial.
+    --allow-retract) ALLOW_RETRACT=1 ;;
+    # Register without re-uploading. For re-running after a registration failure
+    # (the assets are already up and every href still resolves), and for exercising
+    # the orchestration against a throwaway collection id.
+    --skip-sync) SKIP_SYNC=1 ;;
+    *) echo "unknown option: $1" >&2
+       echo "usage: $(basename "$0") [--allow-retract] [--skip-sync]" >&2; exit 1 ;;
+  esac
+  shift
+done
 
 cd "$REPO"
 
@@ -102,6 +116,12 @@ echo "=== 1: VALIDATE (gate) ==="
 uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local"
 
 # --- Step 2: sync assets ---------------------------------------------------
+if [ -n "$SKIP_SYNC" ]; then
+  echo ""
+  echo "=== 2+3: SYNC SKIPPED (--skip-sync) ==="
+  echo "Assets and JSON on S3 are assumed current; registering from local files."
+else
+
 echo ""
 echo "=== 2: SYNC ASSETS ==="
 # Exclude dotfiles at the root AND nested (macOS drops .DS_Store into item dirs);
@@ -123,6 +143,8 @@ echo "=== 3: SYNC JSON ==="
 # collection from S3, and that must be a no-op rather than a silent revert.
 aws s3 sync "$STAC_DIR" "s3://$BUCKET" \
   --exclude '*' --include '*.json' --exclude '*/*'
+
+fi
 
 # --- Step 4: register ------------------------------------------------------
 echo ""

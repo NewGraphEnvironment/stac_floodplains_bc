@@ -25,7 +25,9 @@ set -euo pipefail
 # the node name works from anywhere on the tailnet. Override for off-tailnet use.
 HOST="${GEOSERV_HOST:-root@geopro}"
 DB=stac                  # stac-floodplains-bc lives in the default stac db
-COLLECTION=stac-floodplains-bc
+# Only used in the closing verify hint — the collection an item lands in comes from
+# the item's own `collection` field, not from here.
+COLLECTION="${COLLECTION:-stac-floodplains-bc}"
 
 [ $# -ge 1 ] || { echo "usage: $(basename "$0") item.json [item.json ...]" >&2; exit 1; }
 

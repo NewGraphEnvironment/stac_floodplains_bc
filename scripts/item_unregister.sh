@@ -15,7 +15,11 @@ set -euo pipefail
 
 HOST="${GEOSERV_HOST:-root@geopro}"   # see item_register.sh for why not the IP
 DB=stac
-COLLECTION=stac-floodplains-bc
+# Overridable so a throwaway collection can be torn down with the same tool. The
+# delete is ALWAYS scoped to this value — never let it be empty, or delete_item
+# falls back to its unscoped form and reaches into sibling collections.
+COLLECTION="${COLLECTION:-stac-floodplains-bc}"
+[ -n "$COLLECTION" ] || { echo "ERROR: COLLECTION must not be empty" >&2; exit 1; }
 
 [ $# -ge 1 ] || { echo "usage: $(basename "$0") item-id [item-id ...]" >&2; exit 1; }
 

@@ -157,8 +157,27 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
          from every prior release and returns 200 even if the sync uploaded nothing. Now probes the
          **largest** local asset and compares `Content-Length` to the local byte count (verified:
          12,025,856 both sides; a missing object yields no header and fails).
-- [ ] Idempotence: two consecutive releases, second a clean no-op — **needs a real release**
-- [ ] **Dry run on `stac-floodplains-bc-test`, then unregister** — not yet run
+- [x] **Dry run on `stac-floodplains-bc-test` — full orchestration, then torn down.**
+      First verified read-only that `pgstac.items` is **LIST-partitioned by collection** with an
+      `items_collections_fk ... ON DELETE CASCADE` and no global unique id — so a test collection
+      gets its own partition and can safely reuse the real item ids. (The FK also makes
+      collection-before-items *required*, not merely preferable.)
+      Also confirmed a fielded search on a not-yet-existing collection returns 200/empty, so a
+      first-ever release preflights cleanly rather than aborting.
+      Run with `RAW_DIR` pointed at nothing, which exercises the release-only-machine path that
+      review found broken. Result: `live: 0 | built: 17` → validate 17+1 → register collection then
+      **17 items (38 MB NDJSON in one transfer)** → asset probe 12,025,856 both sides →
+      `RELEASE COMPLETE`, 1m55s.
+- [x] Idempotence: a second consecutive release was an exact no-op (`live: 17 | built: 17`), 1m52s.
+- [x] Teardown exercised the retraction path at full scale: `item_unregister.sh` reported all 17
+      deleted, then the collection row dropped (FK cascade). Endpoint 404.
+- [x] **Isolation proven:** production stayed byte-identical to the baseline throughout, and the
+      sibling collections were untouched (`imagery-uav-bc-prod` 230, `stac-airphoto-bc` 9,741,
+      `stac-dem-bc` 98,040). Bucket unchanged at 120 objects / 712,714,332 bytes.
+- [x] Added `--skip-sync` (register without re-uploading — the documented recovery path when
+      registration fails after a sync, and what made the dry run possible without a 700 MB upload)
+      and made `COLLECTION`/`BUCKET`/`STAC_DIR`/`RAW_DIR` overridable. `item_unregister.sh` now
+      refuses an empty `COLLECTION`, since that would fall back to the unscoped delete.
 
 ## Phase 4: Docs + retraction recipe
 
