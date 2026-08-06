@@ -56,27 +56,36 @@ A full `run_pipeline.sh` would be ~20 min of COG conversion for identical raster
 
 ## Phase 2: Guard the contract
 
-- [ ] `test_pipeline.R` — assert the built `<item_id>.json` carries `scenario` == `meta$scenario`
-      and a consistent `flood_factor`. **New kind of assertion**: the test currently reads
-      `meta.json` only and never inspects item-JSON `properties`, which is why this gap survived
+- [x] `test_pipeline.R` asserts the built `<item_id>.json` carries `wsg`/`species`/`scenario`/
+      `region` matching `meta.json`, plus a `flood_factor` consistent with the scenario.
+- [x] Proven against all 17 real items, and every negative caught: property missing, `flood_factor`
+      missing, `flood_factor` wrong, `scenario` mismatched.
+- [x] `WSG=morr Rscript scripts/test_pipeline.R` PASS — the ideal case, since MORR stages both an
+      `ff04` and an `ff06` item, so the derived factor is exercised on both values.
 
 ## Phase 3: Docs
 
-- [ ] `README.md` — add `scenario` + `flood_factor` to the published-properties list
-- [ ] Add a scenario filter to the `rstac` example — the only place a reader learns what is queryable
+- [x] `README.md` — properties list gains `scenario` + `flood_factor`, with the item-key explanation
+      and a warning that the collection mixes flood factors so aggregates must filter.
+- [x] `rstac` examples gain a server-side filter and a summaries lookup. **Review fix:** the filter
+      originally used `scenario == "ch_ff06"`, which is species-pinned and would silently miss a
+      future `co_ff06`/`bt_ff06`; now `flood_factor == 6`.
 
 ## Phase 4: Republish + verify
 
-- [ ] Run `05`, then **diff rebuilt JSON against the live item JSONs**: only differences may be the
-      two added properties (+ collection `summaries`)
-- [ ] `item_validate.py`, then `catalogue_release.sh`
-- [ ] Verify live: all items carry `scenario`; `morr_ch_ff06` reports ff06 / factor 6, the other
-      sixteen ff04 / 4; collection `summaries` lists the distinct values
-- [ ] **`POST /search` filtered to `scenario = ch_ff06` returns exactly `morr_ch_ff06`** — the
-      user-visible point of the issue
+- [x] Structural diff vs live: across all 17 items the ONLY change is the two added properties —
+      nothing removed, no value changed, `geometry`/`bbox`/`assets`/`links`/`id`/`title` identical.
+      Collection: `summaries` is the only added key.
+- [x] `item_validate.py` clean, then `catalogue_release.sh` — published in 2m9s, assets correctly
+      unchanged, asset probe matched.
+- [x] Live: 17/17 carry both properties — `ch_ff04` x11, `bt_ff04` x3, `co_ff04` x2, `ch_ff06` x1;
+      collection `summaries` serves scenario/species/region/flood_factor.
+- [x] **Server-side queries work**: `flood_factor eq 6` -> exactly `morr_ch_ff06`; `eq 4` -> the
+      other 16; `scenario eq co_ff04` -> `bulk_co_ff04` + `morr_co_ff04`; and the range query
+      `flood_factor gte 6` -> `morr_ch_ff06`, which is the reason for making it numeric.
 
 ## Validation
 
-- [ ] `/code-check` clean on each commit
+- [x] `/code-check` clean (2 real defects found and fixed)
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
