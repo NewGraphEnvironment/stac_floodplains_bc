@@ -69,7 +69,9 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
 - [x] Docs: root `README.md` + `scripts/README.md` both describe the new order and carry an
       env-flag table marking which two flags disable interlocks.
 - [x] Preflight geopro — done in Phase 1 once rtj#193 step 1 unblocked SSH (see below).
-- [ ] File rtj issue to re-enable bucket versioning — **needs user go-ahead (cross-repo write)**
+- [ ] **OPEN FOLLOW-UP:** file an rtj issue to re-enable bucket versioning. Still Suspended, and it
+      is the single thing that would make any of this recoverable. Not a blocker for #14; every
+      guard added here exists *because* it is Suspended.
 
 ## Phase 1: Registration transport (additive) — PR 2 starts
 
@@ -113,9 +115,9 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
       Live id set afterwards **byte-identical** to the pre-test baseline.
 - [x] Fixed: a successful delete printed nothing (server `client_min_messages` sits above NOTICE),
       so the one destructive script was silent on success. Now sets `client_min_messages=notice`.
-- [ ] Noted: pypgstac emits `unknown PostgreSQL timezone: 'Canada/Pacific'; will use UTC` on every
-      register — the M1's TZ rides the ssh env. Harmless (UTC is deterministic, STAC datetimes are
-      explicit UTC), but worth silencing later.
+- [ ] **OPEN FOLLOW-UP (cosmetic):** pypgstac emits `unknown PostgreSQL timezone: 'Canada/Pacific';
+      will use UTC` on every register — the M1's TZ rides the ssh env. Harmless (UTC is
+      deterministic and STAC datetimes are explicit UTC), but noise on every run.
 
 ## Phase 2: Validation gate + rebuild/publish split
 
@@ -187,8 +189,11 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
       (the rtj `stac_register-pypgstac.sh` block retired).
 - [x] Recorded why rtj's `stac_register-all.sh:32` entry can stay: step 3 syncs the JSON before
       step 4 registers, so bucket and API always agree and an rtj all-reload is a no-op.
-- [ ] Follow-up issue for deferred item 3 (Version Extension + NEWS.md + tags, and the
-      `05_stac_register.py` rename)
+- [ ] **OPEN FOLLOW-UP:** issue for deferred item 3 (STAC Version Extension + `NEWS.md` + git tags,
+      and renaming `05_stac_register.py` — it registers nothing now). Note the release verify would
+      then gain a version assertion, which is what uav's does and this one deliberately does not.
+- [x] Provenance issues filed while closing out: floodplains#33 (capture) and #17 (publish). Distinct
+      from item 3 — version says which release, provenance says which inputs.
 
 ## Phase 5: Live release
 
@@ -203,6 +208,6 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
 
 ## Validation
 
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] `/code-check` clean on each commit (4 review rounds; 14 real defects found and fixed)
+- [x] PWF checkboxes match landed work
+- [x] `/planning-archive` on completion
