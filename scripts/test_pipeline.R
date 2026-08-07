@@ -93,6 +93,28 @@ for (mp in meta_paths) {
     "gross_loss_ha missing" = !is.null(meta$gross_loss_ha)
   )
 
+  # Item-key contract (#9): upstream documents wsg/species/scenario as each being BOTH a STAC
+  # property (to select items) and a gpkg column (to separate merged rows). The gpkg half is
+  # asserted below; this is the STAC half. `scenario` was missing from item properties for the
+  # whole life of the collection precisely because nothing here read the item JSON — every other
+  # assertion in this file works off meta.json or the gpkgs, so a property absent from the
+  # published item passed green. Read the built item and check the properties that actually ship.
+  props <- jsonlite::read_json(item_json)$properties
+  for (key in c("wsg", "species", "scenario", "region")) {
+    if (!identical(props[[key]], meta[[key]])) {
+      stop("item JSON property '", key, "' is ",
+           if (is.null(props[[key]])) "MISSING" else paste0("'", props[[key]], "'"),
+           " but meta.json says '", meta[[key]], "'")
+    }
+  }
+  # flood_factor is derived, so assert it against the scenario rather than against meta.
+  ff_expected <- as.integer(sub("^.*_ff", "", meta$scenario))
+  if (!identical(as.integer(props$flood_factor), ff_expected)) {
+    stop("item JSON flood_factor is ",
+         if (is.null(props$flood_factor)) "MISSING" else props$flood_factor,
+         " but scenario '", meta$scenario, "' implies ", ff_expected)
+  }
+
   # Attribute contract (floodplains#30): every layer of BOTH published GeoPackages carries the
   # area identifier, so downstream consumers can merge many items into one gpkg and separate
   # them by attribute. Upstream backfills both files (gpkg_backfill-wsg.R), so both are guarded

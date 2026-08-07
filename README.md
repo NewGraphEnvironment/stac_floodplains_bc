@@ -123,9 +123,21 @@ floodplain footprint; datetime range 2017 → 2023. Assets live under the item-k
   Every layer of **both** GeoPackages carries `wsg`, `species`, and `scenario` columns, so several
   items can be merged into one GeoPackage and kept separable **by attribute** — filter, categorize,
   or replace a single area (`DELETE WHERE wsg = …`) without per-area layer names.
-- **Properties** (labelled, aggregated during staging): `wsg`, `species`, `region`,
-  `floodplain_ff02_km2`, `floodplain_ff04_km2`, `floodplain_ff06_km2` (floodplain area per flood
-  factor), `gross_loss_ha`, `gross_gain_ha`, `net_ha` (tree change from the transition layer)
+- **Properties** (labelled, aggregated during staging): `wsg`, `species`, `scenario`,
+  `flood_factor`, `region`, `floodplain_ff02_km2`, `floodplain_ff04_km2`, `floodplain_ff06_km2`
+  (floodplain area per flood factor), `gross_loss_ha`, `gross_gain_ha`, `net_ha` (tree change from
+  the transition layer)
+
+  `wsg` / `species` / `scenario` are the item key — the same three columns every published
+  GeoPackage layer carries, so a merged multi-item GeoPackage stays separable by attribute.
+  `flood_factor` is the numeric form of the scenario suffix (`ch_ff06` → `6`) and is a real
+  multiplier on bankfull depth, so range queries are meaningful: `ff04` is the functional
+  floodplain, `ff06` the valley bottom. **Filter on it whenever comparing groups** — the collection
+  mixes flood factors, so an unfiltered aggregate sums different extents.
+
+  The collection's `summaries` lists the available `scenario`, `species` and `region` values plus
+  the `flood_factor` range, so a client can discover them without downloading items (which are
+  3–9 MB each).
 
 ## Query with rstac
 
@@ -137,12 +149,14 @@ items <- rstac::stac("https://images.a11s.one/") |>
   rstac::post_request() |>
   rstac::items_fetch()
 
-# tree-cover change per watershed group
+# tree-cover change per item
 purrr::map_dfr(items$features, \(f) {
   p <- f$properties
   tibble::tibble(
     wsg                 = p$wsg,
     species             = p$species,
+    scenario            = p$scenario,
+    flood_factor        = p$flood_factor,
     floodplain_ff02_km2 = p$floodplain_ff02_km2,
     floodplain_ff04_km2 = p$floodplain_ff04_km2,
     floodplain_ff06_km2 = p$floodplain_ff06_km2,
@@ -151,6 +165,25 @@ purrr::map_dfr(items$features, \(f) {
     net_ha              = p$net_ha
   )
 })
+```
+
+The collection mixes flood factors, so filter by `scenario` before comparing groups — otherwise
+you are summing functional floodplains (`ff04`) and valley bottoms (`ff06`) together:
+
+```r
+# only valley-bottom (ff06) items, server-side — filter on flood_factor rather than
+# scenario, which is species-pinned and would miss a future co_ff06 / bt_ff06
+vb <- rstac::stac("https://images.a11s.one/") |>
+  rstac::stac_search(collections = "stac-floodplains-bc") |>
+  rstac::ext_query(flood_factor == 6) |>
+  rstac::post_request() |>
+  rstac::items_fetch()
+
+# what values exist, without downloading any items (they are 3-9 MB each)
+rstac::stac("https://images.a11s.one/") |>
+  rstac::collections("stac-floodplains-bc") |>
+  rstac::get_request() |>
+  (\(x) x$summaries)()
 
 # render a classified COG asset URL in QGIS / titiler, e.g.:
 items$features[[1]]$assets$classified_2023$href

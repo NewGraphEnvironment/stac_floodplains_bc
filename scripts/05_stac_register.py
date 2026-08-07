@@ -25,6 +25,7 @@ Usage:
 """
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,6 +47,24 @@ PROJECTION_EXT = "https://stac-extensions.github.io/projection/v1.1.0/schema.jso
 
 def s3_href(rel_path: str) -> str:
     return f"{S3_BASE}/{rel_path}"
+
+
+def flood_factor(scenario: str) -> int:
+    """Numeric flood factor from a scenario key: 'ch_ff06' -> 6.
+
+    Not a label — `flooded`'s VCA regression defines
+    flood_depth = bankfull_depth * flood_factor, so ff02/ff04/ff06 are 2x/4x/6x
+    bankfull depth and ordinal comparisons ("at least ff04") are meaningful.
+
+    Raises rather than returning None on an unrecognized scenario: a silently
+    absent property is exactly the failure this issue exists to fix.
+    """
+    m = re.search(r"_ff(\d+)$", scenario)
+    if not m:
+        raise SystemExit(
+            f"Cannot derive flood_factor: scenario {scenario!r} does not end in _ff<NN>"
+        )
+    return int(m.group(1))
 
 
 def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
@@ -99,6 +118,12 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
                  f"{span[0]}-{span[1]}",
         "wsg": meta["wsg"],
         "species": meta["species"],
+        # The third part of the item key (wsg/species/scenario), which upstream
+        # documents as both a STAC property and a gpkg column. ff04 (functional
+        # floodplain) and ff06 (valley bottom) are different extents, so a
+        # cross-group query is only honest if the client can filter on this.
+        "scenario": meta["scenario"],
+        "flood_factor": flood_factor(meta["scenario"]),
         "region": meta["region"],
         "floodplain_ff02_km2": meta["floodplain_ff02_km2"],
         "floodplain_ff04_km2": meta["floodplain_ff04_km2"],
@@ -134,8 +159,17 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
 
 # --- Build items ----------------------------------------------------------
 
+# Preflight every scenario before writing anything. Items are written to disk one at
+# a time below, so a failure partway leaves a MIXTURE of fresh and stale item JSONs
+# next to a stale collection.json — and that mixture passes every release guard
+# (collection.json present, item count right, all valid, no orphans), so it would
+# publish to a bucket with versioning Suspended. Fail before the first write instead.
+meta_paths = sorted(RAW_DIR.glob("*/meta.json"))
+for _mp in meta_paths:
+    flood_factor(json.loads(_mp.read_text())["scenario"])
+
 items = []
-for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
+for meta_path in meta_paths:
     wsg = meta_path.parent.name
     wsg_dir = STAC_DIR / wsg
     meta = json.loads(meta_path.read_text())
@@ -188,6 +222,19 @@ collection = pystac.Collection(
     extent=pystac.Extent(spatial=spatial_extent, temporal=temporal_extent),
     license="proprietary",
 )
+
+# Summaries let a client discover the queryable values without downloading items —
+# which matters here because the items are 3-9 MB each. Derived from the built items
+# rather than hardcoded, so adding a scenario upstream cannot leave this stale.
+collection.summaries = pystac.Summaries({
+    "scenario": sorted({i.properties["scenario"] for i in items}),
+    "species": sorted({i.properties["species"] for i in items}),
+    "region": sorted({i.properties["region"] for i in items}),
+    # A Set of Values, not a Range Object. Flood factor is discrete (2/4/6) and today
+    # only 4 and 6 exist — a range would advertise flood_factor=5 as available, and a
+    # client building a filter list from this summary would offer it and get nothing.
+    "flood_factor": sorted({i.properties["flood_factor"] for i in items}),
+})
 for item in items:
     collection.add_link(pystac.Link(
         rel="item",
