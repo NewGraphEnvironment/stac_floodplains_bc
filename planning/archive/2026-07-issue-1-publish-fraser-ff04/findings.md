@@ -3,8 +3,8 @@
 ## Endpoint model (2026-07-09)
 The `geoserv` droplet serves all collections in the shared `stac` DB through one STAC API,
 `images.a11s.one`, distinguished by `collections=`. `stac_register-all.sh` (in rtj) lists
-`stac-dem-bc`, `stac-airphoto-bc`, `imagery-uav-bc-prod` there. Only `ortho` has its own DB
-(`stac_ortho`) + subdomain (`ortho.a11s.one`) — that's isolation for a large BC-gov dataset.
+`stac-dem-bc`, `stac-airphoto-bc`, `imagery-uav-bc-prod` there. One other collection has its
+own DB + subdomain (see the private `rtj` geoserv notes) — isolation for a large dataset.
 `stac-floodplains-bc` (8 items) belongs in the shared `stac` DB — **no `floodplains.a11s.one`
 subdomain, no DNS/Caddy change.** The bucket (rtj#172) was the whole infra footprint.
 

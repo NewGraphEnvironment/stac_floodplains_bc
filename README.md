@@ -12,8 +12,7 @@ converts the rasters to Cloud-Optimized GeoTIFFs, uploads to `s3://stac-floodpla
 registers a STAC collection served by the shared `geoserv` pgstac/titiler stack — no
 re-modelling.
 
-Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `stac-uav-bc`,
-`stac-orthophoto-bc`.
+Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `stac-uav-bc`.
 
 ## Coverage
 
