@@ -30,9 +30,126 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 import pystac
+import rasterio
 
 
 MULTIHASH_SHA256 = "1220"
+
+# Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
+# 05_stac_register.py's PROV_FIELDS rather than importing it — importing that module
+# would run the entire build, since it is a script and not a library.
+REQUIRED_NGE_PROPERTIES = {
+    "nge:link_run_uid", "nge:link_config_sha256", "nge:link_sha", "nge:link_version",
+    "nge:flooded_version", "nge:drift_version", "nge:produced_datetime",
+    "nge:landcover_source", "nge:landcover_collection", "nge:landcover_stac_url",
+    "nge:landcover_key",
+}
+
+
+def check_provenance(base: Path) -> list[str]:
+    """Verify every item carries every `nge:` provenance KEY. Null values are fine.
+
+    Absolute, not comparative. The asset check below compares items against each other,
+    which is structurally blind to a defect that hits all of them uniformly — the exact
+    hole #23 fell into. If the staging reader silently found nothing and every item lost
+    the same properties, a cross-item check sees no variance and passes, and pystac's
+    schema validation cannot see custom properties at all. So the required set is named
+    here rather than derived from the data.
+
+    Set EQUALITY, not containment: a property added to 05_stac_register.py without being
+    declared here fails too, which is what keeps the two lists in step now that they
+    cannot import from one another.
+
+    A null VALUE is expected and allowed — floodplains#33 is forward-only, so an area
+    modelled before it lands has no provenance to carry, and publishing the null is the
+    point of the issue. Only an absent KEY is a failure.
+    """
+    problems: list[str] = []
+    seen = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        seen += 1
+        found = {k for k in doc.get("properties", {}) if k.startswith("nge:")}
+        if found != REQUIRED_NGE_PROPERTIES:
+            problems.append(
+                f"{doc['id']}: nge: property set differs from the declared contract — "
+                f"missing {sorted(REQUIRED_NGE_PROPERTIES - found) or 'none'}, "
+                f"undeclared {sorted(found - REQUIRED_NGE_PROPERTIES) or 'none'}")
+    # Zero items is not a pass. The loop above would report nothing at all for an empty
+    # or wrongly-pointed directory, which reads identically to "every item checked out".
+    if seen == 0:
+        problems.append(
+            f"no items found under {base}/*.json — the provenance contract was not "
+            f"actually checked against anything")
+    return problems
+
+
+def check_cog_tags(base: Path) -> list[str]:
+    """Verify each COG's NGE_ tags agree with its item's non-null `nge:` properties.
+
+    03_cog_tag.py keeps its own copy of the field list, and nothing else in the repo reads
+    a COG — so before this check, adding a twelfth field and forgetting that copy would
+    ship silently incomplete COGs. Every other copy of the list is tied to another
+    (fp_provenance.R stopifnot, 05/item_validate set equality); this was the one with no
+    guard in the add direction.
+
+    Compares against the ITEM, not against a second hardcoded list, so the assertion
+    cannot drift from what was published.
+    """
+    problems: list[str] = []
+    compared = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc["id"]
+        props = doc.get("properties", {})
+        # A null property is deliberately NOT tagged: GDAL metadata is string-only and has
+        # no null, so 03 encodes absence as the empty string, which GDAL drops on read.
+        want = {f"NGE_{k[len('nge:'):].upper()}": str(v)
+                for k, v in props.items() if k.startswith("nge:") and v is not None}
+        # NGE_PROVENANCE_NULL is included, not excluded. Until floodplains#33 lands it is
+        # the ONLY NGE_ tag on a COG — every value tag is absent — so excluding it made
+        # this check compare {} against {} for every item in exactly the state the repo
+        # expects to be in. Measured: the tag could be overwritten with garbage and the
+        # check still passed. It is derivable from the item for free.
+        nulls = sorted(k[len("nge:"):] for k, v in props.items()
+                       if k.startswith("nge:") and v is None)
+        if nulls:
+            want["NGE_PROVENANCE_NULL"] = ",".join(nulls)
+        for asset in doc.get("assets", {}).values():
+            # Compare against pystac's own constant, the same one 05_stac_register.py
+            # writes from. A duplicated media-type literal drifting by a single character
+            # would silently match no assets and pass.
+            if asset.get("type") != pystac.MediaType.COG:
+                continue
+            local = base / item_id / PurePosixPath(urlparse(asset["href"]).path).parts[-1]
+            if not local.is_file():
+                continue  # missing assets are already reported by check_checksums
+            compared += 1
+            with rasterio.open(local) as ds:
+                tags = ds.tags()
+            got = {k: v for k, v in tags.items() if k.startswith("NGE_")}
+            if got != want:
+                # Report differing VALUES as well as differing keys. A key-set-only
+                # message reads "missing none, unexpected none" when a value is wrong,
+                # which is a guard that fires and then says nothing — verified by
+                # tampering with a tag before trusting this check.
+                changed = [f"{k}: tag {got.get(k)!r} vs property {want.get(k)!r}"
+                           for k in sorted(set(got) | set(want)) if got.get(k) != want.get(k)]
+                problems.append(
+                    f"{item_id}/{local.name}: NGE_ tags disagree with the item's nge: "
+                    f"properties — {'; '.join(changed)}")
+    # Zero comparisons is not a pass. Same reasoning as check_provenance's seen == 0: a
+    # loop over nothing prints nothing and returns clean, which is indistinguishable from
+    # every COG having checked out.
+    if compared == 0:
+        problems.append(
+            f"no COG assets compared under {base} — the NGE_ tag contract was not "
+            f"actually checked against anything")
+    return problems
 
 
 def check_checksums(base: Path) -> list[str]:
@@ -192,6 +309,23 @@ def main() -> int:
         for msg in bad:
             print(f"  {msg}", file=sys.stderr)
         return 1
+
+    # --- run provenance: does every item carry the declared nge: contract? ---
+    missing_prov = check_provenance(args.base)
+    if missing_prov:
+        print(f"FAILED: {len(missing_prov)} provenance contract problem(s)",
+              file=sys.stderr)
+        for msg in missing_prov:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    bad_tags = check_cog_tags(args.base)
+    if bad_tags:
+        print(f"FAILED: {len(bad_tags)} COG provenance-tag problem(s)", file=sys.stderr)
+        for msg in bad_tags:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"provenance: {len(REQUIRED_NGE_PROPERTIES)} nge: properties on every item, "
+          f"COG tags agree")
 
     return 0
 

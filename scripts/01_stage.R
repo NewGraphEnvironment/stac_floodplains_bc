@@ -32,6 +32,39 @@ TRANSITION_SPAN <- c(2017, 2023)
 raw_dir <- file.path("data", "raw")
 stac_dir <- file.path("data", "stac")
 
+# --- Run provenance (#17) -------------------------------------------------
+# Ferried from the producer, never derived here. The names are the STAC property names
+# minus the `nge:` prefix, so 05_stac_register.py maps them mechanically and this vector
+# is the single place the set is declared.
+#
+# `link_config_sha256` is link's OWN stored `config_hash` — a hash over 17 config files
+# plus the config name and species list, not a SHA of config.yaml. Recomputing one here
+# would produce a value that joins to nothing in link's log (floodplains#33).
+#
+# `link_sha` is not in #17's original list. It is carried because `config_hash` alone is
+# not resolvable: floodplains#33 verified that `link_sha` + `config_hash` together are
+# what recover the exact 17 files a network was built from.
+#
+# `landcover_key` is a hash over the RESOLVED STAC item ids, not drift's
+# `stac_cache_key()`. The cache key fingerprints the request and nothing about the items
+# returned, so an upstream reprocess leaves it unchanged — the exact failure #17 exists
+# to catch. See planning findings.
+PROV_FIELDS <- c(
+  "link_run_uid", "link_config_sha256", "link_sha", "link_version",
+  "flooded_version", "drift_version", "produced_datetime",
+  "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key"
+)
+
+# Absent provenance is the NORMAL state, not an error: floodplains#33 is forward-only, so
+# every area modelled before it lands carries none until it is re-run. Every field is
+# published as an explicit JSON null rather than omitted — an absent property reads as
+# "not implemented", a null one as "we looked and there was not one", and only the second
+# is true.
+#
+# The reader is the ONLY part of this repo that knows the producer's file shape. Sourced
+# after PROV_FIELDS because it asserts against it.
+source(file.path("scripts", "fp_provenance.R"))
+
 # Clean rebuild: drop prior staging so a WSG dropped from the region (or a changed
 # scenario/span) can't leave stale artifacts that 03/04/05 would silently re-publish.
 # The wipe also clears any prior PARTIAL_STAGE marker — a full run leaves none.
@@ -100,6 +133,7 @@ tree_transition_metrics <- function(gpkg, layer) {
 
 staged <- character(0)
 skipped <- character(0)
+traced <- character(0)   # items carrying at least one non-null provenance field
 
 for (wsg in wsgs) {
   area_yml <- file.path(CONFIG_DIR, wsg, "area.yml")
@@ -118,6 +152,10 @@ for (wsg in wsgs) {
   }
 
   src_wsg <- file.path(FLOODPLAINS_DATA, wsg)
+
+  # One provenance file per WSG upstream, but one item per (wsg, species, scenario) here —
+  # so read once and select per target. NULL when the area predates floodplains#33.
+  wsg_prov <- fp_prov_read(src_wsg)
 
   for (tgt in targets) {
     scenario <- tgt$scenario                        # e.g. co_ff04, ch_ff06
@@ -256,19 +294,49 @@ for (wsg in wsgs) {
       bbox_wgs84 = bbox,
       geometry = geometry
     )
-    jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
-                         auto_unbox = TRUE, pretty = TRUE, digits = 10)
+    # Provenance last so the modelled figures stay at the top of the file where they are
+    # read by eye. c() on two lists appends; PROV_FIELDS shares no name with the block
+    # above, so nothing is overwritten.
+    #
+    # `species` here is the TARGET's species, never `area$species`: MORR's area.yml
+    # declares `species: co` at the top level and then two targets, co and ch. Reading the
+    # area-level value would give MORR's chinook item coho's network provenance —
+    # silently, since both are valid strings.
+    meta <- c(meta, fp_prov_item(wsg_prov, species, scenario, item_id))
 
+    # Both null arguments are load-bearing, not tidiness — jsonlite has two separate
+    # defaults that each turn an intended null into something else, silently:
+    #
+    #   na = "null"    without it, NA_real_ serialises as the STRING "NA"
+    #   null = "null"  without it (default "list"), an R NULL serialises as {}
+    #
+    # Neither `"NA"` nor `{}` is a null. Both read as a real value to a consumer, both
+    # pass every schema check, and `{}` additionally passes Python's `is not None`. The
+    # NULL case is the one that bites the provenance reader: indexing a missing key in a
+    # nested list yields NULL, so a leaf that upstream renamed would publish as `{}`.
+    # Measured; both are byte-inert on the seventeen fields above.
+    jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
+                         auto_unbox = TRUE, pretty = TRUE, digits = 10,
+                         na = "null", null = "null")
+
+    has_prov <- any(!vapply(meta[PROV_FIELDS], function(v) length(v) == 1L && is.na(v),
+                            logical(1)))
+    if (has_prov) traced <- c(traced, item_id)
     message(sprintf(
-      "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha",
+      "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha%s",
       item_id, scenario, floodplain_ff02_km2, floodplain_ff04_km2, floodplain_ff06_km2,
-      metrics$gross_loss_ha, metrics$gross_gain_ha, metrics$net_ha))
+      metrics$gross_loss_ha, metrics$gross_gain_ha, metrics$net_ha,
+      if (has_prov) "" else " [no provenance]"))
     staged <- c(staged, item_id)
   }
 }
 
 message("\n", length(staged), " staged, ", length(skipped), " skipped")
 if (length(skipped)) message("Skipped: ", paste(toupper(skipped), collapse = ", "))
+# A number on screen, not a silence (#17). Zero is the expected reading until
+# floodplains#33 lands and areas are re-modelled, and it climbs from there — so this line
+# is the progress signal as well as the alarm.
+message(length(traced), " of ", length(staged), " staged item(s) carry run provenance")
 
 # A skip is just as partial as WSG_ONLY: an upstream gap (no area.yml, or no rasters
 # because $FLOODPLAINS_DATA is stale or mid-recompute) silently drops a group, and
