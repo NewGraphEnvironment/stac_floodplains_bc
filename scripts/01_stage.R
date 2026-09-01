@@ -291,12 +291,20 @@ for (wsg in wsgs) {
     # above, so nothing is overwritten.
     meta <- c(meta, prov_absent())
 
-    # `na = "null"` is load-bearing, not tidiness. Without it jsonlite serialises
-    # NA_real_ as the STRING "NA" — which is not a null, reads as a real value to any
-    # consumer, and passes every schema check. Measured: with the argument all four NA
-    # types emit `null`, and the existing fields are byte-identical either way.
+    # Both null arguments are load-bearing, not tidiness — jsonlite has two separate
+    # defaults that each turn an intended null into something else, silently:
+    #
+    #   na = "null"    without it, NA_real_ serialises as the STRING "NA"
+    #   null = "null"  without it (default "list"), an R NULL serialises as {}
+    #
+    # Neither `"NA"` nor `{}` is a null. Both read as a real value to a consumer, both
+    # pass every schema check, and `{}` additionally passes Python's `is not None`. The
+    # NULL case is the one that bites the provenance reader: indexing a missing key in a
+    # nested list yields NULL, so a leaf that upstream renamed would publish as `{}`.
+    # Measured; both are byte-inert on the seventeen fields above.
     jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
-                         auto_unbox = TRUE, pretty = TRUE, digits = 10, na = "null")
+                         auto_unbox = TRUE, pretty = TRUE, digits = 10,
+                         na = "null", null = "null")
 
     message(sprintf(
       "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha",

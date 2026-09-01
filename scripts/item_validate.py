@@ -34,6 +34,56 @@ import pystac
 
 MULTIHASH_SHA256 = "1220"
 
+# Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
+# 05_stac_register.py's PROV_FIELDS rather than importing it — importing that module
+# would run the entire build, since it is a script and not a library.
+REQUIRED_NGE_PROPERTIES = {
+    "nge:link_run_uid", "nge:link_config_sha256", "nge:link_sha", "nge:link_version",
+    "nge:flooded_version", "nge:drift_version", "nge:produced_datetime",
+    "nge:landcover_source", "nge:landcover_collection", "nge:landcover_stac_url",
+    "nge:landcover_key",
+}
+
+
+def check_provenance(base: Path) -> list[str]:
+    """Verify every item carries every `nge:` provenance KEY. Null values are fine.
+
+    Absolute, not comparative. The asset check below compares items against each other,
+    which is structurally blind to a defect that hits all of them uniformly — the exact
+    hole #23 fell into. If the staging reader silently found nothing and every item lost
+    the same properties, a cross-item check sees no variance and passes, and pystac's
+    schema validation cannot see custom properties at all. So the required set is named
+    here rather than derived from the data.
+
+    Set EQUALITY, not containment: a property added to 05_stac_register.py without being
+    declared here fails too, which is what keeps the two lists in step now that they
+    cannot import from one another.
+
+    A null VALUE is expected and allowed — floodplains#33 is forward-only, so an area
+    modelled before it lands has no provenance to carry, and publishing the null is the
+    point of the issue. Only an absent KEY is a failure.
+    """
+    problems: list[str] = []
+    seen = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        seen += 1
+        found = {k for k in doc.get("properties", {}) if k.startswith("nge:")}
+        if found != REQUIRED_NGE_PROPERTIES:
+            problems.append(
+                f"{doc['id']}: nge: property set differs from the declared contract — "
+                f"missing {sorted(REQUIRED_NGE_PROPERTIES - found) or 'none'}, "
+                f"undeclared {sorted(found - REQUIRED_NGE_PROPERTIES) or 'none'}")
+    # Zero items is not a pass. The loop above would report nothing at all for an empty
+    # or wrongly-pointed directory, which reads identically to "every item checked out".
+    if seen == 0:
+        problems.append(
+            f"no items found under {base}/*.json — the provenance contract was not "
+            f"actually checked against anything")
+    return problems
+
 
 def check_checksums(base: Path) -> list[str]:
     """Verify every asset's `file:checksum` and `file:size` against the file on disk.
@@ -192,6 +242,16 @@ def main() -> int:
         for msg in bad:
             print(f"  {msg}", file=sys.stderr)
         return 1
+
+    # --- run provenance: does every item carry the declared nge: contract? ---
+    missing_prov = check_provenance(args.base)
+    if missing_prov:
+        print(f"FAILED: {len(missing_prov)} provenance contract problem(s)",
+              file=sys.stderr)
+        for msg in missing_prov:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"provenance: {len(REQUIRED_NGE_PROPERTIES)} nge: properties on every item")
 
     return 0
 

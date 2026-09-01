@@ -36,10 +36,12 @@ that lands last.
 
 ## Phase 2: Guards that can see a uniform defect
 
-- [ ] `scripts/item_validate.py` — **absolute** assertion naming the required `nge:` keys, not a
+- [x] `scripts/item_validate.py` — **absolute** assertion naming the required `nge:` keys, not a
       cross-item comparison (the existing asset check is uniformity-based and structurally blind)
-- [ ] `scripts/test_pipeline.R` — extend the item-property contract to the `nge:` set
-- [ ] Prove each new assertion can fail: drop a key, watch it go red
+- [x] `scripts/test_pipeline.R` — extend the item-property contract to the `nge:` set
+- [x] Prove each new assertion can fail: drop a key, watch it go red
+- [x] Harden the null encoding: `null = "null"` as well as `na = "null"` (an R NULL emits `{}`,
+      which passes Python's `is not None` — the exact shape the Phase 4 reader will produce)
 
 ## Phase 3: COG tag mirroring
 

@@ -116,6 +116,31 @@ for (mp in meta_paths) {
          " but scenario '", meta$scenario, "' implies ", ff_expected)
   }
 
+  # Run-provenance contract (#17). Tested on NAMES, never on values: `read_json` maps a
+  # JSON null to a NULL list element, so `props[["nge:x"]]` is NULL for a null value AND
+  # for an absent key — the one distinction this assertion exists to make. Measured.
+  #
+  # A null value is expected and correct today (floodplains#33 is forward-only, so an
+  # area modelled before it lands carries no provenance). Only an absent KEY fails.
+  # Upgrade to non-null once #33 has landed and areas have been re-modelled.
+  prov_keys <- paste0("nge:", c(
+    "link_run_uid", "link_config_sha256", "link_sha", "link_version",
+    "flooded_version", "drift_version", "produced_datetime",
+    "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key"))
+  prov_missing <- setdiff(prov_keys, names(props))
+  if (length(prov_missing)) {
+    stop("item JSON is missing provenance propert(ies): ",
+         paste(prov_missing, collapse = ", "))
+  }
+  # Also assert meta.json carries the unprefixed half, so a break between the two halves
+  # of the ferry is attributed to the right script rather than surfacing only as a
+  # missing STAC property.
+  meta_prov_missing <- setdiff(sub("^nge:", "", prov_keys), names(meta))
+  if (length(meta_prov_missing)) {
+    stop("meta.json is missing provenance field(s): ",
+         paste(meta_prov_missing, collapse = ", "))
+  }
+
   # File-extension contract (#22): every asset carries file:checksum + file:size, so a
   # consumer can verify a download and tell one vintage of a regenerated asset from
   # another. Size is checked against disk here; item_validate.py re-hashes the bytes
