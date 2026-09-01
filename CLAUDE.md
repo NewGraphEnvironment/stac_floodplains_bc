@@ -361,6 +361,31 @@ one.
   return **before the first write**, not before the first slow call.
 - Cheap audit either way: run `git status` immediately after a dry run.
 
+### A new feature can silently invalidate an unrelated flag's stated rationale
+
+- The rule above is about a flag that lied from the start. This is the one that
+  **becomes** a lie: a skip/fast-path flag is documented with a reason that is
+  true and sufficient when written, a later feature changes what one of its
+  premises implies, and the flag keeps its old comment and its old behaviour.
+  Nothing links the two, so nothing flags it — the flag was not touched, and the
+  new feature's own tests all pass.
+- Shape: `--skip-<expensive step>` justified as *"X is already done and Y still
+  resolves"*. The feature adds a **stronger** guarantee that Y no longer implies.
+- Caught 2026-09-01 in stac_floodplains_bc#22. `--skip-sync` skipped the S3 upload
+  and registered from local JSON, on the stated grounds that "the assets are
+  already up and every href still resolves". Adding `file:checksum` made that
+  insufficient: href-resolves stopped implying bytes-match, so the flag could
+  publish a checksum for objects that were not on S3 — the exact failure the
+  feature existed to prevent. Found by review, not by any test.
+- Two habits, and the second is the one that generalises:
+  - When adding a guarantee, **grep the flags and fast paths that bypass the step
+    now producing it**, and re-read each one's stated reason against it.
+  - **Upgrade the verification to check the new property, not the old proxy.** The
+    release verify compared `Content-Length`; comparing the actual checksum is
+    what closed it, and would have caught this without the review.
+- Same family as the `--size-only` entry elsewhere in this file: a comment
+  explaining why a shortcut is safe is load-bearing, and its premises expire.
+
 ### `git add -A` after a generator sweeps its side effects into your commit
 
 - Config regenerators, formatters, codegen, lockfile updaters and "plan" commands
@@ -2290,6 +2315,15 @@ you cannot say why it went unnoticed, you have not found it yet.
   ```
 - For records inside a structured file, do not count with a line tool at all —
   parse it.
+- The dangerous variant is a count that looks **right**. The `grep -c`-on-JSON
+  case above returns 1 for 102,460 records — wrong enough to notice. A CSV whose
+  free-text fields carry embedded newlines gives `wc -l` a number a few percent
+  high, which survives eyeball review and gets quoted downstream as a record
+  count. Observed 2026-07-30: `mdb-export` of an Access table reported 556 lines
+  for 517 records (comment fields held the extra newlines), and the inflated
+  number reached a provenance table in a README before the parsed count
+  contradicted it. If a line count is only a did-this-produce-anything smoke
+  test, label it `lines` and let whatever parses the file report the records.
 
 ### `local_mocked_bindings(.env = )` is the cleanup environment, not the target
 
