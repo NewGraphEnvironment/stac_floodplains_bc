@@ -15,9 +15,14 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Layout
 
-- `scripts/01_stage.R` … `05_stac_register.py` — the five publish steps (see `scripts/README.md`).
-  `run_pipeline.sh` chains them. Source data comes from `$FLOODPLAINS_DATA` (default
-  `../floodplains/data`).
+- **Rebuild** — `scripts/01_stage.R`, `02_cog.R`, `03_cog_tag.py`, `05_stac_register.py`,
+  `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
+  separate command, so a rebuild or smoke test cannot reach S3 or the live catalog. Source data
+  comes from `$FLOODPLAINS_DATA` (default `../floodplains/data`).
+- **Publish** — `scripts/catalogue_release.sh` (validate → sync → register → verify), over
+  `item_register.sh` / `collection_register.sh` / `item_unregister.sh`. Needs AWS credentials and
+  SSH, not the source tree, so a release can be cut from a machine that does not hold it.
+  (There is no `04_s3_upload.R`; its sync folded into the release script in #14.)
 - `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for steps 03 + 05, run via
   `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
   the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically.
@@ -25,22 +30,47 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Collection model
 
-Shared `stac` DB → `images.a11s.one` (NOT a dedicated subdomain; only `ortho` has its own DB).
-One item per watershed group: `<wsg>_<sp>_ff04`. Raster assets = 3 classified years +
-transition COG; vector asset = `floodplain_landcover.gpkg`. Loss/gain/net properties are
-computed from the transition layer at register time so published figures trace to the model.
+Served from the shared `stac` DB at `images.a11s.one` — not a dedicated subdomain.
 
-## Catalog registration (rtj)
+**One item per `(watershed group, species, scenario)` target**, id `<wsg>_<sp>_ff0N` — *not* one per
+group. MORR carries two (`morr_co_ff04` + `morr_ch_ff06`), and the collection mixes flood factors,
+so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
+extents (ff04 = functional floodplain, ff06 = valley bottom).
 
-The bucket and the geoserv server are managed in [`rtj`](https://github.com/NewGraphEnvironment/rtj).
-Item load runs there: `scripts/geoserv/stac_register-pypgstac.sh stac-floodplains-bc <s3-base>`
-(and the collection is listed in `stac_register-all.sh`).
+Assets per item: 3 classified-year COGs + a transition COG, plus **two** GeoPackages —
+`floodplain_landcover.gpkg` and `floodplain.gpkg` (ff02/ff04/ff06 delineations). Every layer of both
+carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by attribute.
+
+Loss/gain/net are computed from the transition layer during staging, so published figures trace
+directly to the model.
+
+## Catalog registration
+
+**Repo-owned since #14** — `catalogue_release.sh` registers over SSH with `pypgstac`, which the
+server build installs on the host. The API is deliberately read-only (transactions extension off,
+`POST` returns 405), so writes go through `pypgstac` rather than the API. Host is
+`${GEOSERV_HOST:-root@geopro}` — the tailnet node name, because the reserved IP changes on a
+droplet rebuild.
+
+Registration is an **upsert**: nothing is deleted implicitly, and there is no window where the
+collection serves zero items. An item dropped from a build therefore stays live until an explicit
+`item_unregister.sh`; the release reports those as orphans and refuses to publish past them
+without `--allow-retract`.
+
+The bucket and the server itself are still managed in
+[`rtj`](https://github.com/NewGraphEnvironment/rtj), whose `stac_register-all.sh` can reload this
+collection **from S3** — harmless, because the release syncs the JSON before registering it, so
+bucket and API always agree.
+
+**Bucket versioning is Suspended — there is no rollback.** Every guard in the publish path exists
+because of that: a `PARTIAL_STAGE` marker on any skipped group, an item-count floor in
+`item_validate.py`, and a pre-sync comparison against the live collection that refuses a build
+missing any live item.
 
 ## Visibility
 
-Private for now (`.claude/visibility` = internal). Flip to public when the collection is
-published and the underlying data is cleared for release — see the New Graph publication-flip
-convention.
+**Public** (`.claude/visibility` = public). Keep it that way: no internal-only conventions below the
+marker, and no references to private sibling collections or infrastructure detail in tracked files.
 
 <!-- BEGIN SOUL CONVENTIONS — DO NOT EDIT BELOW THIS LINE -->
 
