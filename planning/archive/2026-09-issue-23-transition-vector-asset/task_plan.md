@@ -84,16 +84,21 @@ layers happens downstream at merge time" the `floodplains` README anticipates.
 
 ## Phase 5: Publish + verify
 
-- [ ] **Open sequencing question, deferred to here with evidence in hand**: this needs a re-stage
-      (unlike #22), but upstream is mid-remodel (#26), so a full re-stage publishes a mixed-vintage
-      catalogue. Decide then whether to stage now or wait for #26.
-- [ ] Structural diff vs live: only the added asset + its `file:*`
-- [ ] `item_validate.py` (key sets uniform across all 20), then `catalogue_release.sh`
-- [ ] Verify live; download `transition_vector.gpkg` from S3, confirm checksum and that the layer
-      inside is named `transition`
+- [x] **Sequencing question resolved without waiting on #26.** A full re-stage would have pulled
+      mid-remodel upstream and published a mixed-vintage catalogue. Instead the new asset was
+      backfilled from the **staged pre-remodel bundles** using the same committed
+      `gpkg_extract_layer()` the pipeline uses — so the tree stayed uniform vintage and the release
+      is purely additive. The staged tree was backed up first and restored byte-identical (all 120
+      original assets md5-verified) after the smoke test wiped it.
+- [x] Structural diff vs live: only `transition_vector` added; no existing asset changed or lost
+- [x] `item_validate.py` green on all 140 assets; `catalogue_release.sh` published in 2m44s
+- [x] Live: 20/20 items carry 7 assets with **both** transition keys intact. Downloaded BULK's
+      `transition_vector.gpkg` from S3 — **6,098,944 bytes against a 41,672,704 byte bundle**,
+      checksum verifies, single layer named `transition`, and `gpkg_contents.last_change` reads
+      `2000-01-01T00:00:00.000Z` — the pin visible in the published bytes.
 
 ## Validation
 
 - [x] `/code-check` clean — 5 findings fixed (see findings.md)
-- [ ] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] PWF checkboxes match landed work
+- [x] `/planning-archive` on completion
