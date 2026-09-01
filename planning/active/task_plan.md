@@ -48,37 +48,37 @@ layers happens downstream at merge time" the `floodplains` README anticipates.
 
 ## Phase 0: Baseline + measure the load-bearing premise
 
-- [ ] Snapshot live collection + 20 item JSONs from **S3** (not the API — it injects links)
-- [ ] Assert local `data/stac/*.json` byte-identical to S3; md5 all 120 assets
-- [ ] **Determinism probe on real data** (`sloc_bt_ff04`): extract twice without the pin → must
+- [x] Snapshot live collection + 20 item JSONs from **S3** (not the API — it injects links)
+- [x] Assert local `data/stac/*.json` byte-identical to S3; md5 all 120 assets
+- [x] **Determinism probe on real data** (`sloc_bt_ff04`): extract twice without the pin → must
       DIFFER; twice with it → must be IDENTICAL. `Sys.unsetenv()` for the cold path, 1.2 s sleep
       between writes (unpinned stamp has 1 ms resolution → same-instant write is a false pass).
       Record the real extracted size.
 
 ## Phase 1: The pin and its guard
 
-- [ ] `01_stage.R` — `Sys.setenv(OGR_CURRENT_DATE = "2000-01-01T00:00:00.000Z")`, commented with
+- [x] `01_stage.R` — `Sys.setenv(OGR_CURRENT_DATE = "2000-01-01T00:00:00.000Z")`, commented with
       floodplains#45, why process-wide, and the absent-file bound
-- [ ] **New** `scripts/gpkg_determinism-check.R` with a `NO_PIN=1` cold path that must fail
+- [x] **New** `scripts/gpkg_determinism-check.R` with a `NO_PIN=1` cold path that must fail
 
 ## Phase 2: Extract during staging
 
-- [ ] `01_stage.R` — write `transition_vector.gpkg` (layer `transition`) into `data/stac/<item_id>/`,
+- [x] `01_stage.R` — write `transition_vector.gpkg` (layer `transition`) into `data/stac/<item_id>/`,
       `unlink()`-ing first
-- [ ] Correct the now-false "Both are copied whole" comment at `:145-147`
+- [x] Correct the now-false "Both are copied whole" comment at `:145-147`
 
 ## Phase 3: Publish it as an asset
 
-- [ ] `05_stac_register.py` — asset keyed `transition_vector`, with `extra_fields=file_meta(...)`
-- [ ] Both preflight lists (`:220-224`, `:241-246`)
-- [ ] Module docstring + **collection description** (ships to live `collection.json`)
-- [ ] `test_pipeline.R` — gpkg count `2L → 3L`, membership assert, asset count `6L → 7L`, add to the
+- [x] `05_stac_register.py` — asset keyed `transition_vector`, with `extra_fields=file_meta(...)`
+- [x] Both preflight lists (`:220-224`, `:241-246`)
+- [x] Module docstring + **collection description** (ships to live `collection.json`)
+- [x] `test_pipeline.R` — gpkg count `2L → 3L`, membership assert, asset count `6L → 7L`, add to the
       `wsg`-column contract loop
 
 ## Phase 4: Docs
 
-- [ ] `README.md` — Stage row, Vector assets list, "both" → all three
-- [ ] `scripts/README.md` — Stage row, smoke-test prose, and the `:34-35` claim that GeoPackages are
+- [x] `README.md` — Stage row, Vector assets list, "both" → all three
+- [x] `scripts/README.md` — Stage row, smoke-test prose, and the `:34-35` claim that GeoPackages are
       "never rewritten here", which this change makes **false** and which is load-bearing for the
       checksum reasoning
 
@@ -94,6 +94,6 @@ layers happens downstream at merge time" the `floodplains` README anticipates.
 
 ## Validation
 
-- [ ] `/code-check` clean on each commit
+- [x] `/code-check` clean — 5 findings fixed (see findings.md)
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion

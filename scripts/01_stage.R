@@ -16,6 +16,14 @@ library(sf)
 library(yaml)
 library(jsonlite)
 
+# This script WRITES a GeoPackage (the extracted transition layer, #23), so GDAL's
+# wall-clock `gpkg_contents.last_change` stamp has to be pinned or that asset's
+# published file:checksum churns on every rebuild while every other asset's stays
+# stable. Sourced rather than inlined so gpkg_determinism-check.R exercises the same
+# writer. See scripts/fp_gpkg.R for the bound on the guarantee.
+source(file.path("scripts", "fp_gpkg.R"))
+gpkg_pin_date()
+
 FLOODPLAINS_DATA <- Sys.getenv("FLOODPLAINS_DATA", unset = "../floodplains/data")
 CONFIG_DIR <- file.path(dirname(FLOODPLAINS_DATA), "config")
 YEARS <- c(2017, 2020, 2023)
@@ -142,13 +150,46 @@ for (wsg in wsgs) {
       file.copy(src, dst, overwrite = TRUE)
     }
 
-    # Vector assets → data/stac/<item_id>/ (publish-ready, no COG conversion): the land-cover
-    # gpkg and the floodplain-delineation gpkg. Both are copied whole; their layers are
-    # species-prefixed, so a gpkg shared by two species' items is self-describing per item.
-    file.copy(file.path(src_wsg, "floodplain_landcover.gpkg"),
-              file.path(dst_stac, "floodplain_landcover.gpkg"), overwrite = TRUE)
-    file.copy(file.path(src_wsg, "floodplain.gpkg"),
-              file.path(dst_stac, "floodplain.gpkg"), overwrite = TRUE)
+    # Vector assets → data/stac/<item_id>/ (publish-ready, no COG conversion). The two
+    # bundles are copied whole; their layers are species-prefixed, so a gpkg shared by two
+    # species' items is self-describing per item.
+    # file.copy() returns FALSE on failure rather than erroring, and a short or missing
+    # copy would be hashed and published with a checksum that verifies against the corrupt
+    # bytes — item_validate.py re-hashes the same file, so it cannot catch it.
+    stopifnot(
+      "floodplain_landcover.gpkg copy failed" =
+        file.copy(file.path(src_wsg, "floodplain_landcover.gpkg"),
+                  file.path(dst_stac, "floodplain_landcover.gpkg"), overwrite = TRUE),
+      "floodplain.gpkg copy failed" =
+        file.copy(file.path(src_wsg, "floodplain.gpkg"),
+                  file.path(dst_stac, "floodplain.gpkg"), overwrite = TRUE)
+    )
+
+    # The third vector asset is WRITTEN here, not copied (#23): the transition layer alone,
+    # so a consumer can take the change layer without the three dissolved classified epochs
+    # that carry most of the geometry — measured 0.73 MB against a 6.25 MB bundle for SLOC.
+    # That matters against the ~550 MB Mergin finalize ceiling.
+    #
+    # Because this repo now writes a GeoPackage, the OGR_CURRENT_DATE pin at the top of this
+    # file is load-bearing: without it this asset's file:checksum would churn every rebuild
+    # while every other asset's stayed stable.
+    #
+    # The destination layer is named `transition`, deliberately dropping the producer's
+    # species/scenario/span. QGIS styles bind to `path|layername=`, and the span is expected
+    # to move (2017-2023 -> 2017-2025 -> possibly 2010-2025 on satellite data). Identity is
+    # carried by the item id and the layer's own wsg/species/scenario columns.
+    # Read from the STAGED copy, not from src_wsg: that makes this asset structurally
+    # guaranteed to be the transition layer of the bundle we publish alongside it. Reading
+    # upstream would be equivalent in a clean run but could diverge if upstream moved
+    # between the copy above and this line.
+    transition_layer <- paste0("transition_", scenario, "_",
+                               TRANSITION_SPAN[1], "_", TRANSITION_SPAN[2])
+    gpkg_extract_layer(
+      src = file.path(dst_stac, "floodplain_landcover.gpkg"),
+      layer = transition_layer,
+      dst = file.path(dst_stac, "transition_vector.gpkg"),
+      dst_layer = "transition"
+    )
 
     # Areas from the three run=TRUE flood-factor delineations. Sibling layer names derive from
     # the item's scenario by species prefix (co_/ch_/bt_ + ff0N) — selected by prefix, never
@@ -186,10 +227,14 @@ for (wsg in wsgs) {
     geometry <- jsonlite::fromJSON(geojson_tmp, simplifyVector = FALSE)$features[[1]]$geometry
     unlink(geojson_tmp)
 
-    # Loss/gain/net from the item's transition layer.
+    # Loss/gain/net from the item's transition layer. Reads the STAGED copy, the same file
+    # the vector asset was extracted from — so the published metrics and the published
+    # transition_vector.gpkg are guaranteed to describe the same bytes, not merely the same
+    # layer name. Reading upstream here would reintroduce exactly the divergence the
+    # extraction above avoids.
     metrics <- tree_transition_metrics(
-      file.path(src_wsg, "floodplain_landcover.gpkg"),
-      paste0("transition_", scenario, "_", TRANSITION_SPAN[1], "_", TRANSITION_SPAN[2])
+      file.path(dst_stac, "floodplain_landcover.gpkg"),
+      transition_layer
     )
 
     meta <- list(

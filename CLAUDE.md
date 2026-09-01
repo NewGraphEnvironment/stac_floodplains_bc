@@ -37,9 +37,16 @@ group. MORR carries two (`morr_co_ff04` + `morr_ch_ff06`), and the collection mi
 so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
 extents (ff04 = functional floodplain, ff06 = valley bottom).
 
-Assets per item: 3 classified-year COGs + a transition COG, plus **two** GeoPackages —
-`floodplain_landcover.gpkg` and `floodplain.gpkg` (ff02/ff04/ff06 delineations). Every layer of both
-carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by attribute.
+Assets per item: 3 classified-year COGs + a transition COG, plus **three** GeoPackages —
+`floodplain_landcover.gpkg`, `floodplain.gpkg` (ff02/ff04/ff06 delineations), and
+`transition_vector.gpkg` (the transition patches alone, ~14% of the bundle's bytes). Every layer of
+all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by
+attribute.
+
+`transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
+why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published
+`file:checksum` would churn on every rebuild while every other asset's stayed stable. Its file and
+layer names are deliberately year-free so QGIS `path|layername=` styles survive a change of span.
 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace
 directly to the model.

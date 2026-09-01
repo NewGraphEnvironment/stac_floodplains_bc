@@ -82,9 +82,10 @@ for (mp in meta_paths) {
   stopifnot(
     "staging not item-id-keyed (raw dir != item_id)" = basename(dirname(mp)) == meta$item_id,
     "expected 4 COGs (3 classified + transition)" = length(cogs) == 4L,
-    "expected 2 gpkgs (floodplain delineation + landcover)" = length(gpkgs) == 2L,
+    "expected 3 gpkgs (delineation + landcover + transition)" = length(gpkgs) == 3L,
     "floodplain.gpkg not staged" = "floodplain.gpkg" %in% gpkgs,
     "floodplain_landcover.gpkg not staged" = "floodplain_landcover.gpkg" %in% gpkgs,
+    "transition_vector.gpkg not staged" = "transition_vector.gpkg" %in% gpkgs,
     "item JSON not written" = file.exists(item_json),
     "floodplain_ff02_km2 not positive" = isTRUE(meta$floodplain_ff02_km2 > 0),
     "floodplain_ff04_km2 not positive" = isTRUE(meta$floodplain_ff04_km2 > 0),
@@ -120,8 +121,16 @@ for (mp in meta_paths) {
   # another. Size is checked against disk here; item_validate.py re-hashes the bytes
   # (this test asserts the fields ship at all, which is the cheap half).
   item_assets <- jsonlite::read_json(item_json)$assets
-  if (length(item_assets) != 6L) {
-    stop("expected 6 assets in ", basename(item_json), ", found ", length(item_assets))
+  if (length(item_assets) != 7L) {
+    stop("expected 7 assets in ", basename(item_json), ", found ", length(item_assets))
+  }
+  # The transition COG and the transition gpkg must BOTH be present under distinct keys.
+  # `transition_2017_2023` is the COG key and is also the stem of the gpkg's old proposed
+  # filename, so keying the vector by its stem would silently replace the raster and still
+  # leave 7 assets. Assert both survive.
+  for (akey in c(paste0("transition_", meta$transition_span[[1]], "_",
+                        meta$transition_span[[2]]), "transition_vector")) {
+    if (is.null(item_assets[[akey]])) stop("asset '", akey, "' missing from ", basename(item_json))
   }
   for (akey in names(item_assets)) {
     a <- item_assets[[akey]]
@@ -153,7 +162,7 @@ for (mp in meta_paths) {
   #
   # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
   # layer itself), and passing both emits a warning.
-  for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
+  for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg")) {
     gpkg <- file.path(item_dir, gp)
     for (lyr in sf::st_layers(gpkg)$name) {
       cols <- names(sf::st_read(gpkg, quiet = TRUE,

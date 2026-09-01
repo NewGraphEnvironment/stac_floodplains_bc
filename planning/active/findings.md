@@ -95,3 +95,36 @@ that false**, and it is load-bearing for the checksum reasoning.
 `stac_dem_bc` has the pattern: `DESCRIPTION` is `Type: Project` pinned at `0.0.0.9000` and
 **deliberately not versioned** (it exists for GHA dependency resolution); the version lives in
 `NEWS.md` + git tags, where "a tag means the catalogue is in this state" — not the scripts.
+
+## Code-check findings (5, all fixed)
+
+1. **My own comment over-claimed.** I moved the extraction to read the staged copy, then wrote that
+   metrics and the vector asset "cannot describe different layers" — while `tree_transition_metrics`
+   still read **upstream**. Only the layer *name* was shared, not the file. Both now read the staged
+   copy, so the claim is true rather than aspirational.
+2. **`file.copy()` returns FALSE, it does not error.** A short or missing copy would be hashed and
+   published with a checksum that *verifies against the corrupt bytes* — `item_validate.py` re-hashes
+   the same file, so it structurally cannot catch it. Both copies now guarded by `stopifnot`.
+3. **`nzchar()` on `NO_PIN`** meant `NO_PIN=0` read as enabled — an operator turning the cold path
+   *off* would turn it on and get "PASS (cold path)" for what they believed was a warm check. Now
+   the strict `%in% c("1","true","yes")` form `01_stage.R` already uses for `ALLOW_SKIPPED`.
+4. **`scripts/README.md` overstated the guard** — claimed the smoke test asserts all three of
+   `wsg`/`species`/`scenario` on every layer. It asserts only `wsg`, deliberately, and its own
+   comment says so.
+5. **`CLAUDE.md` said "two GeoPackages"** — the first file every session reads.
+
+Also flagged: PWF checkboxes were unflipped while the implementation was staged, against the
+atomic-commit convention. Fixed in the same commit as the code.
+
+## Verification performed
+
+- Determinism, both paths: warm `ea0ac66f…` twice; cold `5429357d…` vs `c2bfa94b…`. The cold path
+  fires, so a warm pass means something.
+- Full smoke test `WSG=sloc` through the real `01 → 02 → 03 → 05 → validate` path: 7 assets, both
+  transition keys present, layer named `transition`, `wsg` column intact.
+- Round-trip fidelity confirmed by review across four items: extracted layer is byte-identical WKB,
+  same attributes, same CRS, same row count as the source layer.
+- Backfill across all 20 items: **515 MB of bundles → 70.2 MB of transition layers (13.6%)**.
+  MORR is the extreme — 79 MB → 2 MB, because its bundle carries 18 layers for two species.
+- Structural diff vs live: only `transition_vector` added; no existing asset changed or lost.
+- `item_validate.py` green on all 140 assets.
