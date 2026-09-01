@@ -1346,6 +1346,45 @@ the premise fail.** A count threshold is the usual offender — 206 clears
   decide what to keep by looking at the first argument?* Same shape in any
   language where a variadic builder dispatches on an argument's type.
 
+### terra: `mask()` is `touches = TRUE`, so two "clip to the polygon" routines disagree by a cell ring
+
+Swapping one polygon clip for another looks like a refactor and is a **methodology
+change**. `terra::mask()` defaults to `touches = TRUE` — every cell the polygon
+touches is kept — while most other clips rasterize at **cell centre**:
+`terra::rasterize()` without `touches`, `gdalcubes::filter_geom()`, and
+`gdal_rasterize` without `-at`. Nothing errors, nothing warns, and the values
+agree exactly where both have data. Only the *footprint* moves.
+
+```r
+mask(r, v)                  # 150 cells   <- the default
+mask(r, v, touches = FALSE) # 122 cells
+# true polygon area: 123.4 cells
+```
+
+The magnitude is a perimeter-to-area ratio, so it is worst exactly where these
+clips get used — thin corridors, floodplains, riparian buffers. Measured
+2026-09-01 in drift#47 on a 3.3 km reach: **−15.5%** of the analysed footprint
+(49,244 → 41,608 cells) from a change whose entire stated purpose was to remove a
+redundant step. Against a parity tolerance of ±1 ha on 943 ha, that is 30–150×.
+
+- **Do not describe a clip without naming its rule.** drift's roxygen said "cells
+  whose centre falls outside become `NA`" for a `terra::mask()` call, and was
+  wrong for two releases. Anyone reasoning about boundary hectares from that doc
+  was off by a ring.
+- **An axis-aligned fixture cannot catch this.** A rectangle on a cell boundary
+  makes both rules agree, so the test passes for nothing. Use a polygon with
+  fractional coordinates and no edge parallel to the grid, and assert the premise
+  beside the property — `expect_gt(touch, centre)` — so a future terra default
+  change fails by naming the real cause.
+- **To swap in a cell-centre clip without moving the footprint**, buffer the
+  polygon by `>= res * sqrt(2)/2` first: if a polygon intersects a cell square,
+  that cell's centre is within a half-diagonal of it, so the buffered
+  cell-centre footprint is a guaranteed superset of `touches = TRUE`. Then keep
+  the `mask()` to trim back, and the output is byte-identical.
+
+Generalises past terra: whenever two libraries both offer "clip raster to
+polygon", assume they disagree at the boundary until measured. Count the cells.
+
 ### sf: `st_join(largest = TRUE)` ignores the join predicate
 - `sf::st_join(x, y, join = predicate, largest = TRUE)` does **not** use `predicate` to decide matches — with `largest = TRUE`, sf runs `st_intersection(x, y)` and keeps the feature of greatest overlap area, so matching is *always* intersection-based regardless of what `join =` is set to. A function that exposes a configurable predicate AND a largest-overlap mode therefore silently mis-attributes when both are combined: pass `st_within` expecting containment, get anything that merely *overlaps*. Verify against sf source, not the argument list — the `join` arg is accepted and ignored, not rejected. Fix: abort when a non-default predicate is combined with the largest-overlap mode, rather than honouring one and dropping the other. (drift#42)
 - Corollary: `largest = TRUE` also drops zero-area geometries from consideration — so a predicate join against **point** or **line** overlays cannot use largest mode at all (no area to compare). Point/line attribution must go through the plain (`largest = FALSE`) predicate path.
@@ -2951,6 +2990,204 @@ written as `length(x) != 1` is a proxy that a single-key object satisfies: a lea
 `{"algorithm": "sha256"}` published `"sha256"` as the value. Every other failure here
 produces an absence a reader can see; this one produces something that looks like a real
 answer and is counted as present. Reject a list outright rather than testing its length.
+
+### Making an optional field mandatory breaks every producer that legitimately left it empty
+
+The rule above is about a *bypass* whose stated reason expires. This is the mirror,
+and it reaches further: tightening an assertion on a field — NULL becomes a failure,
+a warning becomes an error, a tolerance is removed — is a change to every path that
+**writes** that field, and those paths are usually not in the diff.
+
+The tell is a one-line change to a check accompanied by no change to a producer. Ask
+directly: *what are all the ways this field gets populated, and does each one still
+satisfy the new rule?* Enumerate them by grep, not by memory — the one that bites is
+always the path nobody thinks of as a producer, because it is an install script, a
+migration, a manual runbook step, or a fallback branch.
+
+Measured 2026-09-01 in link#264. A resolver was fixed so a package's commit SHA
+became recordable, and the verifier was tightened to require it on every host. Four
+producers existed. Three were fine. The fourth was `scripts/update_hosts.sh`, which
+installs with `R CMD INSTALL` of a source tarball — deliberately, to route around
+r-lib/pak#658 — and that writes **no `Remote*` fields at all**. So the repo's own
+maintenance script silently produced hosts that the new assertion would reject, and
+the rejection landed *after* cloud instances had been paid for, because the check ran
+post-provision. Found by review, not by any test: every test passed, because the
+tests exercised the resolver rather than the install paths feeding it.
+
+Three habits, and the second is the one that keeps being skipped:
+
+- **Grep for the producers before tightening the consumer.** Anything that writes the
+  field, sets the env var it reads, or installs the artifact it describes.
+- **Move the check as early as the fact is knowable.** A gate that fires after spend
+  is a report, not a gate. The same assertion five seconds in costs nothing and the
+  failure becomes free.
+- **Say what happens to existing records.** Historical rows written under the old rule
+  will now fail, and that is usually correct — but it has to be stated, or the first
+  person to run the check against last month's data reports it as a regression.
+
+Related and distinct: *"A fix to code that writes data is not done until the written
+data is reconciled"* covers the records already on disk. This one covers the *writers*
+still running.
+
+### Teaching a build or install step to record provenance is a change to a safety-critical path
+
+The remedy above — make the producer record what it produced — is correct and is
+where the next three defects come from. Provenance a build step writes is trusted
+absolutely by everything downstream, so a wrong value there is worse than the missing
+value it replaced: absence fails loudly, and a confident wrong SHA satisfies every
+guard built to catch exactly it.
+
+Three failures, all measured 2026-09-01 in the same ~40-line change, each individually
+invisible:
+
+- **The record outlived the thing recorded.** `R CMD INSTALL ... | tail -3` reports
+  *tail's* status, and `set -e` does not cross a pipeline, so a failed install exited
+  0 and the pin was written for a build that never happened. Quieter still when an
+  older version is present: the version probe succeeds and nothing looks wrong.
+  Gate the write on the build's own exit status — tempfile plus an explicit check —
+  so the record is unreachable unless the work returned 0.
+- **The pin was applied to something that had its own identity.** Writing an env
+  override for a package that is run from a checkout beat the checkout's git state,
+  which would have pinned a dirty-tree flag to a permanent `false`. A flag stuck
+  always-TRUE gets noticed and filed; **stuck always-FALSE is the direction nobody
+  can notice.** Pin only what has no other identity available.
+- **Nothing expires it.** An env pin written once wins forever, so a later install by
+  another route leaves the stale value winning — and the guard reading that variable
+  is now reading the thing it is meant to be checking. Cross-check the pin against an
+  independent source wherever one exists, and fail naming both values.
+
+Also: resolve the identifier **once** for the whole operation, not per target. Six API
+calls across a five-minute run put targets on different commits if someone pushes
+mid-run, which is precisely the disagreement the provenance was added to detect.
+
+The meta-lesson is worth more than any of the three. All of them arrived in the *fix*
+for a defect found in review, and the following round found all five of its findings
+inside that one fix. **Review the fixes at least as hard as the original**, and when a
+fix expands scope into a new file, treat that file as unreviewed code rather than as
+an extension of the change you already checked.
+
+### A claim flagged as under-evidenced gets repaired by widening, and widening is what breaks
+
+The two rules above are about a claim's scope when it is *written*. This is about what
+happens to that scope when it is **repaired**, and it is the more expensive failure
+because it recurs inside its own fix.
+
+Told that a claim is not supported, the natural repair is to widen the stated
+evidential base — "on every run", "from either layer", "across the figures here",
+"which run from X to Y" — rather than to narrow the claim. Widening requires a
+population. The population gets asserted, from recall of an adjacent document, and the
+next round finds it does not hold.
+
+**Tell: the fix adds a quantifier the previous version did not have.** For each one,
+name the population, and say whether it is enumerable from the artifact in front of you.
+If it is not, you have replaced an under-evidenced claim with an unfalsifiable one.
+
+Measured 2026-09-01 in flooded#52 — a four-paragraph prose diff to a shipped reference
+memo took **six review rounds, 36 findings, 14 of them bugs**. Every round's finding was
+about a *number*; every round's fix was correct about the number and introduced a new
+quantifier. Across rounds 4–6, **every widening broke or was under-justified; every
+narrowing held** — including one round-5 fix that correctly narrowed a licence and, in
+the same sentence, asserted a fresh absolute ("do not move with the fix at all") that
+measurement then falsified.
+
+Root cause is worth naming because it predicts where this happens: the artifact's
+figures sat on a ragged dataset × resolution × lineage × clipped/raw grid that no
+dataset filled, so "across the figures here" quantified over holes as much as cells. Any
+document whose values come from several partial runs has this shape.
+
+**Terminate it by enumeration, not by another round.** The candidate set is closed — it
+is every quantifier in the passage — so sweep them mechanically and work each one.
+What ended it here was reproducing the old behaviour exactly on current code (the defect
+was a constant factor on one term, so setting that term to `4 × 3.5926` returned the
+historical cell count to the digit) and measuring every row of the consumer's own table,
+which turned an asserted population into a finite measured one.
+
+Then state the residual precisely. "The channel-buffer half of this clause is vacuous,
+because the consumer publishes no channel-buffer-derived row" is definitional and ends
+the sweep. A residual you can only call unlikely means there is another instance.
+
+### An in-place metadata write can break a format's layout contract, and nothing will say so
+
+Some formats are ordinary containers plus a **layout promise**: the same bytes in the wrong
+order are still valid, still readable, still hash-verifiable, and no longer do the one thing
+the format exists for. A Cloud-Optimized GeoTIFF is the clear case — its whole advantage is
+that a client reads a small header and then fetches only the tiles it needs, which depends on
+the main IFD sitting at the *front*.
+
+Writing metadata in place, after the file has been laid out, moves that header to the end.
+
+**The tell is a flag whose name contains `IGNORE`, `FORCE` or `BREAK`.** Those are not warning
+suppressors; they are the library telling you what it is about to do and asking you to sign for
+it. `rasterio.open(path, "r+", IGNORE_COG_LAYOUT_BREAK="YES")` reads as boilerplate and means
+*"yes, invalidate the optimization"*.
+
+Measured 2026-09-01 in stac_floodplains_bc#33, across an entire published catalogue:
+
+| asset | size | main IFD at | must fetch to read the header |
+|---|---|---|---|
+| classified raster | 602,582 B | 595,868 | **98.9%** |
+| transition raster | 1,335,328 B | 1,330,104 | **99.6%** |
+
+So the property was not degraded, it was gone — and the collection existed to be served by a
+dynamic tiler that depends on exactly it.
+
+**It survives because every other signal reads green.** The bytes are a valid GeoTIFF. The
+published `file:checksum` verifies, because the hash was taken *after* the metadata write and
+describes the broken layout faithfully. The files open correctly in a desktop GIS. Only the
+layout is wrong, and nothing looks at layout unless something is written to.
+
+Two habits:
+
+- **Order the pipeline so the layout-aware writer goes last.** Tag the input, then convert —
+  not convert, then tag. Verify the carry-through rather than assuming it: `terra::writeRaster(filetype = "COG")`
+  was measured to preserve arbitrary GDAL tags, a 256-entry colour table and the band
+  description, and to produce a valid COG, which is what made the reorder free.
+- **Assert the property, not the parse.** `cog_validate()`, or the format's equivalent. A
+  schema check cannot see it, and neither can a checksum.
+
+**The fix has a satisfying confirmation, and it is worth looking for.** Afterwards, the
+in-place open *fails*: GDAL refuses `r+` on a file that HAS cloud-optimized layout. The same
+call succeeded before. So the refusal is a second signal, independent of the validator, and it
+doubles as a tripwire if an upstream ever starts handing you already-optimized inputs.
+
+**Corollary — inserting a new party into a path silently narrows every partial guard on it.**
+In that same change, a tag-consistency check covered only the namespaced subset of tags. That
+was adequate while the writer and the reader were the same library call. Moving the conversion
+between them made *"the tags survive the conversion"* a claim nothing checked: had the
+converter dropped the unguarded tags, checksums would still verify and the layout validator
+would still pass. When you add a step to a pipeline, re-read what each existing guard covers
+against the path it now spans — partial coverage that was fine becomes a hole without changing
+a line of the guard.
+
+### A check's detect step and its explain step must use the same predicate
+
+A comparison guard usually has two halves: one decides *whether* something is wrong, the other
+describes *what*. Written at different times, or loosened in one place for a legitimate reason,
+they drift apart — and the failure mode is a guard that fires with nothing to report.
+
+```python
+if got != want:                                   # exact
+    changed = [... for k in keys if not _same(got[k], want[k])]   # numeric-tolerant
+    problems.append(f"{name}: disagree — {'; '.join(changed)}")   # -> "disagree — "
+```
+
+`'-738.20'` against a property of `-738.2` enters the block and produces an empty message. The
+release fails, the log says nothing, and the reader concludes the guard is broken rather than
+the tolerance being in the wrong place.
+
+**Compute the differences first, then gate on them.** One predicate, used once:
+
+```python
+changed = [... for k in keys if not _same(got.get(k), want.get(k))]
+if changed:
+    problems.append(...)
+```
+
+Caught 2026-09-01 in stac_floodplains_bc#33, in a guard being *widened* that same hour — the
+tolerant comparison was added deliberately, for the real reason that one side is `str(x)` from
+Python and the other a JSON number, and it went into only one of the two places. Found by
+running the guard against a restored defect, not by reading it: an empty-message failure looks
+like a passing guard in a diff.
 
 
 # NGE Feature Workflow
