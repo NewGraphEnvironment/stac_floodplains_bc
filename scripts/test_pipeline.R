@@ -115,6 +115,33 @@ for (mp in meta_paths) {
          " but scenario '", meta$scenario, "' implies ", ff_expected)
   }
 
+  # File-extension contract (#22): every asset carries file:checksum + file:size, so a
+  # consumer can verify a download and tell one vintage of a regenerated asset from
+  # another. Size is checked against disk here; item_validate.py re-hashes the bytes
+  # (this test asserts the fields ship at all, which is the cheap half).
+  item_assets <- jsonlite::read_json(item_json)$assets
+  if (length(item_assets) != 6L) {
+    stop("expected 6 assets in ", basename(item_json), ", found ", length(item_assets))
+  }
+  for (akey in names(item_assets)) {
+    a <- item_assets[[akey]]
+    ck <- a$`file:checksum`
+    if (is.null(ck) || is.null(a$`file:size`)) {
+      stop("asset '", akey, "' is missing file:checksum or file:size")
+    }
+    # '1220' = sha2-256 multihash prefix; 4 + 64 hex chars. A bare digest passes the
+    # STAC schema, so this shape has to be asserted rather than validated.
+    if (nchar(ck) != 68L || substr(ck, 1, 4) != "1220") {
+      stop("asset '", akey, "' file:checksum is not a sha256 multihash: ", ck)
+    }
+    on_disk <- file.path(item_dir, basename(a$href))
+    if (!file.exists(on_disk)) stop("asset '", akey, "' not staged at ", on_disk)
+    if (!identical(as.numeric(a$`file:size`), as.numeric(file.size(on_disk)))) {
+      stop("asset '", akey, "' file:size ", a$`file:size`,
+           " but staged file is ", file.size(on_disk), " bytes")
+    }
+  }
+
   # Attribute contract (floodplains#30): every layer of BOTH published GeoPackages carries the
   # area identifier, so downstream consumers can merge many items into one gpkg and separate
   # them by attribute. Upstream backfills both files (gpkg_backfill-wsg.R), so both are guarded

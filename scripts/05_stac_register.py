@@ -24,6 +24,7 @@ Usage:
     uv run python scripts/05_stac_register.py
 """
 
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -43,10 +44,41 @@ S3_BASE = f"https://{BUCKET}.s3.{S3_REGION}.amazonaws.com"
 
 GPKG_MEDIA_TYPE = "application/geopackage+sqlite3"
 PROJECTION_EXT = "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+FILE_EXT = "https://stac-extensions.github.io/file/v2.1.0/schema.json"
+
+# Multihash prefix for sha2-256: 0x12 = function code, 0x20 = 32-byte digest length.
+# file:checksum is a multihash, NOT a bare digest — see file_meta().
+_MULTIHASH_SHA256 = "1220"
 
 
 def s3_href(rel_path: str) -> str:
     return f"{S3_BASE}/{rel_path}"
+
+
+def file_meta(path: Path) -> dict:
+    """`file:checksum` + `file:size` for one asset, per the STAC file extension.
+
+    checksum is a MULTIHASH, hex-encoded lowercase: '1220' + sha256. The prefix is
+    what makes it self-describing; a bare sha256 is not a valid multihash.
+
+    The schema cannot catch a mistake here — it is only `^[a-f0-9]+$`, so a bare
+    digest with no prefix validates cleanly and uppercase hex fails for an unrelated
+    reason. So assert the shape ourselves rather than trusting validation.
+
+    Safe to hash at build time ONLY because every asset is byte-final by now:
+    02 writes the COGs, 03 rewrites their tags in place ("r+"), and 05 runs after
+    both. Any future step that touches an asset after this point would publish a
+    checksum that silently does not match the object.
+    """
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    checksum = _MULTIHASH_SHA256 + h.hexdigest()
+    # 4 prefix chars + 64 hex chars. hexdigest() is already lowercase; never upper it.
+    if len(checksum) != 68 or not checksum.startswith(_MULTIHASH_SHA256):
+        raise SystemExit(f"Malformed multihash for {path}: {checksum!r}")
+    return {"file:checksum": checksum, "file:size": path.stat().st_size}
 
 
 def flood_factor(scenario: str) -> int:
@@ -84,6 +116,10 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
     end_dt = datetime(span[1], 12, 31, tzinfo=timezone.utc)
 
     # Raster assets — one per classified year plus the transition.
+    # extra_fields carries file:checksum + file:size. Note pystac's own
+    # FileExtension.ext(asset, add_if_missing=True) cannot be used here: it raises
+    # STACError on an asset with no owner, and these assets are all built before the
+    # Item exists. Setting the fields directly also matches how proj:* is done below.
     assets = {}
     for yr in years:
         rel = f"{meta['item_id']}/classified_{yr}.tif"
@@ -92,25 +128,30 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             media_type=pystac.MediaType.COG,
             title=f"Classified land cover {yr}",
             roles=["data"],
+            extra_fields=file_meta(wsg_dir / f"classified_{yr}.tif"),
         )
-    trans_rel = f"{meta['item_id']}/transition_{span[0]}_{span[1]}.tif"
+    trans_name = f"transition_{span[0]}_{span[1]}.tif"
+    trans_rel = f"{meta['item_id']}/{trans_name}"
     assets[f"transition_{span[0]}_{span[1]}"] = pystac.Asset(
         href=s3_href(trans_rel),
         media_type=pystac.MediaType.COG,
         title=f"Land-cover transition {span[0]}-{span[1]}",
         roles=["data"],
+        extra_fields=file_meta(wsg_dir / trans_name),
     )
     assets["floodplain_landcover"] = pystac.Asset(
         href=s3_href(f"{meta['item_id']}/floodplain_landcover.gpkg"),
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain land cover + transition (GeoPackage)",
         roles=["data"],
+        extra_fields=file_meta(wsg_dir / "floodplain_landcover.gpkg"),
     )
     assets["floodplain"] = pystac.Asset(
         href=s3_href(f"{meta['item_id']}/floodplain.gpkg"),
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
         roles=["data"],
+        extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )
 
     properties = {
@@ -146,7 +187,7 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         datetime=end_dt,
         properties=properties,
         assets=assets,
-        stac_extensions=[PROJECTION_EXT],
+        stac_extensions=[PROJECTION_EXT, FILE_EXT],
     )
     item.collection_id = COLLECTION_ID
     item.add_link(pystac.Link(
@@ -166,7 +207,27 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
 # publish to a bucket with versioning Suspended. Fail before the first write instead.
 meta_paths = sorted(RAW_DIR.glob("*/meta.json"))
 for _mp in meta_paths:
-    flood_factor(json.loads(_mp.read_text())["scenario"])
+    _meta = json.loads(_mp.read_text())
+    flood_factor(_meta["scenario"])
+    # Same reasoning for the asset files: a missing or unreadable asset must abort
+    # before the first JSON is written, not partway through the loop below. Opening
+    # each file (rather than just is_file()) is what makes "unreadable" true as well
+    # as "missing" — a permission or I/O error surfaces here instead of raising an
+    # unhandled FileNotFoundError/OSError mid-write. It cannot detect corruption;
+    # only hashing can, and that happens moments later in build_item().
+    _span = _meta["transition_span"]
+    _dir = STAC_DIR / _meta["item_id"]
+    for _name in (
+        [f"classified_{yr}.tif" for yr in _meta["years"]]
+        + [f"transition_{_span[0]}_{_span[1]}.tif",
+           "floodplain_landcover.gpkg", "floodplain.gpkg"]
+    ):
+        try:
+            with (_dir / _name).open("rb") as _fh:
+                _fh.read(1)
+        except OSError as e:
+            raise SystemExit(
+                f"{_meta['item_id']}: cannot read asset, refusing to checksum: {_dir / _name} ({e})")
 
 items = []
 for meta_path in meta_paths:

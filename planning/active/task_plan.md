@@ -38,29 +38,44 @@ and corrected geometry appear together and cannot be told apart.
 
 ## Phase 0: Baseline
 
-- [ ] Snapshot live collection + 20 live item JSONs to scratch (versioning Suspended)
-- [ ] Re-prove fast path: all 20 local `data/stac/*.json` byte-identical to S3; 20 `meta.json`
-- [ ] `md5` every asset file, so Phase 4 can prove no asset changed
+- [x] Snapshotted the live collection + 20 item JSONs from **S3** (not the API — the API injects
+      self/root links, which produced a false gate failure on the first attempt).
+- [x] GATE PASS: **21/21 byte-identical** to S3; 20 `meta.json`. The staged tree is the one that
+      produced production.
+- [x] md5 baseline of all **120** asset files.
 
 ## Phase 1: Emit the fields
 
-- [ ] `05_stac_register.py` — `FILE_EXT` constant + `file_meta(path)` helper; assert prefix/length
-- [ ] `extra_fields=file_meta(...)` on all six `pystac.Asset(...)` constructors
-- [ ] Add `FILE_EXT` to the item's `stac_extensions`
-- [ ] Hash in the existing preflight loop so an unreadable asset fails before the first write
-- [ ] Comment recording the `02 -> 03 -> 05` ordering that makes hashing correct
+- [x] `FILE_EXT` + `file_meta()` with the `1220`/68-char assertion (chunked read, 1 MB blocks).
+- [x] `extra_fields=file_meta(...)` on all six asset constructors; `FILE_EXT` added to
+      `stac_extensions`. Build takes **4.7 s** for 20 items including hashing 673 MB.
+- [x] Preflight now **opens** every asset before the first write, so "unreadable" is true as well as
+      "missing" — review caught that the original comment over-claimed.
+- [x] Ordering comment recorded at the hash site.
 
 ## Phase 2: Guard
 
-- [ ] `item_validate.py` — assert `file:size` and `file:checksum` match the bytes on disk, plus
-      structural checks; report every mismatch then exit 1
-- [ ] `test_pipeline.R` — assert both fields on all six assets against `file.size()`
-- [ ] Negatives: corrupt a byte -> fails; strip the `1220` prefix -> fails (what the schema cannot)
+- [x] `item_validate.py` re-hashes every asset and compares; reports all problems then exits 1.
+      Measured at **0.72 s** over the full tree.
+- [x] `test_pipeline.R` asserts both fields on all six assets against `file.size()`.
+- [x] Negatives pass: corrupt a byte -> caught; strip the `1220` prefix -> caught. **Proved the gap
+      is real** — pystac `validate()` PASSES the prefix-less checksum, so the schema cannot see it.
+- [x] **Review found four silent-success holes; all fixed and each proven:**
+      1. An item that lost an asset iterated nothing and passed — "nothing checked" was
+         indistinguishable from "all checked". Now compares asset key sets across items.
+      2. All items losing all assets passed the same way. Now reported explicitly.
+      3. The local path was derived from `item_id` + basename, **discarding the href's directory**,
+         so a wrong published prefix verified against the correct local file and passed. Now
+         resolved from the href itself and asserted to sit under the item id.
+      4. `--skip-sync` could register a checksum for bytes not on S3, since "the href resolves" no
+         longer implies "the bytes match". Verify now downloads the probe asset and compares its
+         real checksum; the flag's contract is documented as narrower.
 
 ## Phase 3: Docs
 
-- [ ] `README.md` — the two fields, multihash form, how a consumer verifies a download
-- [ ] `scripts/README.md` — the ordering constraint that keeps checksums valid
+- [x] `README.md` — the two fields, the multihash form, and copy-pasteable shell + R verification.
+- [x] `scripts/README.md` — the `02 -> 03 -> 05` ordering constraint and why the schema is not a
+      sufficient guard.
 
 ## Phase 4: Publish
 

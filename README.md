@@ -122,6 +122,24 @@ floodplain footprint; datetime range 2017 → 2023. Assets live under the item-k
   Every layer of **both** GeoPackages carries `wsg`, `species`, and `scenario` columns, so several
   items can be merged into one GeoPackage and kept separable **by attribute** — filter, categorize,
   or replace a single area (`DELETE WHERE wsg = …`) without per-area layer names.
+- **Asset integrity** — every asset carries `file:checksum` and `file:size`
+  ([file extension](https://github.com/stac-extensions/file)). Floodplain products are regenerated
+  as the DEM, classifier and imagery years improve, so "the floodplain of a watershed group" is a
+  moving target; the checksum is what lets you tell *which version* a figure came from, and confirm
+  a download arrived intact.
+
+  `file:checksum` is a **multihash**, not a bare digest: `1220` + the sha256 hex, where `12` is the
+  sha2-256 code and `20` the 32-byte length. To verify a download, strip the four-character prefix:
+
+  ```bash
+  curl -sO https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/floodplain.gpkg
+  shasum -a 256 floodplain.gpkg          # compare against file:checksum minus the leading 1220
+  ```
+  ```r
+  # or from the catalogue, no manual copying
+  a <- items$features[[1]]$assets$floodplain
+  sub("^1220", "", a$`file:checksum`) == digest::digest("floodplain.gpkg", algo = "sha256", file = TRUE)
+  ```
 - **Properties** (labelled, aggregated during staging): `wsg`, `species`, `scenario`,
   `flood_factor`, `region`, `floodplain_ff02_km2`, `floodplain_ff04_km2`, `floodplain_ff06_km2`
   (floodplain area per flood factor), `gross_loss_ha`, `gross_gain_ha`, `net_ha` (tree change from
