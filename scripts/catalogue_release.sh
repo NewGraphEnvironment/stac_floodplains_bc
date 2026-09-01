@@ -33,6 +33,11 @@ while [ $# -gt 0 ]; do
     # Register without re-uploading. For re-running after a registration failure
     # (the assets are already up and every href still resolves), and for exercising
     # the orchestration against a throwaway collection id.
+    #
+    # Narrower than it used to be: items now publish file:checksum, so "the href
+    # resolves" no longer implies "the bytes match". Skipping the sync after the
+    # assets have changed locally would register a checksum for objects that are not
+    # on S3. The step-5 checksum probe catches this for the sampled item.
     --skip-sync) SKIP_SYNC=1 ;;
     *) echo "unknown option: $1" >&2
        echo "usage: $(basename "$0") [--allow-retract] [--skip-sync]" >&2; exit 1 ;;
@@ -196,6 +201,26 @@ probe_remote=$(curl -sI --max-time 60 "$probe_href" \
 echo "asset probe ($probe_item): local=$probe_local remote=${probe_remote:-none}"
 if [ "$probe_remote" != "$probe_local" ]; then
   echo "  asset on S3 does not match the local build" >&2
+  fail=1
+fi
+
+# Download that asset and verify its published file:checksum end to end. Size alone
+# is no longer a sufficient probe now that we publish checksums: --skip-sync
+# registers local JSON without re-uploading, so the catalogue could serve a checksum
+# for bytes that are not on S3 — and a same-size object would pass the check above.
+# This is also the only step that proves what the feature claims: that a consumer
+# downloading an asset can verify it against the catalogue.
+probe_expect=$(python3 -c "
+import json
+d = json.load(open('$STAC_DIR/$probe_item.json'))
+print(next(a['file:checksum'] for a in d['assets'].values() if a['href'] == '$probe_href'))")
+probe_actual=$(curl -s --max-time 300 "$probe_href" | shasum -a 256 | awk '{print "1220" $1}')
+if [ "$probe_actual" = "$probe_expect" ]; then
+  echo "checksum probe ($probe_item): verified against S3 — ${probe_expect:0:16}…"
+else
+  echo "  published file:checksum does not match the object on S3" >&2
+  echo "    published ${probe_expect:0:24}…" >&2
+  echo "    on S3     ${probe_actual:0:24}…" >&2
   fail=1
 fi
 

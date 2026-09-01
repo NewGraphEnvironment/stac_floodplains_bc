@@ -21,8 +21,23 @@ the catalog host, so it can be cut from a machine that does not hold the source 
 | Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and both `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`; derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
 | COG | `02_cog.R` | Convert the staged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` |
 | Tag | `03_cog_tag.py` | Embed GDAL metadata tags from `meta.json` (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, per-asset year) |
-| STAC | `05_stac_register.py` | Build the collection + one `<item_id>.json` per target into `data/stac/`; asset hrefs under `<item_id>/`. Build only — the name is a misnomer kept until the rename lands with the Version Extension work |
-| Validate | `item_validate.py` | pystac-validate every document **on disk**, so what is checked is what ships. Requires exactly the staged item count, so a wrong `--base` fails instead of reporting `valid: 0` and exiting 0 |
+| STAC | `05_stac_register.py` | Build the collection + one `<item_id>.json` per target into `data/stac/`; asset hrefs under `<item_id>/`. Also hashes every asset into `file:checksum` + `file:size`. Build only — the name is a misnomer kept until the rename lands with the Version Extension work |
+| Validate | `item_validate.py` | pystac-validate every document **on disk**, so what is checked is what ships. Requires exactly the staged item count, so a wrong `--base` fails instead of reporting `valid: 0` and exiting 0. Also re-hashes every asset and asserts the published `file:checksum`/`file:size` match the bytes |
+
+### The step order is load-bearing for checksums
+
+`02` writes the COGs, `03` rewrites their GDAL tags **in place** (`rasterio` `"r+"`), and `05` hashes
+them. Hashing is correct only because it runs last. **Anything that touches an asset after `05`
+publishes a checksum that silently does not match the object** — so a new in-place step belongs
+before `05`, not after.
+
+The GeoPackages are `file.copy()`d from upstream and never rewritten here, so their bytes — and
+therefore their checksums — are exactly upstream's.
+
+`file:checksum` is a multihash (`1220` + sha256), not a bare digest. The STAC schema only checks the
+string is hex, so it accepts a bare digest and cannot catch a checksum of the wrong bytes; both are
+asserted in `item_validate.py` instead. Verifying re-reads every asset (~670 MB) — that is the cost
+of the guard actually guarding something.
 
 ## Release — `catalogue_release.sh`
 
