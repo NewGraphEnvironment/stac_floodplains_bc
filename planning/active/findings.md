@@ -53,3 +53,29 @@ the first thing that can see it.
 | Error | Resolution |
 |-------|------------|
 | `Rscript -e '...' SP="$SP"` — the var was empty inside R | That form passes `SP=...` as a command-line ARG, not an env var. Use `SP="$SP" Rscript -e '...'`. |
+
+## Verified after the reorder, 2026-09-01
+
+| check | result |
+|---|---|
+| `cog_validate` on all 4 BULK COGs | `True` |
+| colour table on the published classified COGs | 256 entries, intact |
+| band description | `class_name`, intact |
+| GDAL tags on published COGs | present |
+| two consecutive BULK runs | identical `file:checksum` |
+| MORR (2 targets, 8 rasters) | green |
+| tag step re-run alone | `Tagged 0, skipped 4` |
+
+The last row is the one worth recording. The skip-when-matching branch was a candidate for
+deletion — after the reorder it compares against tags on freshly-copied raw files, which
+looked like it could never match. It does match on a re-run of the tag step alone, so it is
+still a working guard and was kept. Verified rather than reasoned about, because deleting a
+reachable guard and deleting an unreachable one look identical in a diff.
+
+### rio-cogeo needed a Python floor bump
+
+`rio-cogeo` 7 requires Python >= 3.11 and `pyproject.toml` declared `>=3.10`, so `uv sync`
+refused. The floor was aspirational — the venv is 3.12.13 and the committed bytecode is
+cpython-312/314 — so it moved to `>=3.11` rather than pinning an older rio-cogeo. Its own
+dependencies are click, morecantile, pydantic and rasterio, with no second GDAL wheel, so
+this does not reopen the conda->uv blocker this repo cleared.

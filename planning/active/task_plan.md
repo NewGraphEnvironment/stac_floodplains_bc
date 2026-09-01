@@ -56,15 +56,17 @@ Blocks #34 and #35, which both write through the same tag step.
 
 ## Phase 4: End to end on BULK
 
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` green
-- [ ] `cog_validate` passes on all four of BULK's COGs
-- [ ] Tags, colormap and band description present on the published COGs
-- [ ] Two consecutive runs produce identical `file:checksum` values
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` green
+- [x] `cog_validate` passes on all four of BULK's COGs
+- [x] Tags, colormap and band description present on the published COGs
+- [x] Two consecutive runs produce identical `file:checksum` values
+- [x] MORR (two targets, 8 rasters) green — the tag step now reads a different directory,
+      and MORR is where item-keying bites
 
 ## Validation
 
-- [ ] Guard red before, green after — run in both states
-- [ ] Smoke test on `ufra` and `morr`
+- [x] Guard red before, green after — run in both states
+- [x] Smoke test on `ufra`, `bulk` and `morr`
 - [ ] `/code-check` clean
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
