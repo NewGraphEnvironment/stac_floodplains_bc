@@ -152,6 +152,45 @@ Add new checks here when a bug class is discovered — they compound over time.
   the rule above: `r-lib`'s check workflow sets `cancel-in-progress: true`, so a
   second push to main minutes after a merge legitimately cancels the first run.
 
+### A cross-item consistency check cannot see a defect that hits every item
+
+- A guard that validates items **against each other** — "all records carry the same
+  field set", "every partition has the same schema", "no item is missing a key its
+  siblings have" — is blind by construction to any defect applied **uniformly**. It
+  measures variance, and a uniform loss has none. It passes loudest exactly when the
+  whole collection is wrong the same way.
+- The tell is a guard with no external reference: nothing it compares against comes
+  from outside the set being checked. `expected = max(observed, key=len)` derives the
+  expectation from the data, so the data cannot contradict it.
+- Caught 2026-09-01 in stac_floodplains_bc#23, before shipping. A new asset was to be
+  keyed by its filename stem, `transition_2017_2023` — which was **already** the key of
+  the existing transition raster in the same dict. Keying by stem would have overwritten
+  the raster in every item. Every downstream check passes: the item still has the
+  expected asset count, the uniform-key-set validator sees no variance because all
+  items lost the same key, and the release probe samples the single largest asset, which
+  is a different one. The raster simply disappears from a published catalogue.
+- Pair the consistency check with **one absolute assertion** naming what must exist:
+  `assert "transition_2017_2023" in assets and "transition_vector" in assets`. Cheap,
+  and it is the only kind of check that survives a uniform defect.
+- Same family as *"an empty result set is not a pass"* above: there the set was empty,
+  here it is uniformly wrong. Both make "nothing to see" and "all clear" identical.
+
+### A checksum you compute yourself cannot detect corruption that predates it
+
+- Hash-on-write proves an object has not changed **since you hashed it**. It says
+  nothing about whether the bytes were right when you hashed them. Verification that
+  re-reads the same local file and re-hashes it will agree with itself forever.
+- So a corrupt input silently becomes a corrupt *published* artifact carrying a
+  checksum that **verifies**, which is worse than no checksum: the field now asserts
+  integrity that was never established.
+- The gap is upstream of the hash, so guard it there — check the operation that
+  produced the bytes. In R specifically, `file.copy()` signals failure by **returning
+  `FALSE`**, not by erroring, so an unchecked copy is the classic way a short or absent
+  file reaches a hasher. `stopifnot(file.copy(...))`, or the language's equivalent.
+- Caught 2026-09-01 in stac_floodplains_bc#23 by review: two `file.copy()` calls fed
+  assets straight into checksum computation, and the validator re-hashed the same files.
+  A truncated copy would have published bytes plus a checksum confirming them.
+
 ### A proxy assertion does not guard the thing it stands for
 
 - When the defect is a **resource** — an allocation, a query count, a number of network
@@ -2614,6 +2653,117 @@ a unit — which is exactly what makes it survive review.
   **claim** asserting one. The test fails silently; the claim gets acted on.
 - It cost nothing here only because the user pushed back on a number that looked
   unmotivated. Do not rely on that.
+
+### psql does not interpolate `:'var'` inside a dollar-quoted string, and `\quit N` exits 0
+
+Two traps in the same file type, both of which read perfectly and fail at run time.
+
+**Interpolation.** psql substitutes its `-v` variables in the query buffer, but a
+dollar-quoted body is a *string literal* to it, so nothing inside `$$ … $$` is
+substituted. The natural form dies with a message that points at SQL syntax rather
+than at the quoting layer:
+
+```sql
+DO $$ DECLARE v text := :'run_uid'; BEGIN ... END $$;
+-- ERROR:  syntax error at or near ":"
+```
+
+Pass parameters through session settings instead, set outside the block:
+
+```sql
+SELECT set_config('app.run_uid', :'run_uid', false) \gset
+DO $$ DECLARE v text := current_setting('app.run_uid'); BEGIN ... END $$;
+```
+
+**`\quit` takes no exit code.** `\quit 1` warns `extra argument "1" ignored` and
+exits **0** (measured, psql 16.10 and 18.3). So a guard written as
+
+```
+\echo 'FATAL: …'
+\quit 1
+```
+
+prints FATAL in red and then reports **success** — fail-toward-pass on precisely the
+branch that exists to stop a silent zero-row pass. Raise instead, with
+`\set ON_ERROR_STOP on` at the top of the file:
+
+```sql
+DO $$ BEGIN RAISE EXCEPTION 'no run_uid supplied'; END $$;
+```
+
+Related, same family: a `.sql` file whose checks are all bare `SELECT`s has no exit
+status at all — a human reading output is the only verdict. If the script is invoked
+by anything, at least one check must `RAISE`.
+
+Caught 2026-09-01 in link#262, in a verify script whose own header advertised that it
+"exits non-zero on a real failure".
+
+### A second `trap … EXIT` replaces the first
+
+`trap` registers **one** handler per signal. Registering cleanup for a temp file and
+then cleanup for a database schema leaves only the second — the first is silently
+discarded, and nothing warns.
+
+```bash
+trap 'rm -f "$TMP"' EXIT
+trap 'drop_schema' EXIT        # the rm never runs again
+```
+
+One handler, both jobs:
+
+```bash
+cleanup() { rm -f "$TMP"; [ "$MADE" = 1 ] && drop_schema; }
+trap cleanup EXIT
+```
+
+**Arm it before the thing it cleans up exists**, guarded by a flag. Registering the
+trap *after* the resource is created leaves a window in which `set -euo pipefail` can
+exit with no handler installed — and that window is exactly where a failure lands.
+
+The two halves interact, which is how this survives review: adding `ON_ERROR_STOP` to
+a psql call can turn a previously exit-0 setup step into an abort *inside* that
+window, reopening a leak the early trap was added to close. Both changes individually
+right; neither measured against the other. Caught 2026-09-01 in link#262.
+
+### An ordered dispatch makes severity ordering load-bearing, and nothing enforces it
+
+A `CASE`, an `if/elif` chain, or any first-match dispatch that reports a *verdict*
+carries an unwritten invariant: every serious arm precedes every advisory one. Adding
+an arm is the natural edit; ranking it correctly is a judgement — so the invariant
+breaks quietly, and the symptom is a real failure that is never printed.
+
+It recurs one axis over, which is the tell that the class is wrong rather than the
+instance. Measured across three rounds on one file (link#262):
+
+| round | edit | result |
+|---|---|---|
+| 1 | added a NOTE arm under a FAIL | shadowed the FAIL two lines below it |
+| 2 | partitioned FAILs above NOTEs, wrote the invariant in a comment | correct, briefly |
+| 3 | added a *conditionally* sanctioned state into a FAIL slot | shadowed the same arm again |
+
+The invariant was never "FAILs before NOTEs" but "every arm above the line is
+**unconditionally** a failure" — which no comment reliably enforces.
+
+**Accumulate instead of dispatching.** Report every condition that holds:
+
+```sql
+coalesce(nullif(concat_ws('; ',
+  CASE WHEN <a> THEN 'FAIL: …' END,
+  CASE WHEN <b> THEN 'FAIL: …' END,
+  CASE WHEN <c> THEN 'NOTE: …' END), ''), 'OK')
+```
+
+`concat_ws` skips NULLs, so arm order changes only the order of the joined tokens.
+
+Two checks worth making once you have one:
+
+- **Enumerate how the accumulator itself could drop an arm** — a false condition, a
+  NULL-valued condition, an empty-string arm, a NULL separator, a nested `CASE` with
+  no `ELSE`. That set is small and finite, which is what makes "this class is closed"
+  a measurement rather than a claim.
+- **No arm labelled FAIL may exit 0.** Sweep every single-fault state and check the
+  label against the exit status; a reported-but-unenforced FAIL trains people to
+  ignore the word. Where a condition is deliberately advisory, label it NOTE.
 
 
 # NGE Feature Workflow
