@@ -79,15 +79,20 @@ and corrected geometry appear together and cannot be told apart.
 
 ## Phase 4: Publish
 
-- [ ] Run `05` **only** — never `run_pipeline.sh`
-- [ ] Structural diff vs live: only `file:*` on assets + the added `stac_extensions` entry
-- [ ] Assert no asset file changed (md5 vs Phase 0)
-- [ ] `item_validate.py`, then `catalogue_release.sh`
-- [ ] Verify live, and **download an asset from S3 and confirm its sha256 matches the published
-      multihash** — end-to-end proof a consumer can actually verify
+- [x] Ran `05` only — `run_pipeline.sh` deliberately never invoked.
+- [x] Structural diff vs live across all 21 documents: **purely additive** — only `file:checksum`
+      and `file:size` on assets plus the `stac_extensions` entry. Nothing removed, no value changed.
+- [x] All **120 asset files md5-identical** to the Phase 0 baseline — a JSON-only republish.
+- [x] `catalogue_release.sh` — 2m20s. The **new checksum probe fired on its first real run** and
+      verified `bowr_ch_ff04` against S3.
+- [x] Live: 20 items x 6 assets = **120/120** carry a well-formed lowercase multihash + size; both
+      extensions declared.
+- [x] **End-to-end consumer proof**: fetched `kisp_ch_ff04` from the API, downloaded
+      `floodplain.gpkg` from S3 with no local state, recomputed sha256 — matches the published
+      multihash exactly, size 3,678,208 both sides.
 
 ## Validation
 
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] `/code-check` clean (4 silent-success holes found and fixed)
+- [x] PWF checkboxes match landed work
+- [x] `/planning-archive` on completion
