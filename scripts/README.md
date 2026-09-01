@@ -18,10 +18,11 @@ the catalog host, so it can be cut from a machine that does not hold the source 
 
 | Step | Script | What |
 |----|----|----|
-| Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and both `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`; derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
+| Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`, extract the transition layer to `transition_vector.gpkg` (layer `transition`); derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
 | COG | `02_cog.R` | Convert the staged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` |
 | Tag | `03_cog_tag.py` | Embed GDAL metadata tags from `meta.json` (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, per-asset year) |
 | STAC | `05_stac_register.py` | Build the collection + one `<item_id>.json` per target into `data/stac/`; asset hrefs under `<item_id>/`. Also hashes every asset into `file:checksum` + `file:size`. Build only — the name is a misnomer kept until the rename lands with the Version Extension work |
+| Extract | `fp_gpkg.R` | Sourced by `01_stage.R`: pins `OGR_CURRENT_DATE` and writes single-layer GeoPackages into a fresh file (the only case the pin makes byte-reproducible) |
 | Validate | `item_validate.py` | pystac-validate every document **on disk**, so what is checked is what ships. Requires exactly the staged item count, so a wrong `--base` fails instead of reporting `valid: 0` and exiting 0. Also re-hashes every asset and asserts the published `file:checksum`/`file:size` match the bytes |
 
 ### The step order is load-bearing for checksums
@@ -31,8 +32,13 @@ them. Hashing is correct only because it runs last. **Anything that touches an a
 publishes a checksum that silently does not match the object** — so a new in-place step belongs
 before `05`, not after.
 
-The GeoPackages are `file.copy()`d from upstream and never rewritten here, so their bytes — and
-therefore their checksums — are exactly upstream's.
+Two of the three GeoPackages are `file.copy()`d from upstream and never rewritten here, so their
+bytes — and therefore their checksums — are exactly upstream's. **`transition_vector.gpkg` is
+written here** (#23), which is why `01_stage.R` pins `OGR_CURRENT_DATE` via `fp_gpkg.R`: GDAL
+otherwise stamps wall-clock time into `gpkg_contents.last_change`, and that one asset's checksum
+would churn on every rebuild while every other asset's stayed stable — reading as "checksums are
+unreliable" when the cause is a single unpinned writer. `gpkg_determinism-check.R` proves the pin
+holds, and its `NO_PIN=1` cold path proves the check can fail.
 
 `file:checksum` is a multihash (`1220` + sha256), not a bare digest. The STAC schema only checks the
 string is hex, so it accepts a bare digest and cannot catch a checksum of the wrong bytes; both are
@@ -91,8 +97,10 @@ makes network writes — and it leaves a `PARTIAL_STAGE` marker that `catalogue_
 to publish past, so its one-group tree cannot be released by mistake either. It builds and
 validates every item that group stages (a group may declare more than one
 `(species, scenario)` target). It also asserts the attribute contract:
-each `floodplain_landcover.gpkg` layer carries `wsg`/`species`/`scenario`, with `wsg` matching
-the item. Use it after any change to the scripts, the floodplains data layout, or the STAC
+every layer of all three published GeoPackages carries a `wsg` column matching the item. Only
+`wsg` is asserted, not `species`/`scenario` — the whole-WSG bundles are copied into each item dir,
+so a multi-target group ships the other species' layers too and `wsg` is the one key invariant
+under that copy. Use it after any change to the scripts, the floodplains data layout, or the STAC
 schema, before a real full publish.
 
 ```
@@ -101,11 +109,28 @@ WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
 WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
 ```
 
+## Determinism check
+
+`gpkg_determinism-check.R` proves the GeoPackage timestamp pin is doing its job — extract the same
+layer twice and assert byte-identical output.
+
+```
+Rscript scripts/gpkg_determinism-check.R              # warm path: rebuilds must MATCH
+NO_PIN=1 Rscript scripts/gpkg_determinism-check.R     # cold path: rebuilds must DIFFER
+ITEM=bulk_co_ff04 Rscript scripts/gpkg_determinism-check.R
+```
+
+The cold path is the point. A guard nobody has seen fail is decoration, so `NO_PIN=1` asserts the
+rebuilds **differ** and errors if they match — if it passes, the warm run was measuring nothing.
+Measured on `sloc_bt_ff04`: unpinned `5429357d…` vs `c2bfa94b…`; pinned, both `ea0ac66f…`.
+
 ## Environment flags
 
 | Flag | Effect | Risk |
 |----|----|----|
 | `WSG_ONLY=<wsg>` | Restricts `01_stage.R` to one group and drops a `PARTIAL_STAGE` marker. Used by the smoke test; `run_pipeline.sh` refuses to start if it is set | safe |
+| `NO_PIN=1` | Disables the GeoPackage timestamp pin in `gpkg_determinism-check.R` only — the cold path that proves the check can fail | safe (check only) |
+| `ITEM=<item_id>` | Which staged item `gpkg_determinism-check.R` exercises (default `sloc_bt_ff04`, the smallest) | safe |
 | `GEOSERV_HOST` | Overrides the catalog host (default `root@geopro`, the tailnet node name) | safe |
 | `ALLOW_SKIPPED=1` | Suppresses the `PARTIAL_STAGE` marker when a rostered group was skipped (not modelled yet) | **disables an interlock** |
 

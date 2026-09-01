@@ -6,8 +6,9 @@ for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
   - geometry  = the item's headline-scenario floodplain footprint (from meta.json)
   - datetime  = 2017 -> 2023 land-cover-change span
   - assets    = classified_2017/2020/2023 + transition_2017_2023 COGs, the
-                floodplain_landcover.gpkg vector, and the floodplain.gpkg
-                delineations (ff02/ff04/ff06 extents)
+                floodplain_landcover.gpkg vector, the floodplain.gpkg
+                delineations (ff02/ff04/ff06 extents), and transition_vector.gpkg
+                (the transition layer alone, without the classified epochs)
   - labelled properties: wsg, species, region, floodplain_ff02/04/06_km2, and the
     tree loss/gain/net figures staged from the transition layer.
 
@@ -153,6 +154,21 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )
+    # The transition layer alone, without the three dissolved classified epochs that carry
+    # most of the bundle's geometry (#23).
+    #
+    # Key is `transition_vector`, NOT the filename stem: `transition_2017_2023` is already
+    # the transition COG's key above, so keying by stem would overwrite it — the item would
+    # still show the right asset count, the raster would silently vanish, and the
+    # uniform-key-set check in item_validate.py would pass because every item lost the same
+    # key. Deliberately year-free besides, so a QGIS style survives a change of span.
+    assets["transition_vector"] = pystac.Asset(
+        href=s3_href(f"{meta['item_id']}/transition_vector.gpkg"),
+        media_type=GPKG_MEDIA_TYPE,
+        title="Land-cover transition patches (GeoPackage)",
+        roles=["data"],
+        extra_fields=file_meta(wsg_dir / "transition_vector.gpkg"),
+    )
 
     properties = {
         "title": f"{meta['wsg']} {meta['scenario']} floodplain land-cover change "
@@ -220,7 +236,7 @@ for _mp in meta_paths:
     for _name in (
         [f"classified_{yr}.tif" for yr in _meta["years"]]
         + [f"transition_{_span[0]}_{_span[1]}.tif",
-           "floodplain_landcover.gpkg", "floodplain.gpkg"]
+           "floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg"]
     ):
         try:
             with (_dir / _name).open("rb") as _fh:
@@ -243,6 +259,7 @@ for meta_path in meta_paths:
         + [wsg_dir / f"transition_{span[0]}_{span[1]}.tif"]
         + [wsg_dir / "floodplain_landcover.gpkg"]
         + [wsg_dir / "floodplain.gpkg"]
+        + [wsg_dir / "transition_vector.gpkg"]
     )
     missing = [p.name for p in expected if not p.exists()]
     if missing:
@@ -276,8 +293,9 @@ collection = pystac.Collection(
         "Floodplain land-cover classification and 2017-2023 transition for British "
         "Columbia watershed groups. One or more items per watershed group (one per "
         "modelled species/scenario): three classified years, a transition raster, a "
-        "land-cover GeoPackage, and a floodplain delineation GeoPackage (ff02/ff04/ff06 "
-        "extents). Floodplain area per flood-factor and tree loss/gain/net properties "
+        "land-cover GeoPackage, a floodplain delineation GeoPackage (ff02/ff04/ff06 "
+        "extents), and the transition layer on its own for consumers that do not need "
+        "the classified epochs. Floodplain area per flood-factor and tree loss/gain/net properties "
         "are aggregated from the layers produced by the `floodplains` driver."
     ),
     extent=pystac.Extent(spatial=spatial_extent, temporal=temporal_extent),

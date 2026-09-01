@@ -56,7 +56,7 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 
 | Step | Script | What |
 |----|----|----|
-| Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`; compute per-flood-factor floodplain areas |
+| Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`, extract the transition layer to `transition_vector.gpkg`, and compute per-flood-factor floodplain areas |
 | COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<item_id>/` |
 | Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF02_KM2`, `FLOODPLAIN_FF04_KM2`, `FLOODPLAIN_FF06_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
 | STAC | `05_stac_register.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
@@ -118,8 +118,17 @@ floodplain footprint; datetime range 2017 → 2023. Assets live under the item-k
     transition patches)
   - `floodplain` → `floodplain.gpkg` (delineated floodplain extents at three flood factors:
     `<sp>_ff02`, `<sp>_ff04`, `<sp>_ff06`)
+  - `transition_vector` → `transition_vector.gpkg` (the transition patches **alone**, without the
+    three dissolved classified epochs that carry most of the bundle's geometry — 70 MB across the
+    catalogue against 515 MB of bundles). Take this when you want the change layer and not the
+    epochs; it is what makes the data fit a Mergin project.
 
-  Every layer of **both** GeoPackages carries `wsg`, `species`, and `scenario` columns, so several
+    The file and its single layer are both named without a year span, deliberately. The span moves
+    as the model is re-run, and QGIS styles bind to `path|layername=` — so a style pointing at
+    `transition_vector.gpkg|layername=transition` keeps working across re-models. The span stays
+    readable from the item's `start_datetime`/`end_datetime`.
+
+  Every layer of **all three** GeoPackages carries `wsg`, `species`, and `scenario` columns, so several
   items can be merged into one GeoPackage and kept separable **by attribute** — filter, categorize,
   or replace a single area (`DELETE WHERE wsg = …`) without per-area layer names.
 - **Asset integrity** — every asset carries `file:checksum` and `file:size`
