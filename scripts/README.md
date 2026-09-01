@@ -19,8 +19,8 @@ the catalog host, so it can be cut from a machine that does not hold the source 
 | Step | Script | What |
 |----|----|----|
 | Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`, extract the transition layer to `transition_vector.gpkg` (layer `transition`); derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
-| COG | `02_cog.R` | Convert the staged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` |
-| Tag | `03_cog_tag.py` | Embed GDAL metadata tags from `meta.json` (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, per-asset year) |
+| Tag | `02_raster_tag.py` | Embed GDAL metadata tags from `meta.json` onto the **staged** rasters (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, run provenance, per-asset year). Before the COG conversion, not after — tagging a finished COG in place moves its main IFD to the end of the file (#33) |
+| COG | `03_cog.R` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/`. terra carries the tags, colour table and band description through, and this is the last step to touch a published byte |
 | STAC | `05_stac_register.py` | Build the collection + one `<item_id>.json` per target into `data/stac/`; asset hrefs under `<item_id>/`. Also hashes every asset into `file:checksum` + `file:size`. Build only — the name is a misnomer kept until the rename lands with the Version Extension work |
 | Extract | `fp_gpkg.R` | Sourced by `01_stage.R`: pins `OGR_CURRENT_DATE` and writes single-layer GeoPackages into a fresh file (the only case the pin makes byte-reproducible) |
 | Validate | `item_validate.py` | pystac-validate every document **on disk**, so what is checked is what ships. Requires exactly the staged item count, so a wrong `--base` fails instead of reporting `valid: 0` and exiting 0. Also re-hashes every asset and asserts the published `file:checksum`/`file:size` match the bytes |
@@ -91,7 +91,7 @@ are computed in R (step 01) because the publish Python env carries no vector rea
 
 ## Smoke test
 
-`test_pipeline.R` runs one watershed group end-to-end (`stage → COG → tag → build → validate`),
+`test_pipeline.R` runs one watershed group end-to-end (`stage → tag → COG → build → validate`),
 through the **same** `item_validate.py` gate a release uses. It cannot touch S3 — nothing it calls
 makes network writes — and it leaves a `PARTIAL_STAGE` marker that `catalogue_release.sh` refuses
 to publish past, so its one-group tree cannot be released by mistake either. It builds and

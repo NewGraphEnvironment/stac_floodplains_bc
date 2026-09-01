@@ -1,6 +1,7 @@
-# test_pipeline.R — single-WSG smoke test of stage -> COG -> tag -> build -> validate.
+# test_pipeline.R — single-WSG smoke test of stage -> tag -> COG -> build -> validate.
 #
-# Runs ONE watershed group end-to-end: stages it, builds COGs, tags them, builds the
+# Runs ONE watershed group end-to-end: stages it, tags the staged rasters, builds COGs,
+# builds the
 # STAC JSON and validates it through the same gate a release uses. Use after changes
 # to the scripts, the floodplains data layout, or the STAC schema.
 #
@@ -31,14 +32,16 @@ Sys.setenv(WSG_ONLY = wsg)
 source("scripts/01_stage.R")
 Sys.unsetenv("WSG_ONLY")
 
-# --- 02 COG ---------------------------------------------------------------
-source("scripts/02_cog.R")
-
-# --- 03 TAG ---------------------------------------------------------------
-message("\n=== 03: TAG ===")
-if (system("uv run python scripts/03_cog_tag.py") != 0) {
-  stop("03_cog_tag.py failed")
+# --- 02 TAG ---------------------------------------------------------------
+# Before the COG conversion, not after (#33): tagging a finished COG in place moves
+# its main IFD to the end of the file.
+message("\n=== 02: TAG ===")
+if (system("uv run python scripts/02_raster_tag.py") != 0) {
+  stop("02_raster_tag.py failed")
 }
+
+# --- 03 COG ---------------------------------------------------------------
+source("scripts/03_cog.R")
 
 # --- 05 BUILD -------------------------------------------------------------
 message("\n=== 05: BUILD STAC JSON ===")
@@ -243,7 +246,7 @@ for (meta in items) {
           " / ff06 ", meta$floodplain_ff06_km2, " km2 | loss/gain/net ",
           meta$gross_loss_ha, " / ", meta$gross_gain_ha, " / ", meta$net_ha, " ha")
 }
-message("\nPASS — ", toupper(wsg), " round-trips stage -> COG -> tag -> STAC locally.")
+message("\nPASS — ", toupper(wsg), " round-trips stage -> tag -> COG -> STAC locally.")
 message("This tree is a PARTIAL stage and cannot be published. For a real publish:")
 message("  bash scripts/run_pipeline.sh        # rebuild all rostered groups (no network writes)")
 message("  bash scripts/catalogue_release.sh   # validate -> sync -> register -> verify")

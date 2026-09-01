@@ -78,9 +78,11 @@ def file_meta(path: Path) -> dict:
     reason. So assert the shape ourselves rather than trusting validation.
 
     Safe to hash at build time ONLY because every asset is byte-final by now:
-    02 writes the COGs, 03 rewrites their tags in place ("r+"), and 05 runs after
-    both. Any future step that touches an asset after this point would publish a
-    checksum that silently does not match the object.
+    02 tags the STAGED rasters, 03 writes the COGs from them, and 05 runs after both.
+    The COG write is the last step to touch a published byte, which is what #33
+    changed — tagging used to run last, in place, and that moved the main IFD to the
+    end of the file. Any future step that touches an asset after this point would
+    publish a checksum that silently does not match the object.
     """
     h = hashlib.sha256()
     with path.open("rb") as fh:

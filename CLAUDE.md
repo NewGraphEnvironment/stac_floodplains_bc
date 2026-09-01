@@ -15,7 +15,7 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Layout
 
-- **Rebuild** — `scripts/01_stage.R`, `02_cog.R`, `03_cog_tag.py`, `05_stac_register.py`,
+- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.R`, `05_stac_register.py`,
   `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
   separate command, so a rebuild or smoke test cannot reach S3 or the live catalog. Source data
   comes from `$FLOODPLAINS_DATA` (default `../floodplains/data`).

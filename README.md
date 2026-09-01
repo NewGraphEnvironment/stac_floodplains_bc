@@ -57,8 +57,8 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 | Step | Script | What |
 |----|----|----|
 | Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`, extract the transition layer to `transition_vector.gpkg`, and compute per-flood-factor floodplain areas |
-| COG | `02_cog.R` | Convert rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<item_id>/` |
-| Tag | `03_cog_tag.py` | Embed GDAL metadata tags: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF02_KM2`, `FLOODPLAIN_FF04_KM2`, `FLOODPLAIN_FF06_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, per-asset `YEAR` |
+| Tag | `02_raster_tag.py` | Embed GDAL metadata tags onto the **staged** rasters: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF0*_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, `NGE_*` run provenance, per-asset `YEAR`. Before the COG conversion, not after (#33) |
+| COG | `03_cog.R` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<item_id>/` |
 | STAC | `05_stac_register.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
 | Validate | `item_validate.py` | pystac-validate every document on disk; nonzero exit on any failure |
 

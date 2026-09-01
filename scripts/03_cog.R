@@ -1,6 +1,11 @@
-# 02_cog.R — convert the staged rasters to Cloud-Optimized GeoTIFFs.
+# 03_cog.R — convert the staged rasters to Cloud-Optimized GeoTIFFs.
 #
 # Reads data/raw/<wsg>/*.tif and writes data/stac/<wsg>/*.tif as COGs.
+#
+# Runs AFTER 02_raster_tag.py, and that order is load-bearing (#33): this is the last
+# step to touch the published bytes, so the COG layout it writes is the layout that
+# ships. terra carries the GDAL tags, the colour table and the band description
+# through unchanged — measured — so nothing is lost by tagging first.
 # Classified + transition rasters are categorical, so overviews resample NEAREST
 # to avoid inventing class values. Compression is DEFLATE (lossless).
 
