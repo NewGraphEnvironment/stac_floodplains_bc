@@ -1,4 +1,4 @@
-# test_pipeline.R — single-WSG smoke test of stage -> COG -> tag -> build -> validate.
+# test_pipeline.R — single-WSG smoke test of stage -> tag -> COG -> build -> validate.
 #
 # Runs ONE watershed group end-to-end: stages it, builds COGs, tags them, builds the
 # STAC JSON and validates it through the same gate a release uses. Use after changes
@@ -245,7 +245,7 @@ for (meta in items) {
           " / ff06 ", meta$floodplain_ff06_km2, " km2 | loss/gain/net ",
           meta$gross_loss_ha, " / ", meta$gross_gain_ha, " / ", meta$net_ha, " ha")
 }
-message("\nPASS — ", toupper(wsg), " round-trips stage -> COG -> tag -> STAC locally.")
+message("\nPASS — ", toupper(wsg), " round-trips stage -> tag -> COG -> STAC locally.")
 message("This tree is a PARTIAL stage and cannot be published. For a real publish:")
 message("  bash scripts/run_pipeline.sh        # rebuild all rostered groups (no network writes)")
 message("  bash scripts/catalogue_release.sh   # validate -> sync -> register -> verify")

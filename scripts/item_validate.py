@@ -90,7 +90,7 @@ def check_provenance(base: Path) -> list[str]:
 def check_cog_tags(base: Path) -> list[str]:
     """Verify each COG's NGE_ tags agree with its item's non-null `nge:` properties.
 
-    03_cog_tag.py keeps its own copy of the field list, and nothing else in the repo reads
+    02_raster_tag.py keeps its own copy of the field list, and nothing else in the repo reads
     a COG — so before this check, adding a twelfth field and forgetting that copy would
     ship silently incomplete COGs. Every other copy of the list is tied to another
     (fp_provenance.R stopifnot, 05/item_validate set equality); this was the one with no

@@ -1,5 +1,5 @@
 #!/bin/bash
-# run_pipeline.sh — REBUILD the catalogue locally: stage -> COG -> tag -> build -> validate.
+# run_pipeline.sh — REBUILD the catalogue locally: stage -> tag -> COG -> build -> validate.
 #
 # Makes NO network writes. Nothing here can touch S3 or the live catalog, which is
 # an architectural property now rather than something an env var has to protect.

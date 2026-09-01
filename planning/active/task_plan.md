@@ -47,10 +47,12 @@ Blocks #34 and #35, which both write through the same tag step.
 
 ## Phase 3: Docs and comments that encode the old order
 
-- [ ] `scripts/README.md` step table
-- [ ] `CLAUDE.md` rebuild line
-- [ ] `05_stac_register.py` byte-finality comment
-- [ ] Sweep for other references to the old names or order
+- [x] `scripts/README.md` step table
+- [x] `CLAUDE.md` rebuild line
+- [x] `05_stac_register.py` byte-finality comment — the COG write is now the last step
+- [x] Sweep for other references: `README.md` (a duplicate Tag row the first edit created),
+      `run_pipeline.sh` + `test_pipeline.R` headers and the PASS line, `item_validate.py`
+      docstring. Everything left is in `planning/archive/`, which is history.
 
 ## Phase 4: End to end on BULK
 
