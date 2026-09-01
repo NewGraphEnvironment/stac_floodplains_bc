@@ -26,12 +26,14 @@ Blocks #34 and #35, which both write through the same tag step.
 
 ## Phase 1: The guard first, red against the current tree
 
-- [ ] Add `rio-cogeo` to `pyproject.toml`; confirm it resolves over the existing rasterio
-      rather than pulling its own GDAL
-- [ ] `scripts/item_validate.py` — `check_cog_layout()` asserting `cog_validate()` passes,
+- [x] Add `rio-cogeo` to `pyproject.toml`; confirm it resolves over the existing rasterio
+      rather than pulling its own GDAL — it does (deps are click/morecantile/pydantic/rasterio)
+- [x] Bump `requires-python` to `>=3.11`; rio-cogeo 7 needs it and the `>=3.10` floor was
+      aspirational — the venv is 3.12.13
+- [x] `scripts/item_validate.py` — `check_cog_layout()` asserting `cog_validate()` passes,
       wired into `main()` beside `check_cog_tags()`
-- [ ] Confirm it **fails on the current tree**, naming the IFD offset
-- [ ] Non-vacuity: count comparisons and fail on zero, matching the sibling checks
+- [x] Confirm it **fails on the current tree**, naming the IFD offset — all 4 COGs red
+- [x] Non-vacuity: count comparisons and fail on zero, matching the sibling checks
 
 ## Phase 2: Reorder
 

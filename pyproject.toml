@@ -2,11 +2,18 @@
 name = "stac-floodplains-bc"
 version = "0.1.0"
 description = "Publish layer for the stac-floodplains-bc STAC collection (COG + STAC register steps)."
-requires-python = ">=3.10"
+# 3.11, not 3.10: rio-cogeo 7 requires it, and the floor was aspirational rather
+# than exercised — the venv on this machine is 3.12.13 and the committed bytecode
+# is cpython-312/314. Nothing has run this on 3.10.
+requires-python = ">=3.11"
 dependencies = [
     "pystac>=1.12.0",
     "rio-stac>=0.11.0",
     "rasterio>=1.4.0",
+    # Layout validation only (item_validate.py). Rides the existing rasterio/GDAL —
+    # its own deps are click/morecantile/pydantic/rasterio, no second GDAL wheel, so
+    # this does not reopen the conda->uv blocker this repo cleared.
+    "rio-cogeo>=7.0.0",
     "shapely",
     "pyarrow",
     "tqdm",

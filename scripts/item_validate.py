@@ -31,6 +31,7 @@ from urllib.parse import urlparse
 
 import pystac
 import rasterio
+from rio_cogeo.cogeo import cog_validate
 
 
 MULTIHASH_SHA256 = "1220"
@@ -149,6 +150,47 @@ def check_cog_tags(base: Path) -> list[str]:
         problems.append(
             f"no COG assets compared under {base} — the NGE_ tag contract was not "
             f"actually checked against anything")
+    return problems
+
+
+def check_cog_layout(base: Path) -> list[str]:
+    """Verify every published COG actually has cloud-optimized layout.
+
+    A COG's whole advantage is that a client reads a small header, then fetches only the
+    tiles it needs. That depends on the main IFD sitting at the FRONT of the file — and
+    an in-place metadata write moves it to the end, silently. Nothing else in this repo
+    looks at layout: the bytes are a valid GeoTIFF, every `file:checksum` verifies against
+    them, and the file opens correctly in QGIS. Only the range-request property is gone.
+
+    Measured before this guard existed: the main IFD sat at byte 595,868 of a 602,582-byte
+    classified COG and 1,330,104 of a 1,335,328-byte transition COG — 98.9% and 99.6% of
+    each file had to be fetched to read a header.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc["id"]
+        for asset in doc.get("assets", {}).values():
+            if asset.get("type") != pystac.MediaType.COG:
+                continue
+            local = base / item_id / PurePosixPath(urlparse(asset["href"]).path).parts[-1]
+            if not local.is_file():
+                continue  # missing assets are already reported by check_checksums
+            checked += 1
+            valid, errors, _warnings = cog_validate(local)
+            if not valid:
+                problems.append(
+                    f"{item_id}/{local.name}: not a valid COG — "
+                    f"{'; '.join(errors or ['no detail'])}")
+    # Zero comparisons is not a pass, same reasoning as the sibling checks: a loop over
+    # nothing returns clean, which reads identically to every COG having checked out.
+    if checked == 0:
+        problems.append(
+            f"no COG assets found under {base} — the layout contract was not actually "
+            f"checked against anything")
     return problems
 
 
@@ -326,6 +368,15 @@ def main() -> int:
         return 1
     print(f"provenance: {len(REQUIRED_NGE_PROPERTIES)} nge: properties on every item, "
           f"COG tags agree")
+
+    # --- COG layout: is the range-request property the format promises actually there? ---
+    bad_layout = check_cog_layout(args.base)
+    if bad_layout:
+        print(f"FAILED: {len(bad_layout)} COG layout problem(s)", file=sys.stderr)
+        for msg in bad_layout:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print("cog layout: valid on every COG")
 
     return 0
 
