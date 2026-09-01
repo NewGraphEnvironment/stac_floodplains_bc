@@ -8,3 +8,8 @@
 - Created branch `33-published-cogs-are-not-valid-cogs-in-pla` off main
 - Scaffolded PWF baseline with approved phases
 - Next: Phase 1
+- Phase 1 guard landed red on the current tree (all 4 COGs), Phase 2 turned it green
+- Phases 3-4: docs swept, verified on ufra / bulk / morr, checksums stable across runs
+- Phase 5: folded in a concurrent plan review — widened the tag guard past NGE_, and fixed
+  two bugs in that widening
+- Archived; PR opened
