@@ -1,0 +1,180 @@
+# fp_provenance.R — read the producer's run-provenance record (#17).
+#
+# The ONLY place in this repo that knows the shape of `floodplains`' provenance.json
+# (NewGraphEnvironment/floodplains#33). Everything downstream — meta.json's field names,
+# the `nge:` STAC properties, the NGE_ GDAL tags, the validators — uses this repo's own
+# names, so an upstream rename lands here and nowhere else.
+#
+# Sourced by 01_stage.R alongside fp_gpkg.R, and by fp_provenance-check.R, so the check
+# exercises this reader rather than a copy of it.
+#
+# Upstream shape (floodplains/scripts/floodplain_lcc/fp_provenance.R):
+#
+#   { "area", "wsg", "schema_version",
+#     "network":    { "<sp><order>": { inputs, link_log, link_log_note, run } },
+#     "floodplain": { "<scenario>":  { inputs, run } },
+#     "landcover":  { "<scenario>":  { inputs, run } } }
+#
+# The three sections are written independently by three steps that may run separately
+# (`run_area.R morr 3` is normal upstream), so any of them can legitimately be absent.
+
+FP_PROV_SCHEMA_VERSION <- 1L
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# The eleven published fields, and where each one lives upstream. `section` selects which
+# of the three blocks to look in; `path` is the key path within it.
+#
+# `link_version` comes from inputs$link$version (fp_pkg_stamp's shape), NOT from
+# link_log — the log records the run, the stamp records the code that ran.
+#
+# `produced_datetime` is the LANDCOVER step's run timestamp. Steps run independently and
+# each stamps its own, so there is no single "the run"; landcover is step 3, the last one
+# to touch the transition layer the published figures are aggregated from, so its
+# timestamp is the one that describes what was published.
+#
+# `landcover_key` is inputs$item_hash — a hash over the RESOLVED STAC item ids. Not
+# drift's stac_cache_key(), which fingerprints the request and nothing about the items
+# returned, so an upstream reprocess would leave it unchanged (floodplains#33 measured
+# this; it is the exact failure #17 exists to catch).
+FP_PROV_MAP <- list(
+  link_run_uid         = list(section = "network",    path = c("link_log", "run_uid")),
+  link_config_sha256   = list(section = "network",    path = c("link_log", "config_hash")),
+  link_sha             = list(section = "network",    path = c("link_log", "link_sha")),
+  link_version         = list(section = "network",    path = c("inputs", "link", "version")),
+  flooded_version      = list(section = "floodplain", path = c("inputs", "flooded", "version")),
+  drift_version        = list(section = "landcover",  path = c("inputs", "drift", "version")),
+  produced_datetime    = list(section = "landcover",  path = c("run", "datetime_utc")),
+  landcover_source     = list(section = "landcover",  path = c("inputs", "source")),
+  landcover_collection = list(section = "landcover",  path = c("inputs", "collection")),
+  landcover_stac_url   = list(section = "landcover",  path = c("inputs", "stac_url")),
+  landcover_key        = list(section = "landcover",  path = c("inputs", "item_hash"))
+)
+
+# Sanity: the map must cover exactly the fields 01_stage.R publishes. Cheap, and it is
+# what stops the two lists drifting apart silently.
+stopifnot("FP_PROV_MAP does not match PROV_FIELDS" =
+            setequal(names(FP_PROV_MAP), PROV_FIELDS))
+
+
+# --- Read ------------------------------------------------------------------------------
+# Returns NULL when the area has no provenance. That is the NORMAL state, not an error:
+# floodplains#33 is forward-only, so every area modelled before it lands has none until
+# it is re-run.
+#
+# Guards on non-empty rather than existence, mirroring the producer's own reader: a
+# crashed writer can leave a zero-byte file, and an existence check would bless it.
+fp_prov_read <- function(src_wsg) {
+  path <- file.path(src_wsg, "provenance.json")
+  if (!file.exists(path) || file.size(path) == 0) return(NULL)
+
+  got <- tryCatch(
+    jsonlite::read_json(path, simplifyVector = FALSE),
+    error = function(e) stop("provenance.json at ", path, " is unreadable (",
+                             conditionMessage(e), "). Refusing to publish an item whose ",
+                             "provenance silently degraded to null.", call. = FALSE))
+
+  # Pin the schema. Without this, every future upstream rename degrades to a published
+  # null — which is indistinguishable from "upstream genuinely had no value", the one
+  # failure this whole feature exists to make visible. One line converts that silence
+  # into a refusal.
+  ver <- got$schema_version
+  if (!identical(as.integer(ver %||% NA_integer_), FP_PROV_SCHEMA_VERSION)) {
+    stop("provenance.json at ", path, " declares schema_version ",
+         if (is.null(ver)) "<absent>" else ver,
+         " but this reader implements ", FP_PROV_SCHEMA_VERSION,
+         ". Update scripts/fp_provenance.R rather than publishing nulls.", call. = FALSE)
+  }
+  got
+}
+
+
+# --- Select the sections for one published target ---------------------------------------
+# This repo publishes one item per (wsg, species, scenario); upstream writes one file per
+# WSG. MORR's two targets share a file, so the sections must be SELECTED, never assumed.
+#
+# The network section is matched on its own recorded `inputs$species`, not by rebuilding
+# its key from `paste0(species, min_order)`. Two reasons, and the second is why it
+# matters: the producer already states the join, so re-deriving it duplicates a fact; and
+# every config/<wsg>/area.yml on disk today has min_order 3, so a derivation and a
+# hardcoded "3" are indistinguishable — a test of it could not fail.
+fp_prov_sections <- function(prov, species, scenario) {
+  if (is.null(prov)) return(list(network = NULL, floodplain = NULL, landcover = NULL))
+
+  net <- Filter(function(s) identical(as.character(s$inputs$species %||% ""), species),
+                prov$network %||% list())
+  if (length(net) > 1L) {
+    stop("provenance.json has ", length(net), " network sections for species '", species,
+         "' (", paste(names(net), collapse = ", "), "). Cannot choose; refusing to guess.",
+         call. = FALSE)
+  }
+  list(
+    network    = if (length(net)) net[[1]] else NULL,
+    # floodplain/landcover are keyed by scenario_id directly, which is this repo's own
+    # `scenario` (e.g. ch_ff04) — the same string both sides already agree on.
+    floodplain = (prov$floodplain %||% list())[[scenario]],
+    landcover  = (prov$landcover %||% list())[[scenario]]
+  )
+}
+
+
+# --- Pull one leaf ----------------------------------------------------------------------
+# Three states, deliberately not two:
+#
+#   section absent                     -> NA. A legitimate absence; publish the null.
+#   section present, leaf present      -> the value (or NA if it is JSON null).
+#   section present, leaf ABSENT       -> stop().
+#
+# The third is the load-bearing one. A present section whose shape we do not recognise is
+# a schema break, and letting it degrade to NA would publish a null that reads exactly
+# like "upstream had no value" — so an upstream rename would be invisible for as long as
+# nobody happened to compare a published property against the producer's own file.
+#
+# `link_log` is the documented exception: the producer sets it NULL when there is no log
+# row for the area or the log is unreadable, recording why in `link_log_note`. That is a
+# modelled absence, not a schema break.
+fp_prov_leaf <- function(section, path, where) {
+  if (is.null(section)) return(NA)
+  cur <- section
+  for (i in seq_along(path)) {
+    key <- path[[i]]
+    if (i == 1L && identical(key, "link_log") && is.null(cur[["link_log"]])) {
+      # Modelled absence — the producer could not read link's log for this area.
+      return(NA)
+    }
+    if (!is.list(cur) || !(key %in% names(cur))) {
+      stop("provenance.json ", where, ": section is present but key '",
+           paste(path, collapse = "$"), "' is missing (stopped at '", key,
+           "'). This is a schema break, not an absence — publishing it as null would ",
+           "be indistinguishable from upstream having no value. Update ",
+           "scripts/fp_provenance.R.", call. = FALSE)
+    }
+    cur <- cur[[key]]
+  }
+  # A JSON null read back is NULL with its name retained, so it reaches here rather than
+  # tripping the check above.
+  if (is.null(cur)) return(NA)
+  if (length(cur) != 1L) {
+    stop("provenance.json ", where, ": key '", paste(path, collapse = "$"),
+         "' is length ", length(cur), "; a published STAC property must be scalar.",
+         call. = FALSE)
+  }
+  cur[[1]]
+}
+
+
+# --- The published block ----------------------------------------------------------------
+# Returns exactly PROV_FIELDS, in order, each a scalar or NA. Built with a plain list, not
+# `[[<-` or modifyList: both DROP a NULL member, which would turn an intended null into an
+# absent key — and absence is the one thing #17 forbids.
+fp_prov_item <- function(prov, species, scenario, where) {
+  sec <- fp_prov_sections(prov, species, scenario)
+  out <- lapply(PROV_FIELDS, function(f) {
+    spec <- FP_PROV_MAP[[f]]
+    v <- fp_prov_leaf(sec[[spec$section]], spec$path, paste0(where, " [", f, "]"))
+    # NA of any type serialises to JSON null once `na = "null"` is set; normalise so the
+    # emitted type cannot vary with which branch produced it.
+    if (length(v) == 1L && is.na(v)) NA else v
+  })
+  setNames(out, PROV_FIELDS)
+}

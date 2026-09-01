@@ -53,13 +53,16 @@ that lands last.
 
 ## Phase 4: The adapter (churn-exposed, lands last)
 
-- [ ] `scripts/01_stage.R` — read `$FLOODPLAINS_DATA/<wsg>/provenance.json` when present; absent
-      is normal and must not warn loudly
-- [ ] **Selection, not just mapping**: resolve `network[<species><min_order>]` /
-      `floodplain[<scenario_id>]` per item. MORR has two targets sharing one WSG file; a target
-      with no matching subsection publishes nulls, not another target's values
-- [ ] `nge:landcover_key` = hash over resolved STAC item ids, **not** `stac_cache_key()`
-- [ ] Never recompute `nge:link_config_sha256` — read link's stored `config_hash`
+- [x] `scripts/fp_provenance.R` — the only file that knows the producer's shape; sourced by
+      `01_stage.R` alongside `fp_gpkg.R`. Absent is normal and silent.
+- [x] **Selection, not just mapping**: the network section is matched on its own recorded
+      `inputs$species` rather than by rebuilding `paste0(species, min_order)` — the producer
+      already states the join, and every `area.yml` on disk has `min_order: 3`, so a derivation
+      and a hardcoded "3" would be indistinguishable
+- [x] Pin `schema_version`; hard-stop on a present section with a missing declared leaf, so an
+      upstream rename is a refusal rather than an invisible null
+- [x] `nge:landcover_key` = `inputs$item_hash`, a hash over resolved STAC item ids
+- [x] Never recompute `nge:link_config_sha256` — read link's stored `config_hash`
 
 ## Phase 5: Reconcile the issue
 
