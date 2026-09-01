@@ -27,12 +27,12 @@ that lands last.
 
 ## Phase 1: Property contract, published as nulls
 
-- [ ] Verify empirically that a JSON `null` survives `jsonlite::write_json` → `json.loads` →
+- [x] Verify empirically that a JSON `null` survives `jsonlite::write_json` → `json.loads` →
       `pystac.Item` → `to_dict()` → `validate()`. Record command + output in `findings.md`.
-- [ ] `scripts/01_stage.R` — add the `nge_*` key set to the `meta` list, NA-filled; add
+- [x] `scripts/01_stage.R` — add the `nge_*` key set to the `meta` list, NA-filled; add
       `na = "null"` to the `write_json()` call
-- [ ] `scripts/05_stac_register.py` — emit them as `nge:`-namespaced item properties
-- [ ] Register summary counts items with untraceable provenance
+- [x] `scripts/05_stac_register.py` — emit them as `nge:`-namespaced item properties
+- [x] Register summary counts items with untraceable provenance
 
 ## Phase 2: Guards that can see a uniform defect
 

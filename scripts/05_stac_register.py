@@ -51,6 +51,17 @@ FILE_EXT = "https://stac-extensions.github.io/file/v2.1.0/schema.json"
 # file:checksum is a multihash, NOT a bare digest — see file_meta().
 _MULTIHASH_SHA256 = "1220"
 
+# Run provenance (#17), ferried from the producer via meta.json. Declared in
+# 01_stage.R's PROV_FIELDS; these are the same names, published under the `nge:`
+# namespace established in stac_uav_bc#16. Keep the two lists in step — the
+# meta[f] lookup below raises rather than defaulting, so a drift fails loudly.
+PROV_FIELDS = [
+    "link_run_uid", "link_config_sha256", "link_sha", "link_version",
+    "flooded_version", "drift_version", "produced_datetime",
+    "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
+]
+NGE_PROV_PROPERTIES = [f"nge:{f}" for f in PROV_FIELDS]
+
 
 def s3_href(rel_path: str) -> str:
     return f"{S3_BASE}/{rel_path}"
@@ -196,6 +207,15 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         "proj:transform": transform,
     }
 
+    # Provenance (#17). `meta[f]` deliberately, not `meta.get(f)`: 01_stage.R writes every
+    # field on every item, so a missing key is a staging bug and must raise here rather
+    # than default to a null that is indistinguishable from a genuine absence.
+    #
+    # A null VALUE is expected and correct — floodplains#33 is forward-only, so an area
+    # modelled before it lands has no provenance to carry. Verified that pystac preserves
+    # null properties through to_dict(), a JSON round trip, from_dict() and validate().
+    properties.update({f"nge:{f}": meta[f] for f in PROV_FIELDS})
+
     item = pystac.Item(
         id=item_id,
         geometry=meta["geometry"],
@@ -270,6 +290,25 @@ for meta_path in meta_paths:
     (STAC_DIR / f"{item.id}.json").write_text(json.dumps(item.to_dict(), indent=2))
 
 print(f"Generated {len(items)} STAC items")
+
+# Provenance coverage (#17). A published floodplain whose run cannot be traced should be a
+# number on screen, not a silence — and under forward-only upstream this starts at zero
+# coverage and climbs as areas are re-modelled, so the count is the progress signal.
+#
+# Two distinct questions, deliberately not collapsed into one: whether ANY provenance was
+# carried, and whether the specific field that identifies a link RUN is present.
+# `link_run_uid` is legitimately null even on a fresh block if the schema predates
+# link#262, so a block can be present while the run is still untraceable.
+_no_prov = [i.id for i in items
+            if all(i.properties.get(p) is None for p in NGE_PROV_PROPERTIES)]
+_untraceable = [i.id for i in items if i.properties.get("nge:link_run_uid") is None]
+print(f"  provenance block: {len(items) - len(_no_prov)}/{len(items)} item(s)")
+print(f"  link run traceable (nge:link_run_uid): "
+      f"{len(items) - len(_untraceable)}/{len(items)} item(s)")
+if _untraceable:
+    _shown = sorted(_untraceable)[:10]
+    _more = f" (+{len(_untraceable) - len(_shown)} more)" if len(_untraceable) > len(_shown) else ""
+    print(f"    untraceable: {', '.join(_shown)}{_more}")
 
 # --- Build collection -----------------------------------------------------
 

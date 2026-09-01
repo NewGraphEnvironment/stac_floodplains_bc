@@ -32,6 +32,36 @@ TRANSITION_SPAN <- c(2017, 2023)
 raw_dir <- file.path("data", "raw")
 stac_dir <- file.path("data", "stac")
 
+# --- Run provenance (#17) -------------------------------------------------
+# Ferried from the producer, never derived here. The names are the STAC property names
+# minus the `nge:` prefix, so 05_stac_register.py maps them mechanically and this vector
+# is the single place the set is declared.
+#
+# `link_config_sha256` is link's OWN stored `config_hash` — a hash over 17 config files
+# plus the config name and species list, not a SHA of config.yaml. Recomputing one here
+# would produce a value that joins to nothing in link's log (floodplains#33).
+#
+# `link_sha` is not in #17's original list. It is carried because `config_hash` alone is
+# not resolvable: floodplains#33 verified that `link_sha` + `config_hash` together are
+# what recover the exact 17 files a network was built from.
+#
+# `landcover_key` is a hash over the RESOLVED STAC item ids, not drift's
+# `stac_cache_key()`. The cache key fingerprints the request and nothing about the items
+# returned, so an upstream reprocess leaves it unchanged — the exact failure #17 exists
+# to catch. See planning findings.
+PROV_FIELDS <- c(
+  "link_run_uid", "link_config_sha256", "link_sha", "link_version",
+  "flooded_version", "drift_version", "produced_datetime",
+  "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key"
+)
+
+# Absent provenance is the NORMAL state, not an error: floodplains#33 is forward-only, so
+# every area modelled before it lands carries none until it is re-run. Every field is
+# published as an explicit JSON null rather than omitted — an absent property reads as
+# "not implemented", a null one as "we looked and there was not one", and only the second
+# is true.
+prov_absent <- function() setNames(as.list(rep(NA, length(PROV_FIELDS))), PROV_FIELDS)
+
 # Clean rebuild: drop prior staging so a WSG dropped from the region (or a changed
 # scenario/span) can't leave stale artifacts that 03/04/05 would silently re-publish.
 # The wipe also clears any prior PARTIAL_STAGE marker — a full run leaves none.
@@ -256,8 +286,17 @@ for (wsg in wsgs) {
       bbox_wgs84 = bbox,
       geometry = geometry
     )
+    # Provenance last so the modelled figures stay at the top of the file where they are
+    # read by eye. c() on two lists appends; PROV_FIELDS shares no name with the block
+    # above, so nothing is overwritten.
+    meta <- c(meta, prov_absent())
+
+    # `na = "null"` is load-bearing, not tidiness. Without it jsonlite serialises
+    # NA_real_ as the STRING "NA" — which is not a null, reads as a real value to any
+    # consumer, and passes every schema check. Measured: with the argument all four NA
+    # types emit `null`, and the existing fields are byte-identical either way.
     jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
-                         auto_unbox = TRUE, pretty = TRUE, digits = 10)
+                         auto_unbox = TRUE, pretty = TRUE, digits = 10, na = "null")
 
     message(sprintf(
       "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha",
