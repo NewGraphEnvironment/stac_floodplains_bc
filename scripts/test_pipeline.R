@@ -140,6 +140,25 @@ for (mp in meta_paths) {
     stop("meta.json is missing provenance field(s): ",
          paste(meta_prov_missing, collapse = ", "))
   }
+  # Tie the two halves to EACH OTHER, not just each to this file's literal. Six copies of
+  # the field set exist across the repo; every other pair is guarded, but 01_stage.R's
+  # PROV_FIELDS and 05_stac_register.py's were joined only through this list — so a twelfth
+  # field added to 01 (and to fp_provenance.R, which its stopifnot forces) would be staged
+  # into meta.json, published nowhere, and leave every guard green.
+  #
+  # Derived from the data on both sides, so it cannot drift from what actually shipped.
+  meta_core <- c("wsg", "wsg_lower", "species", "scenario", "region", "item_id", "years",
+                 "transition_span", "epsg", "floodplain_ff02_km2", "floodplain_ff04_km2",
+                 "floodplain_ff06_km2", "gross_loss_ha", "gross_gain_ha", "net_ha",
+                 "bbox_wgs84", "geometry")
+  staged_prov <- setdiff(names(meta), meta_core)
+  item_prov <- sub("^nge:", "", grep("^nge:", names(props), value = TRUE))
+  if (!setequal(staged_prov, item_prov)) {
+    stop("meta.json and the published item disagree on the provenance field set — ",
+         "staged but not published: ",
+         paste(setdiff(staged_prov, item_prov), collapse = ", ") , "; published but not ",
+         "staged: ", paste(setdiff(item_prov, staged_prov), collapse = ", "))
+  }
 
   # File-extension contract (#22): every asset carries file:checksum + file:size, so a
   # consumer can verify a download and tell one vintage of a regenerated asset from

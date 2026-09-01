@@ -84,6 +84,29 @@ fp_prov_read <- function(src_wsg) {
          " but this reader implements ", FP_PROV_SCHEMA_VERSION,
          ". Update scripts/fp_provenance.R rather than publishing nulls.", call. = FALSE)
   }
+  # A rename leaves TWO signals: an expected key missing (ambiguous with a legitimate
+  # absence) and an unrecognised sibling (never ambiguous). Everything below reads only
+  # the first, which is sufficient at depth >= 2 because the parent section's presence is
+  # itself evidence — but at the document root there is no parent, so `floodplain` ->
+  # `floodplain_v2` would simply look like a step that had not run. Reading the second
+  # signal closes that, and it is the axis the depth-based guards structurally cannot.
+  known <- c("area", "wsg", "schema_version", "network", "floodplain", "landcover")
+  unknown <- setdiff(names(got), known)
+  if (length(unknown)) {
+    stop("provenance.json at ", path, " has unrecognised top-level key(s): ",
+         paste(unknown, collapse = ", "), ". A renamed section would otherwise read as ",
+         "a step that had not run. Update scripts/fp_provenance.R.", call. = FALSE)
+  }
+
+  # The file is read from <wsg>/, but it also records which area it describes. Comparing
+  # them costs one line and catches a file copied or written to the wrong directory, which
+  # would otherwise publish another area's provenance on all eleven fields and be counted
+  # as traced.
+  declared <- as.character(got[["wsg"]] %||% "")
+  if (nzchar(declared) && !identical(toupper(declared), toupper(basename(src_wsg)))) {
+    stop("provenance.json at ", path, " declares wsg '", declared,
+         "' but was read from '", basename(src_wsg), "'.", call. = FALSE)
+  }
   got
 }
 
@@ -131,10 +154,30 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
          "' (", paste(names(net), collapse = ", "), "). Cannot choose; refusing to guess.",
          call. = FALSE)
   }
+  # floodplain/landcover are keyed by scenario_id directly, which is this repo's own
+  # `scenario` (e.g. ch_ff04) — the same string both sides already agree on.
+  #
+  # Those keys are DATA, so unknown-key rejection cannot close them the way it closes the
+  # document root: any string is a possible scenario. What is pinned is their documented
+  # SHAPE. Without this, re-formatting the key (`ch_ff04` -> `ff04`) makes both lookups
+  # miss and publishes seven nulls on every item at once — a uniform loss, which is
+  # exactly what a cross-item check cannot see.
+  #
+  # A key that matches the shape but names a scenario this repo does not publish is fine
+  # and must stay fine: upstream may model scenarios we never emit an item for.
+  for (sect in c("floodplain", "landcover")) {
+    bad <- grep("^[a-z]{2}_ff[0-9]{2}$", names(prov[[sect]] %||% list()),
+                value = TRUE, invert = TRUE)
+    if (length(bad)) {
+      stop("provenance.json ", where, ": ", sect, " section key(s) ",
+           paste(sQuote(bad), collapse = ", "), " are not scenario ids of the form ",
+           "<species>_ff<NN>. A re-keyed section would otherwise publish nulls that read ",
+           "like a step that had not run. Update scripts/fp_provenance.R.", call. = FALSE)
+    }
+  }
+
   list(
     network    = if (length(net)) net[[1]] else NULL,
-    # floodplain/landcover are keyed by scenario_id directly, which is this repo's own
-    # `scenario` (e.g. ch_ff04) — the same string both sides already agree on.
     floodplain = (prov[["floodplain"]] %||% list())[[scenario]],
     landcover  = (prov[["landcover"]] %||% list())[[scenario]]
   )
@@ -183,10 +226,17 @@ fp_prov_leaf <- function(section, path, where) {
   # A JSON null read back is NULL with its name retained, so it reaches here rather than
   # tripping the check above.
   if (is.null(cur)) return(NA)
-  if (length(cur) != 1L) {
+  # `length(cur) != 1L` alone is a PROXY for "scalar", and a single-key object satisfies
+  # it: a leaf that became {"algorithm": "sha256"} would publish "sha256" as the value.
+  # That is the only route in this file that publishes a WRONG value rather than a null,
+  # which is strictly worse — every other guard fails toward an absence a reader can see,
+  # and this one produces something that looks like a real answer and is counted as
+  # traced. Reject a list outright.
+  if (is.list(cur) || length(cur) != 1L) {
     stop("provenance.json ", where, ": key '", paste(path, collapse = "$"),
-         "' is length ", length(cur), "; a published STAC property must be scalar.",
-         call. = FALSE)
+         "' is ", if (is.list(cur)) "an object/array" else paste0("length ", length(cur)),
+         "; a published STAC property must be an atomic scalar. Publishing its sole ",
+         "member would be a wrong value, not an absence.", call. = FALSE)
   }
   cur[[1]]
 }

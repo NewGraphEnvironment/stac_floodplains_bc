@@ -89,7 +89,9 @@ MANAGED_KEYS = (
     | {PROV_NULL_TAG, "YEAR", "YEAR_FROM", "YEAR_TO"}
 )
 # all([]) is True, so an empty managed set would skip every COG and silently tag none.
-assert MANAGED_KEYS, "MANAGED_KEYS is empty — every COG would be skipped"
+# Assert the SOURCE lists rather than the union: the union folds in a non-empty literal
+# set, so `assert MANAGED_KEYS` is a tautology that cannot fire.
+assert SHARED_FIELDS and PROV_FIELDS, "a field list is empty — every COG would be skipped"
 
 
 tagged = 0
