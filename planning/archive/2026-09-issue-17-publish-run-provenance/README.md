@@ -76,14 +76,13 @@ fixture), which is why the controls are recorded alongside the failures.
 - **The traceability floor.** Once #33 lands and areas are re-modelled, the release should refuse
   to publish when the reader finds nothing, rather than shipping all-null.
 
-## Issue body correction — not applied
+## Issue body correction — applied 2026-09-01
 
-`gh issue edit` was refused by a safety classifier in this session, so the corrected body is
-committed as `issue-17-body-proposed.md`. It fixes `nge:landcover_key` (the issue specified
+`gh issue edit` was refused by a safety classifier on the first attempt and succeeded on a
+retry; the body committed here as `issue-17-body-proposed.md` is live on #17 (byte-identical
+bar a trailing newline GitHub appends). It fixes `nge:landcover_key` (the issue specified
 drift's `stac_cache_key()`, which fingerprints the *request* and nothing about the items
 returned, so it could never move when Planetary Computer reprocesses a year — the exact failure
 the issue exists to catch), adds `nge:link_sha`, and records that all-null is expected.
 
-```
-gh issue edit 17 --body-file planning/archive/2026-09-issue-17-publish-run-provenance/issue-17-body-proposed.md
-```
+Kept here as the record of what was changed and why.
