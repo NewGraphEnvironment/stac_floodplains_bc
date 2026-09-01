@@ -25,9 +25,68 @@ SHARED_FIELDS = [
     "gross_loss_ha", "gross_gain_ha", "net_ha",
 ]
 
+# Run provenance (#17), mirrored so a downloaded COG is self-describing. Same field
+# names as 01_stage.R's PROV_FIELDS; the tag key is NGE_<FIELD>, built from the
+# unprefixed name.
+#
+# The key must NOT carry the `nge:` STAC prefix. Measured: a colon in a GDAL tag key is
+# parsed as a namespace separator, so `update_tags(**{"NGE:LINK_RUN_UID": "abc"})`
+# round-trips as key `NGE` with value `LINK_RUN_UID=abc`. Eleven prefixed fields would
+# collapse into ONE `NGE` tag holding whichever was written last — a uniform, silent
+# loss on every COG.
+PROV_FIELDS = [
+    "link_run_uid", "link_config_sha256", "link_sha", "link_version",
+    "flooded_version", "drift_version", "produced_datetime",
+    "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
+]
+# One companion tag naming what was looked for and not found, so a COG carries the
+# same "we looked and there was none" signal the STAC item does. Without it a
+# provenance-less COG is indistinguishable from one this pipeline never touched.
+PROV_NULL_TAG = "NGE_PROVENANCE_NULL"
+
 
 def shared_tags(meta: dict) -> dict:
     return {f.upper(): str(meta[f]) for f in SHARED_FIELDS if meta.get(f) is not None}
+
+
+def provenance_tags(meta: dict) -> dict:
+    """Provenance tags for one item. A null value is encoded as the EMPTY STRING.
+
+    GDAL metadata is string-only and has no null, so every candidate encoding either
+    lies or is refused: `str(None)` writes the literal `'None'`, and `'NA'`/`'null'`
+    round-trip as ordinary strings a consumer cannot tell from a real value.
+
+    The empty string is the one honest option, because GDAL treats it as absence in
+    both directions — measured: writing `""` to a fresh key leaves the key absent on
+    read, and writing `""` over an EXISTING key deletes it. That second half is what
+    makes this the clearing mechanism as well as the encoding, which matters because
+    `update_tags()` merges rather than replaces (also measured), so a stale tag would
+    otherwise survive a rewrite.
+
+    A key absent from meta.json raises rather than defaulting: 01_stage.R writes every
+    field on every item, so absence is a staging bug and not a null.
+    """
+    tags = {f"NGE_{f.upper()}": ("" if meta[f] is None else str(meta[f]))
+            for f in PROV_FIELDS}
+    nulls = sorted(f for f in PROV_FIELDS if meta[f] is None)
+    tags[PROV_NULL_TAG] = ",".join(nulls)
+    return tags
+
+
+# Every tag key this script owns. The skip check below compares over THIS set rather
+# than over the keys being written, because a key that must now be absent does not
+# appear in the write dict at all — `all(existing.get(k) == v for k, v in tags.items())`
+# iterates the smaller set, returns True, and the stale tag survives on a published
+# asset. Reachable only when 03 is re-run without 01/02 (01 unlinks data/stac and 02
+# regenerates every COG unconditionally, so the normal pipeline always tags fresh
+# files), but the guard is cheap and the failure is silent.
+MANAGED_KEYS = (
+    {f.upper() for f in SHARED_FIELDS}
+    | {f"NGE_{f.upper()}" for f in PROV_FIELDS}
+    | {PROV_NULL_TAG, "YEAR", "YEAR_FROM", "YEAR_TO"}
+)
+# all([]) is True, so an empty managed set would skip every COG and silently tag none.
+assert MANAGED_KEYS, "MANAGED_KEYS is empty — every COG would be skipped"
 
 
 tagged = 0
@@ -36,7 +95,7 @@ skipped = 0
 for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
     wsg = meta_path.parent.name
     meta = json.loads(meta_path.read_text())
-    base = shared_tags(meta)
+    base = {**shared_tags(meta), **provenance_tags(meta)}
 
     cogs = sorted((STAC_DIR / wsg).glob("*.tif"))
     for cog in cogs:
@@ -53,9 +112,12 @@ for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
 
         with rasterio.open(cog) as ds:
             existing = ds.tags()
-        # Skip only when every computed value already matches, so a re-run after an
-        # upstream number changes still overwrites stale tags.
-        if all(existing.get(k) == v for k, v in tags.items()):
+        # Compare over the managed key set, with both sides normalised to what a READ
+        # returns: GDAL reports an empty-string tag as absent, so the desired state of a
+        # null field is None, not "". Comparing the raw write dict instead would never
+        # match on a null field and would re-tag every COG on every run forever.
+        want = {k: (v if v != "" else None) for k, v in tags.items()}
+        if all(existing.get(k) == want.get(k) for k in MANAGED_KEYS):
             skipped += 1
             continue
 

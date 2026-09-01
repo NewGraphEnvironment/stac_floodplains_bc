@@ -45,10 +45,11 @@ that lands last.
 
 ## Phase 3: COG tag mirroring
 
-- [ ] Decide + document the GDAL representation of a null provenance value (metadata is
-      string-only, so `None` has no native form)
-- [ ] Add mirrored keys to `SHARED_FIELDS`; confirm the skip-when-matching branch still re-tags
-      when a value transitions null → real
+- [x] Decide + document the GDAL representation of a null provenance value (metadata is
+      string-only, so `None` has no native form) — the empty string, which GDAL treats as
+      absence in both directions and which therefore also clears a stale tag
+- [x] Add mirrored `NGE_<FIELD>` keys (never `NGE:` — a colon collapses all eleven into one
+      tag); fix the skip branch to compare over a managed key set
 
 ## Phase 4: The adapter (churn-exposed, lands last)
 
