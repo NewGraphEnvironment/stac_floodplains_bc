@@ -32,12 +32,12 @@ echo "=== 01: STAGE ==="
 Rscript scripts/01_stage.R
 
 echo ""
-echo "=== 02: COG ==="
-Rscript scripts/02_cog.R
+echo "=== 02: TAG ==="
+uv run python scripts/02_raster_tag.py
 
 echo ""
-echo "=== 03: TAG ==="
-uv run python scripts/03_cog_tag.py
+echo "=== 03: COG ==="
+Rscript scripts/03_cog.R
 
 echo ""
 echo "=== 05: BUILD STAC JSON ==="

@@ -37,12 +37,13 @@ Blocks #34 and #35, which both write through the same tag step.
 
 ## Phase 2: Reorder
 
-- [ ] `git mv scripts/03_cog_tag.py scripts/02_raster_tag.py`; repoint the glob to `RAW_DIR`,
-      drop `IGNORE_COG_LAYOUT_BREAK`
-- [ ] `git mv scripts/02_cog.R scripts/03_cog.R` — content unchanged
-- [ ] Reorder `scripts/run_pipeline.sh` and `scripts/test_pipeline.R`
-- [ ] Verify the skip-when-matching branch is still reachable and meaningful
-- [ ] Guard from Phase 1 now passes
+- [x] `git mv scripts/03_cog_tag.py scripts/02_raster_tag.py`; repoint the glob to `RAW_DIR`,
+      drop `IGNORE_COG_LAYOUT_BREAK`; remove the now-orphaned `STAC_DIR`
+- [x] `git mv scripts/02_cog.R scripts/03_cog.R` — header updated, logic unchanged
+- [x] Reorder `scripts/run_pipeline.sh` and `scripts/test_pipeline.R`
+- [x] Verify the skip-when-matching branch is still reachable — re-running the tag step
+      alone reports `Tagged 0, skipped 4`, so it stays meaningful and stays
+- [x] Guard from Phase 1 now passes: `cog layout: valid on every COG`
 
 ## Phase 3: Docs and comments that encode the old order
 

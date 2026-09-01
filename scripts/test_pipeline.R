@@ -31,14 +31,16 @@ Sys.setenv(WSG_ONLY = wsg)
 source("scripts/01_stage.R")
 Sys.unsetenv("WSG_ONLY")
 
-# --- 02 COG ---------------------------------------------------------------
-source("scripts/02_cog.R")
-
-# --- 03 TAG ---------------------------------------------------------------
-message("\n=== 03: TAG ===")
-if (system("uv run python scripts/03_cog_tag.py") != 0) {
-  stop("03_cog_tag.py failed")
+# --- 02 TAG ---------------------------------------------------------------
+# Before the COG conversion, not after (#33): tagging a finished COG in place moves
+# its main IFD to the end of the file.
+message("\n=== 02: TAG ===")
+if (system("uv run python scripts/02_raster_tag.py") != 0) {
+  stop("02_raster_tag.py failed")
 }
+
+# --- 03 COG ---------------------------------------------------------------
+source("scripts/03_cog.R")
 
 # --- 05 BUILD -------------------------------------------------------------
 message("\n=== 05: BUILD STAC JSON ===")

@@ -1,10 +1,21 @@
-"""03_cog_tag.py — embed publish metadata as GDAL tags on the floodplain COGs.
+"""02_raster_tag.py — embed publish metadata as GDAL tags on the staged rasters.
 
-Runs after 02_cog.R. For each watershed group it reads the staged
-`data/raw/<wsg>/meta.json` (written by 01_stage.R) and tags every COG in
-`data/stac/<wsg>/` with the WSG identity, scenario, and the tree loss/gain/net
-figures derived from the transition layer. Classified rasters also get the year
-they represent; the transition raster gets its span.
+Runs BETWEEN 01_stage.R and 03_cog.R, on `data/raw/<item_id>/*.tif` — deliberately
+before the COG conversion, not after it (#33). Tagging a finished COG in place
+requires IGNORE_COG_LAYOUT_BREAK, and that flag is not a warning suppressor: the
+write moves the main IFD to the end of the file, so a client has to fetch nearly
+the whole object to read a header. Measured at 98.9% and 99.6% on this
+collection's own assets before the reorder.
+
+Tagging the staged raster instead costs nothing, because terra carries every tag,
+the colour table and the band description through `writeRaster(filetype = "COG")`
+and lays the bytes out correctly. The absence of IGNORE_COG_LAYOUT_BREAK below is
+the tell that the ordering is right.
+
+For each item it reads `data/raw/<item_id>/meta.json` (written by 01_stage.R) and
+tags the rasters with the WSG identity, scenario, run provenance, and the tree
+loss/gain/net figures derived from the transition layer. Classified rasters also
+get the year they represent; the transition raster gets its span.
 
 Tags are visible in QGIS: Layer Properties -> Metadata tab.
 """
@@ -16,7 +27,6 @@ from pathlib import Path
 import rasterio
 
 RAW_DIR = Path("data/raw")
-STAC_DIR = Path("data/stac")
 
 # Scalar tags shared by every asset in a WSG.
 SHARED_FIELDS = [
@@ -102,8 +112,8 @@ for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
     meta = json.loads(meta_path.read_text())
     base = {**shared_tags(meta), **provenance_tags(meta)}
 
-    cogs = sorted((STAC_DIR / wsg).glob("*.tif"))
-    for cog in cogs:
+    rasters = sorted((RAW_DIR / wsg).glob("*.tif"))
+    for cog in rasters:
         tags = dict(base)
 
         # Per-asset temporal tag from the filename.
@@ -126,8 +136,10 @@ for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
             skipped += 1
             continue
 
-        with rasterio.open(cog, "r+", IGNORE_COG_LAYOUT_BREAK="YES") as ds:
+        # No IGNORE_COG_LAYOUT_BREAK: these are the staged plain GeoTIFFs, not COGs.
+        # 03_cog.R builds the COG afterwards and lays out the final bytes.
+        with rasterio.open(cog, "r+") as ds:
             ds.update_tags(**tags)
         tagged += 1
 
-print(f"Tagged {tagged} COGs, skipped {skipped}")
+print(f"Tagged {tagged} staged raster(s), skipped {skipped}")
