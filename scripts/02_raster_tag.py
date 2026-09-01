@@ -18,6 +18,17 @@ loss/gain/net figures derived from the transition layer. Classified rasters also
 get the year they represent; the transition raster gets its span.
 
 Tags are visible in QGIS: Layer Properties -> Metadata tab.
+
+Note the consequence of running before the COG step rather than after it: this script
+alone no longer repairs `data/stac`. Correcting a number in meta.json and re-running only
+this step leaves the published COGs carrying the old tags, because they are rebuilt by
+03_cog.R and not touched here. Re-run 03 as well — or just `run_pipeline.sh`.
+`item_validate.py`'s tag contract is what catches it if you forget.
+
+The plain `"r+"` open below is also a tripwire, deliberately. If `floodplains` ever starts
+emitting COGs upstream, GDAL will REFUSE the update rather than silently breaking their
+layout — which is the failure this whole reorder exists to prevent, and the safe direction
+to fail in.
 """
 
 import json
@@ -90,9 +101,12 @@ def provenance_tags(meta: dict) -> dict:
 # than over the keys being written, because a key that must now be absent does not
 # appear in the write dict at all — `all(existing.get(k) == v for k, v in tags.items())`
 # iterates the smaller set, returns True, and the stale tag survives on a published
-# asset. Reachable only when 03 is re-run without 01/02 (01 unlinks data/stac and 02
-# regenerates every COG unconditionally, so the normal pipeline always tags fresh
-# files), but the guard is cheap and the failure is silent.
+# asset. Reachable only when this step is re-run without 01 — 01 unlinks data/raw and
+# re-copies the rasters, so a full run always tags files carrying nothing but the
+# source's own AREA_OR_POINT. The guard is cheap and the failure is silent.
+#
+# It matters slightly MORE after #33 than before: a stale tag on a staged raster is now
+# carried into the COG by terra, rather than being overwritten on the COG itself.
 MANAGED_KEYS = (
     {f.upper() for f in SHARED_FIELDS}
     | {f"NGE_{f.upper()}" for f in PROV_FIELDS}
@@ -113,6 +127,10 @@ for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
     base = {**shared_tags(meta), **provenance_tags(meta)}
 
     rasters = sorted((RAW_DIR / wsg).glob("*.tif"))
+    # Zero rasters iterates nothing and reports "Tagged 0, skipped 0" — indistinguishable
+    # from a clean run. 05 would catch it later as a missing asset; fail where it happened.
+    if not rasters:
+        raise SystemExit(f"{wsg}: staged in {RAW_DIR} but has no rasters to tag")
     for cog in rasters:
         tags = dict(base)
 

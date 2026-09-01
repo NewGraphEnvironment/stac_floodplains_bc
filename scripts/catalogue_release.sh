@@ -137,8 +137,11 @@ echo "=== 2: SYNC ASSETS ==="
 # the compressed size matches (LCHL's floodplain.gpkg is byte-identical in size to
 # its S3 copy). No --delete: data/stac is wiped and rebuilt every run, so --delete
 # would turn any short build into irreversible asset loss — versioning is Suspended.
+# '*.aux.xml' matches none of the other excludes, and GDAL writes PAM sidecars whenever
+# a read triggers statistics computation. None exists today, but the pipeline now makes
+# two extra GDAL passes over these files, so exclude it rather than rely on that.
 aws s3 sync "$STAC_DIR" "s3://$BUCKET" \
-  --exclude '.*' --exclude '*/.*' --exclude '*.json'
+  --exclude '.*' --exclude '*/.*' --exclude '*.json' --exclude '*.aux.xml'
 
 # --- Step 3: sync JSON -----------------------------------------------------
 echo ""

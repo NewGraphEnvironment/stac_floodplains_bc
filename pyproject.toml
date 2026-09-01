@@ -10,9 +10,11 @@ dependencies = [
     "pystac>=1.12.0",
     "rio-stac>=0.11.0",
     "rasterio>=1.4.0",
-    # Layout validation only (item_validate.py). Rides the existing rasterio/GDAL —
-    # its own deps are click/morecantile/pydantic/rasterio, no second GDAL wheel, so
-    # this does not reopen the conda->uv blocker this repo cleared.
+    # Layout validation only (item_validate.py). Pure-Python wheel riding the existing
+    # rasterio/GDAL, so it does not reopen the conda->uv blocker this repo cleared.
+    # It is not dependency-free though: morecantile pulls pyproj, which bundles its own
+    # PROJ. Unused here (nothing in the validator reprojects, and cog_validate does not
+    # touch PROJ) but worth naming rather than claiming nothing binary came along.
     "rio-cogeo>=7.0.0",
     "shapely",
     "pyarrow",

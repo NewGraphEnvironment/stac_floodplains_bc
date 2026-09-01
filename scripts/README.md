@@ -91,7 +91,7 @@ are computed in R (step 01) because the publish Python env carries no vector rea
 
 ## Smoke test
 
-`test_pipeline.R` runs one watershed group end-to-end (`stage → COG → tag → build → validate`),
+`test_pipeline.R` runs one watershed group end-to-end (`stage → tag → COG → build → validate`),
 through the **same** `item_validate.py` gate a release uses. It cannot touch S3 — nothing it calls
 makes network writes — and it leaves a `PARTIAL_STAGE` marker that `catalogue_release.sh` refuses
 to publish past, so its one-group tree cannot be released by mistake either. It builds and

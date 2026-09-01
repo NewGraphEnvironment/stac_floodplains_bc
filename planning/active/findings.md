@@ -79,3 +79,62 @@ refused. The floor was aspirational — the venv is 3.12.13 and the committed by
 cpython-312/314 — so it moved to `>=3.11` rather than pinning an older rio-cogeo. Its own
 dependencies are click, morecantile, pydantic and rasterio, with no second GDAL wheel, so
 this does not reopen the conda->uv blocker this repo cleared.
+
+## Plan-review findings folded in, 2026-09-01
+
+A concurrent Plan-agent review of the reorder returned six actionable items. All were
+verified before acting; two turned out to be defects in the fix I had just written.
+
+### The shared tags were unguarded, and the reorder made that worse
+
+`check_cog_tags()` filtered to `k.startswith("NGE_")`, so `WSG`, `SPECIES`, `SCENARIO`,
+`REGION`, the three `FLOODPLAIN_FF0*_KM2`, and the three metrics had **no guard anywhere**.
+Before #33 the tag writer and the tag reader were the same rasterio write; the reorder
+inserts terra between them, so "the tags survive `writeRaster`" became a claim nothing
+checked. If terra ever dropped them, every other gate still passes — checksums verify,
+`cog_validate` passes, and the COGs quietly lose their identity.
+
+Now compared against the item's own properties, as an absolute declared set.
+
+### Two bugs in that fix, both found by testing it rather than reading it
+
+1. **The gate and the diff used different comparisons.** `if got != want:` is exact, while
+   the diff used a numeric-tolerant `_same()`. So `'-738.20'` against a property of `-738.2`
+   entered the failure block and produced a problem with an **empty message**. Fixed by
+   computing the differences first and gating on them.
+2. **The message still said "NGE_ tags disagree with the item's nge: properties"** after the
+   check had been widened past NGE_.
+
+| restored defect | result |
+|---|---|
+| `WSG` tampered | fails, naming tag and property |
+| `NET_HA` deleted | fails |
+| `NET_HA` `-738.20` vs `-738.2` | passes — numeric compare, no false fail |
+
+### `r+` on a published COG now errors, which is independent proof of the fix
+
+```
+CPLE_AppDefinedError: File ... has C(loud) O(ptimized) G(eoTIFF) layout.
+Updating it will generally result in losing part of the optimizations
+```
+
+GDAL raises this only when the file **has** COG layout. Before #33 the same open succeeded
+under `IGNORE_COG_LAYOUT_BREAK`. So the refusal is a second, independent signal that the
+layout is genuinely cloud-optimized now — and it is a tripwire: if upstream ever emits COGs,
+the tag step fails loudly rather than silently breaking them.
+
+### Smaller items
+
+- `.aux.xml` matches none of the release sync's excludes and would be uploaded. None exists
+  today, but the pipeline now makes two extra GDAL passes over these files, so it is excluded
+  explicitly rather than by luck. Asserted zero after a build.
+- The `MANAGED_KEYS` rationale was wrong in every clause post-reorder — it argued from
+  `data/stac` being unlinked and 02 regenerating COGs, neither of which is the reason any
+  more. Exactly the "a new feature can silently invalidate an unrelated flag's stated
+  rationale" case.
+- **Running the tag step alone no longer repairs `data/stac`.** Real behaviour change:
+  correcting a number and re-running only that step leaves the published COGs stale, because
+  they are rebuilt by 03 and not touched by 02. Documented; the tag contract catches it.
+- rio-cogeo is a pure-Python wheel, but morecantile pulls **pyproj**, which bundles its own
+  PROJ. Unused here. The original comment said "no second GDAL wheel" — true, and it read as
+  "nothing binary came along", which is not the case.

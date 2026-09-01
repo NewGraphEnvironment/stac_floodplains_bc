@@ -1,6 +1,7 @@
 # test_pipeline.R — single-WSG smoke test of stage -> tag -> COG -> build -> validate.
 #
-# Runs ONE watershed group end-to-end: stages it, builds COGs, tags them, builds the
+# Runs ONE watershed group end-to-end: stages it, tags the staged rasters, builds COGs,
+# builds the
 # STAC JSON and validates it through the same gate a release uses. Use after changes
 # to the scripts, the floodplains data layout, or the STAC schema.
 #

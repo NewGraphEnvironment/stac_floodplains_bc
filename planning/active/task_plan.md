@@ -63,6 +63,19 @@ Blocks #34 and #35, which both write through the same tag step.
 - [x] MORR (two targets, 8 rasters) green — the tag step now reads a different directory,
       and MORR is where item-keying bites
 
+## Phase 5: Plan-review findings (folded in pre-PR)
+
+- [x] Extend `check_cog_tags()` past `NGE_` to the shared identity/metric tags — terra is a
+      new party in the tag path and nothing checked it
+- [x] Fix two bugs in that fix: the gate used an exact compare while the diff used a
+      numeric one (empty-message failure), and the message named only `nge:`
+- [x] `cog_validate(quiet=True)` — it printed its own coloured report on top of ours
+- [x] `--exclude '*.aux.xml'` in the release sync; assert zero after a build
+- [x] Rewrite the stale `MANAGED_KEYS` rationale, wrong in every clause post-reorder
+- [x] Document that the tag step alone no longer repairs `data/stac`
+- [x] Document the `"r+"` tripwire, and name pyproj in the pyproject comment
+- [x] Empty-glob guard in the tag step
+
 ## Validation
 
 - [x] Guard red before, green after — run in both states

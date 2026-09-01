@@ -39,6 +39,23 @@ MULTIHASH_SHA256 = "1220"
 # Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
 # 05_stac_register.py's PROV_FIELDS rather than importing it — importing that module
 # would run the entire build, since it is a script and not a library.
+# The item properties that 02_raster_tag.py mirrors as UPPERCASE GDAL tags. Absolute and
+# hardcoded, for the same reason as REQUIRED_NGE_PROPERTIES: derived from the data, a tag
+# that vanished from every COG would take the expectation with it.
+#
+# Only the NGE_ half was guarded before #33. The other nine had no guard anywhere — and
+# that reorder put terra between the tag write and the published bytes, so "the tags
+# survive writeRaster" became a claim nothing checked. If terra ever drops them, every
+# other gate still passes: checksums verify, cog_validate passes, and the COGs quietly
+# lose their identity.
+#
+# flood_factor is deliberately absent: it is derived in 05 and has never been tagged.
+SHARED_TAG_PROPERTIES = {
+    "wsg", "species", "scenario", "region",
+    "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
+    "gross_loss_ha", "gross_gain_ha", "net_ha",
+}
+
 REQUIRED_NGE_PROPERTIES = {
     "nge:link_run_uid", "nge:link_config_sha256", "nge:link_sha", "nge:link_version",
     "nge:flooded_version", "nge:drift_version", "nge:produced_datetime",
@@ -120,6 +137,13 @@ def check_cog_tags(base: Path) -> list[str]:
                        if k.startswith("nge:") and v is None)
         if nulls:
             want["NGE_PROVENANCE_NULL"] = ",".join(nulls)
+        # The shared identity/metric tags, absent from the item is itself a failure.
+        for prop in sorted(SHARED_TAG_PROPERTIES):
+            if prop not in props:
+                problems.append(f"{item_id}: item property {prop!r} is missing, so its "
+                                f"GDAL tag cannot be verified")
+                continue
+            want[prop.upper()] = str(props[prop])
         for asset in doc.get("assets", {}).values():
             # Compare against pystac's own constant, the same one 05_stac_register.py
             # writes from. A duplicated media-type literal drifting by a single character
@@ -132,16 +156,30 @@ def check_cog_tags(base: Path) -> list[str]:
             compared += 1
             with rasterio.open(local) as ds:
                 tags = ds.tags()
-            got = {k: v for k, v in tags.items() if k.startswith("NGE_")}
-            if got != want:
-                # Report differing VALUES as well as differing keys. A key-set-only
-                # message reads "missing none, unexpected none" when a value is wrong,
-                # which is a guard that fires and then says nothing — verified by
-                # tampering with a tag before trusting this check.
-                changed = [f"{k}: tag {got.get(k)!r} vs property {want.get(k)!r}"
-                           for k in sorted(set(got) | set(want)) if got.get(k) != want.get(k)]
+            managed = {k for k in want} | {k for k in tags
+                                            if k.startswith("NGE_")}
+            got = {k: v for k, v in tags.items() if k in managed}
+
+            def _same(a, b):
+                # The tag is str(x) from Python and the property is a JSON number, so
+                # '-738.20' and '-738.2' must compare equal while a real drift must not.
+                if a == b:
+                    return True
+                try:
+                    return a is not None and b is not None and float(a) == float(b)
+                except (TypeError, ValueError):
+                    return False
+
+            # Compute the differences FIRST and gate on them. Gating on `got != want` and
+            # diffing with _same() puts a numeric-formatting difference inside the block
+            # with nothing to report — a failure with an empty message. Caught by feeding
+            # the guard '-738.20' against a property of -738.2.
+            changed = [f"{k}: tag {got.get(k)!r} vs property {want.get(k)!r}"
+                       for k in sorted(set(got) | set(want))
+                       if not _same(got.get(k), want.get(k))]
+            if changed:
                 problems.append(
-                    f"{item_id}/{local.name}: NGE_ tags disagree with the item's nge: "
+                    f"{item_id}/{local.name}: GDAL tags disagree with the item's "
                     f"properties — {'; '.join(changed)}")
     # Zero comparisons is not a pass. Same reasoning as check_provenance's seen == 0: a
     # loop over nothing prints nothing and returns clean, which is indistinguishable from
@@ -180,7 +218,10 @@ def check_cog_layout(base: Path) -> list[str]:
             if not local.is_file():
                 continue  # missing assets are already reported by check_checksums
             checked += 1
-            valid, errors, _warnings = cog_validate(local)
+            # quiet=True: rio-cogeo prints its own coloured report to stderr via
+            # click.secho, which would duplicate the message formatted below and
+            # put ANSI codes in a release log.
+            valid, errors, _warnings = cog_validate(local, quiet=True)
             if not valid:
                 problems.append(
                     f"{item_id}/{local.name}: not a valid COG — "
