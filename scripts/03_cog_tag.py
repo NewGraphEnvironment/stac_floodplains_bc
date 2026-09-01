@@ -46,7 +46,10 @@ PROV_NULL_TAG = "NGE_PROVENANCE_NULL"
 
 
 def shared_tags(meta: dict) -> dict:
-    return {f.upper(): str(meta[f]) for f in SHARED_FIELDS if meta.get(f) is not None}
+    # Same empty-string idiom as provenance_tags(): omitting a None field instead would
+    # leave nothing to write, so a value that went real -> null could never be CLEARED
+    # from a COG that already carried it (update_tags merges).
+    return {f.upper(): ("" if meta.get(f) is None else str(meta[f])) for f in SHARED_FIELDS}
 
 
 def provenance_tags(meta: dict) -> dict:

@@ -5,8 +5,7 @@
 # the `nge:` STAC properties, the NGE_ GDAL tags, the validators — uses this repo's own
 # names, so an upstream rename lands here and nowhere else.
 #
-# Sourced by 01_stage.R alongside fp_gpkg.R, and by fp_provenance-check.R, so the check
-# exercises this reader rather than a copy of it.
+# Sourced by 01_stage.R alongside fp_gpkg.R.
 #
 # Upstream shape (floodplains/scripts/floodplain_lcc/fp_provenance.R):
 #
@@ -78,7 +77,7 @@ fp_prov_read <- function(src_wsg) {
   # null — which is indistinguishable from "upstream genuinely had no value", the one
   # failure this whole feature exists to make visible. One line converts that silence
   # into a refusal.
-  ver <- got$schema_version
+  ver <- got[["schema_version"]]
   if (!identical(as.integer(ver %||% NA_integer_), FP_PROV_SCHEMA_VERSION)) {
     stop("provenance.json at ", path, " declares schema_version ",
          if (is.null(ver)) "<absent>" else ver,
@@ -98,11 +97,35 @@ fp_prov_read <- function(src_wsg) {
 # matters: the producer already states the join, so re-deriving it duplicates a fact; and
 # every config/<wsg>/area.yml on disk today has min_order 3, so a derivation and a
 # hardcoded "3" are indistinguishable — a test of it could not fail.
-fp_prov_sections <- function(prov, species, scenario) {
+fp_prov_sections <- function(prov, species, scenario, where = "") {
   if (is.null(prov)) return(list(network = NULL, floodplain = NULL, landcover = NULL))
 
-  net <- Filter(function(s) identical(as.character(s$inputs$species %||% ""), species),
-                prov$network %||% list())
+  # `[[` throughout, never `$`: `$` PARTIAL-matches on a list, so an upstream `inputs_v2`
+  # would silently satisfy `$inputs` — in the one file whose job is making a rename loud.
+  netall <- prov[["network"]] %||% list()
+
+  # Check the SHAPE of every present section BEFORE matching on it. Without this, a
+  # renamed `inputs` makes the filter match nothing, and "matched nothing" is returned as
+  # NULL — which publishes four silent nulls indistinguishable from the normal
+  # forward-only absence. That is the same defect the leaf-level guard below exists to
+  # prevent, one level up: filtering on a key that has been renamed cannot distinguish
+  # "no section for this species" from "every section has an unrecognised shape".
+  #
+  # After this loop, an empty match can ONLY mean step 1 has not been run for this
+  # species, which is a legitimate partial state (the producer's three steps run
+  # independently) and correctly yields nulls.
+  for (nm in names(netall)) {
+    s <- netall[[nm]]
+    if (!is.list(s) || !("inputs" %in% names(s)) ||
+        !is.list(s[["inputs"]]) || !("species" %in% names(s[["inputs"]]))) {
+      stop("provenance.json ", where, ": network section '", nm, "' has no ",
+           "inputs$species. This is a schema break, not an absence — matching on a ",
+           "renamed key would publish nulls that read exactly like 'this species was ",
+           "not modelled'. Update scripts/fp_provenance.R.", call. = FALSE)
+    }
+  }
+  net <- Filter(function(s) identical(as.character(s[["inputs"]][["species"]]), species),
+                netall)
   if (length(net) > 1L) {
     stop("provenance.json has ", length(net), " network sections for species '", species,
          "' (", paste(names(net), collapse = ", "), "). Cannot choose; refusing to guess.",
@@ -112,8 +135,8 @@ fp_prov_sections <- function(prov, species, scenario) {
     network    = if (length(net)) net[[1]] else NULL,
     # floodplain/landcover are keyed by scenario_id directly, which is this repo's own
     # `scenario` (e.g. ch_ff04) — the same string both sides already agree on.
-    floodplain = (prov$floodplain %||% list())[[scenario]],
-    landcover  = (prov$landcover %||% list())[[scenario]]
+    floodplain = (prov[["floodplain"]] %||% list())[[scenario]],
+    landcover  = (prov[["landcover"]] %||% list())[[scenario]]
   )
 }
 
@@ -138,7 +161,13 @@ fp_prov_leaf <- function(section, path, where) {
   cur <- section
   for (i in seq_along(path)) {
     key <- path[[i]]
-    if (i == 1L && identical(key, "link_log") && is.null(cur[["link_log"]])) {
+    # The `link_log` exception must test PRESENCE before nullity. `is.null(cur[["link_log"]])`
+    # alone is TRUE for a modelled null AND for an absent or renamed key, so without the
+    # `%in% names()` half it swallows the schema break it is surrounded by code to catch —
+    # and the three link_log fields would publish as null, indistinguishable from the normal
+    # forward-only state. Caught in review; verified against a positive control.
+    if (i == 1L && identical(key, "link_log") &&
+        "link_log" %in% names(cur) && is.null(cur[["link_log"]])) {
       # Modelled absence — the producer could not read link's log for this area.
       return(NA)
     }
@@ -168,10 +197,11 @@ fp_prov_leaf <- function(section, path, where) {
 # `[[<-` or modifyList: both DROP a NULL member, which would turn an intended null into an
 # absent key — and absence is the one thing #17 forbids.
 fp_prov_item <- function(prov, species, scenario, where) {
-  sec <- fp_prov_sections(prov, species, scenario)
+  sec <- fp_prov_sections(prov, species, scenario, where)
   out <- lapply(PROV_FIELDS, function(f) {
     spec <- FP_PROV_MAP[[f]]
-    v <- fp_prov_leaf(sec[[spec$section]], spec$path, paste0(where, " [", f, "]"))
+    v <- fp_prov_leaf(sec[[spec[["section"]]]], spec[["path"]],
+                      paste0(where, " [", f, "]"))
     # NA of any type serialises to JSON null once `na = "null"` is set; normalise so the
     # emitted type cannot vary with which branch produced it.
     if (length(v) == 1L && is.na(v)) NA else v
