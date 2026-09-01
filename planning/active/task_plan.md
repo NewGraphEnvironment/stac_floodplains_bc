@@ -66,12 +66,29 @@ that lands last.
 
 ## Phase 5: Reconcile the issue
 
-- [ ] Edit #17's body: correct `nge:landcover_key`, record that all-null is expected under
-      forward-only
+- [x] Draft the corrected #17 body — `planning/active/issue-17-body-proposed.md`
+- [ ] **BLOCKED — needs the user to run it.** `gh issue edit` was refused by a safety
+      classifier in this session. Apply with:
+      `gh issue edit 17 --body-file planning/active/issue-17-body-proposed.md`
 
 ## Validation
 
-- [ ] Smoke test green on `ufra` (one target) and `morr` (two targets, one WSG file)
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
+- [x] Smoke test green on `ufra` (one target) and `morr` (two targets, one WSG file)
+- [x] Guards proven against both answers rather than reasoned about
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
+
+## Carried forward — not done here
+
+- **pgstac null survival is unverified.** Nulls were measured through jsonlite → json.loads
+  → pystac → to_dict() → JSON round trip → from_dict() → validate(). They were NOT measured
+  through `pypgstac load` and back out of the API, which needs a write to the live catalog.
+  If pgstac strips nulls on dehydrate/hydrate, "publish the null" is unachievable through the
+  API and the issue needs a sentinel-value decision. Close this before anyone relies on
+  reading these properties from `images.a11s.one`.
+- **The adapter is unverified against real upstream bytes.** The fixture was built with the
+  producer's own writer, but we supplied the section contents — so it cannot detect an
+  upstream leaf rename. The `schema_version` pin and the leaf-rename hard stop are the guards
+  that cover it; they are proven, the mapping is not.
+- **Flip the traceability floor** once floodplains#33 lands and areas are re-modelled, so a
+  reader that silently finds nothing fails the release rather than publishing all-null.
