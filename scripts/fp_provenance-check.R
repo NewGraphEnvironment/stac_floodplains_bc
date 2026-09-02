@@ -230,8 +230,15 @@ if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else {
   expect_true("bulk: link_* and flooded_version populated from the v2 file",
               !any(vapply(got[c("link_run_uid", "link_config_sha256", "link_sha", "link_version", "flooded_version")], is_na1, logical(1))))
   expect_equal("bulk: flooded_version is the #26 fix (0.5.0)", got$flooded_version, "0.5.0")
-  expect_true("bulk: landcover fields NA while its step 3 has not been re-run",
-              all(vapply(got[lc], is_na1, logical(1))))
+  # Whether bulk's landcover step has been re-run is a fact about the file, not about this
+  # script: derive it from the raw JSON and assert the reader agrees in whichever state.
+  raw <- jsonlite::read_json(file.path(FP, "bulk", "provenance.json"), simplifyVector = FALSE)
+  lc_present <- !is.null((raw[["landcover"]] %||% list())[["co_ff04"]])
+  expect_true(paste0("bulk: landcover fields ", if (lc_present) "populated" else "NA",
+                     " — matching the file's landcover section being ",
+                     if (lc_present) "present" else "absent"),
+              if (lc_present) !any(vapply(got[lc], is_na1, logical(1)))
+              else all(vapply(got[lc], is_na1, logical(1))))
 }
 n <- real("neexdzii")
 if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") else {

@@ -146,6 +146,35 @@ for (mp in meta_paths) {
          "the item: ", paste(setdiff(prov_keys, item_nge), collapse = ", "),
          "; on the item but not in this list: ", paste(setdiff(item_nge, prov_keys), collapse = ", "))
   }
+  # Values, not just keys (#17 deferred this "once they land"; #32 lands it). Per TARGET, read
+  # from the producer's raw JSON independently of the reader: one scalar from each upstream
+  # section, compared with `identical()`. An absent file, an absent section (a MORR file with
+  # only the coho sections when staging ch_ff06) and a JSON null all come out NULL on both
+  # sides, so this is two-sided per section by construction — a reader that silently found
+  # nothing in a record that exists fails on the section it lost, and a value invented
+  # where the producer has none fails too. `[[` throughout: `$` partial-matches on a list.
+  `%||%` <- function(a, b) if (is.null(a)) b else a
+  prov_file <- file.path(fp_data, wsg, "provenance.json")
+  prov <- if (file.exists(prov_file) && file.size(prov_file) > 0)
+    jsonlite::read_json(prov_file, simplifyVector = FALSE) else NULL
+  net <- Filter(function(s) identical(as.character(s[["inputs"]][["species"]]), meta$species),
+                prov[["network"]] %||% list())
+  want <- list(
+    "nge:link_version"     = if (length(net)) net[[1]][["inputs"]][["link"]][["version"]],
+    "nge:flooded_version"  = prov[["floodplain"]][[meta$scenario]][["inputs"]][["flooded"]][["version"]],
+    "nge:produced_datetime" = prov[["landcover"]][[meta$scenario]][["run"]][["datetime_utc"]])
+  message("  provenance.json ", if (is.null(prov)) "absent" else "present", " upstream for ",
+          toupper(wsg), "; per-section expectation for ", meta$item_id, ": ",
+          paste(sub("^nge:", "", names(want)), "=",
+                vapply(want, function(v) if (is.null(v)) "null" else as.character(v), ""),
+                collapse = ", "))
+  for (k in names(want)) {
+    if (!identical(props[[k]], want[[k]])) {
+      stop(basename(item_json), " publishes ", k, " = ", deparse(props[[k]]),
+           " but the producer's record says ", deparse(want[[k]]),
+           " — the reader and the record disagree for this target")
+    }
+  }
   # Also assert meta.json carries the unprefixed half, so a break between the two halves
   # of the ferry is attributed to the right script rather than surfacing only as a
   # missing STAC property.

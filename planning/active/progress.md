@@ -18,3 +18,26 @@
   the uv shim's argv carries exactly it on a full release and nothing under --only; ALL PASS.
   Restore-the-bug: with the argument removed from step 1, 2 FAILED. Docs: scripts/README.md
   step 1, CLAUDE.md paragraph, NEWS Unreleased bullet.
+- Phase 3 smokes (21:19:49Z, ~6 min for both): **bulk** → PASS on the producer-file-present
+  branch with **12 of 12** `nge:` values non-null — upstream's landcover step 3 for bulk landed
+  between #40's smoke and this one, so `landcover_key` is now a real fold published from the
+  producer's file; validator line `1 of 1 carry values; floor 0`. **kotl** → PASS on the
+  no-producer-file branch, all 12 null, `0 of 1 carry values; floor 0`. Both branches of the
+  two-sided assertion exercised on real areas.
+- Plan review + `/code-check` round 1 folded in (see findings.md): the floor is now exact, `--only`
+  gains a live-vs-build provenance guard (case 15), test_pipeline.R compares three scalars per
+  target against the producer's raw JSON, the validator prints per-section counts. Harness ALL
+  PASS; guard disabled → case 15 red (2 FAILED, and the run syncs before failing); reader check 49
+  assertions with bulk's landcover section now present. `--expect-provenance 1` on the all-null
+  kotl tree → FAILED "0 of 1"; `0` passes with `network 0, floodplain 0, landcover 0`.
+- Smokes rerun on the per-target compare: **bulk** PASS — `link_version 0.50.0`, `flooded_version
+  0.5.0`, `produced_datetime 2026-09-02T20:46:08Z` each identical to the producer's raw JSON;
+  validator `1 of 1 carry values — network 1, floodplain 1, landcover 1; floor none`. **kotl**
+  PASS — all three expectations null and the item null; `0 of 1 … network 0, floodplain 0,
+  landcover 0`.
+- `/code-check` round 2: the `--only` guard refused only a TOTAL loss; a reader that kept the
+  network section and lost landcover (live 12, build 4) passed it and the read-back would have
+  accepted the nulls. Now per key: any live `nge:` value the build publishes as null refuses,
+  naming the keys. Fixture gains `nge:kept` (a value on both sides) so partial loss is
+  representable; case 15 is now that shape (live 2, build 1 → refused, 0 aws calls). With the
+  total-count guard restored: 2 FAILED and the run syncs before the read-back fails.

@@ -71,11 +71,11 @@ provenance" here means the same thing: at least one non-null `nge:` value.
 
 ## Phase 3: the smoke test asserts values, then review + PR
 
-- [ ] `test_pipeline.R`: after the key-set check, read `nge:` values from the item JSON
+- [x] `test_pipeline.R`: after the key-set check, read `nge:` values from the item JSON
       (`read_json` maps null → NULL, so count non-NULL); if the producer's `provenance.json`
       exists for this WSG require ≥1 non-null and print which, else require all null. Premise
       printed either way so a reader sees which branch ran
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` → PASS on the "producer file present" branch
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` → PASS on the "producer file present" branch
       (5 non-null); a second WSG without a producer file (e.g. `WSG=kotl`, ~3 min) → PASS on
       the all-null branch — both branches exercised, recorded in `progress.md`
 - [ ] `/code-check`, then PR. No tag and no release; the floor stays 0 until the #26 rebuild

@@ -58,11 +58,14 @@ the producer's own files.
 
 **The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in
 `catalogue_release.sh`, passed to `item_validate.py --expect-provenance` on a full release, is the
-minimum number of items that must carry a non-null `nge:` value. It is never derived from the
-build (an expectation that comes from the data cannot be contradicted by it) and has no env
-override. It is 0 until the first release that publishes real provenance, and is flipped to the
-built count in the same commit as that release's NEWS entry — because from then on an all-null
-catalogue is a broken reader, not the forward-only state, and every presence check passes it.
+**exact** number of items carrying a non-null `nge:` value — a literal equal to the count
+`01_stage.R` printed for that build, never `$n_local` or anything derived (an expectation that
+comes from the data cannot be contradicted by it), with no env override. Exact in both directions,
+so every release records the count beside its NEWS entry: below is a reader that found nothing
+(indistinguishable from the forward-only state every presence check passes), above is a floor
+nobody updated. `--only` cannot meet a full-tree floor, so its preflight refuses instead if the
+live item carries `nge:` values and the build's copy carries none — the API drops nulls, so a key
+present on the live item is a value.
 
 `transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
 why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published

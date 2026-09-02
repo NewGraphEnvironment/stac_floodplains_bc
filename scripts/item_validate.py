@@ -93,9 +93,21 @@ REQUIRED_NGE_PROPERTIES = {
 }
 
 
-def check_provenance(base: Path, floor: int = 0) -> tuple[list[str], int, int]:
-    """Verify every item carries every `nge:` provenance KEY, and that at least `floor`
-    items carry a VALUE. Returns (problems, items carrying a value, items seen).
+# The three upstream steps that write provenance, by the fields each one owns. Printed per
+# section so a partial reader — network found, landcover lost — is visible on screen even
+# though the item-level floor counts it as carrying provenance.
+PROV_SECTIONS = {
+    "network": {"nge:link_run_uid", "nge:link_config_sha256", "nge:link_sha", "nge:link_version"},
+    "floodplain": {"nge:flooded_version"},
+}
+PROV_SECTIONS["landcover"] = REQUIRED_NGE_PROPERTIES - PROV_SECTIONS["network"] - PROV_SECTIONS["floodplain"]
+
+
+def check_provenance(base: Path, floor: int | None = None
+                     ) -> tuple[list[str], int, int, dict[str, int]]:
+    """Verify every item carries every `nge:` provenance KEY, and — when `floor` is given —
+    that EXACTLY `floor` items carry a VALUE. Returns (problems, items carrying a value,
+    items seen, items carrying a value per upstream section).
 
     Absolute, not comparative. The asset check below compares items against each other,
     which is structurally blind to a defect that hits all of them uniformly — the exact
@@ -120,10 +132,18 @@ def check_provenance(base: Path, floor: int = 0) -> tuple[list[str], int, int]:
     the all-null catalogue that every presence check waves through. "Carries a value" is
     the same predicate 01_stage.R (`has_prov`) and item_create.py (`_no_prov`) print, so the
     number on screen after a build is the number to set.
+
+    EXACT, not a minimum. A minimum makes "raise it" a convention nobody enforces: coverage
+    climbs from 1 to 20 across releases and the literal stays at 0, printing a number in a
+    scrollback nobody reads. Exact means every release records the count as a fact beside
+    its NEWS entry, and a build that disagrees with the record fails in either direction —
+    below is a reader that found nothing, above is a floor nobody updated. None means no
+    check: a rebuild is not a release.
     """
     problems: list[str] = []
     seen = 0
     traced = 0
+    per_section = {s: 0 for s in PROV_SECTIONS}
     for path in sorted(base.glob("*.json")):
         doc = json.loads(path.read_text())
         if doc.get("type") != "Feature":
@@ -138,19 +158,28 @@ def check_provenance(base: Path, floor: int = 0) -> tuple[list[str], int, int]:
                 f"undeclared {sorted(found - REQUIRED_NGE_PROPERTIES) or 'none'}")
         if any(props.get(k) is not None for k in REQUIRED_NGE_PROPERTIES):
             traced += 1
+        for sect, keys in PROV_SECTIONS.items():
+            if any(props.get(k) is not None for k in keys):
+                per_section[sect] += 1
     # Zero items is not a pass. The loop above would report nothing at all for an empty
     # or wrongly-pointed directory, which reads identically to "every item checked out".
     if seen == 0:
         problems.append(
             f"no items found under {base}/*.json — the provenance contract was not "
             f"actually checked against anything")
-    if traced < floor:
+    if floor is not None and traced < floor:
         problems.append(
             f"{traced} of {seen} item(s) carry a non-null nge: value but the release floor is "
             f"{floor}. A reader that silently found nothing looks exactly like the expected "
             f"forward-only state; the floor is what tells them apart. If fewer areas genuinely "
             f"carry provenance now, lower PROVENANCE_FLOOR in catalogue_release.sh deliberately.")
-    return problems, traced, seen
+    elif floor is not None and traced > floor:
+        problems.append(
+            f"{traced} of {seen} item(s) carry a non-null nge: value but the release floor is "
+            f"{floor} — the floor is behind the build. Set PROVENANCE_FLOOR to {traced} in "
+            f"catalogue_release.sh, in the same commit as this release's NEWS entry, so the "
+            f"count is recorded rather than printed.")
+    return problems, traced, seen, per_section
 
 
 def check_cog_tags(base: Path) -> list[str]:
@@ -698,12 +727,12 @@ def main() -> int:
                    help="staging dir used to derive the expected item count")
     p.add_argument("--expect", type=int, default=None,
                    help="expected item count (default: number of data/raw/*/meta.json)")
-    p.add_argument("--expect-provenance", type=int, default=0,
-                   help="minimum number of items carrying a non-null nge: value (#32). Set by "
-                        "the release from a human-chosen literal, never derived from the build; "
-                        "0 is correct until the first release that publishes real provenance")
+    p.add_argument("--expect-provenance", type=int, default=None,
+                   help="EXACT number of items carrying a non-null nge: value (#32). Set by the "
+                        "release from a human-chosen literal, never derived from the build; "
+                        "omitted (a rebuild) means no check")
     args = p.parse_args()
-    if args.expect_provenance < 0:
+    if args.expect_provenance is not None and args.expect_provenance < 0:
         print("FAILED: --expect-provenance must be >= 0", file=sys.stderr)
         return 1
 
@@ -786,7 +815,7 @@ def main() -> int:
         return 1
 
     # --- run provenance: does every item carry the declared nge: contract? ---
-    missing_prov, traced, n_items = check_provenance(args.base, args.expect_provenance)
+    missing_prov, traced, n_items, per_section = check_provenance(args.base, args.expect_provenance)
     if missing_prov:
         print(f"FAILED: {len(missing_prov)} provenance contract problem(s)",
               file=sys.stderr)
@@ -800,7 +829,10 @@ def main() -> int:
             print(f"  {msg}", file=sys.stderr)
         return 1
     print(f"provenance: {len(REQUIRED_NGE_PROPERTIES)} nge: properties on every item "
-          f"({traced} of {n_items} carry values; floor {args.expect_provenance}), COG tags agree")
+          f"({traced} of {n_items} carry values — "
+          + ", ".join(f"{s} {n}" for s, n in per_section.items())
+          + f"; floor {'none' if args.expect_provenance is None else args.expect_provenance}), "
+          f"COG tags agree")
 
     # --- COG layout: is the range-request property the format promises actually there? ---
     bad_layout = check_cog_layout(args.base)
