@@ -15,7 +15,7 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Layout
 
-- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `05_stac_register.py`,
+- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `item_create.py`,
   `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
   separate command, so a rebuild or smoke test cannot reach S3 or the live catalog. Source data
   comes from `$FLOODPLAINS_DATA` (default `../floodplains/data`).
@@ -25,7 +25,7 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   (There is no `04_s3_upload.R`; its sync folded into the release script in #14.)
   `--only <item_id>` republishes one live item and never `collection.json` — the single-group
   pilot path (#36), pinned by `catalogue_release-check.sh`.
-- `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for steps 03 + 05, run via
+- `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for `03_cog.py` + `item_create.py`, run via
   `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
   the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically.
 - `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs).

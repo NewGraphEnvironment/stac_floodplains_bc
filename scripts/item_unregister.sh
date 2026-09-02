@@ -26,7 +26,7 @@ COLLECTION="${COLLECTION:-stac-floodplains-bc}"
 TMP=$(mktemp -t stac_unregister.XXXXXX)
 trap 'rm -f "$TMP"' EXIT
 for id in "$@"; do
-  # Ids are interpolated into SQL, so constrain them to the shape 05 actually
+  # Ids are interpolated into SQL, so constrain them to the shape item_create.py actually
   # emits (<wsg>_<species>_<scenario>) before they get anywhere near psql.
   case "$id" in
     *[!A-Za-z0-9_-]*) echo "ERROR: suspicious item id: $id" >&2; exit 1 ;;

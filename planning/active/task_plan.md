@@ -37,14 +37,14 @@ full release:  NEWS top == tag on HEAD (exact)  ->  stamp collection.json  ->  v
 Mechanical, first, so every later diff already uses the new name. `git mv`, then move the
 live references (archives under `planning/archive/` stay as history):
 
-- [ ] `git mv scripts/05_stac_register.py scripts/item_create.py`; drop the "misnomer" paragraph
+- [x] `git mv scripts/05_stac_register.py scripts/item_create.py`; drop the "misnomer" paragraph
       from its docstring and update its own usage line
-- [ ] `scripts/run_pipeline.sh` (step banner + command), `scripts/test_pipeline.R:55-56,155`
-- [ ] `scripts/item_validate.py` comments (lines 44, 81, 152, 343), `scripts/01_stage.R:37`,
+- [x] `scripts/run_pipeline.sh` (step banner + command), `scripts/test_pipeline.R:55-56,155`
+- [x] `scripts/item_validate.py` comments (lines 44, 81, 152, 343), `scripts/01_stage.R:37`,
       `scripts/catalogue_release.sh` ("the shape 05 emits"), `scripts/catalogue_release-check.sh:34`
-- [ ] `README.md` pipeline table, `scripts/README.md` rebuild table (drop "misnomer kept until…"),
+- [x] `README.md` pipeline table, `scripts/README.md` rebuild table (drop "misnomer kept until…"),
       `CLAUDE.md` Layout bullet
-- [ ] Verify: `git grep -n 05_stac_register -- . ':(exclude)planning/archive'` is empty;
+- [x] Verify: `git grep -n 05_stac_register -- . ':(exclude)planning/archive'` is empty;
       `uv run python -m py_compile scripts/item_create.py`; `bash -n` on the two shell scripts;
       `bash scripts/catalogue_release-check.sh` still ALL PASS
 

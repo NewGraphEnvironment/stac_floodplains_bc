@@ -66,7 +66,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-# The id reaches S3 keys and a pgstac upsert. Constrain it to the shape 05 emits, as
+# The id reaches S3 keys and a pgstac upsert. Constrain it to the shape item_create.py emits, as
 # item_unregister.sh does; a leading '-' is a flag that swallowed the id, not an id.
 case "$ONLY" in
   -*|*[!A-Za-z0-9_-]*) echo "ERROR: suspicious item id: $ONLY" >&2; exit 1 ;;

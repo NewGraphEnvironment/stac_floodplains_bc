@@ -65,7 +65,7 @@ def main() -> int:
     # writes beside these rasters and try to convert them as if they were images.
     tifs = sorted(RAW_DIR.glob("*/*.tif"))
     # Zero rasters iterates nothing and reports "0 converted, 0 failed" — indistinguishable
-    # from a clean run, and exit 0 would carry it into 05. The R version this replaces had
+    # from a clean run, and exit 0 would carry it into item_create.py. The R version this replaces had
     # this hole; 02_raster_tag.py already carries the correct idiom.
     if not tifs:
         print(f"FAILED: no staged rasters under {RAW_DIR}/*/*.tif — nothing to convert",

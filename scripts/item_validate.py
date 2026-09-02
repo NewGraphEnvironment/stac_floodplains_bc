@@ -41,7 +41,7 @@ from rio_cogeo.cogeo import cog_validate
 MULTIHASH_SHA256 = "1220"
 
 # Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
-# 05_stac_register.py's PROV_FIELDS rather than importing it — importing that module
+# item_create.py's PROV_FIELDS rather than importing it — importing that module
 # would run the entire build, since it is a script and not a library.
 # The item properties that 02_raster_tag.py mirrors as UPPERCASE GDAL tags. Absolute and
 # hardcoded, for the same reason as REQUIRED_NGE_PROPERTIES: derived from the data, a tag
@@ -53,7 +53,7 @@ MULTIHASH_SHA256 = "1220"
 # other gate still passes: checksums verify, cog_validate passes, and the COGs quietly
 # lose their identity.
 #
-# flood_factor is deliberately absent: it is derived in 05 and has never been tagged.
+# flood_factor is deliberately absent: it is derived in item_create.py and has never been tagged.
 SHARED_TAG_PROPERTIES = {
     "wsg", "species", "scenario", "region",
     "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
@@ -78,7 +78,7 @@ def check_provenance(base: Path) -> list[str]:
     schema validation cannot see custom properties at all. So the required set is named
     here rather than derived from the data.
 
-    Set EQUALITY, not containment: a property added to 05_stac_register.py without being
+    Set EQUALITY, not containment: a property added to item_create.py without being
     declared here fails too, which is what keeps the two lists in step now that they
     cannot import from one another.
 
@@ -114,7 +114,7 @@ def check_cog_tags(base: Path) -> list[str]:
     02_raster_tag.py keeps its own copy of the field list, and nothing else in the repo reads
     a COG — so before this check, adding a twelfth field and forgetting that copy would
     ship silently incomplete COGs. Every other copy of the list is tied to another
-    (fp_provenance.R stopifnot, 05/item_validate set equality); this was the one with no
+    (fp_provenance.R stopifnot, item_create/item_validate set equality); this was the one with no
     guard in the add direction.
 
     Compares against the ITEM, not against a second hardcoded list, so the assertion
@@ -149,7 +149,7 @@ def check_cog_tags(base: Path) -> list[str]:
                 continue
             want[prop.upper()] = str(props[prop])
         for asset in doc.get("assets", {}).values():
-            # Compare against pystac's own constant, the same one 05_stac_register.py
+            # Compare against pystac's own constant, the same one item_create.py
             # writes from. A duplicated media-type literal drifting by a single character
             # would silently match no assets and pass.
             if asset.get("type") != pystac.MediaType.COG:
@@ -340,7 +340,7 @@ def check_cog_rat(base: Path) -> list[str]:
             # Label AND colour. Comparing titles alone would leave the one value on
             # either side that is NOT derived from classes.json unguarded: the no-change
             # colour is a hand-typed literal in both producers (02_raster_tag.py's
-            # NO_CHANGE_RGB and 05_stac_register.py's "D9D9D9"), and a drift between them
+            # NO_CHANGE_RGB and item_create.py's "D9D9D9"), and a drift between them
             # is invisible in every other gate while making a QGIS render and a web legend
             # disagree. The duplication is deliberate; this is what makes it safe.
             #

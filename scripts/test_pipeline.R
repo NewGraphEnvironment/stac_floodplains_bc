@@ -44,16 +44,16 @@ if (system("uv run python scripts/02_raster_tag.py") != 0) {
 # --- 03 COG ---------------------------------------------------------------
 # Python since #34/#35: the class-label RAT only embeds in the .tif through a GDAL 3.12+
 # CreateCopy, and terra links 3.8.5. system() returns a status rather than raising, so the
-# check is explicit — without it a failed COG step would fall through to 05.
+# check is explicit — without it a failed COG step would fall through to the STAC build.
 message("\n=== 03: COG ===")
 if (system("uv run python scripts/03_cog.py") != 0) {
   stop("03_cog.py failed")
 }
 
-# --- 05 BUILD -------------------------------------------------------------
-message("\n=== 05: BUILD STAC JSON ===")
-if (system("uv run python scripts/05_stac_register.py") != 0) {
-  stop("05_stac_register.py failed")
+# --- BUILD ----------------------------------------------------------------
+message("\n=== BUILD STAC JSON ===")
+if (system("uv run python scripts/item_create.py") != 0) {
+  stop("item_create.py failed")
 }
 
 # --- VALIDATE -------------------------------------------------------------
@@ -152,7 +152,7 @@ for (mp in meta_paths) {
   }
   # Tie the two halves to EACH OTHER, not just each to this file's literal. Six copies of
   # the field set exist across the repo; every other pair is guarded, but 01_stage.R's
-  # PROV_FIELDS and 05_stac_register.py's were joined only through this list — so a twelfth
+  # PROV_FIELDS and item_create.py's were joined only through this list — so a twelfth
   # field added to 01 (and to fp_provenance.R, which its stopifnot forces) would be staged
   # into meta.json, published nowhere, and leave every guard green.
   #

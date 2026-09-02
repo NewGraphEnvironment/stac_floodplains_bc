@@ -31,7 +31,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 BUCKET=check-bucket
 COLL=check-collection
-S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape 05_stac_register.py emits
+S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.py emits
 STAC="$WORK/stac"; RAW="$WORK/raw"; BIN="$WORK/bin"; LOG="$WORK/shim.log"; OUT="$WORK/out.txt"
 mkdir -p "$STAC" "$RAW" "$BIN"
 
