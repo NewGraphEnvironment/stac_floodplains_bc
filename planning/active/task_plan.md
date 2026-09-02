@@ -10,9 +10,9 @@ in. `--only` replaces that with an explicit single-object copy — and that prop
 test, not just care.
 
 ## Phase 1: Test first — the shim harness and the collection.json invariant
-- [ ] Write `scripts/catalogue_release-check.sh`: fixture builder, `aws`/`ssh`/`uv`/`curl` shims (tab-separated `%s` logging), PASS/FAIL runner
-- [ ] Case 2 (positive control: root-source `--include *.json` sync + `load collections`) and case 3's interlock control pass against **current** `main`
-- [ ] Case 1 and the `--only` refusals in case 3 written; red on current `main` (unknown option) confirmed
+- [x] Write `scripts/catalogue_release-check.sh`: fixture builder, `aws`/`ssh`/`uv`/`curl` shims (tab-separated `%s` logging), PASS/FAIL runner
+- [x] Case 2 (positive control: root-source `--include *.json` sync + `load collections`) and case 3's interlock control pass against **current** `main`
+- [x] Case 1 and the `--only` refusals in case 3 written; red on current `main` (unknown option) confirmed
 
 ## Phase 2: `--only` in `catalogue_release.sh`
 - [ ] Arg parsing: `--only <id>`, empty value refused, id shape check, `--allow-retract` combination refused, usage
