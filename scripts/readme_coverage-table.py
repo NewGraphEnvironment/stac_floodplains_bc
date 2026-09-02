@@ -37,8 +37,11 @@ FIELDS = ["id", "properties.wsg", "properties.region", "properties.species",
           "properties.scenario", "properties.flood_factor", "properties.floodplain_ff04_km2",
           "properties.floodplain_ff06_km2", "properties.gross_loss_ha",
           "properties.gross_gain_ha", "properties.net_ha"]
-# Anchors for --write: the table is the only block in README.md between these two lines.
-TABLE_START = re.compile(r"^\| WSG \| Region \| Species \|")
+# Anchors for --write: the generated block is the caption line through the total row, and
+# nothing else in README.md starts either way. The caption carries every number the prose
+# used to hardcode (item count, group count, regions, live version), so a re-run cannot
+# leave the words above the table contradicting it.
+TABLE_START = re.compile(r"^\*Generated from the live API by `scripts/readme_coverage-table\.py`")
 TABLE_END = re.compile(r"^\| \*\*Total\*\* \|")
 
 
@@ -57,6 +60,10 @@ def fetch():
     # served collection's links, so it carries none). Either disagreeing is a refusal.
     if any(l.get("rel") == "next" for l in doc.get("links", [])):
         raise SystemExit(f"search paged at {len(feats)} features — raise the limit")
+    # Absolute, before the cross-check: 0 == 0 would otherwise pass and --write would
+    # replace every row with a bare header.
+    if not feats:
+        raise SystemExit("search returned no items — refusing to write an empty table")
     with urllib.request.urlopen(f"{API_ROOT}/collections/{COLLECTION}", timeout=60) as r:
         coll = json.load(r)
     with urllib.request.urlopen(f"{S3_BASE}/collection.json", timeout=60) as r:
@@ -75,7 +82,7 @@ def fmt_int(x, signed=False):
     return ("-" if v < 0 else "") + s
 
 
-def table(feats):
+def table(feats, version):
     rows = []
     for f in feats:
         p = f["properties"]
@@ -84,23 +91,34 @@ def table(feats):
         rows.append((p["region"], p["wsg"], p["species"], ff, km2,
                      p["gross_loss_ha"], p["gross_gain_ha"], p["net_ha"]))
     rows.sort(key=lambda r: (r[0], r[1], r[3], r[2]))
-    out = ["| WSG | Region | Species | Scenario | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |",
+    regions = sorted({r[0] for r in rows})
+    n_wsg = len({r[1] for r in rows})
+    out = [f"*Generated from the live API by `scripts/readme_coverage-table.py`: {len(rows)} items "
+           f"across {n_wsg} watershed groups in {len(regions)} regions "
+           f"({', '.join(r.title() for r in regions)}), catalogue version {version}.*",
+           "",
+           "| WSG | Region | Species | Scenario | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |",
            "|----|----|----|----|----:|----:|----:|----:|"]
     for region, wsg, sp, ff, km2, loss, gain, net in rows:
         out.append(f"| {wsg} | {region.title()} | {SPECIES.get(sp, sp)} | ff0{ff} | {fmt_int(km2)} | "
                    f"{fmt_int(loss)} | {fmt_int(gain)} | {fmt_int(net, signed=True)} |")
-    # ff04 extent once per WSG: MORR's two items share one physical floodplain.
+    # ff04 extent once per WSG: MORR's two items share one physical floodplain. Asserted,
+    # not assumed — the search has no sortby, so if a group's items ever disagreed the
+    # total would depend on response order and --write would stop being idempotent.
     ff04_by_wsg = {}
     for f in feats:
         p = f["properties"]
-        ff04_by_wsg.setdefault(p["wsg"], p["floodplain_ff04_km2"])
+        seen = ff04_by_wsg.setdefault(p["wsg"], p["floodplain_ff04_km2"])
+        if seen != p["floodplain_ff04_km2"]:
+            raise SystemExit(f"{p['wsg']}: items disagree on floodplain_ff04_km2 "
+                             f"({seen} vs {p['floodplain_ff04_km2']}) — the once-per-group total needs a rule")
     total_km2 = sum(ff04_by_wsg.values())
     total_loss = sum(r[5] for r in rows)
     total_gain = sum(r[6] for r in rows)
     total_net = sum(r[7] for r in rows)
     out.append(f"| **Total** | | | | **{fmt_int(total_km2)}** | **{fmt_int(total_loss)}** | "
                f"**{fmt_int(total_gain)}** | **{fmt_int(total_net, signed=True)}** |")
-    return "\n".join(out), len(rows), len(ff04_by_wsg)
+    return "\n".join(out), len(rows), n_wsg
 
 
 def write(text):
@@ -115,7 +133,7 @@ def write(text):
 
 def main(argv):
     feats, version = fetch()
-    text, n_items, n_wsg = table(feats)
+    text, n_items, n_wsg = table(feats, version)
     if "--write" in argv[1:]:
         write(text)
         print(f"README.md: coverage table replaced — {n_items} items, {n_wsg} groups, "

@@ -16,15 +16,15 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-elevation-bc`
 
 ## Coverage
 
-Published and live at <https://images.a11s.one> — **20 STAC items** across **19 watershed groups**
-in the **Columbia** (bull trout), **Fraser** (chinook), **Peace** (bull trout), and **Skeena**
-(coho + chinook) regions. Most groups have one item; **MORR** carries two (coho `ff04` and
-chinook `ff06`). The table is generated from the live API by `scripts/readme_coverage-table.py`
-(last run at release **v1.0.0**, 2026-09-02; re-run after every full release). `Floodplain (km²)`
-is each item's **own** scenario extent — `ff04` functional floodplain for every item but
-`morr_ch_ff06`, whose `ff06` valley bottom is wider — so read the `Scenario` column before
-comparing rows (each item also publishes all three ff02/ff04/ff06 areas). Tree-cover change over
-that extent, 2017 → 2023:
+Published and live at <https://images.a11s.one>: one item per (watershed group, species,
+scenario) target, so a group with two modelled species carries two rows. The block below, caption
+included, is generated from the live API after every full release; the caption names the counts
+and the catalogue version it describes. `Floodplain (km²)` is each item's **own** scenario extent
+— `ff04` functional floodplain, or the wider `ff06` valley bottom where the `Scenario` column says
+so — so read that column before comparing rows (each item also publishes all three ff02/ff04/ff06
+areas). Tree-cover change over that extent, 2017 → 2023:
+
+*Generated from the live API by `scripts/readme_coverage-table.py`: 20 items across 19 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 1.0.0.*
 
 | WSG | Region | Species | Scenario | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |----|----|----|----|----:|----:|----:|----:|
@@ -52,8 +52,8 @@ that extent, 2017 → 2023:
 
 Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
 (negative = net tree loss). Figures are aggregated from each item's transition layer. Per-row
-values are rounded to whole units, so a column may not sum exactly to the (unrounded) total. MORR
-contributes two items (coho + chinook): the km² total counts its `ff04` extent **once**, while each
+values are rounded to whole units, so a column may not sum exactly to the (unrounded) total. MORR,
+with two items (coho + chinook), has its `ff04` extent counted **once** in the km² total, while each
 item's tree-change is listed and summed separately.
 
 ## Pipeline
