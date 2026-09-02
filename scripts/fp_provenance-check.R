@@ -82,7 +82,8 @@ read_doc <- function(doc, case) {
   jsonlite::write_json(doc, file.path(d, "provenance.json"), auto_unbox = TRUE, null = "null", na = "null", digits = NA)
   fp_prov_read(d)
 }
-item <- function(prov, species = "co", scenario = "co_ff04") fp_prov_item(prov, species, scenario, "check")
+YEARS <- c(2017L, 2020L, 2023L)   # the published span, as 01_stage.R passes it
+item <- function(prov, species = "co", scenario = "co_ff04") fp_prov_item(prov, species, scenario, "check", YEARS)
 
 # --- synthetic cases --------------------------------------------------------------------
 cat("synthetic schema-2 document\n")
@@ -110,7 +111,7 @@ expect_stop("a renamed section is refused, not read as a step that did not run",
 cat("absence vs schema break\n")
 d <- synthetic(); d$landcover <- list()
 got <- item(read_doc(d, "no_landcover"))
-lc <- c("drift_version", "produced_datetime", "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key")
+lc <- c("drift_version", "produced_datetime", "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key", "landcover_item_hash")
 expect_true("no landcover section -> every landcover field NA", all(vapply(got[lc], is_na1, logical(1))))
 expect_true("...and the network + floodplain fields still populated",
             !any(vapply(got[setdiff(PROV_FIELDS, lc)], is_na1, logical(1))))
@@ -142,6 +143,30 @@ expect_stop("a re-keyed scenario section stops", item(read_doc(d, "rekeyed")), "
 d <- synthetic(); d$wsg <- "MORR"
 expect_stop("a file declaring another wsg than its directory stops", read_doc(d, "wrong_wsg"), "declares wsg 'MORR'")
 
+# --- the landcover fold (#40) ------------------------------------------------------------
+cat("landcover_key: the fold of classified_content_sha256\n")
+fold_of <- function(m) { d <- synthetic(); d$landcover$co_ff04$inputs$classified_content_sha256 <- m; item(read_doc(d, "fold"))$landcover_key }
+ref <- fold_of(list(`2017` = HEX("a"), `2020` = HEX("b"), `2023` = HEX("d")))
+expect_true("the fold is a sha256: digest", grepl("^sha256:[0-9a-f]{64}$", ref))
+expect_true("...and is not any single year's digest", !ref %in% c(HEX("a"), HEX("b"), HEX("d")))
+expect_equal("the fold is the stated rule, recomputed here",
+             ref, paste0("sha256:", digest::digest(paste0("2017=", HEX("a"), "\n2020=", HEX("b"), "\n2023=", HEX("d")),
+                                                   algo = "sha256", serialize = FALSE)))
+expect_equal("key order in the map does not move it",
+             fold_of(list(`2023` = HEX("d"), `2017` = HEX("a"), `2020` = HEX("b"))), ref)
+expect_true("one changed hex digit in one year moves it",
+            fold_of(list(`2017` = HEX("a"), `2020` = HEX("b"), `2023` = sub("d$", "e", HEX("d")))) != ref)
+expect_stop("a missing year stops", fold_of(list(`2017` = HEX("a"), `2020` = HEX("b"))), "covers year(s) 2017, 2020 but the item publishes 2017, 2020, 2023")
+expect_stop("an extra year stops", fold_of(list(`2017` = HEX("a"), `2020` = HEX("b"), `2023` = HEX("d"), `2026` = HEX("f"))), "covers year(s) 2017, 2020, 2023, 2026")
+expect_stop("a value that is not sha256:<64 hex> stops", fold_of(list(`2017` = "abc", `2020` = HEX("b"), `2023` = HEX("d"))), "classified_content_sha256[2017] is not")
+expect_stop("a scalar where the map should be stops", fold_of(HEX("a")), "must be an object keyed by year")
+d <- synthetic(); d$landcover$co_ff04$inputs["classified_content_sha256"] <- list(NULL)
+expect_true("a JSON-null map publishes NA (modelled absence), not a fold of nothing",
+            is_na1(item(read_doc(d, "fold_null"))$landcover_key))
+got <- item(base)
+expect_equal("landcover_item_hash is the file's item_hash verbatim", got$landcover_item_hash, HEX("c"))
+expect_true("landcover_key and landcover_item_hash are different values", got$landcover_key != got$landcover_item_hash)
+
 # --- real files -------------------------------------------------------------------------
 cat("real producer files\n")
 FP <- Sys.getenv("FLOODPLAINS_DATA", unset = file.path("..", "floodplains", "data"))
@@ -168,6 +193,12 @@ if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") el
   expect_equal("neexdzii: landcover_source", got$landcover_source, "io-lulc")
   expect_true("neexdzii: landcover_key is a sha256: string",
               grepl("^sha256:[0-9a-f]{64}$", got$landcover_key))
+  expect_equal("neexdzii: landcover_item_hash is the recorded item_hash",
+               got$landcover_item_hash, "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904")
+  # Pinned from the producer's file on 2026-09-02: a function of its three published
+  # per-year digests and the rule above. Moves only if a digest or the rule changes.
+  expect_equal("neexdzii: landcover_key folds to the pinned value",
+               got$landcover_key, "sha256:27a0c5b649f44ed3f449820ec9c69ac96306aeccbe704ee80467d8a20fb89b04")
 }
 
 unlink(WORK, recursive = TRUE)

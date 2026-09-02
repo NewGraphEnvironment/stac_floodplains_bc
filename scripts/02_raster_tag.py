@@ -85,6 +85,7 @@ PROV_FIELDS = [
     "link_run_uid", "link_config_sha256", "link_sha", "link_version",
     "flooded_version", "drift_version", "produced_datetime",
     "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
+    "landcover_item_hash",
 ]
 # One companion tag naming what was looked for and not found, so a COG carries the
 # same "we looked and there was none" signal the STAC item does. Without it a

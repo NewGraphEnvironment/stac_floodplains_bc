@@ -50,28 +50,28 @@ pin bump and for Phase 2.
 
 ## Phase 2: `landcover_key` = content digest, `landcover_item_hash` = the ids
 
-- [ ] `fp_provenance.R`: `FP_PROV_MAP` gains an optional `fold` per entry; `fp_prov_leaf`
+- [x] `fp_provenance.R`: `FP_PROV_MAP` gains an optional `fold` per entry; `fp_prov_leaf`
       hands the raw value to `fold` when present instead of applying the scalar guard.
       `landcover_key` → `c("inputs", "classified_content_sha256")` with
       `fp_fold_year_digests()` (rule and assertions from decision 1, `digest::digest(...,
       algo = "sha256", serialize = FALSE)` on the canonical text — same call upstream uses).
       New entry `landcover_item_hash` → `c("inputs", "item_hash")`, no fold
-- [ ] The twelfth field in every copy: `01_stage.R` `PROV_FIELDS` (+ comment rewrite: the
+- [x] The twelfth field in every copy: `01_stage.R` `PROV_FIELDS` (+ comment rewrite: the
       `landcover_key` paragraph currently documents the wrong claim), `item_create.py`
       `PROV_FIELDS`, `02_raster_tag.py` `PROV_FIELDS` (tag `NGE_LANDCOVER_ITEM_HASH`),
       `item_validate.py` `REQUIRED_NGE_PROPERTIES`, `test_pipeline.R` `prov_keys`. The
       `stopifnot` in `fp_provenance.R`, the `meta[f]` KeyError in item_create, set equality in
       the validator and test_pipeline's two-sided tie are what make a missed copy fail
-- [ ] `fp_provenance-check.R` cases for the fold: neexdzii's map folds to a fixed 64-hex value
+- [x] `fp_provenance-check.R` cases for the fold: neexdzii's map folds to a fixed 64-hex value
       (pin it — it is a function of three published digests); reordering the map's keys gives
       the same value; one hex character changed gives a different one; a missing year, an
       extra year, a value without `sha256:` and a scalar in place of the map each stop;
       `landcover_item_hash` equals the file's `item_hash` verbatim
-- [ ] Docs: CLAUDE.md "Collection model" gains two sentences (what `landcover_key` is now, that
+- [x] Docs: CLAUDE.md "Collection model" gains two sentences (what `landcover_key` is now, that
       it is a fold and how, and that `landcover_item_hash` is the identity); the `#17`
       sentence in floodplains' CLAUDE.md that says the key "IS NOT" the digest becomes true —
       note that in the PR for the upstream repo to reconcile, not edited here
-- [ ] Verify: check script all pass; `python3 -m py_compile` on the three Python scripts;
+- [x] Verify: check script all pass; `python3 -m py_compile` on the three Python scripts;
       `bash scripts/catalogue_release-check.sh` still ALL PASS (its fixture carries one
       `nge:probe` null and must be unaffected)
 

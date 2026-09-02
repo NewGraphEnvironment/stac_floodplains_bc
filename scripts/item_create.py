@@ -63,6 +63,7 @@ PROV_FIELDS = [
     "link_run_uid", "link_config_sha256", "link_sha", "link_version",
     "flooded_version", "drift_version", "produced_datetime",
     "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
+    "landcover_item_hash",
 ]
 NGE_PROV_PROPERTIES = [f"nge:{f}" for f in PROV_FIELDS]
 

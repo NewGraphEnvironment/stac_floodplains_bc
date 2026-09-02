@@ -136,7 +136,8 @@ for (mp in meta_paths) {
   prov_keys <- paste0("nge:", c(
     "link_run_uid", "link_config_sha256", "link_sha", "link_version",
     "flooded_version", "drift_version", "produced_datetime",
-    "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key"))
+    "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
+    "landcover_item_hash"))
   prov_missing <- setdiff(prov_keys, names(props))
   if (length(prov_missing)) {
     stop("item JSON is missing provenance propert(ies): ",
