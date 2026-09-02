@@ -32,27 +32,27 @@ is dropped on republish.
 
 ## Phase 4: Declare classification:classes in the STAC items
 
-- [ ] Extension v2.0.0 URL in `stac_extensions`; classes on every raster asset
-- [ ] Slugged `name` (no spaces, no `/`), readable form in `title`, `color_hint` without `#`
-- [ ] Assert slug injectivity — `uniqueItems` cannot catch a collision when `value` differs
-- [ ] Built from `classes.json`, so RAT and STAC cannot disagree by construction
+- [x] Extension v2.0.0 URL in `stac_extensions`; classes on every raster asset
+- [x] Slugged `name` (no spaces, no `/`), readable form in `title`, `color_hint` without `#`
+- [x] Assert slug injectivity — `uniqueItems` cannot catch a collision when `value` differs
+- [x] Built from `classes.json`, so RAT and STAC cannot disagree by construction
 
 ## Phase 5: Guard it so a label cannot vanish silently
 
-- [ ] `check_cog_rat()` — RAT present in TIFF tag 42112 (embedded, not a sidecar) AND
+- [x] `check_cog_rat()` — RAT present in TIFF tag 42112 (embedded, not a sidecar) AND
       `ds.files == [local]`; parser refuses what it cannot parse rather than reporting absent
-- [ ] Absolute expected row counts per asset kind — the schema validates an item with ZERO
+- [x] Absolute expected row counts per asset kind — the schema validates an item with ZERO
       classes, so pystac cannot catch a uniform loss
-- [ ] Every code present in the transition raster has a RAT row (catches an upstream scheme change)
-- [ ] Overview values are a subset of base values (catches a resampling fallback)
-- [ ] Independent oracle in `test_pipeline.R`: decoded labels vs `transition_vector.gpkg`
-- [ ] Zero-comparison branch on every new loop; differences computed before gating
+- [x] Every code present in the transition raster has a RAT row (catches an upstream scheme change)
+- [x] Overview values are a subset of base values (catches a resampling fallback)
+- [x] Independent oracle in `test_pipeline.R`: decoded labels vs `transition_vector.gpkg`
+- [x] Zero-comparison branch on every new loop; differences computed before gating
 
 ## Validation
 
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` green
-- [ ] Labels reachable under titiler's own GDAL config (`EMPTY_DIR` + `.tif`-only)
-- [ ] No COG regression: block size, overviews, IFD offset, all tags
-- [ ] Each new guard seen to FAIL against a restored defect
-- [ ] `/code-check` clean on each commit
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` green
+- [x] Labels reachable under titiler's own GDAL config (`EMPTY_DIR` + `.tif`-only)
+- [x] No COG regression: block size, overviews, IFD offset, all tags
+- [x] Each new guard seen to FAIL against a restored defect
+- [x] `/code-check` clean on each commit
 - [ ] `/planning-archive` on completion

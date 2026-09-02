@@ -19,18 +19,22 @@ the catalog host, so it can be cut from a machine that does not hold the source 
 | Step | Script | What |
 |----|----|----|
 | Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`, extract the transition layer to `transition_vector.gpkg` (layer `transition`); derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
-| Tag | `02_raster_tag.py` | Embed GDAL metadata tags from `meta.json` onto the **staged** rasters (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, run provenance, per-asset year). Before the COG conversion, not after — tagging a finished COG in place moves its main IFD to the end of the file (#33) |
-| COG | `03_cog.R` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/`. terra carries the tags, colour table and band description through, and this is the last step to touch a published byte |
+| Tag | `02_raster_tag.py` | Embed GDAL metadata tags from `meta.json` onto the **staged** rasters (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, run provenance, per-asset year). Before the COG conversion, not after — tagging a finished COG in place moves its main IFD to the end of the file (#33). Also authors the class-label RAT as a PAM `.aux.xml` beside each staged raster, which `03` absorbs into the COG (#34/#35) |
+| COG | `03_cog.py` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` via `rasterio.shutil.copy` (a GDAL `CreateCopy`), which carries the tags, colour table, band description **and the class-label RAT** through. This is the last step to touch a published byte. Python rather than terra since #34: only a RAT can put labels inside a `.tif`, and RAT-in-`GDAL_METADATA` needs GDAL 3.12+ while terra links 3.8.5 |
 | STAC | `05_stac_register.py` | Build the collection + one `<item_id>.json` per target into `data/stac/`; asset hrefs under `<item_id>/`. Also hashes every asset into `file:checksum` + `file:size`. Build only — the name is a misnomer kept until the rename lands with the Version Extension work |
 | Extract | `fp_gpkg.R` | Sourced by `01_stage.R`: pins `OGR_CURRENT_DATE` and writes single-layer GeoPackages into a fresh file (the only case the pin makes byte-reproducible) |
 | Validate | `item_validate.py` | pystac-validate every document **on disk**, so what is checked is what ships. Requires exactly the staged item count, so a wrong `--base` fails instead of reporting `valid: 0` and exiting 0. Also re-hashes every asset and asserts the published `file:checksum`/`file:size` match the bytes |
 
 ### The step order is load-bearing for checksums
 
-`02` writes the COGs, `03` rewrites their GDAL tags **in place** (`rasterio` `"r+"`), and `05` hashes
-them. Hashing is correct only because it runs last. **Anything that touches an asset after `05`
-publishes a checksum that silently does not match the object** — so a new in-place step belongs
-before `05`, not after.
+`02` tags the **staged** rasters and writes their class-label sidecars, `03` writes the COGs from
+them, and `05` hashes what `03` produced. Hashing is correct only because it runs last.
+**Anything that touches an asset after `05` publishes a checksum that silently does not match the
+object** — so a new step that rewrites bytes belongs before `05`, not after.
+
+The order also decides whether the labels ship at all. `03`'s `CreateCopy` is what folds `02`'s PAM
+sidecar into the COG's own `GDAL_METADATA` tag; run in the other order the labels would sit in a
+file the S3 sync excludes and geoserv's titiler could not fetch.
 
 Two of the three GeoPackages are `file.copy()`d from upstream and never rewritten here, so their
 bytes — and therefore their checksums — are exactly upstream's. **`transition_vector.gpkg` is

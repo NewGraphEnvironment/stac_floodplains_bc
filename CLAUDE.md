@@ -15,7 +15,7 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Layout
 
-- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.R`, `05_stac_register.py`,
+- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `05_stac_register.py`,
   `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
   separate command, so a rebuild or smoke test cannot reach S3 or the live catalog. Source data
   comes from `$FLOODPLAINS_DATA` (default `../floodplains/data`).
@@ -50,6 +50,17 @@ layer names are deliberately year-free so QGIS `path|layername=` styles survive 
 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace
 directly to the model.
+
+**Class labels ship inside the COGs, as a GDAL Raster Attribute Table** (#34/#35), and as
+`classification:classes` on every raster asset — both generated from one `data/raw/classes.json`
+that `01_stage.R` ferries from `drift::dft_class_table("io-lulc")`, so the two surfaces cannot
+disagree. GDAL cannot embed *category names* in a GeoTIFF on any version; only a RAT embeds, and
+only from **GDAL 3.12+**, which is why step 03 is Python (`rasterio.shutil.copy`, a `CreateCopy`)
+rather than terra — terra links GDAL 3.8.5 and pushes the RAT back out to a `.aux.xml` sidecar.
+A sidecar is not an option here: `catalogue_release.sh` excludes `*.aux.xml` from the sync and
+geoserv's titiler sets `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff"`, so it could never
+fetch one. The transition raster's 81 `from -> to` combinations are coloured by destination class
+with the no-change diagonal held back, because no-change is ~91% of valid cells.
 
 ## Catalog registration
 
