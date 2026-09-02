@@ -6,3 +6,9 @@
 - Created branch `32-add-an-operator-set-provenance-floor-so-` off main
 - Scaffolded PWF baseline from issue #32 with approved phases
 - Next: start Phase 1
+- Phase 1: `item_validate.py --expect-provenance N` (default 0; negative refused);
+  `check_provenance()` returns (problems, traced, seen) with `traced` = items carrying any
+  non-null `nge:` value, the same predicate as `has_prov` / `_no_prov`. On the real bulk smoke
+  tree (1 item, 5 non-null values): floor 0 → pass, 1 → pass, 2 → FAILED "1 of 1 item(s) carry a
+  non-null nge: value but the release floor is 2 …". Summary line now reads
+  `provenance: 12 nge: properties on every item (1 of 1 carry values; floor 0), COG tags agree`.

@@ -42,12 +42,12 @@ provenance" here means the same thing: at least one non-null `nge:` value.
 
 ## Phase 1: the floor in the validator
 
-- [ ] `item_validate.py`: `--expect-provenance N` (int, default 0, help text saying it is set by
+- [x] `item_validate.py`: `--expect-provenance N` (int, default 0, help text saying it is set by
       the release, not derived); `check_provenance(base, floor)` counts `traced` (items with any
       non-null `nge:` value) and appends a problem when `traced < floor`, naming
       `traced`, `len(items)` and `floor`; the summary line becomes
       `provenance: 12 nge: properties on every item (K of M carry values; floor F), COG tags agree`
-- [ ] Verify against both answers on the real bulk smoke tree in `data/stac` (1 item, provenance
+- [x] Verify against both answers on the real bulk smoke tree in `data/stac` (1 item, provenance
       present): `--expect-provenance 0` and `1` pass, `2` fails naming `1 of 1 … floor 2`
       (~1 min per run — the validator re-hashes every asset and checks every COG)
 
