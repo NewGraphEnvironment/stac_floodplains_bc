@@ -35,7 +35,7 @@ This repo has to point `landcover_key` at it — and, found in planning, read up
 The reader has never had a test that runs without a full stage. Add one, then use it for the
 pin bump and for Phase 2.
 
-- [ ] `scripts/fp_provenance-check.R` — sources `01_stage.R`'s `PROV_FIELDS` block and
+- [x] `scripts/fp_provenance-check.R` — sources `01_stage.R`'s `PROV_FIELDS` block and
       `fp_provenance.R` without staging, then asserts against both known answers: the real
       `$FLOODPLAINS_DATA/{bulk,neexdzii}/provenance.json` when present (skip out loud when not),
       and synthetic mutations of the neexdzii file written to a temp dir. Cases: v2 file reads;
@@ -43,9 +43,9 @@ pin bump and for Phase 2.
       `co_ff04` yields network + floodplain values and landcover nulls; neexdzii's `co_ff04`
       yields all fields non-null; a landcover section whose `classified_content_sha256` key is
       renamed stops ("schema break, not an absence"); a null leaf publishes NA
-- [ ] `fp_provenance.R`: `FP_PROV_SCHEMA_VERSION <- 2L`, with the comment naming what v2 changed
+- [x] `fp_provenance.R`: `FP_PROV_SCHEMA_VERSION <- 2L`, with the comment naming what v2 changed
       (floodplains#65 phase 1) and that the map is unaffected because it walks paths
-- [ ] Verify: `Rscript scripts/fp_provenance-check.R` → all cases pass; the pin case is red
+- [x] Verify: `Rscript scripts/fp_provenance-check.R` → all cases pass; the pin case is red
       with the constant at `1L` (restore-the-bug)
 
 ## Phase 2: `landcover_key` = content digest, `landcover_item_hash` = the ids

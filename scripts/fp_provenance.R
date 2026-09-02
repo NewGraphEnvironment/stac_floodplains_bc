@@ -17,7 +17,11 @@
 # The three sections are written independently by three steps that may run separately
 # (`run_area.R morr 3` is normal upstream), so any of them can legitimately be absent.
 
-FP_PROV_SCHEMA_VERSION <- 1L
+# 2 since floodplains#65 phase 1 (2026-09-02): every section gained `inputs_hash`, `outputs`
+# and `outputs_hash` siblings, `sha_source` became a closed vocabulary, and the landcover
+# digest was renamed `classified_sha256` -> `classified_content_sha256`. The map below walks
+# explicit paths, so the new siblings are inert; the rename is what `landcover_key` reads.
+FP_PROV_SCHEMA_VERSION <- 2L
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
