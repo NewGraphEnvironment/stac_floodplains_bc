@@ -309,6 +309,19 @@ one.
     heredoc: `grep -n ', ,\|(( ))\|  |' file` finds the empty spans a swallowed
     code span leaves behind.
 - Pass-through-ssh args: `printf '%q'` escapes per-arg so workload paths with spaces / quotes / metacharacters survive the local-shell → ssh-argv → remote-shell round-trip. Without it, `ssh host 'cmd' "$path"` joins args with spaces on remote and re-parses, losing argument boundaries.
+- **A plain `git commit -m "…"` runs command substitution too, and unlike the heredoc cases it
+  SUCCEEDS.** The rules above are about forms that fail loudly. This one does not: backticks in a
+  double-quoted `-m` string execute, bash prints `something: command not found` to **stderr**, and
+  the commit lands anyway with the span replaced by empty output. Seen 2026-09-02 in floodplains:
+  a message reading ``prov_keys() now takes a `part` argument`` committed as "now takes a
+  argument". The only signal was one stderr line scrolling past above a successful commit.
+  - Markdown code spans are exactly what a good commit message is full of — function names,
+    arguments, file paths — so the failure targets careful messages, not sloppy ones.
+  - Fix is the one already prescribed for multi-line bodies, applied to single-line ones too:
+    write the message to a file and `git commit -F`, or use single quotes when the text has no
+    apostrophes. `git commit --amend -F msg.txt` repairs it after the fact.
+  - Detection, since the commit is already made: `git log -1 --format=%B | grep -n "  \|takes a $"`
+    finds the collapsed double spaces an eaten span leaves behind.
 - `git commit -m "$(cat <<'EOF' ... EOF)"` chokes on apostrophes in prose bodies in some contexts — the bash parser surfaces an unmatched-quote error even though heredoc bodies should be quote-neutral. Resilient default for multi-line commit messages: write the body to `/tmp/msg.txt` and use `git commit -F /tmp/msg.txt`.
 - **The same trap has a silent variant: `Rscript -e` / `python -c` carrying backslash escapes.** The heredoc case above fails loudly, which costs a retry. Passing a regex inline does not: `\\b` reaches the interpreter mangled, so `grepl()` returns 0 matches against text it matches perfectly from a file. Nothing errors. Seen 2026-07-31 in rfp#93 — the 0 read as "my regex is wrong" and nearly triggered a rewrite of working code; the identical regex scored 4 matches the moment it ran from `/tmp/x.R`.
   - Rule: anything carrying a regex, nested quotes or backslashes gets written to a file and run (`Rscript /tmp/x.R`). Inline `-e` is for trivial one-liners only.
@@ -3122,6 +3135,19 @@ round-trip as ordinary strings a consumer cannot tell from a real value.
 namespace separator: `update_tags(**{"NGE:LINK_RUN_UID": "abc"})` round-trips as key
 `NGE` with value `LINK_RUN_UID=abc`. Eleven prefixed fields collapse into one tag holding
 whichever was written last — uniform, silent, on every file.
+
+**And the reader may drop the null you did publish.** Getting a real `null` onto the wire is
+only half of it: the *serving* layer can omit null-valued keys on output while the store keeps
+them. Measured 2026-09-02 on `images.a11s.one` (stac_floodplains_bc#36): on the pgstac row all 11
+`nge:` properties are present with `jsonb_typeof` `null`; from `GET /collections/.../items/<id>`
+they are absent, while every non-null value and every asset field round-trips byte-for-byte. So
+an API consumer cannot distinguish "published null" from "never published" — the whole reason
+for publishing the null — and a verify that compares the served document with the built one
+reports every null as a defect. Two consequences: a null-means-something contract has to be
+checked against the **store**, not the API, or it has to carry a non-null sentinel; and a
+read-back guard needs a stated rule for the build-null / served-absent pair, measured against
+the real reader rather than reasoned about. Found only because the first single-item release
+ran a wholesale document compare and printed exactly the eleven keys.
 
 ### A rename emits two signals, and reading only one cannot distinguish it from absence
 
