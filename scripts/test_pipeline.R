@@ -14,7 +14,7 @@
 #   WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
 #   WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
 #
-# Requires: R (sf/terra/yaml/jsonlite), uv (Python env from pyproject.toml/uv.lock —
+# Requires: R (sf/yaml/jsonlite/drift), uv (Python env from pyproject.toml/uv.lock —
 # `uv run` auto-syncs it), and the source data under $FLOODPLAINS_DATA. No AWS creds needed.
 
 library(jsonlite)
@@ -41,7 +41,13 @@ if (system("uv run python scripts/02_raster_tag.py") != 0) {
 }
 
 # --- 03 COG ---------------------------------------------------------------
-source("scripts/03_cog.R")
+# Python since #34/#35: the class-label RAT only embeds in the .tif through a GDAL 3.12+
+# CreateCopy, and terra links 3.8.5. system() returns a status rather than raising, so the
+# check is explicit — without it a failed COG step would fall through to 05.
+message("\n=== 03: COG ===")
+if (system("uv run python scripts/03_cog.py") != 0) {
+  stop("03_cog.py failed")
+}
 
 # --- 05 BUILD -------------------------------------------------------------
 message("\n=== 05: BUILD STAC JSON ===")

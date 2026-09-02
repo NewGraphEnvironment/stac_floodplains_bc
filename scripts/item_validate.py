@@ -12,9 +12,11 @@ Two deliberate differences from the stac_uav_bc original, both closing a
 silent-success hole:
 
   * `glob`, not `rglob`. Item + collection JSON live flat at the root of
-    data/stac/; the per-item subdirs hold 68 `.tif.aux.json` terra sidecars that
-    rglob would sweep up and then silently skip (they are not Features), so the
-    printed count would carry no completeness signal.
+    data/stac/ by construction, while the per-item subdirs hold assets. rglob would
+    sweep up anything nested there — now or later — and then silently skip it (it is
+    not a Feature), so the printed count would carry no completeness signal. This is
+    structural, not a fact about today's tree: it used to be argued from 68 terra
+    `.tif.aux.json` sidecars, which #34 retired along with terra.
 
   * `--expect N`. The original has no lower bound, so a wrong --base prints
     `valid: 0` and exits 0 — the gate opens on nothing. With --expect we require

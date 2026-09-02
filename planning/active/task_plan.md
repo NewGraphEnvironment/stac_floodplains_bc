@@ -8,27 +8,27 @@ is dropped on republish.
 
 ## Phase 1: Ferry the class table from drift
 
-- [ ] `01_stage.R` writes `data/raw/classes.json` from `drift::dft_class_table("io-lulc")`
-- [ ] Absolute floor: non-empty, expected code set, `#RRGGBB` colours — a short table is a
+- [x] `01_stage.R` writes `data/raw/classes.json` from `drift::dft_class_table("io-lulc")`
+- [x] Absolute floor: non-empty, expected code set, `#RRGGBB` colours — a short table is a
       uniform defect no cross-item check can see
-- [ ] Record `drift` version; reconcile against `meta$drift_version` (warn on null, stop on differ)
-- [ ] Fix the adjacent unchecked `file.copy()` on the rasters (gpkg copies are already guarded)
+- [x] Record `drift` version; reconcile against `meta$drift_version` (warn on null, stop on differ)
+- [x] Fix the adjacent unchecked `file.copy()` on the rasters (gpkg copies are already guarded)
 
 ## Phase 2: Author the RAT beside the staged rasters
 
-- [ ] `02_raster_tag.py` writes `data/raw/<item>/<raster>.tif.aux.xml` via ElementTree
-- [ ] `xml_declaration=False` — GDAL silently ignores a PAM sidecar carrying one
-- [ ] Written UNCONDITIONALLY, before the tag skip-check, so a skipped raster still gets a RAT
-- [ ] Classified: 9 base classes. Transition: 81 from->to combos, changed = destination
+- [x] `02_raster_tag.py` writes `data/raw/<item>/<raster>.tif.aux.xml` via ElementTree
+- [x] `xml_declaration=False` — GDAL silently ignores a PAM sidecar carrying one
+- [x] Written UNCONDITIONALLY, before the tag skip-check, so a skipped raster still gets a RAT
+- [x] Classified: 9 base classes. Transition: 81 from->to combos, changed = destination
       colour, no-change = one muted grey
-- [ ] GDAL usage flags MinMax/Name/Red/Green/Blue/Alpha — QGIS resolves a RAT by usage
+- [x] GDAL usage flags MinMax/Name/Red/Green/Blue/Alpha — QGIS resolves a RAT by usage
 
 ## Phase 3: Replace terra with a CreateCopy COG writer
 
-- [ ] `03_cog.R` -> `03_cog.py` using `rasterio.shutil.copy(driver="COG")`
-- [ ] Preserve per-file failure counting + non-zero exit; add the missing zero-input floor
-- [ ] Explicit `OVERVIEW_RESAMPLING=NEAREST`; create the destination dir
-- [ ] Update `run_pipeline.sh`, `test_pipeline.R`, and the `.tif.aux.json` rationale comments
+- [x] `03_cog.R` -> `03_cog.py` using `rasterio.shutil.copy(driver="COG")`
+- [x] Preserve per-file failure counting + non-zero exit; add the missing zero-input floor
+- [x] Explicit `OVERVIEW_RESAMPLING=NEAREST`; create the destination dir
+- [x] Update `run_pipeline.sh`, `test_pipeline.R`, and the `.tif.aux.json` rationale comments
 
 ## Phase 4: Declare classification:classes in the STAC items
 

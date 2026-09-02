@@ -7,7 +7,7 @@
 #
 # Usage: bash scripts/run_pipeline.sh
 #
-# Requires: R with sf/terra/yaml/jsonlite, uv (Python env from pyproject.toml/uv.lock —
+# Requires: R with sf/yaml/jsonlite/drift, uv (Python env from pyproject.toml/uv.lock —
 #           `uv run` auto-syncs it). No AWS credentials, no SSH.
 # Source data: $FLOODPLAINS_DATA (default ../floodplains/data).
 
@@ -37,7 +37,7 @@ uv run python scripts/02_raster_tag.py
 
 echo ""
 echo "=== 03: COG ==="
-Rscript scripts/03_cog.R
+uv run python scripts/03_cog.py
 
 echo ""
 echo "=== 05: BUILD STAC JSON ==="
