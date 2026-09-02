@@ -117,6 +117,45 @@ Live item has no `classification:classes`; the build does. So the pilot carries 
 stale axes in one republish (numbers, layout, labels) — the shape the collection memory note
 anticipated. The item's published areas and loss/gain figures will change with it.
 
+## Phase 5: the BULK pilot (2026-09-02 04:39–04:43 UTC)
+
+**Run 1** (`pilot_bulk-1_incomplete.log`): preflight said both skips out loud (`live: 20 | built: 1`),
+validate `valid: 1 item(s) + 1 collection(s)`, 8 uploads (7 assets + `bulk_co_ff04.json`, no
+`collection.json`), 1 item registered (3.36 MB), size + checksum probes green — then the read-back
+reported `STALE` on exactly the 11 `nge:` properties and `RELEASE INCOMPLETE`. Everything had
+published; only the verdict was wrong.
+
+**What that measured.** The build carries all 11 `nge:` properties as explicit null. On the pgstac
+row (`docker exec geoserv-db psql`): the key is present and `jsonb_typeof` is `null`. From the
+API: the key is absent. So **pgstac stores explicit nulls and the API omits them on output** —
+the question the collection memory had flagged as never tested, answered on the first `--only`
+release. Consequence for #17's design: a consumer of the API cannot distinguish "published null"
+from "never published"; only the row can.
+
+Fix: a build-null / live-absent pair compares equal in the read-back; null vs value and value vs
+absent still fail. The check fixture now carries a null property and its curl shim omits nulls as
+the API does, so case 1 exercises the rule.
+
+**Run 2** (`pilot_bulk-2_complete.log`), 30 s: sync skipped all 7 unchanged assets, re-copied the
+JSON, upserted, and verify passed every probe —
+`live item (bulk_co_ff04): pgstac serves the document just built — 7 assets, 30 properties`,
+`RELEASE COMPLETE — bulk_co_ff04 republished; collection unchanged at 20 items`.
+
+Independent confirmation of what is now live, all read from S3 / the API, not from local state:
+
+| check | result |
+|---|---|
+| live `assets` == build `assets` | True (all 7 checksums; `classification:classes` present) |
+| live `properties` == build, minus the 11 null `nge:` keys | True; `net_ha` −738.2 both sides |
+| `cog_validate` on `classified_2017.tif` via HTTPS | True, no errors |
+| RAT rows via `gdalinfo /vsicurl/` | 9 (classified), 81 (transition) |
+| `NGE_` GDAL tags on S3 | `NGE_PROVENANCE_NULL` only — same as the local COG, the designed sentinel |
+| collection membership | 20 before, 20 after |
+| `collection.json` on S3 / in pgstac | untouched — no upload line, no `load collections` |
+
+BULK is now the one item of 20 carrying the corrected geometry (#26), valid COG layout (#33) and
+class labels (#34/#35). The other 19 remain the old vintage until a full release.
+
 ## Errors Encountered
 
 | Error | Resolution |

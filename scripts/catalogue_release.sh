@@ -333,8 +333,9 @@ fi
 # so a COG-only republish leaves its checksum identical; and labels, provenance and the
 # loss/gain figures change with no byte changing at all. pgstac returns the document as
 # written (measured: datetime strings round-trip in the builder's own mixed Z / +00:00
-# forms), so equality is the right test. A failed fetch or an unparseable body leaves
-# live_state empty, which fails the compare rather than skipping it.
+# forms) except for null-valued properties, which it omits — see below. A failed fetch
+# or an unparseable body leaves live_state empty, which fails the compare rather than
+# skipping it.
 if [ -n "$ONLY" ]; then
   live_state=$(curl -sf --max-time 60 "$API/items/$ONLY" | python3 -c "
 import json, sys
@@ -346,6 +347,11 @@ for name in sorted(set(built['assets']) | set(live.get('assets', {}))):
         bad.append('asset:' + name)
 lp, bp = live.get('properties', {}), built['properties']
 for k in sorted(set(bp) | set(lp)):
+    # A null the build publishes comes back ABSENT: pgstac stores the key (measured on
+    # the row: jsonb null) and the API drops it on output. That pair is the same
+    # document; a null against a value, or a value against absence, is not.
+    if bp.get(k) is None and k not in lp:
+        continue
     if bp.get(k, '<absent>') != lp.get(k, '<absent>'):
         bad.append('property:' + k)
 if not built['assets'] or not bp: print('EMPTY BUILD')

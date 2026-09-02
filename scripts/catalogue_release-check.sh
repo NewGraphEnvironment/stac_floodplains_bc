@@ -50,8 +50,10 @@ def item(iid, sizes):
         assets[name.split(".")[0]] = {
             "href": f"{s3}/{iid}/{name}", "type": "application/octet-stream",
             "file:size": len(data), "file:checksum": "1220" + hashlib.sha256(data).hexdigest()}
+    # nge:probe is null: the real API omits null-valued properties (measured on BULK,
+    # 2026-09-02), and the curl shim mirrors that, so the read-back must accept it.
     doc = {"type": "Feature", "stac_version": "1.0.0", "id": iid, "collection": coll,
-           "geometry": None, "properties": {"datetime": "2023-01-01T00:00:00Z"},
+           "geometry": None, "properties": {"datetime": "2023-01-01T00:00:00Z", "nge:probe": None},
            "links": [], "assets": assets}
     json.dump(doc, open(os.path.join(stac, iid + ".json"), "w"))
 item("aaaa_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
@@ -115,11 +117,14 @@ case "$url" in
     # Stale ONE asset, the first (classified_2017.tif), and leave the largest correct: a
     # read-back that compares only the probe asset (the largest, a byte-stable gpkg) is
     # exactly the false pass this case exists to catch. No /g, deliberately.
-    case "${FAKE_LIVE_ITEM_STALE:-}" in
-      asset) sed 's/"file:checksum": "1220/"file:checksum": "1220dead/' "$f" ;;
-      property) sed 's/"datetime": "2023-01-01T00:00:00Z"/"datetime": "2022-01-01T00:00:00Z"/' "$f" ;;   # no byte changes
-      *) cat "$f" ;;
-    esac
+    # Serve it as the API does: null-valued properties dropped (case 1 relies on the
+    # read-back accepting that), then the requested staleness on top.
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["properties"]={k:v for k,v in d["properties"].items() if v is not None}; print(json.dumps(d))' "$f" \
+    | case "${FAKE_LIVE_ITEM_STALE:-}" in
+        asset) sed 's/"file:checksum": "1220/"file:checksum": "1220dead/' ;;
+        property) sed 's/"datetime": "2023-01-01T00:00:00Z"/"datetime": "2022-01-01T00:00:00Z"/' ;;   # no byte changes
+        *) cat ;;
+      esac
     exit 0 ;;
 esac
 rel="${url#*.amazonaws.com/}"
@@ -207,7 +212,7 @@ expect_eq "one load items" "$(n_load_items)" 1
 expect_eq "the other item is untouched" "$(n_aws_naming bbbb)" 0
 expect_eq "both skips said out loud" "$(grep -c 'skipped under --only' "$OUT" || true)" 2
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
-expect_out "verify read the live item back" "pgstac serves the document just built — 2 assets, 1 properties"
+expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 2 properties"
 
 # --- case 3: refusals ------------------------------------------------------------------
 echo "case 3: refusals touch nothing"

@@ -32,13 +32,13 @@ test, not just care.
 - [x] `findings.md`: live count is 20, not the 17 the prose says; review-36.md folded
 
 ## Phase 5: Pilot on BULK (publishes to production — user gave the go-ahead: "Go all phases to pr")
-- [ ] Rebuild BULK on this branch: `WSG=bulk Rscript scripts/test_pipeline.R`
-- [ ] `bash scripts/catalogue_release.sh --only bulk_co_ff04`; capture the log, including the `valid: 1 item(s) + 1 collection(s)` line, into `findings.md`
-- [ ] Confirm live: `cog_validate` on a published BULK COG via `/vsicurl/`, RAT present, membership still 20
+- [x] Rebuild BULK on this branch: `WSG=bulk Rscript scripts/test_pipeline.R`
+- [x] `bash scripts/catalogue_release.sh --only bulk_co_ff04`; capture the log, including the `valid: 1 item(s) + 1 collection(s)` line, into `findings.md`
+- [x] Confirm live: `cog_validate` on a published BULK COG via `/vsicurl/`, RAT present, membership still 20
 
 ## Validation
 
-- [ ] Tests pass
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
+- [x] Tests pass
+- [x] `/code-check` clean on each commit
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
