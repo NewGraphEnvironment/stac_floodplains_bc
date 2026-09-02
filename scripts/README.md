@@ -197,6 +197,19 @@ The cold path is the point. A guard nobody has seen fail is decoration, so `NO_P
 rebuilds **differ** and errors if they match — if it passes, the warm run was measuring nothing.
 Measured on `sloc_bt_ff04`: unpinned `5429357d…` vs `c2bfa94b…`; pinned, both `ea0ac66f…`.
 
+## Provenance reader check
+
+```bash
+Rscript scripts/fp_provenance-check.R
+```
+
+Proves `fp_provenance.R` — the one file that knows the producer's `provenance.json` shape — offline:
+a synthetic schema-2 document mutated per guard (schema pin, renamed section, renamed leaf,
+modelled-null `link_log`, the `landcover_key` fold, rasters newer than their record), plus the
+producer's own `$FLOODPLAINS_DATA/{bulk,neexdzii}/provenance.json` when present, skipped out loud
+when not. Exit status is the number of failed assertions. Run it whenever the reader or the
+upstream writer changes; it is the only exercise of the reader that needs no stage.
+
 ## Environment flags
 
 | Flag | Effect | Risk |

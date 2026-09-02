@@ -28,7 +28,11 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   pilot path (#36), pinned by `catalogue_release-check.sh`.
 - `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for `03_cog.py` + `item_create.py`, run via
   `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
-  the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically.
+  the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically. `rio-cogeo` (#33) is
+  validation-only and a pure-Python wheel over the same rasterio — no second GDAL — but it pulls
+  `pyproj` via `morecantile` and forced `requires-python` to `>=3.11`; siblings copying this
+  `pyproject.toml` inherit that floor. `osgeo` is not available under uv (`uv pip install gdal`
+  has no usable wheels), and rasterio has no RAT API — both are why the RAT is written as PAM XML.
 - `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs).
 
 ## Collection model
@@ -83,6 +87,9 @@ that `01_stage.R` ferries from `drift::dft_class_table("io-lulc")`, so the two s
 disagree. GDAL cannot embed *category names* in a GeoTIFF on any version; only a RAT embeds, and
 only from **GDAL 3.12+**, which is why step 03 is Python (`rasterio.shutil.copy`, a `CreateCopy`)
 rather than terra — terra links GDAL 3.8.5 and pushes the RAT back out to a `.aux.xml` sidecar.
+The route is: hand-write the PAM XML (stdlib `ElementTree`, in `02_raster_tag.py`), then let the
+`CreateCopy` absorb it. `rio_cogeo.cog_translate` is **not** equivalent — it drops the RAT — and
+`SetCategoryNames` writes a sidecar on every GDAL tested up to 3.13, so neither is a shortcut.
 A sidecar is not an option here: `catalogue_release.sh` excludes `*.aux.xml` from the sync and
 geoserv's titiler sets `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff"`, so it could never
 fetch one. The transition raster's 81 `from -> to` combinations are coloured by destination class
