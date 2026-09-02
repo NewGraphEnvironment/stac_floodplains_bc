@@ -19,6 +19,9 @@ release is cut at (`scripts/catalogue_release.sh`; recipe under "Cut a release" 
   under its own name as the twelfth property, `nge:landcover_item_hash` (#40).
 - The provenance reader accepts the producer's `schema_version` 2 and refuses a stage whose
   landcover rasters are newer than the record describing them.
+- A full release now passes an operator-set provenance floor to the validator (#32): the
+  minimum number of items carrying a non-null `nge:` value. It is 0 for this entry and will be
+  raised to the built count in the release that first publishes real provenance.
 
 ## v1.0.0 (2026-09-02)
 

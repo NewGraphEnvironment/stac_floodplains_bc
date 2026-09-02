@@ -41,6 +41,20 @@ STAC_DIR="${STAC_DIR:-data/stac}"
 RAW_DIR="${RAW_DIR:-data/raw}"
 HOST="${GEOSERV_HOST:-root@geopro}"
 S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.py emits
+
+# The provenance floor (#32): how many items must carry a non-null nge: value for a full
+# release to pass validation. A LITERAL set by a human, on purpose. Deriving it from the
+# build would reproduce #23 — an expectation that comes from the data cannot be contradicted
+# by it — and an env override would be the escape hatch this exists not to have.
+#
+# 0 is correct until the first release that publishes real provenance: floodplains#33 is
+# forward-only, so every area modelled before it carries nulls, and that catalogue is
+# byte-identical to the one a broken reader would produce. Flip it to the built count in
+# the SAME commit as that release's NEWS entry — not before (every release fails) and not
+# never (the hole stays open). The number to set is the one 01_stage.R prints as
+# "N of M staged item(s) carry run provenance" and item_create.py as "provenance block: N/M".
+# Lowering it later is a decision, and this comment is where it gets recorded.
+PROVENANCE_FLOOR=0
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 ALLOW_RETRACT=""
@@ -265,7 +279,17 @@ echo "=== 1: VALIDATE (gate) ==="
 #
 # On a full release the collection validated here is the STAMPED one, so the Version
 # Extension's schema is checked before anything is published.
-uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local"
+#
+# --expect-provenance: the floor above, on a full release only. --only republishes one
+# item from a tree that may hold one group, which cannot meet a full-tree floor; the item's
+# own provenance is compared wholesale against the live row by the step-5 read-back instead.
+if [ -n "$ONLY" ]; then
+  echo "provenance floor: skipped under --only (a one-group tree cannot meet a full-tree floor; the read-back compares the item's provenance instead)."
+  uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local"
+else
+  uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local" \
+    --expect-provenance "$PROVENANCE_FLOOR"
+fi
 
 # --- Step 2: sync assets ---------------------------------------------------
 if [ -n "$SKIP_SYNC" ]; then

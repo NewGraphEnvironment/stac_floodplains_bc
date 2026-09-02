@@ -56,6 +56,14 @@ unchanged. Until #40 the identity was published under the fingerprint's name. Th
 in `scripts/fp_provenance.R`, and `scripts/fp_provenance-check.R` proves the reader offline against
 the producer's own files.
 
+**The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in
+`catalogue_release.sh`, passed to `item_validate.py --expect-provenance` on a full release, is the
+minimum number of items that must carry a non-null `nge:` value. It is never derived from the
+build (an expectation that comes from the data cannot be contradicted by it) and has no env
+override. It is 0 until the first release that publishes real provenance, and is flipped to the
+built count in the same commit as that release's NEWS entry — because from then on an all-null
+catalogue is a broken reader, not the forward-only state, and every presence check passes it.
+
 `transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
 why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published
 `file:checksum` would churn on every rebuild while every other asset's stayed stable. Its file and

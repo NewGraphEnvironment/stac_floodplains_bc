@@ -53,20 +53,20 @@ provenance" here means the same thing: at least one non-null `nge:` value.
 
 ## Phase 2: the number the release sets
 
-- [ ] `catalogue_release.sh`: `PROVENANCE_FLOOR=0` near the top with the comment: why it is a
+- [x] `catalogue_release.sh`: `PROVENANCE_FLOOR=0` near the top with the comment: why it is a
       literal set by a human, that 0 is correct until the first provenance-bearing release,
       that it is flipped to the built count in the same commit as that release's NEWS entry, and
       that the number to set is the one `01_stage.R` / `item_create.py` print. Step 1 passes
       `--expect-provenance "$PROVENANCE_FLOOR"` on a full release; under `--only` it passes
       nothing and says `provenance floor: skipped under --only (…)` — the third skip
-- [ ] `catalogue_release-check.sh`: `uv` is shimmed, so the validator never runs there, but its
+- [x] `catalogue_release-check.sh`: `uv` is shimmed, so the validator never runs there, but its
       argv is logged. Assert on a full release that the `uv` line carries
       `--expect-provenance 0`, and under `--only` that it does not and the skip line prints;
       bump the "skips said out loud" count 3 → 4
-- [ ] Docs: `scripts/README.md` release table step 1 names the floor; CLAUDE.md gains one
+- [x] Docs: `scripts/README.md` release table step 1 names the floor; CLAUDE.md gains one
       paragraph under "Catalog registration" (what the floor is, why it is a literal, the flip
       rule); `NEWS.md` `## Unreleased` gains a bullet
-- [ ] Verify: `bash scripts/catalogue_release-check.sh` ALL PASS; restore-the-bug: with the
+- [x] Verify: `bash scripts/catalogue_release-check.sh` ALL PASS; restore-the-bug: with the
       `--expect-provenance` argument removed from step 1, the argv assertion goes red
 
 ## Phase 3: the smoke test asserts values, then review + PR

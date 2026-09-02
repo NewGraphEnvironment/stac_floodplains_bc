@@ -11,10 +11,13 @@
 # the real checkout (uv is shimmed, STAC_DIR/RAW_DIR are absolute), so the copy is the whole
 # script, byte for byte. The shims log their argv, and the assertions read the log:
 #
-#   1  --only <id>   never syncs the tree root, never a JSON sweep, never `load collections`
+#   1  --only <id>   never syncs the tree root, never a JSON sweep, never `load collections`,
+#                    and never passes the provenance floor to the validator (skipped out loud)
 #   2  full release  DOES sync the tree root with --include *.json and DOES `load collections`
 #                    — the positive control, found by the SAME greps case 1 uses. Without it
-#                    case 1 is a search that has never been shown to match anything.
+#                    case 1 is a search that has never been shown to match anything. Also
+#                    passes `--expect-provenance <PROVENANCE_FLOOR>` to the validator (#32):
+#                    uv is shimmed, so the flag is proven from the shim's argv log
 #   3  refusals      exit non-zero with NO aws call: bad id, missing id, not-live id, bare
 #                    --only, --only + --allow-retract; and the untouched PARTIAL_STAGE interlock
 #   4  verify        a membership change after registration -> RELEASE INCOMPLETE
@@ -225,6 +228,8 @@ n_cp()         { awk -F'\t' -v s="$1" -v d="$2" '$1=="aws" && $3=="cp" && $4==s 
 n_aws_naming() { awk -F'\t' -v x="$1" '$1=="aws" && index($0, x)' "$LOG" | grep -c . || true; }
 n_load_coll()  { awk -F'\t' '$1=="ssh" && index($0, "load collections")' "$LOG" | grep -c . || true; }
 n_load_items() { awk -F'\t' '$1=="ssh" && index($0, "load items")' "$LOG" | grep -c . || true; }
+# The validator's argv: the flag and its value are adjacent fields on the uv line.
+floor_passed() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--expect-provenance") print $(i+1) }' "$LOG"; }
 
 refused() { # desc — the last run must have exited non-zero having touched nothing
   if [ "$RC" -ne 0 ] && [ "$(n_aws)" -eq 0 ]; then pass "$1"
@@ -250,6 +255,11 @@ expect_eq "collection.json on disk is stamped" "$(coll_version)" "$TVERSION"
 expect_out "verify read the live version back" "live collection version: $TVERSION — matches the tag just released"
 expect_out "verify read the bucket copy back" "bucket collection.json version: $TVERSION — agrees"
 expect_out "completion line names the version" "RELEASE COMPLETE — v$TVERSION"
+# Read the literal out of the script with an anchored sed, so a renamed variable or an env
+# override sneaking in reads as an empty premise rather than a passing compare.
+FLOOR_LITERAL=$(sed -n 's/^PROVENANCE_FLOOR=\([0-9][0-9]*\)$/\1/p' "$RELEASE")
+expect_eq "premise: PROVENANCE_FLOOR is one bare integer literal in the script" "$(printf '%s' "$FLOOR_LITERAL" | grep -c '^[0-9][0-9]*$')" 1
+expect_eq "validator was given exactly that literal as --expect-provenance" "$(floor_passed)" "$FLOOR_LITERAL"
 echo aaaa > "$RAW/PARTIAL_STAGE"
 
 # --- cases 8-13: the version gate and the version verify ---------------------------------
@@ -333,7 +343,8 @@ expect_eq "exactly two aws calls in total" "$(n_aws)" 2
 expect_eq "no load collections" "$(n_load_coll)" 0
 expect_eq "one load items" "$(n_load_items)" 1
 expect_eq "the other item is untouched" "$(n_aws_naming bbbb)" 0
-expect_eq "all three skips said out loud (interlock, comparison, version gate)" "$(grep -c 'skipped under --only' "$OUT" || true)" 3
+expect_eq "all four skips said out loud (interlock, comparison, version gate, provenance floor)" "$(grep -c 'skipped under --only' "$OUT" || true)" 4
+expect_eq "the validator was NOT given a provenance floor" "$(floor_passed)" ""
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
 expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 2 properties"
 expect_out "the version gate was skipped out loud" "version gate: skipped under --only"
