@@ -192,6 +192,20 @@ def write_rat_sidecar(raster: Path, rows: list[tuple]) -> None:
     so adding them would reopen the conda->uv blocker this repo cleared. PAM is a
     documented on-disk format; emitting it costs nothing but care.
 
+    Two side effects worth knowing before debugging this, both measured and neither
+    obvious from the code:
+
+      * **This script's own `"r+"` open embeds the RAT into the STAGED raster.** GDAL loads
+        the sidecar when it opens the file and flushes it back into `GDAL_METADATA` on
+        close, so after step 02 the staged `.tif` already carries the table. The
+        consequence for debugging is sharp: a test that corrupts the sidecar *after* 02 has
+        run will pass, because 03 reads the embedded copy. Reproducing a sidecar defect
+        end to end needs a freshly staged raster, or a change to this function itself.
+      * **A PAM sidecar takes precedence over an embedded RAT.** Measured with a 2-row
+        sidecar beside a 9-row embedded table: the sidecar wins. So a stale embedded table
+        cannot outrank the one written here, which is why re-running 02 is sufficient to
+        correct a raster whose labels have changed.
+
     That care is `xml_declaration=False`, and it is load-bearing. MEASURED: GDAL's PAM
     parser SILENTLY IGNORES a sidecar carrying an `<?xml version...?>` declaration — same
     bytes otherwise, the RAT reads back with it absent and does not with it present.
