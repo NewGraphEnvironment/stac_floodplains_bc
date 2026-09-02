@@ -50,26 +50,26 @@ live references (archives under `planning/archive/` stay as history):
 
 ## Phase 2: Version stamp + release gates
 
-- [ ] New `scripts/collection_version.py <collection.json> <version>` — stdlib only (the release
+- [x] New `scripts/collection_version.py <collection.json> <version>` — stdlib only (the release
       side uses `python3`, not `uv`, and the check harness shims `uv` away): adds
       `https://stac-extensions.github.io/version/v1.2.0/schema.json` to `stac_extensions` if
       absent and sets `version`; refuses an empty or non-`X.Y.Z` version; idempotent; prints
       what it wrote. Mirrors dem's `version_stamp`.
-- [ ] `catalogue_release.sh` step 0, full release only: `VERSION` from
+- [x] `catalogue_release.sh` step 0, full release only: `VERSION` from
       `git -C "$REPO" describe --tags --exact-match HEAD` (strip `v`), refuse if HEAD is not
       tagged ("tag the NEWS commit first"); refuse if `git status --porcelain --untracked-files=no`
       is non-empty (the tag must describe the scripts that run); refuse unless the top `## v…`
       heading of `NEWS.md` equals `VERSION`; then stamp `collection.json` **before** step 1 so the
       validator gates the stamped document. Under `--only`: none of this, said out loud, and the
       live `version` is read and remembered (absent allowed)
-- [ ] `catalogue_release.sh` step 5: full → read `version` from `$API`, compare to `VERSION`
+- [x] `catalogue_release.sh` step 5: full → read `version` from `$API`, compare to `VERSION`
       (`MISSING` when absent), `fail=1` on mismatch with both values printed; `--only` → must
       equal the preflight read (absent == absent is unchanged). The completion line names the
       version
-- [ ] `item_validate.py`: one absolute consistency check on the collection — `version` present
+- [x] `item_validate.py`: one absolute consistency check on the collection — `version` present
       iff the Version Extension is declared, and if present it matches `^\d+\.\d+\.\d+$`
       (pystac's schema validation covers the declared-ext direction; this covers the other)
-- [ ] Docs: `scripts/README.md` release table (step 0 gains the tag/NEWS gate + stamp, step 5 the
+- [x] Docs: `scripts/README.md` release table (step 0 gains the tag/NEWS gate + stamp, step 5 the
       version assert) and a short "Cut a release" recipe (NEWS entry → tag → rebuild →
       `catalogue_release.sh`); `README.md` Guards gains the version line; `CLAUDE.md` Catalog
       registration gains a versioning paragraph (release-time stamp, why not build-time,
@@ -80,19 +80,19 @@ live references (archives under `planning/archive/` stay as history):
 The harness runs the real script against shims; today its curl shim has no branch for the
 collection URL (it would 404 into the fixture path) and `git` would read the real repo.
 
-- [ ] Run the release from a throwaway git repo: copy `scripts/` into `$WORK/repo`, write a
+- [x] Run the release from a throwaway git repo: copy `scripts/` into `$WORK/repo`, write a
       `NEWS.md` whose top heading is `## v9.9.9`, commit, `git tag v9.9.9`. `REPO` resolves from
       the script's own location, so no override flag is needed — the gate runs for real
-- [ ] curl shim: a `*/collections/$COLL` branch (exact, before the `*/items/*` one) serving the
+- [x] curl shim: a `*/collections/$COLL` branch (exact, before the `*/items/*` one) serving the
       fixture `collection.json` as stamped, or `FAKE_LIVE_VERSION` when set (`none` → key absent)
-- [ ] Cases: case 2 (positive control) also asserts the stamp landed on disk and
+- [x] Cases: case 2 (positive control) also asserts the stamp landed on disk and
       "live collection version 9.9.9" was verified; **8** live version stale → RELEASE INCOMPLETE
       naming both versions; **9** live version absent → INCOMPLETE; **10** HEAD not at a tag →
       refused, no aws call; **11** NEWS top ≠ tag → refused, no aws call; **12** `--only` leaves
       `collection.json` byte-identical (no `version` key) and passes with absent == absent
-- [ ] Restore-the-bug: with the step-5 compare commented out, case 8 must go red; with the
+- [x] Restore-the-bug: with the step-5 compare commented out, case 8 must go red; with the
       stamp line removed, case 2 must go red. Record both in `progress.md`
-- [ ] Verify: `bash scripts/catalogue_release-check.sh` → ALL PASS, exit 0
+- [x] Verify: `bash scripts/catalogue_release-check.sh` → ALL PASS, exit 0
 
 ## Phase 4: NEWS.md, v1.0.0, first versioned release
 

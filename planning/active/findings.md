@@ -107,6 +107,31 @@ catalog repos … versioned registry"), still OPEN.
   gate with no override flag.
 - `uv` is shimmed to a logger, so the stamp must not go through `uv` — `python3` + stdlib.
 
+## Plan review (Plan agent, unnamed, spawned after the baseline commit)
+
+Returned in ~5 min with 3 blockers, 5 gaps, 4 ordering, 3 assumption, 2 scope findings.
+Disposition, measured against the draft that existed when it landed:
+
+| finding | verdict | action |
+|---|---|---|
+| B1 `--skip-sync` leaves the bucket unstamped; rtj's reload reverts the API | real | already: `aws s3 cp collection.json` under `--skip-sync`; added: step 5 reads the bucket copy's version too (case 9b) |
+| B2 clean-tree gate fails toward pass if git errors; NEWS grep `^## v` skips an `## Unreleased` | half | the draft already assigned-then-tested every exit status; the NEWS point was real — now the FIRST `## ` heading must be `## vX.Y.Z` (case 11 uses `## Unreleased`) |
+| B3 `--only` absent==absent also passes failed==failed | already handled | `curl -sf` + a raising parse at both reads; preflight refuses blind, step 5 uses a `<read failed>` sentinel |
+| G1 the version ext schema does NOT require `version` | real | the validator's iff check covers both directions; its docstring corrected (schema read 2026-09-02) |
+| G2 nothing checks the stamped VALUE before 700 MB is up | real | read-back after the stamp in preflight (exercised by case 2 under defect B) |
+| G3 the validator's check is never exercised by the harness (`uv` shimmed) | real | proven against the real rebuilt tree, three states — see progress.md |
+| G4 no fire-direction test for the clean-tree gate | real | case 13 |
+| G5 what `--allow-retract` does to the version | docs | scripts/README.md: it is a full release and stamps like any other |
+| O1 case 2 stamps the shared fixture; a "no version key" assertion later would fail | real | case 12 asserts a before/after sha256 of collection.json instead |
+| O2 `RELEASE` must point at the copy, commit with inline identity, plan 10/11 transitions | real | done as described; `TSHA` recorded, `reset --hard` + `tag -f` restore |
+| O3 rebuild before tag, push tag after RELEASE COMPLETE | real | rebuild was already running tag-independently; tag after it; push with the evidence |
+| O4 PWF edits between tag and release dirty the tree | real | recipe says touch nothing tracked between tag and release; boxes ticked after |
+| A1 "20 items" is an assumption until the rebuild reports | real | acceptance is live == built == NEWS; NEWS written after the rebuild count |
+| A2 `/gh-pr-merge` could cut a bad tag on a NEWS-only repo | real | merge with an explicit skip of its steps 6–9; CLAUDE.md says so |
+| A3 two tags on one commit | note | recipe says one tag |
+| S1 hand-registering collection.json un-versions the API | docs | scripts/README.md + CLAUDE.md: never outside the release |
+| S2 pre-release tags refused | docs | collection_version.py docstring |
+
 ## Errors Encountered
 
 | Error | Resolution |

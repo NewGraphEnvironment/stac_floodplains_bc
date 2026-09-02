@@ -91,6 +91,12 @@ unrecoverable. Three interlocks, each catching what the previous cannot:
 Removal is always deliberate — registration is an upsert, so nothing is deleted implicitly. See
 the retraction recipe in `scripts/README.md`.
 
+Every full release is a **tag**. `catalogue_release.sh` refuses unless HEAD sits exactly on a
+`vX.Y.Z` tag that `NEWS.md`'s top entry names, stamps that version onto the collection (STAC
+Version Extension), and fails unless the API serves it back — so
+`curl -s https://images.a11s.one/collections/stac-floodplains-bc | jq .version` answers which
+release is live. Recipe under "Cut a release" in `scripts/README.md`.
+
 Catalog load (shared `stac` DB → `images.a11s.one`) is **owned by this repo** — `catalogue_release.sh`
 registers over SSH with `pypgstac`, which the [`rtj`](https://github.com/NewGraphEnvironment/rtj)
 server build installs on the host. The API itself is deliberately read-only (transactions

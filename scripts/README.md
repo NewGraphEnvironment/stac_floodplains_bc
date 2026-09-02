@@ -54,12 +54,12 @@ of the guard actually guarding something.
 
 | Step | What |
 |----|----|
-| 0 preflight | `PARTIAL_STAGE` absent; ≥1 item + `collection.json`; SSH reachable; and the build compared against the **live** collection — refuses if any live item is missing |
+| 0 preflight | `PARTIAL_STAGE` absent; ≥1 item + `collection.json`; SSH reachable; the build compared against the **live** collection — refuses if any live item is missing; then the **version gate** — HEAD exactly at a `vX.Y.Z` tag, tracked tree clean, `NEWS.md` top entry naming that version — and `collection_version.py` stamps `collection.json` (STAC Version Extension) before anything is validated or published |
 | 1 validate | the gate. Nothing below runs unless every document validates |
 | 2 sync assets | `aws s3 sync` — no `--delete`, no `--size-only`, `--exclude '*.json'` |
 | 3 sync JSON | after the assets, so no document references an object that has not landed |
 | 4 register | collection first (pgstac items reference the collection row), then items |
-| 5 verify | collection 200; live ids match the build **both ways**; the largest asset of one item probed for size and its published `file:checksum` re-verified against the bytes on S3 |
+| 5 verify | collection 200; live ids match the build **both ways**; the largest asset of one item probed for size and its published `file:checksum` re-verified against the bytes on S3; the live collection's `version` equals the tag just released (under `--only`: unchanged) |
 
 Validation gates the **asset** sync, not just the JSON. Bucket versioning is Suspended, so there is
 no rollback from pushing 700 MB of assets for a build that then fails.
@@ -67,6 +67,35 @@ no rollback from pushing 700 MB of assets for a build that then fails.
 Registration is an **upsert**, so nothing is deleted implicitly and the collection never serves
 zero items mid-release. The cost is that an item dropped from the build stays live — step 0 and
 step 5 both report those, and removal is an explicit `item_unregister.sh` call.
+
+### Cut a release
+
+A version means "the published catalogue is in this state" — the `NEWS.md` convention shared with
+`stac_uav_bc` and `stac_dem_bc`. Scripts are not versioned separately: a tag says the live
+catalogue (bucket + API) matches what that commit describes, which is why the release, not the
+build, writes the stamp — the rebuild precedes the tag in every real flow.
+
+```bash
+# 1. rebuild — the build carries no version, so this can happen before the tag exists
+bash scripts/run_pipeline.sh
+# 2. describe the release at the top of NEWS.md: `## vX.Y.Z (YYYY-MM-DD)`, commit it
+# 3. tag that commit — locally; the tag is pushed only once the release has succeeded
+git tag vX.Y.Z
+# 4. release — refuses unless HEAD is exactly at the tag, the tree is clean and the tag's
+#    NEWS.md agrees; stamps collection.json, publishes, fails unless API + bucket serve it back
+bash scripts/catalogue_release.sh
+curl -s https://images.a11s.one/collections/stac-floodplains-bc | jq .version
+# 5. only now publish the tag: a pushed tag says the catalogue IS in this state, and a release
+#    that failed would otherwise leave a public tag for a state that never went live
+git push origin vX.Y.Z
+```
+
+`--only` republishes one item and never the collection, so it needs no tag and moves no version.
+`--allow-retract` is a full release and stamps like any other. Between the tag and the release,
+touch nothing tracked: the gate wants HEAD exactly at the tag (one tag on that commit) and a clean
+tree, so tick the planning boxes afterwards. On a release-only machine, `git fetch --tags` first.
+Never register `collection.json` by hand (`collection_register.sh` outside the release): a rebuilt
+collection carries no version, and registering it would silently un-version the API.
 
 ## Retraction
 

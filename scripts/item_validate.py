@@ -27,6 +27,7 @@ silent-success hole:
 import argparse
 import hashlib
 import json
+import re
 import struct
 import sys
 import xml.etree.ElementTree as ET
@@ -39,6 +40,30 @@ from rio_cogeo.cogeo import cog_validate
 
 
 MULTIHASH_SHA256 = "1220"
+
+VERSION_EXT = "https://stac-extensions.github.io/version/v1.2.0/schema.json"
+_SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+
+
+def check_version_stamp(doc: dict) -> "str | None":
+    """`version` present iff the Version Extension is declared, and X.Y.Z if present.
+
+    The build writes neither (item_create.py carries no version) and catalogue_release.sh
+    stamps both, so this validator legitimately sees both states. Half a stamp is the
+    defect, and pystac sees NEITHER half: a `version` with no extension is invisible
+    because the schema that would check it is selected BY the extension list, and the
+    extension with no `version` validates too, because the v1.2.0 schema lists `version`
+    without requiring it (read 2026-09-02). The X.Y.Z shape is ours as well — the schema
+    only says string.
+    """
+    has_ext = VERSION_EXT in (doc.get("stac_extensions") or [])
+    version = doc.get("version")
+    if has_ext != (version is not None):
+        return ("version stamp half-applied: extension "
+                f"{'declared' if has_ext else 'absent'}, version {version!r}")
+    if version is not None and not _SEMVER.match(str(version)):
+        return f"version {version!r} is not X.Y.Z"
+    return None
 
 # Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
 # item_create.py's PROV_FIELDS rather than importing it — importing that module
@@ -670,6 +695,7 @@ def main() -> int:
 
     items = 0
     collections = 0
+    collection_version = None
     failed: list[tuple[str, str]] = []
 
     for path in sorted(args.base.glob("*.json")):
@@ -682,7 +708,12 @@ def main() -> int:
         try:
             if doc.get("type") == "Collection":
                 pystac.Collection.from_dict(doc).validate()
+                stamp_problem = check_version_stamp(doc)
+                if stamp_problem:
+                    failed.append((path.name, stamp_problem))
+                    continue
                 collections += 1
+                collection_version = doc.get("version")
             elif doc.get("type") == "Feature":
                 pystac.Item.from_dict(doc).validate()
                 items += 1
@@ -710,6 +741,8 @@ def main() -> int:
         print(f"FAILED: expected exactly 1 collection.json, found {collections}",
               file=sys.stderr)
         return 1
+    print("collection version: " + (collection_version
+          or "unstamped (a build; catalogue_release.sh stamps the tag on release)"))
 
     # --- file extension: do the published checksums describe the bytes we ship? ---
     #

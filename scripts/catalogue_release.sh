@@ -24,6 +24,13 @@
 # one holding the 900 MB source tree.
 #
 # Idempotent: the sync skips unchanged objects and the register is an upsert.
+#
+# A full release IS a tag. Preflight refuses unless HEAD sits exactly on a vX.Y.Z tag,
+# the tracked tree is clean, and NEWS.md's top entry names that version; it then stamps
+# collection.json with the STAC Version Extension (scripts/collection_version.py) ahead
+# of the validation gate, and step 5 fails the release unless the API serves that
+# version back. --only never publishes the collection, so it never stamps, and verifies
+# instead that the live version did not move.
 set -euo pipefail
 
 BUCKET="${BUCKET:-stac-floodplains-bc}"
@@ -33,6 +40,7 @@ API="$API_ROOT/collections/$COLLECTION"
 STAC_DIR="${STAC_DIR:-data/stac}"
 RAW_DIR="${RAW_DIR:-data/raw}"
 HOST="${GEOSERV_HOST:-root@geopro}"
+S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.py emits
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 ALLOW_RETRACT=""
@@ -90,6 +98,13 @@ fetch_live_ids() {
     -d "{\"collections\":[\"$COLLECTION\"],\"limit\":1000,\"fields\":{\"include\":[\"id\"]}}" \
     | python3 -c "import sys,json; print('\n'.join(sorted(f['id'] for f in json.load(sys.stdin)['features'])))"
 }
+
+# The live collection's version, or the literal MISSING when it carries none. MISSING is
+# a real state (the catalogue before its first versioned release), and a failed read must
+# not look like it: curl -f and a parse that raises on a non-JSON body both fail the
+# pipeline, and every caller tests the exit status before using the value.
+version_of() { python3 -c "import sys,json; print(json.load(sys.stdin).get('version', 'MISSING'))"; }
+fetch_live_version() { curl -sf --max-time 60 "$API" | version_of; }
 
 # --- Step 0: preflight, before anything is written ------------------------
 echo "=== 0: PREFLIGHT ==="
@@ -167,6 +182,76 @@ if [ -n "$orphans" ]; then
 fi
 fi
 
+# --- version: a full release is a tag --------------------------------------
+# A version means "the published catalogue is in this state" (the NEWS.md convention),
+# so it is written HERE, by the release, from the tag HEAD sits on — never by the build,
+# which runs before the tag exists in every real flow and would stamp the previous one.
+# Three gates, each refusing rather than guessing, and each branching on its command's
+# exit status so a failing command cannot read as "nothing wrong": HEAD exactly at a
+# tag; no tracked modification (the tag has to describe the scripts about to run); and
+# NEWS.md's top entry naming the same version. Then collection.json is stamped — ahead
+# of step 1, so the validator gates the stamped document, and after every refusal above,
+# so a refused release leaves the build untouched.
+VERSION=""
+live_version_before=""
+if [ -n "$ONLY" ]; then
+  # Nothing to stamp: --only never publishes collection.json. Read the live version now;
+  # step 5 asserts the release did not move it. MISSING before the first versioned
+  # release is a legitimate value, and MISSING -> MISSING is "unchanged".
+  live_version_before=$(fetch_live_version) \
+    || { echo "Could not read the live collection version — refusing to publish blind." >&2; exit 1; }
+  echo "version gate: skipped under --only (collection.json is not published; live version: $live_version_before)."
+else
+  # --match: without it, describe prefers ANY other tag on the commit (an annotated note
+  # always wins over a lightweight release tag), and the gate would then refuse against
+  # NEWS.md with a message blaming the wrong thing.
+  if ! tag=$(git -C "$REPO" describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null); then
+    echo "HEAD is not at a vX.Y.Z tag, and a full release IS a tag. Add the NEWS.md entry, then:" >&2
+    echo "  git tag vX.Y.Z && bash scripts/catalogue_release.sh" >&2
+    exit 1
+  fi
+  VERSION="${tag#v}"
+  if ! dirty=$(git -C "$REPO" status --porcelain --untracked-files=no); then
+    echo "Could not read git status in $REPO." >&2
+    exit 1
+  fi
+  if [ -n "$dirty" ]; then
+    echo "Tracked files differ from $tag — the tag must describe the scripts that run:" >&2
+    printf '%s\n' "$dirty" | sed 's/^/  /' >&2
+    exit 1
+  fi
+  # NEWS.md as the TAG holds it, not as the working tree does. The clean-tree gate above
+  # hides untracked files by design, so a NEWS.md written and never added would pass a
+  # read from disk while the tagged commit carries no entry at all — the ordinary
+  # first-release mistake, and the pairing this gate exists to enforce. Captured whole
+  # rather than piped into `grep -m1`: an early-exiting grep can SIGPIPE git show under
+  # pipefail and turn a valid file into a false refusal.
+  if ! news=$(git -C "$REPO" show "$tag:NEWS.md" 2>/dev/null); then
+    echo "No NEWS.md in $tag — every release is described there first, in the tagged commit." >&2
+    exit 1
+  fi
+  # The FIRST section heading, whatever it is: an "## Unreleased" above the version entry
+  # is exactly the state this gate exists to refuse, and a grep for '^## v' would skip it.
+  if ! news_top=$(printf '%s\n' "$news" | grep -m1 -E '^## '); then
+    echo "NEWS.md in $tag has no '## ' heading — the release entry goes at the top." >&2
+    exit 1
+  fi
+  case "$news_top" in
+    "## v$VERSION"|"## v$VERSION "*) ;;
+    *) echo "NEWS.md's top entry is '$news_top' but HEAD is tagged $tag — the top entry" >&2
+       echo "must be '## v$VERSION (YYYY-MM-DD)'." >&2
+       exit 1 ;;
+  esac
+  # Refuses anything that is not X.Y.Z, so a pre-release tag stops here. Then read the
+  # file back: the stamp is the one write this release makes to the build, and the
+  # validator below checks its shape, not its value.
+  python3 scripts/collection_version.py "$STAC_DIR/collection.json" "$VERSION"
+  stamped=$(version_of < "$STAC_DIR/collection.json")
+  [ "$stamped" = "$VERSION" ] \
+    || { echo "collection.json reads back version '$stamped' after stamping $VERSION" >&2; exit 1; }
+  echo "release v$VERSION: HEAD at $tag, tree clean, NEWS.md agrees, collection.json stamped"
+fi
+
 # --- Step 1: validation gate ----------------------------------------------
 echo ""
 echo "=== 1: VALIDATE (gate) ==="
@@ -177,6 +262,9 @@ echo "=== 1: VALIDATE (gate) ==="
 # and refuse. Here the meaningful assertion is "every item JSON present validated" —
 # catching a wrong --base or an unreadable file. Detecting a *short* build is the
 # live-vs-build comparison's job in step 0, which works without data/raw.
+#
+# On a full release the collection validated here is the STAMPED one, so the Version
+# Extension's schema is checked before anything is published.
 uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local"
 
 # --- Step 2: sync assets ---------------------------------------------------
@@ -184,6 +272,13 @@ if [ -n "$SKIP_SYNC" ]; then
   echo ""
   echo "=== 2+3: SYNC SKIPPED (--skip-sync) ==="
   echo "Assets and JSON on S3 are assumed current; registering from local files."
+  if [ -z "$ONLY" ]; then
+    # The one document a full release always changes is the collection, which preflight
+    # just stamped. Registering it without syncing it would leave the bucket copy
+    # unversioned, and rtj's reload-from-S3 would then silently revert the version the
+    # API serves. One object, so keeping bucket and API in agreement costs nothing.
+    aws s3 cp "$STAC_DIR/collection.json" "s3://$BUCKET/collection.json"
+  fi
 elif [ -n "$ONLY" ]; then
 
 echo ""
@@ -364,10 +459,43 @@ else: print('OK %d assets, %d properties' % (len(built['assets']), len(bp)))") |
   esac
 fi
 
+# The version the API serves is the release's claim about itself, and the whole reason
+# a version exists is that a consumer can trust that claim. Read it back rather than
+# assume the register carried it. A failed read fails the release outright — it must
+# not fall through to a comparison against an empty string that happens to match.
+live_version=$(fetch_live_version) \
+  || { echo "  could not read the live collection version after registration" >&2; live_version="<read failed>"; fail=1; }
+if [ -n "$ONLY" ]; then
+  if [ "$live_version" = "$live_version_before" ]; then
+    echo "live collection version: $live_version (unchanged by --only, as required)"
+  else
+    echo "  live collection version CHANGED during an --only release: $live_version_before -> $live_version" >&2
+    fail=1
+  fi
+elif [ "$live_version" = "$VERSION" ]; then
+  echo "live collection version: $live_version — matches the tag just released"
+else
+  echo "  live collection version is '$live_version', but this release is v$VERSION" >&2
+  fail=1
+fi
+# The bucket copy must carry the same stamp. rtj's stac_register-all.sh can reload this
+# collection FROM S3, and that is harmless only while bucket and API agree — a stamp that
+# reached pgstac but not the bucket would be reverted by that reload, silently.
+if [ -z "$ONLY" ]; then
+  bucket_version=$(curl -sf --max-time 60 "$S3_BASE/collection.json" | version_of) \
+    || { echo "  could not read collection.json from the bucket" >&2; bucket_version="<read failed>"; fail=1; }
+  if [ "$bucket_version" = "$VERSION" ]; then
+    echo "bucket collection.json version: $bucket_version — agrees"
+  else
+    echo "  bucket collection.json version is '$bucket_version', but this release is v$VERSION" >&2
+    fail=1
+  fi
+fi
+
 [ "$fail" -eq 0 ] || { echo "RELEASE INCOMPLETE" >&2; exit 1; }
 echo ""
 if [ -n "$ONLY" ]; then
-  echo "RELEASE COMPLETE — $ONLY republished; collection unchanged at $(printf '%s\n' "$after_ids" | grep -c .) items, $API"
+  echo "RELEASE COMPLETE — $ONLY republished; collection unchanged at $(printf '%s\n' "$after_ids" | grep -c .) items, version $live_version, $API"
 else
-  echo "RELEASE COMPLETE — $(printf '%s\n' "$after_ids" | grep -c .) items live at $API"
+  echo "RELEASE COMPLETE — v$VERSION: $(printf '%s\n' "$after_ids" | grep -c .) items live at $API"
 fi
