@@ -320,26 +320,42 @@ fp_prov_leaf <- function(section, path, where, fold = NULL, years = NULL) {
 
 
 # --- Are the staged rasters the ones the record describes? -----------------------------
-# Upstream's step 3 writes its rasters first and its provenance section last, so rasters
-# NEWER than provenance.json mean a step in flight, or one that crashed between the two
+# Upstream's step 3 writes its rasters first and stamps its landcover section last, so a
+# raster NEWER than that stamp means a step in flight, or one that crashed between the two
 # writes. In that state the item would publish landcover_key as a fingerprint of rasters
 # other than the ones it ships, and nothing downstream could tell. Only meaningful when the
 # landcover section for this target exists (no section, no fingerprint); absent rasters are
 # 01_stage.R's own error. The strong form — recomputing the digest on the staged copies —
 # is a follow-up (#40 review S4); this is the cheap half.
+#
+# The reference is the SECTION's `run$datetime_utc`, never provenance.json's mtime: every
+# upstream step rewrites the whole file, so its mtime is the last writer's, and a step 1
+# re-run after a crashed step 3 would have masked exactly the state this exists to catch
+# (measured in review; a table of the three states is in the check script). The stamp is
+# floored to the second, so the raster side is floored too — a raster written in the
+# record's own second is the record's own raster.
 fp_prov_rasters_current <- function(src_wsg, raster_paths, prov, species, scenario, where) {
   if (is.null(prov)) return(invisible(TRUE))
-  if (is.null(fp_prov_sections(prov, species, scenario, where)[["landcover"]])) return(invisible(TRUE))
-  rec <- file.mtime(file.path(src_wsg, "provenance.json"))
+  lc <- fp_prov_sections(prov, species, scenario, where)[["landcover"]]
+  if (is.null(lc)) return(invisible(TRUE))
+  stamp <- lc[["run"]][["datetime_utc"]]
+  rec <- if (is.character(stamp) && length(stamp) == 1L)
+    as.POSIXct(stamp, format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC") else NA
+  if (is.na(rec)) {
+    stop("provenance.json ", where, ": landcover section has no parseable run$datetime_utc ",
+         "(", if (is.null(stamp)) "absent" else deparse(stamp)[1], "), so the staged rasters ",
+         "cannot be checked against the record. Schema break, not an absence.", call. = FALSE)
+  }
   paths <- raster_paths[file.exists(raster_paths)]
-  late <- paths[file.mtime(paths) > rec]
+  late <- paths[floor(as.numeric(file.mtime(paths))) > as.numeric(rec)]
   if (length(late)) {
     stop("provenance.json ", where, ": ", length(late), " staged raster(s) are NEWER than the ",
          "provenance record that describes them (", paste(basename(late), collapse = ", "),
-         "). Either a landcover step is in flight or crashed after writing its rasters — ",
-         "re-run it upstream — or this tree was copied without preserving mtimes (rsync ",
-         "without -t, scp without -p, an S3 sync), in which case copy it again with them. ",
-         "Not publishing a fingerprint of bytes other than the ones shipped.", call. = FALSE)
+         ") — newer than the section's run stamp ", stamp, ". Either a landcover step is in ",
+         "flight or crashed after writing its rasters — re-run it upstream — or this tree ",
+         "was copied without preserving mtimes (rsync without -t, scp without -p, an S3 ",
+         "sync), in which case copy it again with them. Not publishing a fingerprint of ",
+         "bytes other than the ones shipped.", call. = FALSE)
   }
   invisible(TRUE)
 }

@@ -84,7 +84,7 @@ pin bump and for Phase 2.
       `NGE_PROVENANCE_NULL` naming the seven nulls (a null is never tagged — corrected from
       "12 tags" after the plan review), validator clean.
       Record the field-by-field values in `progress.md`
-- [ ] `/code-check`, then PR. No tag and no release: the change publishes nothing until the
+- [x] `/code-check`, then PR. No tag and no release: the change publishes nothing until the
       next full release, which is #26's rebuild once upstream finishes
 - [ ] Reconcile #40's body at merge: the "Ordering" section's premise (switching early
       publishes a null) is what the pin already guarantees, and the twelfth field is a decision
@@ -92,11 +92,11 @@ pin bump and for Phase 2.
 
 ## Validation
 
-- [ ] `Rscript scripts/fp_provenance-check.R` passes; restore-the-bug: the pin at `1L` aborts the
+- [x] `Rscript scripts/fp_provenance-check.R` passes; restore-the-bug: the pin at `1L` aborts the
       run at the synthetic v2 base (an uncaught stop, rc 1, not a FAIL line); dropping the
       `<year>=` prefix from the fold reddens both the recomputed-rule case and the neexdzii pin
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
+- [x] `/code-check` clean on each commit
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
 
 ## Files

@@ -39,3 +39,13 @@
   preserved mtimes would trip it too (false refusal, never a wrong publish); the message now
   names both causes. Everything else on its probe list verified clean, including `area` equals
   the directory for all 19 rostered groups upstream (`run_region.R` passes `tolower(wsg)`).
+- `/code-check` round 3: one bug in the rasters-vs-record guard — its reference was the file's
+  mtime, which every upstream step rewrites, so a crashed step 3 followed by a step-1 re-run
+  would have passed and published a fingerprint of bytes the item does not ship. Reference is
+  now the landcover section's own `run$datetime_utc` (floored to the second on both sides).
+  Check script 49 assertions; with the file-mtime reference restored, 2 FAIL — the crash row
+  and the masking row. Rounds 2 and 3 were one mechanism (a property of the file object
+  standing in for a property of the record's content); the reader, fold and field-list
+  plumbing were judged converged, with the neexdzii pin reproduced by the reviewer in Python.
+  Follow-up named in the PR: recompute the digest on the staged copies (S4), which retires the
+  class.

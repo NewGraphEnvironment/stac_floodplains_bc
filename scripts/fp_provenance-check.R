@@ -150,21 +150,39 @@ expect_true("a subset area sharing its parent's wsg reads from its own directory
             !is.null(read_doc(d, "subset", area = "neexdzii")))
 
 cat("rasters vs the record that describes them\n")
-# Three rasters older than provenance.json pass; one newer stops; no landcover section -> no check.
+# The reference is the landcover section's run stamp, NOT the file's mtime. Three states,
+# from the round-3 review; the third is the one a file-mtime reference cannot see, because
+# every upstream step rewrites the whole file:
+#   consistent            rasters T0-15s, stamp T0                      -> pass
+#   step 3 crashed        rasters T0+10min, stamp T0, file mtime T0     -> stop
+#   ...then step 1 re-ran rasters T0+10min, stamp T0, file mtime T0+20 -> stop (still)
+stamp <- as.POSIXct("2026-09-02T19:48:49Z", format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")  # synthetic()'s
 rd <- file.path(WORK, "mtime", "bulk"); dir.create(rd, recursive = TRUE, showWarnings = FALSE)
 jsonlite::write_json(synthetic(), file.path(rd, "provenance.json"), auto_unbox = TRUE, null = "null", na = "null", digits = NA)
-rec <- file.mtime(file.path(rd, "provenance.json"))
 rp <- file.path(rd, sprintf("classified_%d.tif", YEARS)); for (f in rp) writeLines("x", f)
-invisible(Sys.setFileTime(rp, rec - 60))
+invisible(Sys.setFileTime(rp, stamp - 15))
 mt_prov <- fp_prov_read(rd)
-expect_true("rasters older than the record pass",
+expect_true("rasters older than the section's stamp pass",
             isTRUE(fp_prov_rasters_current(rd, rp, mt_prov, "co", "co_ff04", "check")))
-invisible(Sys.setFileTime(rp[2], rec + 60))
-expect_stop("one raster newer than the record stops, naming it",
+invisible(Sys.setFileTime(rp[2], stamp + 0.5))
+expect_true("a raster written in the stamp's own second is the record's own raster (floored)",
+            isTRUE(fp_prov_rasters_current(rd, rp, mt_prov, "co", "co_ff04", "check")))
+invisible(Sys.setFileTime(rp[2], stamp + 600))
+expect_stop("a raster newer than the stamp stops, naming it and the stamp",
             fp_prov_rasters_current(rd, rp, mt_prov, "co", "co_ff04", "check"), "classified_2020.tif")
+# The masking row: another step rewrote the file AFTER the stale rasters. The file is now
+# newer than every raster; the section stamp is not, and that is what is compared.
+invisible(Sys.setFileTime(file.path(rd, "provenance.json"), stamp + 1200))
+expect_stop("...and a later rewrite of the file by another step does not mask it",
+            fp_prov_rasters_current(rd, rp, mt_prov, "co", "co_ff04", "check"), "classified_2020.tif")
+expect_true("premise: the file really is newer than the late raster in that case",
+            file.mtime(file.path(rd, "provenance.json")) > file.mtime(rp[2]))
 d <- synthetic(); d$landcover <- list()
 expect_true("no landcover section -> no fingerprint -> no check",
             isTRUE(fp_prov_rasters_current(rd, rp, read_doc(d, "mtime_nolc"), "co", "co_ff04", "check")))
+d <- synthetic(); d$landcover$co_ff04$run$datetime_utc <- NULL
+expect_stop("a landcover section with no run stamp cannot be checked and stops",
+            fp_prov_rasters_current(rd, rp, read_doc(d, "mtime_nostamp"), "co", "co_ff04", "check"), "no parseable run$datetime_utc")
 
 # --- the landcover fold (#40) ------------------------------------------------------------
 cat("landcover_key: the fold of classified_content_sha256\n")
