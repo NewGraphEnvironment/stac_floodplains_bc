@@ -52,7 +52,7 @@
 - **v1.0.0 released.** `catalogue_release.sh` 18:40:59Z → 18:46:06Z UTC (5.1 min), exit 0:
   gate passed (HEAD at v1.0.0, tree clean, NEWS agrees), validator clean on the stamped
   collection, 161 objects uploaded across 20 item prefixes + the 21 JSON documents
-  (assets: Completed 106.9 MiB/106.9 MiB), 20 items registered, verify: asset + checksum probe on bowr_ch_ff04 OK,
+  (assets 726.9 MiB, then 106.9 MiB of JSON), 20 items registered, verify: asset + checksum probe on bowr_ch_ff04 OK,
   `live collection version: 1.0.0 — matches the tag just released`,
   `bucket collection.json version: 1.0.0 — agrees`, `RELEASE COMPLETE — v1.0.0: 20 items live`.
 - Acceptance, read back independently of the release script afterwards:
