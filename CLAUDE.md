@@ -77,6 +77,15 @@ collection serves zero items. An item dropped from a build therefore stays live 
 `item_unregister.sh`; the release reports those as orphans and refuses to publish past them
 without `--allow-retract`.
 
+**A published null is invisible from the API.** pgstac stores an item property whose value is
+`null` (the row shows the key with `jsonb_typeof` null), and the API omits it on output, while
+every non-null value and every asset field round-trips byte-for-byte. Measured 2026-09-02 on the
+first `--only` release (#36): all 11 `nge:` provenance properties, published null, came back
+absent. So a consumer cannot distinguish "published null" from "never published", and any guard
+that needs the distinction must read the row, not the API. The `--only` read-back treats a
+build-null / served-absent pair as equal for this reason. If #17's null-means-something contract
+is to reach API consumers, the value has to be a non-null sentinel.
+
 The bucket and the server itself are still managed in
 [`rtj`](https://github.com/NewGraphEnvironment/rtj), whose `stac_register-all.sh` can reload this
 collection **from S3** — harmless, because the release syncs the JSON before registering it, so

@@ -16,9 +16,11 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-dem-bc`, `sta
 
 ## Coverage
 
-Published and live at <https://images.a11s.one> — **17 STAC items** across **16 watershed groups**
+Published and live at <https://images.a11s.one> — **20 STAC items** across **19 watershed groups**
 in the **Fraser** (chinook), **Peace** (bull trout), and **Skeena** (coho + chinook) regions. Most
-groups have one item; **MORR** carries two (coho and chinook). The `Floodplain (km²)` column is the
+groups have one item; **MORR** carries two (coho and chinook). The table below is the 17-item
+snapshot it was written from: KOTL, LARL and SLOC (Peace) have no row yet, and BULK's row predates
+its 2026-09-02 republish with corrected geometry (#36). Regenerating it from the live API is #41. The `Floodplain (km²)` column is the
 functional-floodplain `ff04` extent (each item also publishes ff02/ff06 areas). Tree-cover change
 over the floodplain, 2017 → 2023:
 
