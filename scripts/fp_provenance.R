@@ -17,11 +17,21 @@
 # The three sections are written independently by three steps that may run separately
 # (`run_area.R morr 3` is normal upstream), so any of them can legitimately be absent.
 
-FP_PROV_SCHEMA_VERSION <- 1L
+# 2 since floodplains#65 phase 1 (2026-09-02): every section gained `inputs_hash`, `outputs`
+# and `outputs_hash` siblings, `sha_source` became a closed vocabulary, and the landcover
+# digest was renamed `classified_sha256` -> `classified_content_sha256`. The map below walks
+# explicit paths, so the new siblings are inert; the rename is what `landcover_key` reads.
+#
+# Upstream stamps the CURRENT version on every read and write, so one step re-run under
+# the v2 writer relabels an old file's untouched sections as v2. Such a file passes this
+# pin and then STOPS at the leaf guard (a v1 landcover section has no
+# classified_content_sha256), and 01_stage.R has no per-area tryCatch, so the whole stage
+# stops until that area is re-run. Intended: the alternative is a skip that publishes nulls.
+FP_PROV_SCHEMA_VERSION <- 2L
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
-# The eleven published fields, and where each one lives upstream. `section` selects which
+# The twelve published fields, and where each one lives upstream. `section` selects which
 # of the three blocks to look in; `path` is the key path within it.
 #
 # `link_version` comes from inputs$link$version (fp_pkg_stamp's shape), NOT from
@@ -32,10 +42,21 @@ FP_PROV_SCHEMA_VERSION <- 1L
 # to touch the transition layer the published figures are aggregated from, so its
 # timestamp is the one that describes what was published.
 #
-# `landcover_key` is inputs$item_hash — a hash over the RESOLVED STAC item ids. Not
-# drift's stac_cache_key(), which fingerprints the request and nothing about the items
-# returned, so an upstream reprocess would leave it unchanged (floodplains#33 measured
-# this; it is the exact failure #17 exists to catch).
+# `landcover_key` is the FOLD of inputs$classified_content_sha256 (#40): the producer's
+# per-year content digests over cell values plus geometry (floodplains#64), invariant to
+# the writing toolchain, so one changed cell moves it and a re-written identical file does
+# not. A fingerprint of what was PRODUCED. Folded to one scalar by fp_fold_year_digests()
+# below, whose rule is reproducible from the published record.
+#
+# `landcover_item_hash` is inputs$item_hash — a hash over the RESOLVED STAC item ids. An
+# identity of what was READ: io-lulc ids are <tile>-<year> with no created/updated stamp,
+# so an in-place upstream re-derivation leaves it unchanged. #17 published it AS
+# landcover_key until #40 measured that it cannot fail; it stays, under its own name.
+#
+# `fold`, where present, receives the raw leaf (never a JSON null — that is NA before the
+# fold is reached) and must return a scalar or stop. It is the ONE route by which a
+# non-scalar leaf is published, so the fold owns the shape assertions the scalar guard in
+# fp_prov_leaf would otherwise apply.
 FP_PROV_MAP <- list(
   link_run_uid         = list(section = "network",    path = c("link_log", "run_uid")),
   link_config_sha256   = list(section = "network",    path = c("link_log", "config_hash")),
@@ -47,8 +68,59 @@ FP_PROV_MAP <- list(
   landcover_source     = list(section = "landcover",  path = c("inputs", "source")),
   landcover_collection = list(section = "landcover",  path = c("inputs", "collection")),
   landcover_stac_url   = list(section = "landcover",  path = c("inputs", "stac_url")),
-  landcover_key        = list(section = "landcover",  path = c("inputs", "item_hash"))
+  landcover_key        = list(section = "landcover",  path = c("inputs", "classified_content_sha256"),
+                              fold = "fp_fold_year_digests"),
+  landcover_item_hash  = list(section = "landcover",  path = c("inputs", "item_hash"))
 )
+
+# --- The landcover fold -----------------------------------------------------------------
+# One scalar from the per-year map, by the same construction upstream uses for item_hash
+# (floodplains fp_prov_stac_items): `<year>=<digest>` lines, years ascending, joined by
+# "\n", then `sha256:` + sha256 of that text. So a consumer holding the producer's file
+# can recompute the published value, and the value cannot be mistaken for a single year's
+# digest by anyone who reads this.
+#
+# The years are asserted against the ITEM's published span (01_stage.R's YEARS), not
+# against whatever the map happens to hold: a map missing or adding a year would fold to
+# a value describing a different set of rasters than the item claims, silently. That is a
+# schema break, so it stops. Every value must already be a `sha256:<64 hex>` digest.
+fp_fold_year_digests <- function(x, where, years) {
+  if (length(years) == 0L) {
+    stop("provenance.json ", where, ": the fold was given no published years — a caller ",
+         "omitted the `years` argument.", call. = FALSE)
+  }
+  years <- sort(as.character(years))
+  if (!is.list(x) || is.null(names(x)) || any(!nzchar(names(x)))) {
+    stop("provenance.json ", where, ": classified_content_sha256 must be an object keyed ",
+         "by year, got ", if (is.list(x)) "an unnamed list" else class(x)[1], ". A scalar ",
+         "here would be a single year's digest published as the whole span's.", call. = FALSE)
+  }
+  got <- sort(names(x))
+  if (!identical(got, years)) {
+    stop("provenance.json ", where, ": classified_content_sha256 covers year(s) ",
+         paste(got, collapse = ", "), " but the item publishes ", paste(years, collapse = ", "),
+         ". Folding would describe a different set of rasters than the item claims.",
+         call. = FALSE)
+  }
+  vals <- vapply(years, function(y) {
+    v <- x[[y]]
+    # A JSON null for one year (upstream writes NA when that year's raster was absent at
+    # digest time) is NULL here. Named explicitly, and never `unlist()`ed: unlist drops a
+    # null, and a fold over the survivors would describe two years as if they were three.
+    if (is.null(v)) {
+      stop("provenance.json ", where, ": classified_content_sha256[", y, "] is null — ",
+           "that year's raster had no digest, so the span cannot be fingerprinted.",
+           call. = FALSE)
+    }
+    if (!is.character(v) || length(v) != 1L || !grepl("^sha256:[0-9a-f]{64}$", v)) {
+      stop("provenance.json ", where, ": classified_content_sha256[", y, "] is not a ",
+           "sha256:<64 hex> digest.", call. = FALSE)
+    }
+    v
+  }, character(1))
+  payload <- paste(paste0(years, "=", vals), collapse = "\n")
+  paste0("sha256:", digest::digest(payload, algo = "sha256", serialize = FALSE))
+}
 
 # Sanity: the map must cover exactly the fields 01_stage.R publishes. Cheap, and it is
 # what stops the two lists drifting apart silently.
@@ -98,13 +170,15 @@ fp_prov_read <- function(src_wsg) {
          "a step that had not run. Update scripts/fp_provenance.R.", call. = FALSE)
   }
 
-  # The file is read from <wsg>/, but it also records which area it describes. Comparing
-  # them costs one line and catches a file copied or written to the wrong directory, which
-  # would otherwise publish another area's provenance on all eleven fields and be counted
-  # as traced.
-  declared <- as.character(got[["wsg"]] %||% "")
-  if (nzchar(declared) && !identical(toupper(declared), toupper(basename(src_wsg)))) {
-    stop("provenance.json at ", path, " declares wsg '", declared,
+  # The file is read from <area>/, and it records which area it describes. Comparing them
+  # costs one line and catches a file copied or written to the wrong directory, which would
+  # otherwise publish another area's provenance on every field and be counted as traced.
+  # `area` names the directory upstream (cfg$dir_out); `wsg` is the FWA group, which a
+  # subset area shares with its parent (neexdzii declares wsg BULK). So the directory is
+  # compared to `area`, and to `wsg` only for a record that carries no `area`.
+  declared <- as.character(got[["area"]] %||% got[["wsg"]] %||% "")
+  if (nzchar(declared) && !identical(tolower(declared), tolower(basename(src_wsg)))) {
+    stop("provenance.json at ", path, " declares area '", declared,
          "' but was read from '", basename(src_wsg), "'.", call. = FALSE)
   }
   got
@@ -199,7 +273,7 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
 # `link_log` is the documented exception: the producer sets it NULL when there is no log
 # row for the area or the log is unreadable, recording why in `link_log_note`. That is a
 # modelled absence, not a schema break.
-fp_prov_leaf <- function(section, path, where) {
+fp_prov_leaf <- function(section, path, where, fold = NULL, years = NULL) {
   if (is.null(section)) return(NA)
   cur <- section
   for (i in seq_along(path)) {
@@ -226,6 +300,9 @@ fp_prov_leaf <- function(section, path, where) {
   # A JSON null read back is NULL with its name retained, so it reaches here rather than
   # tripping the check above.
   if (is.null(cur)) return(NA)
+  # A folded leaf: the fold asserts the input's shape and returns a scalar — and its result
+  # still passes the scalar guard below, so a future fold cannot publish a list.
+  if (!is.null(fold)) cur <- match.fun(fold)(cur, where, years)
   # `length(cur) != 1L` alone is a PROXY for "scalar", and a single-key object satisfies
   # it: a leaf that became {"algorithm": "sha256"} would publish "sha256" as the value.
   # That is the only route in this file that publishes a WRONG value rather than a null,
@@ -242,16 +319,60 @@ fp_prov_leaf <- function(section, path, where) {
 }
 
 
+# --- Are the staged rasters the ones the record describes? -----------------------------
+# Upstream's step 3 writes its rasters first and stamps its landcover section last, so a
+# raster NEWER than that stamp means a step in flight, or one that crashed between the two
+# writes. In that state the item would publish landcover_key as a fingerprint of rasters
+# other than the ones it ships, and nothing downstream could tell. Only meaningful when the
+# landcover section for this target exists (no section, no fingerprint); absent rasters are
+# 01_stage.R's own error. The strong form — recomputing the digest on the staged copies —
+# is a follow-up (#40 review S4); this is the cheap half.
+#
+# The reference is the SECTION's `run$datetime_utc`, never provenance.json's mtime: every
+# upstream step rewrites the whole file, so its mtime is the last writer's, and a step 1
+# re-run after a crashed step 3 would have masked exactly the state this exists to catch
+# (measured in review; a table of the three states is in the check script). The stamp is
+# floored to the second, so the raster side is floored too — a raster written in the
+# record's own second is the record's own raster.
+fp_prov_rasters_current <- function(src_wsg, raster_paths, prov, species, scenario, where) {
+  if (is.null(prov)) return(invisible(TRUE))
+  lc <- fp_prov_sections(prov, species, scenario, where)[["landcover"]]
+  if (is.null(lc)) return(invisible(TRUE))
+  stamp <- lc[["run"]][["datetime_utc"]]
+  rec <- if (is.character(stamp) && length(stamp) == 1L)
+    as.POSIXct(stamp, format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC") else NA
+  if (is.na(rec)) {
+    stop("provenance.json ", where, ": landcover section has no parseable run$datetime_utc ",
+         "(", if (is.null(stamp)) "absent" else deparse(stamp)[1], "), so the staged rasters ",
+         "cannot be checked against the record. Schema break, not an absence.", call. = FALSE)
+  }
+  paths <- raster_paths[file.exists(raster_paths)]
+  late <- paths[floor(as.numeric(file.mtime(paths))) > as.numeric(rec)]
+  if (length(late)) {
+    stop("provenance.json ", where, ": ", length(late), " staged raster(s) are NEWER than the ",
+         "provenance record that describes them (", paste(basename(late), collapse = ", "),
+         ") — newer than the section's run stamp ", stamp, ". Either a landcover step is in ",
+         "flight or crashed after writing its rasters — re-run it upstream — or this tree ",
+         "was copied without preserving mtimes (rsync without -t, scp without -p, an S3 ",
+         "sync), in which case copy it again with them. Not publishing a fingerprint of ",
+         "bytes other than the ones shipped.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
 # --- The published block ----------------------------------------------------------------
 # Returns exactly PROV_FIELDS, in order, each a scalar or NA. Built with a plain list, not
 # `[[<-` or modifyList: both DROP a NULL member, which would turn an intended null into an
 # absent key — and absence is the one thing #17 forbids.
-fp_prov_item <- function(prov, species, scenario, where) {
+#
+# `years` is the item's published span (01_stage.R's YEARS); only folds read it.
+fp_prov_item <- function(prov, species, scenario, where, years) {
   sec <- fp_prov_sections(prov, species, scenario, where)
   out <- lapply(PROV_FIELDS, function(f) {
     spec <- FP_PROV_MAP[[f]]
     v <- fp_prov_leaf(sec[[spec[["section"]]]], spec[["path"]],
-                      paste0(where, " [", f, "]"))
+                      paste0(where, " [", f, "]"), fold = spec[["fold"]], years = years)
     # NA of any type serialises to JSON null once `na = "null"` is set; normalise so the
     # emitted type cannot vary with which branch produced it.
     if (length(v) == 1L && is.na(v)) NA else v

@@ -89,7 +89,7 @@ REQUIRED_NGE_PROPERTIES = {
     "nge:link_run_uid", "nge:link_config_sha256", "nge:link_sha", "nge:link_version",
     "nge:flooded_version", "nge:drift_version", "nge:produced_datetime",
     "nge:landcover_source", "nge:landcover_collection", "nge:landcover_stac_url",
-    "nge:landcover_key",
+    "nge:landcover_key", "nge:landcover_item_hash",
 }
 
 

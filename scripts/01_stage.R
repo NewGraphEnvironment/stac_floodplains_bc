@@ -45,14 +45,16 @@ stac_dir <- file.path("data", "stac")
 # not resolvable: floodplains#33 verified that `link_sha` + `config_hash` together are
 # what recover the exact 17 files a network was built from.
 #
-# `landcover_key` is a hash over the RESOLVED STAC item ids, not drift's
-# `stac_cache_key()`. The cache key fingerprints the request and nothing about the items
-# returned, so an upstream reprocess leaves it unchanged — the exact failure #17 exists
-# to catch. See planning findings.
+# `landcover_key` is a fingerprint of the landcover PRODUCED: the producer's per-year
+# content digests (cell values + geometry, floodplains#64) folded to one scalar — see
+# fp_provenance.R for the rule. `landcover_item_hash` is the identity of what was READ, a
+# hash over the resolved STAC item ids; it was published as landcover_key until #40, and
+# cannot detect an in-place upstream re-derivation, which is why both are carried.
 PROV_FIELDS <- c(
   "link_run_uid", "link_config_sha256", "link_sha", "link_version",
   "flooded_version", "drift_version", "produced_datetime",
-  "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key"
+  "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
+  "landcover_item_hash"
 )
 
 # Absent provenance is the NORMAL state, not an error: floodplains#33 is forward-only, so
@@ -210,6 +212,10 @@ for (wsg in wsgs) {
       skipped <- c(skipped, item_id)
       next
     }
+    # Rasters newer than the record that describes them stop the stage (#40): the item
+    # would otherwise publish landcover_key as a fingerprint of bytes it does not ship.
+    fp_prov_rasters_current(src_wsg, file.path(src_rasters, sprintf("classified_%d.tif", YEARS)),
+                            wsg_prov, species, scenario, item_id)
 
     # Staging dirs + assets are item-id-keyed so multiple items per WSG never collide.
     dst_raw <- file.path(raw_dir, item_id)
@@ -348,7 +354,7 @@ for (wsg in wsgs) {
     # declares `species: co` at the top level and then two targets, co and ch. Reading the
     # area-level value would give MORR's chinook item coho's network provenance —
     # silently, since both are valid strings.
-    meta <- c(meta, fp_prov_item(wsg_prov, species, scenario, item_id))
+    meta <- c(meta, fp_prov_item(wsg_prov, species, scenario, item_id, YEARS))
 
     # The class table above comes from THIS machine's drift, while the rasters were built
     # by the producer's. A drift that renamed a class between the two would publish labels

@@ -69,6 +69,13 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 | STAC | `item_create.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
 | Validate | `item_validate.py` | pystac-validate every document on disk; nonzero exit on any failure |
 
+Every item also carries twelve `nge:` run-provenance properties, published as explicit nulls
+until the upstream area has been re-modelled with provenance recording. Two describe the landcover
+input: `nge:landcover_key` is a fingerprint of the landcover **produced** — the producer's per-year
+content digests folded to one value as `sha256:` over the lines `<year>=<digest>`, years ascending,
+newline-joined — and `nge:landcover_item_hash` is the identity of what was **read**, a hash over the
+resolved STAC item ids (unchanged by an in-place upstream re-derivation, which is why both ship).
+
 **`run_pipeline.sh` makes no network writes.** Publishing is a separate command, so a rebuild —
 or a smoke test — cannot reach S3 or the live catalog at all:
 

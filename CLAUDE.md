@@ -46,6 +46,16 @@ Assets per item: 3 classified-year COGs + a transition COG, plus **three** GeoPa
 all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by
 attribute.
 
+Two of the eleven-plus-one `nge:` provenance properties describe the landcover input (#40):
+`nge:landcover_key` is a **fingerprint of what was produced** — the producer's per-year content
+digests over cell values plus geometry (floodplains#64), folded to one scalar as `sha256:` of the
+text `<year>=<digest>` lines, years ascending, newline-joined — so it moves on one changed cell and
+not on a re-written identical file; `nge:landcover_item_hash` is the **identity of what was
+read**, a hash over the resolved STAC item ids, which an in-place upstream re-derivation leaves
+unchanged. Until #40 the identity was published under the fingerprint's name. The fold rule lives
+in `scripts/fp_provenance.R`, and `scripts/fp_provenance-check.R` proves the reader offline against
+the producer's own files.
+
 `transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
 why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published
 `file:checksum` would churn on every rebuild while every other asset's stayed stable. Its file and
