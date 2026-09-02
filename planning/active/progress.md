@@ -46,3 +46,6 @@
 - `/code-check` round 3 (`review-round3.md`): Clean, converged — rounds 1 and 2 were one
   class (a gate reading a proxy for its subject), and every read the release makes now reads
   its actual subject and branches on its own exit status. Committed as Phases 2 + 3.
+- Phase 4: NEWS.md written from the rebuilt collection's own summaries (20 items, 19 groups,
+  4 regions, 4 scenarios); this commit is the one tagged v1.0.0. Between the tag and
+  RELEASE COMPLETE nothing tracked is touched — the gate refuses otherwise by design.

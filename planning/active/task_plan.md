@@ -96,14 +96,14 @@ collection URL (it would 404 into the fixture path) and `git` would read the rea
 
 ## Phase 4: NEWS.md, v1.0.0, first versioned release
 
-- [ ] `NEWS.md`: header paragraph in dem's words (versions describe the published catalogue,
+- [x] `NEWS.md`: header paragraph in dem's words (versions describe the published catalogue,
       a tag means "the catalogue is in this state", scripts are not versioned separately), then
       `## v1.0.0 (YYYY-MM-DD)` summarising what is live: 20 items across the rostered groups,
       per-item assets (4 COGs + 3 GeoPackages), class-label RAT + `classification:classes`
       (#34/#35), `file:checksum` (#22), `nge:` provenance (#17), transition vector (#23), COG
       layout (#33), `--only` pilot path (#36), and this release system
 - [ ] Commit the NEWS entry, `git tag v1.0.0` on that commit, push the tag
-- [ ] Full rebuild: `bash scripts/run_pipeline.sh` (needs `$FLOODPLAINS_DATA`, present on this
+- [x] Full rebuild: `bash scripts/run_pipeline.sh` (needs `$FLOODPLAINS_DATA`, present on this
       machine; ~20 min of COG conversion). The local tree is a one-group pilot build today
       (`data/raw/PARTIAL_STAGE` = bulk), so this is required, and it also brings the 19 items
       published before #26/#33/#34/#35 up to date — the full release the memory notes anticipate
