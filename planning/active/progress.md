@@ -49,3 +49,18 @@
 - Phase 4: NEWS.md written from the rebuilt collection's own summaries (20 items, 19 groups,
   4 regions, 4 scenarios); this commit is the one tagged v1.0.0. Between the tag and
   RELEASE COMPLETE nothing tracked is touched — the gate refuses otherwise by design.
+- **v1.0.0 released.** `catalogue_release.sh` 18:40:59Z → 18:46:06Z UTC (5.1 min), exit 0:
+  gate passed (HEAD at v1.0.0, tree clean, NEWS agrees), validator clean on the stamped
+  collection, 161 objects uploaded across 20 item prefixes + the 21 JSON documents
+  (assets: Completed 106.9 MiB/106.9 MiB), 20 items registered, verify: asset + checksum probe on bowr_ch_ff04 OK,
+  `live collection version: 1.0.0 — matches the tag just released`,
+  `bucket collection.json version: 1.0.0 — agrees`, `RELEASE COMPLETE — v1.0.0: 20 items live`.
+- Acceptance, read back independently of the release script afterwards:
+  - `curl $API | jq .version` → `"1.0.0"`; `.stac_extensions` →
+    `["https://stac-extensions.github.io/version/v1.2.0/schema.json"]`
+  - fielded `/search` → 20 items; bucket `collection.json` → version 1.0.0
+  - `git tag -l` → `v1.0.0`; `git show v1.0.0:NEWS.md` top → `## v1.0.0 (2026-09-02)`
+  - Before the release the same API read returned MISSING with no extensions, so the step-5
+    assertion measured a real MISSING → 1.0.0 transition, not the harness's tautology.
+- Merge note: tag already cut on the NEWS commit and pushed after RELEASE COMPLETE; there is
+  no `DESCRIPTION`, so `/gh-pr-merge` steps 6–9 are n/a for this merge — say so when running it.

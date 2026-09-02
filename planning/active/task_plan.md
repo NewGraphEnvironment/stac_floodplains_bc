@@ -102,22 +102,22 @@ collection URL (it would 404 into the fixture path) and `git` would read the rea
       per-item assets (4 COGs + 3 GeoPackages), class-label RAT + `classification:classes`
       (#34/#35), `file:checksum` (#22), `nge:` provenance (#17), transition vector (#23), COG
       layout (#33), `--only` pilot path (#36), and this release system
-- [ ] Commit the NEWS entry, `git tag v1.0.0` on that commit, push the tag
+- [x] Commit the NEWS entry, `git tag v1.0.0` on that commit, push the tag
 - [x] Full rebuild: `bash scripts/run_pipeline.sh` (needs `$FLOODPLAINS_DATA`, present on this
       machine; ~20 min of COG conversion). The local tree is a one-group pilot build today
       (`data/raw/PARTIAL_STAGE` = bulk), so this is required, and it also brings the 19 items
       published before #26/#33/#34/#35 up to date — the full release the memory notes anticipate
-- [ ] `bash scripts/catalogue_release.sh` → RELEASE COMPLETE naming v1.0.0
-- [ ] Acceptance: `curl -s $API | jq .version` → `"1.0.0"`; `jq .stac_extensions` lists the
+- [x] `bash scripts/catalogue_release.sh` → RELEASE COMPLETE naming v1.0.0
+- [x] Acceptance: `curl -s $API | jq .version` → `"1.0.0"`; `jq .stac_extensions` lists the
       Version Extension; 20 items live; `git tag -l` and `NEWS.md` top agree. Paste the three
       reads into `progress.md`
-- [ ] Note for merge: `/gh-pr-merge` bookkeeping is n/a (tag already cut on the release commit,
+- [x] Note for merge: `/gh-pr-merge` bookkeeping is n/a (tag already cut on the release commit,
       no `DESCRIPTION`); open a soul issue if the skill mis-handles a NEWS-only repo, referencing
       soul#62
 
 ## Validation
 
-- [ ] `bash scripts/catalogue_release-check.sh` ALL PASS on every commit that touches the release path
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
+- [x] `bash scripts/catalogue_release-check.sh` ALL PASS on every commit that touches the release path
+- [x] `/code-check` clean on each commit
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
