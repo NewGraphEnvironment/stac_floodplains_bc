@@ -17,39 +17,44 @@ Sister collections on the same endpoint: `stac-airphoto-bc`, `stac-elevation-bc`
 ## Coverage
 
 Published and live at <https://images.a11s.one> — **20 STAC items** across **19 watershed groups**
-in the **Fraser** (chinook), **Peace** (bull trout), and **Skeena** (coho + chinook) regions. Most
-groups have one item; **MORR** carries two (coho and chinook). The table below is the 17-item
-snapshot it was written from: KOTL, LARL and SLOC (Peace) have no row yet, and BULK's row predates
-its 2026-09-02 republish with corrected geometry (#36). Regenerating it from the live API is #41. The `Floodplain (km²)` column is the
-functional-floodplain `ff04` extent (each item also publishes ff02/ff06 areas). Tree-cover change
-over the floodplain, 2017 → 2023:
+in the **Columbia** (bull trout), **Fraser** (chinook), **Peace** (bull trout), and **Skeena**
+(coho + chinook) regions. Most groups have one item; **MORR** carries two (coho `ff04` and
+chinook `ff06`). The table is generated from the live API by `scripts/readme_coverage-table.py`
+(last run at release **v1.0.0**, 2026-09-02; re-run after every full release). `Floodplain (km²)`
+is each item's **own** scenario extent — `ff04` functional floodplain for every item but
+`morr_ch_ff06`, whose `ff06` valley bottom is wider — so read the `Scenario` column before
+comparing rows (each item also publishes all three ff02/ff04/ff06 areas). Tree-cover change over
+that extent, 2017 → 2023:
 
-| WSG | Region | Species | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
-|----|----|----|----:|----:|----:|----:|
-| LCHL | Fraser | chinook | 325 | 1,261 | 1,747 | +486 |
-| LSAL | Fraser | chinook | 256 | 986 | 1,006 | +21 |
-| WILL | Fraser | chinook | 305 | 645 | 576 | -69 |
-| TABR | Fraser | chinook | 233 | 608 | 352 | -257 |
-| UFRA | Fraser | chinook | 188 | 544 | 719 | +175 |
-| NECR | Fraser | chinook | 551 | 2,854 | 1,450 | -1,404 |
-| MORK | Fraser | chinook | 626 | 946 | 1,212 | +266 |
-| FRAN | Fraser | chinook | 883 | 7,177 | 897 | -6,280 |
-| BOWR | Fraser | chinook | 298 | 461 | 287 | -174 |
-| MCGR | Fraser | chinook | 290 | 510 | 817 | +307 |
-| PCEA | Peace | bull trout | 1,068 | 101 | 210 | +109 |
-| PARS | Peace | bull trout | 485 | 1,439 | 3,233 | +1,794 |
-| PINE | Peace | bull trout | 380 | 763 | 1,497 | +734 |
-| BULK | Skeena | coho | 490 | 2,073 | 1,074 | -1,000 |
-| MORR | Skeena | coho | 411 | 434 | 685 | +251 |
-| MORR | Skeena | chinook | 411 | 482 | 731 | +248 |
-| KISP | Skeena | chinook | 247 | 268 | 937 | +669 |
-| **Total** | | | **7,036** | **21,553** | **17,428** | **-4,126** |
+| WSG | Region | Species | Scenario | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
+|----|----|----|----|----:|----:|----:|----:|
+| KOTL | Columbia | bull trout | ff04 | 708 | 642 | 420 | -222 |
+| LARL | Columbia | bull trout | ff04 | 307 | 204 | 100 | -104 |
+| SLOC | Columbia | bull trout | ff04 | 130 | 110 | 75 | -36 |
+| BOWR | Fraser | chinook | ff04 | 298 | 461 | 287 | -174 |
+| FRAN | Fraser | chinook | ff04 | 883 | 7,177 | 897 | -6,280 |
+| LCHL | Fraser | chinook | ff04 | 325 | 1,261 | 1,747 | +486 |
+| LSAL | Fraser | chinook | ff04 | 256 | 986 | 1,006 | +21 |
+| MCGR | Fraser | chinook | ff04 | 290 | 510 | 817 | +307 |
+| MORK | Fraser | chinook | ff04 | 626 | 946 | 1,212 | +266 |
+| NECR | Fraser | chinook | ff04 | 397 | 1,943 | 915 | -1,028 |
+| TABR | Fraser | chinook | ff04 | 233 | 608 | 352 | -257 |
+| UFRA | Fraser | chinook | ff04 | 188 | 544 | 719 | +175 |
+| WILL | Fraser | chinook | ff04 | 305 | 645 | 576 | -69 |
+| PARS | Peace | bull trout | ff04 | 410 | 1,076 | 2,696 | +1,620 |
+| PCEA | Peace | bull trout | ff04 | 1,068 | 101 | 210 | +109 |
+| PINE | Peace | bull trout | ff04 | 380 | 763 | 1,497 | +734 |
+| BULK | Skeena | coho | ff04 | 387 | 1,565 | 827 | -738 |
+| KISP | Skeena | chinook | ff04 | 190 | 199 | 693 | +494 |
+| MORR | Skeena | coho | ff04 | 358 | 309 | 576 | +268 |
+| MORR | Skeena | chinook | ff06 | 372 | 343 | 606 | +264 |
+| **Total** | | | | **7,737** | **20,394** | **16,228** | **-4,166** |
 
 Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
 (negative = net tree loss). Figures are aggregated from each item's transition layer. Per-row
 values are rounded to whole units, so a column may not sum exactly to the (unrounded) total. MORR
-contributes two items (coho + chinook): its floodplain is one physical extent counted **once** in
-the km² total, while each item's tree-change is listed and summed separately.
+contributes two items (coho + chinook): the km² total counts its `ff04` extent **once**, while each
+item's tree-change is listed and summed separately.
 
 ## Pipeline
 

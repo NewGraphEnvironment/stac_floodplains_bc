@@ -88,6 +88,8 @@ curl -s https://images.a11s.one/collections/stac-floodplains-bc | jq .version
 # 5. only now publish the tag: a pushed tag says the catalogue IS in this state, and a release
 #    that failed would otherwise leave a public tag for a state that never went live
 git push origin vX.Y.Z
+# 6. regenerate README.md's coverage table from what the API now serves, and commit it
+python3 scripts/readme_coverage-table.py --write
 ```
 
 `--only` republishes one item and never the collection, so it needs no tag and moves no version.
