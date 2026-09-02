@@ -11,6 +11,9 @@ for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
                 (the transition layer alone, without the classified epochs)
   - labelled properties: wsg, species, region, floodplain_ff02/04/06_km2, and the
     tree loss/gain/net figures staged from the transition layer.
+  - `classification:classes` on every raster asset (#34/#35), generated from the same
+    data/raw/classes.json that 02_raster_tag.py builds the embedded RAT from, so the
+    STAC surface and the COG surface cannot disagree.
 
 Writes collection.json + <item_id>.json under data/stac/ and stops there. Build
 only: no validation, no S3, no network. Validation is item_validate.py (it checks
@@ -46,6 +49,10 @@ S3_BASE = f"https://{BUCKET}.s3.{S3_REGION}.amazonaws.com"
 GPKG_MEDIA_TYPE = "application/geopackage+sqlite3"
 PROJECTION_EXT = "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
 FILE_EXT = "https://stac-extensions.github.io/file/v2.1.0/schema.json"
+CLASSIFICATION_EXT = (
+    "https://stac-extensions.github.io/classification/v2.0.0/schema.json")
+
+CLASSES_PATH = RAW_DIR / "classes.json"
 
 # Multihash prefix for sha2-256: 0x12 = function code, 0x20 = 32-byte digest length.
 # file:checksum is a multihash, NOT a bare digest — see file_meta().
@@ -61,6 +68,84 @@ PROV_FIELDS = [
     "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
 ]
 NGE_PROV_PROPERTIES = [f"nge:{f}" for f in PROV_FIELDS]
+
+
+def _slug(name: str) -> str:
+    """'Flooded Vegetation' -> 'Flooded_Vegetation'; 'Snow/Ice' -> 'Snow_Ice'.
+
+    The classification extension constrains `name` to `^[0-9A-Za-z-_]+$`. Of the nine
+    published classes three carry a space (`Flooded Vegetation`, `Built Area`,
+    `Bare Ground`) and one a slash (`Snow/Ice`), so the readable form cannot be the
+    machine name. It goes in `title` instead; nothing is lost.
+    """
+    return re.sub(r"[^0-9A-Za-z_-]+", "_", name).strip("_")
+
+
+def _load_classes() -> list[dict]:
+    """The class table 01_stage.R ferried from drift. Raises rather than defaulting.
+
+    Defaulting to an empty list here would be the worst available failure: the extension
+    URL would still be declared, every asset would carry no classes, and the item would
+    VALIDATE — measured, because the extension's Item branch "does not require" the field.
+    A uniform loss like that is invisible to any cross-item comparison as well.
+    """
+    if not CLASSES_PATH.is_file():
+        raise SystemExit(f"{CLASSES_PATH} is missing — 01_stage.R writes it; re-run staging")
+    classes = json.loads(CLASSES_PATH.read_text()).get("classes")
+    if not classes:
+        raise SystemExit(f"{CLASSES_PATH} carries no classes")
+    return classes
+
+
+def _assert_unique_names(entries: list[dict], what: str) -> list[dict]:
+    """Slugs must be injective.
+
+    `uniqueItems: true` on the array cannot catch a collision, because two entries that
+    share a `name` still differ by `value` and so are distinct objects. A consumer keying a
+    legend by `name` would silently merge them.
+    """
+    names = [e["name"] for e in entries]
+    if len(set(names)) != len(names):
+        dupes = sorted({n for n in names if names.count(n) > 1})
+        raise SystemExit(f"{what}: class names are not unique after slugging: {dupes}")
+    return entries
+
+
+def classified_classes(classes: list[dict]) -> list[dict]:
+    """`classification:classes` for a classified land-cover raster."""
+    return _assert_unique_names([
+        {"value": c["code"],
+         "name": _slug(c["class_name"]),
+         "title": c["class_name"],
+         "description": c["description"],
+         # 6 hex chars, no leading '#'. drift stores '#419bdf'.
+         "color_hint": c["color"].lstrip("#").upper()}
+        for c in classes], "classified")
+
+
+def transition_classes(classes: list[dict]) -> list[dict]:
+    """`classification:classes` for the transition raster: the full `from -> to` scheme.
+
+    Mirrors the RAT 02_raster_tag.py writes into the COG, row for row and colour for
+    colour, because both are built from the same classes.json. That is the point — the two
+    published surfaces cannot disagree by construction, and item_validate.py checks the
+    published bytes against the published JSON to prove it stayed that way.
+    """
+    entries = []
+    for src in classes:
+        for dst in classes:
+            same = src["code"] == dst["code"]
+            entries.append({
+                "value": src["code"] * 1000 + dst["code"],
+                "name": f"{_slug(src['class_name'])}__{_slug(dst['class_name'])}",
+                "title": (f"{src['class_name']} (no change)" if same
+                          else f"{src['class_name']} \u2192 {dst['class_name']}"),
+                # Colour by DESTINATION, with the no-change diagonal held back so the ~91%
+                # of cells that did not change recedes. Keep in step with
+                # 02_raster_tag.py's NO_CHANGE_RGB.
+                "color_hint": "D9D9D9" if same else dst["color"].lstrip("#").upper(),
+            })
+    return _assert_unique_names(entries, "transition")
 
 
 def s3_href(rel_path: str) -> str:
@@ -142,7 +227,8 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             media_type=pystac.MediaType.COG,
             title=f"Classified land cover {yr}",
             roles=["data"],
-            extra_fields=file_meta(wsg_dir / f"classified_{yr}.tif"),
+            extra_fields={**file_meta(wsg_dir / f"classified_{yr}.tif"),
+                          "classification:classes": CLASSIFIED_CLASSES},
         )
     trans_name = f"transition_{span[0]}_{span[1]}.tif"
     trans_rel = f"{meta['item_id']}/{trans_name}"
@@ -150,8 +236,17 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         href=s3_href(trans_rel),
         media_type=pystac.MediaType.COG,
         title=f"Land-cover transition {span[0]}-{span[1]}",
+        # The raster keeps NO-CHANGE cells (~91% of valid cells); transition_vector.gpkg
+        # below is changes-only. The two published representations of "the transition" do
+        # not contain the same thing, which a consumer comparing counts has to know.
+        description=(
+            f"Land-cover transition {span[0]}-{span[1]}, encoded from x 1000 + to "
+            f"(2011 = Trees to Rangeland). Includes no-change cells, which the "
+            f"classification classes render recessively; transition_vector.gpkg carries "
+            f"the changed patches only."),
         roles=["data"],
-        extra_fields=file_meta(wsg_dir / trans_name),
+        extra_fields={**file_meta(wsg_dir / trans_name),
+                      "classification:classes": TRANSITION_CLASSES},
     )
     assets["floodplain_landcover"] = pystac.Asset(
         href=s3_href(f"{meta['item_id']}/floodplain_landcover.gpkg"),
@@ -225,7 +320,7 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         datetime=end_dt,
         properties=properties,
         assets=assets,
-        stac_extensions=[PROJECTION_EXT, FILE_EXT],
+        stac_extensions=[PROJECTION_EXT, FILE_EXT, CLASSIFICATION_EXT],
     )
     item.collection_id = COLLECTION_ID
     item.add_link(pystac.Link(
@@ -243,6 +338,15 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
 # next to a stale collection.json — and that mixture passes every release guard
 # (collection.json present, item count right, all valid, no orphans), so it would
 # publish to a bucket with versioning Suspended. Fail before the first write instead.
+# Built once, before anything is written: a missing or empty classes.json must abort
+# before the first item JSON lands, for the same reason the scenario/asset preflight below
+# does — a mixture of labelled and unlabelled items passes every release guard.
+_CLASSES = _load_classes()
+CLASSIFIED_CLASSES = classified_classes(_CLASSES)
+TRANSITION_CLASSES = transition_classes(_CLASSES)
+print(f"classification: {len(CLASSIFIED_CLASSES)} land-cover classes, "
+      f"{len(TRANSITION_CLASSES)} transitions from {CLASSES_PATH}")
+
 meta_paths = sorted(RAW_DIR.glob("*/meta.json"))
 for _mp in meta_paths:
     _meta = json.loads(_mp.read_text())

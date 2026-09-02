@@ -12,9 +12,11 @@ Two deliberate differences from the stac_uav_bc original, both closing a
 silent-success hole:
 
   * `glob`, not `rglob`. Item + collection JSON live flat at the root of
-    data/stac/; the per-item subdirs hold 68 `.tif.aux.json` terra sidecars that
-    rglob would sweep up and then silently skip (they are not Features), so the
-    printed count would carry no completeness signal.
+    data/stac/ by construction, while the per-item subdirs hold assets. rglob would
+    sweep up anything nested there — now or later — and then silently skip it (it is
+    not a Feature), so the printed count would carry no completeness signal. This is
+    structural, not a fact about today's tree: it used to be argued from 68 terra
+    `.tif.aux.json` sidecars, which #34 retired along with terra.
 
   * `--expect N`. The original has no lower bound, so a wrong --base prints
     `valid: 0` and exits 0 — the gate opens on nothing. With --expect we require
@@ -25,7 +27,9 @@ silent-success hole:
 import argparse
 import hashlib
 import json
+import struct
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
@@ -188,6 +192,334 @@ def check_cog_tags(base: Path) -> list[str]:
         problems.append(
             f"no COG assets compared under {base} — the NGE_ tag contract was not "
             f"actually checked against anything")
+    return problems
+
+
+# TIFF tag 42112 is GDAL's own metadata tag, and since GDAL 3.12 it carries the Raster
+# Attribute Table. This is where the class labels have to live for them to reach a consumer
+# that only ever fetches the `.tif` — which is every consumer this collection has, because
+# geoserv's titiler restricts fetches to `.tif` and would never see a `.aux.xml`.
+GDAL_METADATA_TAG = 42112
+
+# Absolute expected row counts, per asset kind. Named here rather than derived from
+# classes.json or from the item, because a derived expectation cannot fire: if the class
+# table went empty, the RAT, the STAC classes and the expectation would all go empty
+# together and every comparison would pass. 9 land-cover classes; 9x9 transitions.
+EXPECTED_RAT_ROWS = {"classified": 9, "transition": 81}
+
+
+def _read_embedded_rat(path: Path) -> ET.Element | None:
+    """Parse the RAT out of TIFF tag 42112, reading the FILE rather than asking GDAL.
+
+    Asking GDAL is the one thing that cannot answer this question. GDAL loads a `.aux.xml`
+    sidecar transparently, so `rasterio.open(...)` reports a RAT whether it is inside the
+    file or beside it — and "beside it" is precisely the failure this guard exists to
+    catch, because that file is excluded from the S3 sync. rasterio exposes no RAT API at
+    all, so there is no higher-level route.
+
+    Raises on anything it does not understand rather than returning None. Returning None
+    for an unparseable header would let a BigTIFF, a big-endian file, or a future layout
+    read as "no RAT", which is at best a false alarm and at worst — paired with a caller
+    that treats absence as an empty set — a silent pass.
+    """
+    with path.open("rb") as fh:
+        header = fh.read(8)
+        if header[:2] != b"II":
+            raise ValueError(f"not a little-endian TIFF (magic {header[:2]!r})")
+        if header[2:4] == b"\x2b\x00":
+            raise ValueError("BigTIFF: this parser reads classic TIFF offsets only")
+        if header[2:4] != b"\x2a\x00":
+            raise ValueError(f"not a TIFF (version {header[2:4]!r})")
+        fh.seek(struct.unpack("<I", header[4:8])[0])
+        (count,) = struct.unpack("<H", fh.read(2))
+        entries = fh.read(count * 12)
+    for i in range(count):
+        tag, typ, n, value = struct.unpack("<HHII", entries[i * 12:(i + 1) * 12])
+        if tag != GDAL_METADATA_TAG:
+            continue
+        if typ != 2:  # ASCII
+            raise ValueError(f"tag 42112 has type {typ}, expected ASCII")
+        if n <= 4:
+            # Short values are stored inline in the entry rather than at an offset. Too
+            # short to hold a RAT, but say so rather than silently reporting absence.
+            raise ValueError("tag 42112 is stored inline and is too short to hold a RAT")
+        with path.open("rb") as fh:
+            fh.seek(value)
+            blob = fh.read(n).rstrip(b"\x00")
+        root = ET.fromstring(blob.decode("utf-8"))
+        # GDAL nests the table inside an Item, not at the top level:
+        #   <GDALMetadata>
+        #     <Item name="DEFAULT_RASTER_ATTRIBUTE_TABLE" sample="0" role="rat">
+        #       <GDALRasterAttributeTable ...>
+        # `sample="0"` is band 1, the only band these rasters have. Matched on role rather
+        # than on the name so a future GDAL renaming the item does not read as "no RAT".
+        for item in root.findall("Item"):
+            if item.get("role") == "rat" and item.get("sample", "0") == "0":
+                return item.find("GDALRasterAttributeTable")
+    return None
+
+
+def check_cog_rat(base: Path) -> list[str]:
+    """Verify every published COG carries its class labels INSIDE the file.
+
+    Three separate failures, because they are genuinely different and only the first is
+    obvious:
+
+      * no RAT at all — the labels were never written, or the PAM sidecar carrying them was
+        silently ignored (GDAL ignores a `.aux.xml` with an `<?xml ...?>` declaration);
+      * a RAT that exists only as a sidecar next to the published COG — locally
+        indistinguishable from success, because every reader loads PAM transparently, but
+        the sidecar is excluded from the S3 sync and unfetchable by titiler;
+      * a RAT whose rows disagree with the `classification:classes` the same build
+        published in the item JSON.
+
+    The third is checked against the ITEM rather than against a second copy of the table,
+    so the assertion cannot drift from what shipped. The row COUNT is checked against an
+    absolute, because the RAT and the STAC classes share a producer — one fact derived
+    twice agrees with itself no matter how wrong it is.
+    """
+    problems: list[str] = []
+    compared = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc["id"]
+        for key, asset in sorted(doc.get("assets", {}).items()):
+            if asset.get("type") != pystac.MediaType.COG:
+                continue
+            local = base / item_id / PurePosixPath(urlparse(asset["href"]).path).parts[-1]
+            if not local.is_file():
+                continue  # missing assets are already reported by check_checksums
+            compared += 1
+            where = f"{item_id}/{local.name}"
+
+            kind = "transition" if key.startswith("transition") else "classified"
+            want_rows = EXPECTED_RAT_ROWS[kind]
+
+            # A sidecar beside the PUBLISHED asset means the RAT did not make it in.
+            sidecar = Path(str(local) + ".aux.xml")
+            if sidecar.exists():
+                problems.append(
+                    f"{where}: a PAM sidecar sits beside the published COG, so the RAT is "
+                    f"not embedded — it would be dropped by the S3 sync")
+
+            try:
+                rat = _read_embedded_rat(local)
+            except (ValueError, ET.ParseError, UnicodeDecodeError, struct.error) as e:
+                problems.append(f"{where}: cannot read TIFF tag 42112 — {e}")
+                continue
+            if rat is None:
+                problems.append(
+                    f"{where}: no raster attribute table embedded in the COG, so the "
+                    f"published pixel values carry no labels")
+                continue
+
+            rows = rat.findall("Row")
+            if len(rows) != want_rows:
+                problems.append(
+                    f"{where}: embedded RAT has {len(rows)} rows, expected {want_rows} "
+                    f"for a {kind} raster")
+
+            # Field usages, not just names: QGIS resolves a RAT by usage, so a table with
+            # the right labels and no Name/colour usages renders as nothing while every
+            # text-based check passes.
+            usages = [f.findtext("Usage") for f in rat.findall("FieldDefn")]
+            if usages != ["5", "2", "6", "7", "8", "9"]:
+                problems.append(
+                    f"{where}: embedded RAT field usages are {usages}, expected "
+                    f"['5','2','6','7','8','9'] (MinMax/Name/Red/Green/Blue/Alpha)")
+
+            # Agreement with what the item published for the same asset.
+            classes = asset.get("classification:classes")
+            if not classes:
+                problems.append(
+                    f"{where}: asset carries no classification:classes — the extension "
+                    f"schema does not require them, so nothing else would report this")
+                continue
+            # Label AND colour. Comparing titles alone would leave the one value on
+            # either side that is NOT derived from classes.json unguarded: the no-change
+            # colour is a hand-typed literal in both producers (02_raster_tag.py's
+            # NO_CHANGE_RGB and 05_stac_register.py's "D9D9D9"), and a drift between them
+            # is invisible in every other gate while making a QGIS render and a web legend
+            # disagree. The duplication is deliberate; this is what makes it safe.
+            #
+            # `.get()`, not `[]`: only `value` is required by the extension, so a class
+            # missing `title` or `color_hint` must be REPORTED as a mismatch, not raise.
+            # This function validates JSON on disk — the thing it exists to distrust — and
+            # an uncaught KeyError here would discard every problem already collected,
+            # including the one naming the real cause.
+            try:
+                want = {int(c["value"]): (c.get("title"),
+                                          (c.get("color_hint") or "").upper())
+                        for c in classes}
+            except (KeyError, TypeError, ValueError) as e:
+                problems.append(f"{where}: classification:classes is malformed — {e}")
+                continue
+            # Same for the RAT rows. The positional read below (value, name, r, g, b) is
+            # only valid because the usages are the ones 02_raster_tag.py wrote — and a
+            # table with a different layout is exactly what the usage check above is for,
+            # so this parse must survive reaching one rather than taking the gate down
+            # with a traceback.
+            got = {}
+            try:
+                for row in rows:
+                    cells = [f.text for f in row.findall("F")]
+                    got[int(cells[0])] = (
+                        cells[1], "".join(f"{int(x):02X}" for x in cells[2:5]))
+            except (IndexError, TypeError, ValueError) as e:
+                problems.append(
+                    f"{where}: embedded RAT rows are not in the expected "
+                    f"value/name/red/green/blue layout — {e}")
+                continue
+            # Differences first, then gate on them: gating on `got != want` and diffing
+            # afterwards can produce a failure with an empty message.
+            changed = [f"{v}: RAT {got.get(v)!r} vs item {want.get(v)!r}"
+                       for v in sorted(set(got) | set(want)) if got.get(v) != want.get(v)]
+            if changed:
+                problems.append(
+                    f"{where}: embedded RAT disagrees with classification:classes — "
+                    f"{'; '.join(changed[:5])}"
+                    f"{f' (+{len(changed) - 5} more)' if len(changed) > 5 else ''}")
+    # Zero comparisons is not a pass — same reasoning as the sibling checks.
+    if compared == 0:
+        problems.append(
+            f"no COG assets compared under {base} — the class-label contract was not "
+            f"actually checked against anything")
+    return problems
+
+
+def check_pixel_values(base: Path) -> list[str]:
+    """Every pixel value PRESENT in a raster must have a class.
+
+    This is the check the uniform 81-row scheme cannot give us any other way. The RAT is
+    identical on every item by design, so no cross-item comparison can notice that the
+    raster contains a code the table does not describe — which is what an upstream change
+    to drift's encoding, or a class this repo has never seen, would look like.
+
+    Also asserts that overview values are a subset of the base values. Overviews must
+    resample NEAREST or averaging invents codes that decode to transitions which did not
+    happen there, and the RAT would then label them confidently. GDAL only WARNS on an
+    unknown creation option, so `OVERVIEW_RESAMPLING=NEAREST` in 03_cog.py can fall back to
+    the CUBIC default silently; this asserts the property rather than trusting the line.
+    """
+    import numpy as np
+
+    problems: list[str] = []
+    checked = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc["id"]
+        for key, asset in sorted(doc.get("assets", {}).items()):
+            # Every COG, not only the transition. Restricting this to the transition
+            # would be a scope that happens to fit today's data rather than a checked
+            # property: 01_stage.R drops code 0 from drift's table, so a classified raster
+            # carrying 0 — or any code a future drift adds — would ship with pixels
+            # nothing describes, while the RAT still has its 9 rows and every title still
+            # matches. The classified assets carry classification:classes too, so the same
+            # comparison resolves for them unchanged.
+            if asset.get("type") != pystac.MediaType.COG:
+                continue
+            local = base / item_id / PurePosixPath(urlparse(asset["href"]).path).parts[-1]
+            if not local.is_file():
+                continue
+            checked += 1
+            declared = {int(c["value"]) for c in asset.get("classification:classes", [])}
+            # Block-windowed, not a single full-band read. Measured on one 11552x14651
+            # int32 band: reading it whole peaks at 2.3 GB RSS — band, mask, compressed
+            # copy and np.unique's sort copy all live at once. This runs inside
+            # catalogue_release.sh's gate, which is meant to be runnable from a machine
+            # that does not hold the source tree, so a hard 2 GB floor would OOM after the
+            # entire build had already succeeded. Blockwise gives the identical answer
+            # across all four COGs at 0.85 GB, and 0.34 GB under GDAL_CACHEMAX=64 — the
+            # remainder is GDAL's own block cache, which sizes itself to a fraction of
+            # available RAM rather than being a floor.
+            with rasterio.open(local) as ds:
+                base_vals: set[int] = set()
+                for _, win in ds.block_windows(1):
+                    block = ds.read(1, window=win, masked=True)
+                    base_vals |= set(np.unique(block.compressed()).tolist())
+                has_overviews = bool(ds.overviews(1))
+                base_width, base_height = ds.width, ds.height
+                # Read from the ARTIFACT, not hardcoded as GDAL's 512 default. The
+                # threshold for building overviews IS the block size in force, and
+                # 03_cog.py's creation options are a dict that already grew BIGTIFF "so
+                # the choice is a decision rather than a default" — a BLOCKSIZE entry is
+                # the obvious next edit and nothing would tie the two files together.
+                # Measured with BLOCKSIZE=1024: a correct 600x600 COG legitimately has no
+                # overviews, and a hardcoded 512 blocks the release over it.
+                block_size = max(ds.block_shapes[0])
+            # The FIRST overview, opened as its own dataset and read blockwise. A decimated
+            # read of the base band (`out_shape=`) does not use the overviews — GDAL reads
+            # full resolution and downsamples, which is the 677 MB this function exists to
+            # avoid. Level 0 is the sensitive one: it is built directly from the base data,
+            # so an interpolating resampler shows up there first.
+            ov_vals: set[int] = set()
+            # A flag, not a `continue`: `base_vals` and `declared` are already in hand, so
+            # bailing out here would throw away the undescribed-pixel-value report — the
+            # PRIMARY contract in this function's docstring — and send the operator to look
+            # at a GDAL open option while the published pixels stay unlabelled. Only the
+            # `invented` comparison genuinely cannot be computed without an overview.
+            ov_checked = True
+            if has_overviews:
+                with rasterio.open(local, OVERVIEW_LEVEL=0) as ov:
+                    # The premise, asserted rather than assumed. OVERVIEW_LEVEL is an open
+                    # option, and GDAL only WARNS on one it does not recognise — so a
+                    # renamed option or a driver change silently hands back the
+                    # FULL-RESOLUTION dataset, `ov_vals` becomes `base_vals` by
+                    # construction, and this guard reports success having compared a band
+                    # against itself. Measured: a typo'd option name opens full res with
+                    # no error and the subset test passes. That is the same
+                    # silent-fallback failure this function exists to catch, so it gets
+                    # the same treatment.
+                    # NEITHER dimension shrank, not "the width did not". Measured: a
+                    # 1x1024 raster's first overview is 1x512 — the width cannot halve
+                    # below 1, so a width-only premise would falsely abort a release on a
+                    # perfectly good narrow raster.
+                    if ov.width >= base_width and ov.height >= base_height:
+                        problems.append(
+                            f"{item_id}/{local.name}: OVERVIEW_LEVEL=0 returned "
+                            f"{ov.width}x{ov.height} against a "
+                            f"{base_width}x{base_height} base — it did not select an "
+                            f"overview, so the resampling contract was not checked")
+                        ov_checked = False
+                    else:
+                        for _, win in ov.block_windows(1):
+                            block = ov.read(1, window=win, masked=True)
+                            ov_vals |= set(np.unique(block.compressed()).tolist())
+            elif max(base_width, base_height) > block_size:
+                # Only a blocker where overviews were warranted, and the threshold is
+                # measured rather than assumed: the COG driver builds overviews when
+                # EITHER dimension exceeds the block size (512x512 -> none, 513x513 -> one,
+                # 400x600 -> one, 1024x100 -> one). Testing the width alone would let a
+                # tall narrow raster lose its overviews unreported. An unconditional
+                # failure would be worse still — it would abort a release, after the whole
+                # build had succeeded, over a raster the driver built correctly.
+                problems.append(
+                    f"{item_id}/{local.name}: {base_width}x{base_height} COG has no "
+                    f"overviews, so the resampling contract could not be checked")
+                ov_checked = False
+            else:
+                # Small enough that the driver builds none — nothing to compare, and that
+                # is correct rather than a failure.
+                ov_checked = False
+            undescribed = sorted(base_vals - declared)
+            if undescribed:
+                problems.append(
+                    f"{item_id}/{local.name}: {len(undescribed)} pixel value(s) have no "
+                    f"class: {undescribed[:10]} — the upstream encoding may have changed")
+            invented = sorted(ov_vals - base_vals) if ov_checked else []
+            if invented:
+                problems.append(
+                    f"{item_id}/{local.name}: overviews contain {len(invented)} value(s) "
+                    f"absent from the full-resolution band: {invented[:10]} — overview "
+                    f"resampling is interpolating class codes")
+    if checked == 0:
+        problems.append(
+            f"no COG checked under {base} — the pixel-value contract was not actually "
+            f"checked against anything")
     return problems
 
 
@@ -418,6 +750,24 @@ def main() -> int:
             print(f"  {msg}", file=sys.stderr)
         return 1
     print("cog layout: valid on every COG")
+
+    # --- class labels: do the published pixels say what they mean? ---
+    bad_rat = check_cog_rat(args.base)
+    if bad_rat:
+        print(f"FAILED: {len(bad_rat)} class-label problem(s)", file=sys.stderr)
+        for msg in bad_rat:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    bad_codes = check_pixel_values(args.base)
+    if bad_codes:
+        print(f"FAILED: {len(bad_codes)} pixel-value problem(s)", file=sys.stderr)
+        for msg in bad_codes:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"class labels: RAT embedded in every COG "
+          f"({EXPECTED_RAT_ROWS['classified']} classes / "
+          f"{EXPECTED_RAT_ROWS['transition']} transitions), agrees with "
+          f"classification:classes, every pixel value described")
 
     return 0
 

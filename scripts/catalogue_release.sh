@@ -131,7 +131,8 @@ echo ""
 echo "=== 2: SYNC ASSETS ==="
 # Exclude dotfiles at the root AND nested (macOS drops .DS_Store into item dirs);
 # exclude *.json so the item/collection docs go in step 3, after their assets, and
-# so the 68 terra .tif.aux.json sidecars never reach the bucket.
+# so no per-item sidecar reaches the bucket. (terra used to leave 68 .tif.aux.json
+# files here; #34 retired it, but the exclusion still matters — see the *.aux.xml note.)
 #
 # No --size-only: a re-run after fixing an upstream number must re-upload even if
 # the compressed size matches (LCHL's floodplain.gpkg is byte-identical in size to

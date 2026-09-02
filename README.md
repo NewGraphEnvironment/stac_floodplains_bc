@@ -58,7 +58,7 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 |----|----|----|
 | Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`, extract the transition layer to `transition_vector.gpkg`, and compute per-flood-factor floodplain areas |
 | Tag | `02_raster_tag.py` | Embed GDAL metadata tags onto the **staged** rasters: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF0*_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, `NGE_*` run provenance, per-asset `YEAR`. Before the COG conversion, not after (#33) |
-| COG | `03_cog.R` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs (`filetype = "COG"`, DEFLATE) → `data/stac/<item_id>/` |
+| COG | `03_cog.py` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs (`rasterio.shutil.copy`, DEFLATE) → `data/stac/<item_id>/`, absorbing the class-label RAT into each `.tif` |
 | STAC | `05_stac_register.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
 | Validate | `item_validate.py` | pystac-validate every document on disk; nonzero exit on any failure |
 
@@ -218,5 +218,6 @@ items$features[[1]]$assets$classified_2023$href
 ## Prerequisites
 
 [`uv`](https://docs.astral.sh/uv/) for the Python steps (`uv run` auto-syncs the env from
-`pyproject.toml` + `uv.lock` — pystac / rasterio); R with `terra`, `sf`, `readr`;
+`pyproject.toml` + `uv.lock` — pystac / rasterio, GDAL **3.12+** for RAT-in-`GDAL_METADATA`);
+R with `sf`, `readr`, `drift`;
 AWS credentials for `s3://stac-floodplains-bc`; a populated `floodplains/data/<wsg>/` tree.

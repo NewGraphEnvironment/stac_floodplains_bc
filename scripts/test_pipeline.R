@@ -14,7 +14,7 @@
 #   WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
 #   WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
 #
-# Requires: R (sf/terra/yaml/jsonlite), uv (Python env from pyproject.toml/uv.lock —
+# Requires: R (sf/yaml/jsonlite/drift), uv (Python env from pyproject.toml/uv.lock —
 # `uv run` auto-syncs it), and the source data under $FLOODPLAINS_DATA. No AWS creds needed.
 
 library(jsonlite)
@@ -41,7 +41,13 @@ if (system("uv run python scripts/02_raster_tag.py") != 0) {
 }
 
 # --- 03 COG ---------------------------------------------------------------
-source("scripts/03_cog.R")
+# Python since #34/#35: the class-label RAT only embeds in the .tif through a GDAL 3.12+
+# CreateCopy, and terra links 3.8.5. system() returns a status rather than raising, so the
+# check is explicit — without it a failed COG step would fall through to 05.
+message("\n=== 03: COG ===")
+if (system("uv run python scripts/03_cog.py") != 0) {
+  stop("03_cog.py failed")
+}
 
 # --- 05 BUILD -------------------------------------------------------------
 message("\n=== 05: BUILD STAC JSON ===")
@@ -227,6 +233,64 @@ for (mp in meta_paths) {
       }
     }
   }
+
+  # --- The from->to decode, checked against an INDEPENDENT producer (#35) ------------
+  # The published labels ("Trees -> Rangeland") are this repo's decode of drift's
+  # `from * 1000 + to` encoding. Restating an upstream encoding here is the same class of
+  # mistake as retyping the class table: if drift ever changes the multiplier or the codes,
+  # this repo emits confidently wrong labels and NOTHING disagrees — the RAT and
+  # classification:classes are built from the same classes.json, so they agree with each
+  # other however wrong they are, checksums verify, and cog_validate passes.
+  #
+  # transition_vector.gpkg is the oracle, because upstream writes its `transition`,
+  # `from_class` and `to_class` columns itself. Comparing our decoded labels against those
+  # strings is not circular: the two sides have different producers.
+  #
+  # Compared as a SET over the codes actually present in the raster, not over the 81-row
+  # scheme — the vector carries changed patches only, so the no-change diagonal is
+  # legitimately absent from it and is excluded here rather than papered over.
+  tr <- sf::st_read(file.path(item_dir, "transition_vector.gpkg"),
+                    layer = "transition", quiet = TRUE)
+  tr <- sf::st_drop_geometry(tr)
+  # The oracle's own shape, checked BEFORE anything is derived from it. paste() recycles a
+  # zero-length argument to "" when any other argument is non-zero-length, so an empty
+  # layer — or one that lost these columns, where `tr$from_class` is NULL — yields the
+  # single string " -> " rather than character(0). A length check on the RESULT therefore
+  # cannot fire, and the mismatch below would blame drift's encoding for what is really an
+  # empty or malformed oracle.
+  stopifnot(
+    "transition_vector.gpkg lost from_class/to_class" =
+      all(c("from_class", "to_class") %in% names(tr)),
+    "transition_vector.gpkg has no rows, so the label decode was not checked" = nrow(tr) > 0
+  )
+  upstream_pairs <- unique(paste(tr$from_class, "->", tr$to_class))
+  # `item_doc`, not `item_json` — that name is bound to a PATH earlier in this loop and is
+  # still read as one further up. Rebinding it here works today only because every path use
+  # precedes this point, and the end of this loop is where the next check gets appended.
+  item_doc <- jsonlite::read_json(file.path("data", "stac",
+                                            paste0(meta$item_id, ".json")))
+  # Anchored on the span, not just the prefix: `transition_vector` is an asset key too, so
+  # a bare "^transition_" matches two assets and the length check below rejects both.
+  tkey <- grep("^transition_[0-9]{4}_[0-9]{4}$", names(item_doc$assets), value = TRUE)
+  stopifnot("no transition asset to check labels against" = length(tkey) == 1L)
+  cls <- item_doc$assets[[tkey]]$`classification:classes`
+  # Our decode, restricted to the changed pairs, rendered the way upstream renders them.
+  ours <- vapply(cls, function(c) c$title, character(1))
+  codes <- vapply(cls, function(c) as.integer(c$value), integer(1))
+  changed <- codes %/% 1000L != codes %% 1000L
+  ours_pairs <- gsub("\u2192", "->", ours[changed], fixed = TRUE)
+  ours_pairs <- trimws(gsub("  +", " ", ours_pairs))
+  # Upstream can only witness the pairs it actually observed, so the published scheme must
+  # be a SUPERSET. A pair upstream saw that we cannot name is the real failure.
+  unexplained <- setdiff(trimws(upstream_pairs), ours_pairs)
+  if (length(unexplained)) {
+    stop("transition labels disagree with transition_vector.gpkg — upstream reports ",
+         length(unexplained), " pair(s) the published classes do not name: ",
+         paste(utils::head(unexplained, 5), collapse = "; "),
+         ". The from*1000+to decode may no longer match drift's encoding.")
+  }
+  message(sprintf("  labels: %d upstream from->to pair(s) all named by the published classes",
+                  length(upstream_pairs)))
 
   items[[meta$item_id]] <- meta
 }

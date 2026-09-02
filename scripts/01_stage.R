@@ -72,6 +72,47 @@ unlink(raw_dir, recursive = TRUE)
 unlink(stac_dir, recursive = TRUE)
 dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
 
+# --- Class table (#34/#35) ------------------------------------------------
+# The land-cover code -> label -> colour mapping, ferried from `drift` rather than retyped.
+# Planetary Computer labels the source io-lulc items, drift consumes those labels, and
+# until now this repo dropped them on republish.
+#
+# Written ONCE at collection level, not into each meta.json: the table is identical for
+# every item, so seventeen copies would be seventeen chances to disagree. It lives under
+# data/raw for two reasons — the wipe above guarantees a rebuild cannot inherit a stale
+# table, and `data/stac` is off limits because catalogue_release.sh builds its item-id
+# list from `$STAC_DIR/*.json`, which would register a phantom item called `classes`.
+#
+# Code 0 is dropped. It is the SOURCE scheme's "No Data" marker, not a land cover: the
+# published rasters declare nodata natively (255 on the classified, -2147483648 on the
+# transition) and never contain 0. Keeping it would put a class in the legend that cannot
+# occur, and would make the transition cross product 100 rows of which 19 are unreachable.
+classes <- drift::dft_class_table("io-lulc")
+classes <- classes[classes$code != 0, c("code", "class_name", "color", "description")]
+
+# Absolute floors, not derived from what we just read. A short or empty table is exactly
+# the uniform defect a cross-item check cannot see: every item would lose the same labels,
+# every asset count would still be right, and the STAC classification extension validates
+# an item carrying ZERO classes (measured). So the expectation is named here.
+stopifnot(
+  "drift class table is empty" = nrow(classes) > 0,
+  "drift class table lost codes — expected the io-lulc 9" =
+    setequal(classes$code, c(1, 2, 4, 5, 7, 8, 9, 10, 11)),
+  "drift class table has a non-#RRGGBB colour" =
+    all(grepl("^#[0-9A-Fa-f]{6}$", classes$color)),
+  "drift class table has a blank class_name" = all(nzchar(trimws(classes$class_name)))
+)
+
+jsonlite::write_json(
+  list(source = "drift::dft_class_table(\"io-lulc\")",
+       drift_version = as.character(utils::packageVersion("drift")),
+       classes = classes),
+  file.path(raw_dir, "classes.json"),
+  auto_unbox = TRUE, pretty = TRUE, na = "null", null = "null"
+)
+message("classes.json: ", nrow(classes), " land-cover classes from drift ",
+        as.character(utils::packageVersion("drift")))
+
 # --- Resolve watershed groups across all region configs -------------------
 # The region config is the source of truth: every config/regions/*.yml contributes
 # its watershed_groups, and a group's `region` property is the region that lists it.
@@ -134,6 +175,7 @@ tree_transition_metrics <- function(gpkg, layer) {
 staged <- character(0)
 skipped <- character(0)
 traced <- character(0)   # items carrying at least one non-null provenance field
+drift_untraced <- character(0)  # items whose producer drift version is unknown (#34)
 
 for (wsg in wsgs) {
   area_yml <- file.path(CONFIG_DIR, wsg, "area.yml")
@@ -185,7 +227,11 @@ for (wsg in wsgs) {
       src <- file.path(src_rasters, raster_map[[i]])
       dst <- file.path(dst_raw, names(raster_map)[i])
       if (!file.exists(src)) stop("Missing source raster: ", src)
-      file.copy(src, dst, overwrite = TRUE)
+      # Checked, for the same reason the GeoPackage copies below are: file.copy() signals
+      # failure by RETURNING FALSE, not by erroring, so a short copy would be hashed by 05
+      # and published with a file:checksum that verifies against the truncated bytes.
+      # item_validate.py re-hashes the same file, so it cannot catch it.
+      stopifnot("raster copy failed" = file.copy(src, dst, overwrite = TRUE))
     }
 
     # Vector assets → data/stac/<item_id>/ (publish-ready, no COG conversion). The two
@@ -304,6 +350,31 @@ for (wsg in wsgs) {
     # silently, since both are valid strings.
     meta <- c(meta, fp_prov_item(wsg_prov, species, scenario, item_id))
 
+    # The class table above comes from THIS machine's drift, while the rasters were built
+    # by the producer's. A drift that renamed a class between the two would publish labels
+    # describing a scheme the pixels were not classified under — silently, since both are
+    # valid strings. Reconcile rather than assume.
+    #
+    # A null is the expected reading until floodplains#33 has been re-run everywhere
+    # (forward-only), so it warns; a version that is present and DIFFERENT is a real
+    # mismatch and stops. `drift_class_version_stop = FALSE` exercises the warn path
+    # without needing a second drift installed.
+    produced_drift <- meta[["drift_version"]]
+    if (length(produced_drift) == 1L && !is.na(produced_drift) &&
+        produced_drift != as.character(utils::packageVersion("drift"))) {
+      msg <- paste0(item_id, ": rasters produced with drift ", produced_drift,
+                    " but classes.json was written from drift ",
+                    as.character(utils::packageVersion("drift")),
+                    " — the published labels may not describe these pixels")
+      if (tolower(Sys.getenv("ALLOW_DRIFT_SKEW", unset = "")) %in% c("1", "true", "yes")) {
+        warning(msg)
+      } else {
+        stop(msg, ". Set ALLOW_DRIFT_SKEW=1 to publish anyway.")
+      }
+    } else if (length(produced_drift) != 1L || is.na(produced_drift)) {
+      drift_untraced <- c(drift_untraced, item_id)
+    }
+
     # Both null arguments are load-bearing, not tidiness — jsonlite has two separate
     # defaults that each turn an intended null into something else, silently:
     #
@@ -337,6 +408,12 @@ if (length(skipped)) message("Skipped: ", paste(toupper(skipped), collapse = ", 
 # floodplains#33 lands and areas are re-modelled, and it climbs from there — so this line
 # is the progress signal as well as the alarm.
 message(length(traced), " of ", length(staged), " staged item(s) carry run provenance")
+if (length(drift_untraced)) {
+  # A number on screen rather than a silence, same as the provenance count above: until the
+  # producer records drift_version, "the labels match the pixels" is unverified, not verified.
+  message(length(drift_untraced), " of ", length(staged),
+          " staged item(s) could not be checked against the producer's drift version")
+}
 
 # A skip is just as partial as WSG_ONLY: an upstream gap (no area.yml, or no rasters
 # because $FLOODPLAINS_DATA is stale or mid-recompute) silently drops a group, and
