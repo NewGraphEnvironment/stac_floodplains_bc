@@ -23,6 +23,8 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   `item_register.sh` / `collection_register.sh` / `item_unregister.sh`. Needs AWS credentials and
   SSH, not the source tree, so a release can be cut from a machine that does not hold it.
   (There is no `04_s3_upload.R`; its sync folded into the release script in #14.)
+  `--only <item_id>` republishes one live item and never `collection.json` — the single-group
+  pilot path (#36), pinned by `catalogue_release-check.sh`.
 - `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for steps 03 + 05, run via
   `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
   the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically.

@@ -1,0 +1,30 @@
+=== 0: PREFLIGHT ===
+--only bulk_co_ff04: republishing ONE item. collection.json is not published.
+PARTIAL_STAGE interlock: skipped under --only (marker: bulk).
+live: 20 | built: 1 | host: root@geopro
+live-vs-build comparison: skipped under --only (this build may hold one group; nothing is retracted).
+
+=== 1: VALIDATE (gate) ===
+valid: 1 item(s) + 1 collection(s)
+provenance: 11 nge: properties on every item, COG tags agree
+cog layout: valid on every COG
+class labels: RAT embedded in every COG (9 classes / 81 transitions), agrees with classification:classes, every pixel value described
+
+=== 2: SYNC ASSETS (bulk_co_ff04) ===
+
+=== 3: SYNC JSON (bulk_co_ff04) ===
+Completed 1.0 MiB/8.2 MiB (5.3 MiB/s) with 1 file(s) remainingCompleted 1.2 MiB/8.2 MiB (2.8 MiB/s) with 1 file(s) remainingCompleted 2.2 MiB/8.2 MiB (2.1 MiB/s) with 1 file(s) remainingCompleted 3.2 MiB/8.2 MiB (2.1 MiB/s) with 1 file(s) remainingCompleted 4.2 MiB/8.2 MiB (2.3 MiB/s) with 1 file(s) remainingCompleted 5.2 MiB/8.2 MiB (2.5 MiB/s) with 1 file(s) remainingCompleted 6.2 MiB/8.2 MiB (2.6 MiB/s) with 1 file(s) remainingCompleted 7.2 MiB/8.2 MiB (2.8 MiB/s) with 1 file(s) remainingCompleted 8.2 MiB/8.2 MiB (2.9 MiB/s) with 1 file(s) remainingupload: data/stac/bulk_co_ff04.json to s3://stac-floodplains-bc/bulk_co_ff04.json
+
+=== 4: REGISTER ===
+registering 1 item(s) (3362130 bytes) into stac on root@geopro
+unknown PostgreSQL timezone: 'Canada/Pacific'; will use UTC
+OK — verify: curl -s -o /dev/null -w '%{http_code}\n' \
+  https://images.a11s.one/collections/stac-floodplains-bc/items/<item-id>
+
+=== 5: VERIFY ===
+asset probe (bulk_co_ff04): local=41672704 remote=41672704
+checksum probe (bulk_co_ff04): verified against S3 — 122039300e987b51…
+live item (bulk_co_ff04): pgstac serves the document just built — 7 assets, 30 properties
+
+RELEASE COMPLETE — bulk_co_ff04 republished; collection unchanged at 20 items, https://images.a11s.one/collections/stac-floodplains-bc
+rc=0

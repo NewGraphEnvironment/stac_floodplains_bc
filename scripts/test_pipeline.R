@@ -8,7 +8,8 @@
 # It cannot touch S3 or the live catalog — none of the scripts it calls make network
 # writes; publishing is catalogue_release.sh alone. It also leaves data/raw/PARTIAL_STAGE
 # behind (01_stage.R writes it for WSG_ONLY), which catalogue_release.sh refuses to
-# publish past, so a one-group tree cannot be released by mistake either.
+# publish past as a collection — the one-group tree can only go out one item at a time,
+# via `catalogue_release.sh --only <item_id>`, which never touches collection.json (#36).
 #
 #   Rscript scripts/test_pipeline.R            # defaults to UFRA
 #   WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
@@ -311,6 +312,7 @@ for (meta in items) {
           meta$gross_loss_ha, " / ", meta$gross_gain_ha, " / ", meta$net_ha, " ha")
 }
 message("\nPASS — ", toupper(wsg), " round-trips stage -> tag -> COG -> STAC locally.")
-message("This tree is a PARTIAL stage and cannot be published. For a real publish:")
-message("  bash scripts/run_pipeline.sh        # rebuild all rostered groups (no network writes)")
-message("  bash scripts/catalogue_release.sh   # validate -> sync -> register -> verify")
+message("This tree is a PARTIAL stage: its collection.json cannot be published. Either:")
+message("  bash scripts/catalogue_release.sh --only <item_id>   # republish this group's item(s), never the collection")
+message("  bash scripts/run_pipeline.sh                         # or rebuild all rostered groups (no network writes)")
+message("  bash scripts/catalogue_release.sh                    # then a full validate -> sync -> register -> verify")
