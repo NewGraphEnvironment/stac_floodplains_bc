@@ -15,21 +15,21 @@ test, not just care.
 - [x] Case 1 and the `--only` refusals in case 3 written; red on current `main` (unknown option) confirmed
 
 ## Phase 2: `--only` in `catalogue_release.sh`
-- [ ] Arg parsing: `--only <id>`, empty value refused, id shape check, `--allow-retract` combination refused, usage
-- [ ] Step 0: item file + dir exist, must be live (`grep -qxF --`), interlock + orphan comparison skipped out loud
-- [ ] Steps 2+3 as `skip` / `only` / `full`: per-item asset sync; explicit `aws s3 cp` of the one item JSON
-- [ ] Step 4: `item_register.sh` only
-- [ ] Step 5: item endpoint 200, membership unchanged by string compare, probes on `$ID`
-- [ ] Cases 1–3 green
+- [x] Arg parsing: `--only <id>`, empty value refused, id shape check, `--allow-retract` combination refused, usage
+- [x] Step 0: item file + dir exist, must be live (`grep -qxF --`), interlock + orphan comparison skipped out loud
+- [x] Steps 2+3 as `skip` / `only` / `full`: per-item asset sync; explicit `aws s3 cp` of the one item JSON
+- [x] Step 4: `item_register.sh` only
+- [x] Step 5: item endpoint 200, membership unchanged by string compare, probes on `$ID`; live item read back and its `assets` + `properties` compared to the build wholesale (rounds 1–3 of review; cases 6 and 7)
+- [x] Cases 1–3 green
 
 ## Phase 3: Prove the guard can see the defect
-- [ ] Restore the bug: make the `--only` step-3 branch run the sweeping sync; case 1 goes red; revert
-- [ ] Case 4 (membership change → `RELEASE INCOMPLETE`) and case 5 (checksum mismatch under `--only`) written and green
-- [ ] `bash -n` both scripts; `shellcheck` if installed (not on this machine today — not a gate)
+- [x] Restore the bug: make the `--only` step-3 branch run the sweeping sync; case 1 goes red; revert
+- [x] Case 4 (membership change → `RELEASE INCOMPLETE`) and case 5 (checksum mismatch under `--only`) written and green
+- [x] `bash -n` both scripts; `shellcheck` if installed (not on this machine today — not a gate)
 
 ## Phase 4: Docs
-- [ ] `catalogue_release.sh` header, `scripts/README.md` release table + Pilot section + smoke-test paragraph, `CLAUDE.md` Publish bullet
-- [ ] `findings.md`: live count is 20, not the 17 the prose says; review-36.md folded
+- [x] `catalogue_release.sh` header, `scripts/README.md` release table + Pilot section + smoke-test paragraph, `CLAUDE.md` Publish bullet
+- [x] `findings.md`: live count is 20, not the 17 the prose says; review-36.md folded
 
 ## Phase 5: Pilot on BULK (publishes to production — user gave the go-ahead: "Go all phases to pr")
 - [ ] Rebuild BULK on this branch: `WSG=bulk Rscript scripts/test_pipeline.R`

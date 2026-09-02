@@ -13,6 +13,8 @@
 #                    --only, --only + --allow-retract; and the untouched PARTIAL_STAGE interlock
 #   4  verify        a membership change after registration -> RELEASE INCOMPLETE
 #   5  verify        a checksum mismatch under --only still fails the release
+#   6  verify        a live item still serving an OLD asset checksum after registration fails it
+#   7  verify        a live item whose PROPERTIES are stale, with no byte changed, fails it too
 #
 # Usage: bash scripts/catalogue_release-check.sh        (exit = number of failed assertions)
 #
@@ -107,6 +109,19 @@ case "$url" in
     exit 0 ;;
 esac
 if [ -n "$w" ]; then printf '200'; exit 0; fi
+case "$url" in
+  */items/*)   # the live item read-back: the fixture's own JSON, or a stale one (case 6)
+    f="$STAC_DIR/${url##*/}.json"
+    # Stale ONE asset, the first (classified_2017.tif), and leave the largest correct: a
+    # read-back that compares only the probe asset (the largest, a byte-stable gpkg) is
+    # exactly the false pass this case exists to catch. No /g, deliberately.
+    case "${FAKE_LIVE_ITEM_STALE:-}" in
+      asset) sed 's/"file:checksum": "1220/"file:checksum": "1220dead/' "$f" ;;
+      property) sed 's/"datetime": "2023-01-01T00:00:00Z"/"datetime": "2022-01-01T00:00:00Z"/' "$f" ;;   # no byte changes
+      *) cat "$f" ;;
+    esac
+    exit 0 ;;
+esac
 rel="${url#*.amazonaws.com/}"
 f="$STAC_DIR/$rel"
 [ -f "$f" ] || { echo "curl shim: no fixture for $url" >&2; exit 22; }
@@ -121,13 +136,14 @@ chmod +x "$BIN"/aws "$BIN"/ssh "$BIN"/uv "$BIN"/curl
 # --- runner ----------------------------------------------------------------------------
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 LIVE_AFTER=""
+STALE=""
 RC=0
 run_release() {
   : > "$LOG"; rm -f "$WORK/search_count"
   set +e
   ( cd "$REPO" && PATH="$BIN:$PATH" SHIM_LOG="$LOG" COUNTER="$WORK/search_count" \
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
-      FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" \
+      FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_ITEM_STALE="$STALE" \
       bash "$RELEASE" "$@" ) > "$OUT" 2>&1 < /dev/null
   RC=$?
   set -e
@@ -135,7 +151,7 @@ run_release() {
 
 FAILS=0
 pass() { echo "  ok    $1"; }
-fail() { echo "  FAIL  $1"; FAILS=$((FAILS + 1)); }
+fail() { echo "  FAIL  $1"; FAILS=$((FAILS + 1)); sed 's/^/        | /' "$OUT" | tail -12; }
 expect_eq() { # desc got want
   if [ "$2" = "$3" ]; then pass "$1"; else fail "$1 (got '$2', want '$3')"; fi
 }
@@ -191,6 +207,7 @@ expect_eq "one load items" "$(n_load_items)" 1
 expect_eq "the other item is untouched" "$(n_aws_naming bbbb)" 0
 expect_eq "both skips said out loud" "$(grep -c 'skipped under --only' "$OUT" || true)" 2
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
+expect_out "verify read the live item back" "pgstac serves the document just built — 2 assets, 1 properties"
 
 # --- case 3: refusals ------------------------------------------------------------------
 echo "case 3: refusals touch nothing"
@@ -212,6 +229,27 @@ expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
 expect_out "names the membership change" "membership"
 LIVE_AFTER=""
+
+# --- case 6: the live item read-back sees a stale row ------------------------------------
+# The endpoint answers 200 either way; only the served document can tell a republished
+# item from the one that was live before — and only if ALL of it is compared (case 7).
+echo "case 6: a stale live item after registration fails the release"
+STALE=asset
+run_release --only aaaa_ch_ff04
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
+expect_out "names the stale asset" "not the document just built: STALE asset:classified_2017"
+STALE=""
+
+# --- case 7: a stale PROPERTY, with every asset byte and checksum unchanged --------------
+# Labels, provenance and the loss/gain figures ship in the item document, not in any asset,
+# so a checksum-only read-back would pass this. It is the realistic next pilot.
+echo "case 7: a stale property in the live item fails the release"
+STALE=property
+run_release --only aaaa_ch_ff04
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the stale property" "STALE property:datetime"
+STALE=""
 
 # --- case 5: the checksum probe still bites under --only --------------------------------
 # Append to the largest asset AFTER the JSON was built: size on S3 (the shim serves the same

@@ -78,7 +78,47 @@ a test, not just care.
 - rtj's reload-from-S3 reads the bucket's `collection.json` (untouched under `--only`) plus the item
   URLs it lists, so it picks up a republished `<id>.json` — consistent.
 
+## The guard sees the defect (Phase 3, 2026-09-01)
+
+`catalogue_release-check.sh` on the implemented script: **33/33 pass**. With the `--only` step-3
+`aws s3 cp` replaced by the full path's sweeping sync (the exact defect the issue names):
+
+```
+case 1: --only never touches collection.json
+  FAIL  no root-source sync (got '1', want '0')
+  FAIL  no --include *.json sweep (got '1', want '0')
+  FAIL  one cp of the item JSON (got '0', want '1')
+3 FAILED
+```
+
+Reverted: all pass again. Note the first attempt to restore the defect failed on a Python
+quoting clash (a replacement string ending in a quote character inside a triple-quoted
+literal), ran the check on the *unmodified* script, and printed ALL PASS — a green run that
+proved nothing. Caught because the patch asserted its own edit; the retry read the
+replacement text from a file. The same trap fired a second time writing this very note.
+
+Also measured on the unmodified script (before Phase 2): a full release makes **two**
+root-source syncs (assets, then JSON), not one — the control's expectation was corrected to 2.
+
+## Phase 5 preflight (read-only, 2026-09-02 04:3x UTC)
+
+AWS identity resolves; `ssh root@geopro` reachable. Live `bulk_co_ff04` vs the tree rebuilt on
+this branch — **every asset differs**, not only the COGs:
+
+| asset | live size | built size | note |
+|---|---|---|---|
+| classified_2017/2020/2023.tif | 1.19–1.20 MB | 1.24–1.26 MB | COG layout (#33) + RAT (#34/#35) |
+| transition_2017_2023.tif | 2.53 MB | 2.28 MB | same |
+| floodplain.gpkg | 5.26 MB | 8.60 MB | corrected upstream geometry (#26 vintage) |
+| transition_vector.gpkg | 6.10 MB | 4.79 MB | same |
+| floodplain_landcover.gpkg | 41.67 MB | 41.67 MB | same size, different checksum |
+
+Live item has no `classification:classes`; the build does. So the pilot carries all three
+stale axes in one republish (numbers, layout, labels) — the shape the collection memory note
+anticipated. The item's published areas and loss/gain figures will change with it.
+
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
+| Python replacement text ending in a quote inside a triple-quoted literal — `SyntaxError`, defect never restored, check ran green on good code (twice) | put the text in a file or a quoted heredoc; assert the old-string count before writing |

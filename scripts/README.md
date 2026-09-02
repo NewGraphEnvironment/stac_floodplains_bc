@@ -7,8 +7,9 @@ no floodplain modelling.
 Two commands, deliberately separate:
 
 ```bash
-bash scripts/run_pipeline.sh        # rebuild locally — no network writes at all
-bash scripts/catalogue_release.sh   # validate → sync → register → verify
+bash scripts/run_pipeline.sh                        # rebuild locally — no network writes at all
+bash scripts/catalogue_release.sh                   # validate → sync → register → verify
+bash scripts/catalogue_release.sh --only <item_id>  # republish ONE item; never collection.json
 ```
 
 Only the rebuild needs `$FLOODPLAINS_DATA` (~900 MB). A release needs AWS credentials and SSH to
@@ -58,7 +59,7 @@ of the guard actually guarding something.
 | 2 sync assets | `aws s3 sync` — no `--delete`, no `--size-only`, `--exclude '*.json'` |
 | 3 sync JSON | after the assets, so no document references an object that has not landed |
 | 4 register | collection first (pgstac items reference the collection row), then items |
-| 5 verify | collection 200; live ids match the build **both ways**; one asset href probed for 200 |
+| 5 verify | collection 200; live ids match the build **both ways**; the largest asset of one item probed for size and its published `file:checksum` re-verified against the bytes on S3 |
 
 Validation gates the **asset** sync, not just the JSON. Bucket versioning is Suspended, so there is
 no rollback from pushing 700 MB of assets for a build that then fails.
@@ -87,6 +88,40 @@ bash scripts/catalogue_release.sh --allow-retract
 `--allow-retract` is required at step 5 because a build with fewer items than the live collection
 is otherwise refused — that refusal is the guard against an accidental partial publish.
 
+## Pilot — `catalogue_release.sh --only <item_id>`
+
+Republish **one existing item** — its assets, its JSON and its pgstac row — so a change can be
+piloted on one group and inspected live before a full release against a bucket with no rollback:
+
+```bash
+WSG=bulk Rscript scripts/test_pipeline.R                  # one-group tree, PARTIAL_STAGE written
+bash scripts/catalogue_release.sh --only bulk_co_ff04     # that item only
+```
+
+What `--only` changes, step by step:
+
+| Step | Under `--only` |
+|----|----|
+| 0 preflight | `PARTIAL_STAGE` interlock and the live-vs-build comparison are **skipped, out loud** — both guard `collection.json`, which is never published here. Instead: the item's JSON and asset dir must exist, and the item must **already be live** (a new item needs a full release, which updates the collection's extent/summaries/links) |
+| 1 validate | unchanged — the whole tree on disk, so with a full build present this re-hashes ~670 MB |
+| 2 sync assets | `aws s3 sync data/stac/<id> s3://…/<id>`, same excludes, no `--delete` |
+| 3 sync JSON | `aws s3 cp data/stac/<id>.json s3://…/<id>.json` — **one explicit object**. The full path's `--include '*.json' --exclude '*/*'` sweep would carry `collection.json` with it, and a one-group tree's `collection.json` describes one group |
+| 4 register | `item_register.sh` for that file; `collection_register.sh` is never run |
+| 5 verify | item endpoint 200; collection **membership byte-identical** to the preflight read; size + checksum probes on that item; the live item read back from the API and **every** asset checksum compared to the build — the only proof the pgstac row changed |
+
+`--only` refuses to combine with `--allow-retract` (retraction is a collection-level operation) and
+composes with `--skip-sync`.
+
+The property that makes this safe — no route under `--only` reaches `collection.json` — is
+pinned by `catalogue_release-check.sh`, which runs the real release script against `aws`/`ssh`/
+`uv`/`curl` shims and reads their argv logs. Its positive control is a full release on the same
+fixture, which **must** be seen to sweep `collection.json` by the same greps; without that, the
+`--only` zeros would be a search that has never matched anything.
+
+```bash
+bash scripts/catalogue_release-check.sh      # no network, no credentials; exit = failed assertions
+```
+
 The tree-loss numbers (`gross_loss_ha`, `gross_gain_ha`, `net_ha`) are computed once, during
 staging, from each WSG's `transition_<sp>_ff04_2017_2023` gpkg layer (`from_class == "Trees"` vs
 `to_class == "Trees"`, summing `area_ha`) and written to `meta.json` — so the tag and register
@@ -98,7 +133,8 @@ are computed in R (step 01) because the publish Python env carries no vector rea
 `test_pipeline.R` runs one watershed group end-to-end (`stage → tag → COG → build → validate`),
 through the **same** `item_validate.py` gate a release uses. It cannot touch S3 — nothing it calls
 makes network writes — and it leaves a `PARTIAL_STAGE` marker that `catalogue_release.sh` refuses
-to publish past, so its one-group tree cannot be released by mistake either. It builds and
+to publish past as a collection; the one-group tree it leaves is exactly what
+`catalogue_release.sh --only <item_id>` republishes, one item at a time and never `collection.json`. It builds and
 validates every item that group stages (a group may declare more than one
 `(species, scenario)` target). It also asserts the attribute contract:
 every layer of all three published GeoPackages carries a `wsg` column matching the item. Only
@@ -132,7 +168,7 @@ Measured on `sloc_bt_ff04`: unpinned `5429357d…` vs `c2bfa94b…`; pinned, bot
 
 | Flag | Effect | Risk |
 |----|----|----|
-| `WSG_ONLY=<wsg>` | Restricts `01_stage.R` to one group and drops a `PARTIAL_STAGE` marker. Used by the smoke test; `run_pipeline.sh` refuses to start if it is set | safe |
+| `WSG_ONLY=<wsg>` | Restricts `01_stage.R` to one group and drops a `PARTIAL_STAGE` marker. Used by the smoke test; `run_pipeline.sh` refuses to start if it is set, and `catalogue_release.sh` publishes the result only under `--only` | safe |
 | `NO_PIN=1` | Disables the GeoPackage timestamp pin in `gpkg_determinism-check.R` only — the cold path that proves the check can fail | safe (check only) |
 | `ITEM=<item_id>` | Which staged item `gpkg_determinism-check.R` exercises (default `sloc_bt_ff04`, the smallest) | safe |
 | `GEOSERV_HOST` | Overrides the catalog host (default `root@geopro`, the tailnet node name) | safe |
