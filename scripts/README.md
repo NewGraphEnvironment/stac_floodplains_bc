@@ -136,7 +136,7 @@ What `--only` changes, step by step:
 | Step | Under `--only` |
 |----|----|
 | 0 preflight | `PARTIAL_STAGE` interlock and the live-vs-build comparison are **skipped, out loud** — both guard `collection.json`, which is never published here. Instead: the item's JSON and asset dir must exist, and the item must **already be live** (a new item needs a full release, which updates the collection's extent/summaries/links) |
-| 1 validate | the whole tree on disk, so with a full build present this re-hashes ~670 MB; the provenance floor is **not** applied (a one-group tree cannot meet it) — instead step 0 refuses if the live item carries `nge:` values and this build's copy carries none |
+| 1 validate | the whole tree on disk, so with a full build present this re-hashes ~670 MB; the provenance floor is **not** applied (a one-group tree cannot meet it) — instead step 0 refuses if any `nge:` value on the live item is null on this build's copy, per key |
 | 2 sync assets | `aws s3 sync data/stac/<id> s3://…/<id>`, same excludes, no `--delete` |
 | 3 sync JSON | `aws s3 cp data/stac/<id>.json s3://…/<id>.json` — **one explicit object**. The full path's `--include '*.json' --exclude '*/*'` sweep would carry `collection.json` with it, and a one-group tree's `collection.json` describes one group |
 | 4 register | `item_register.sh` for that file; `collection_register.sh` is never run |

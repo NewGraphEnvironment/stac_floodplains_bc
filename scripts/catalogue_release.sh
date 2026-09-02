@@ -197,9 +197,13 @@ built = json.load(open('$STAC_DIR/$ONLY.json'))
 lp, bp = live.get('properties', {}), built['properties']
 n_live = sum(1 for k, v in lp.items() if k.startswith('nge:') and v is not None)
 n_built = sum(1 for k, v in bp.items() if k.startswith('nge:') and v is not None)
-lost = sorted(k for k, v in lp.items() if k.startswith('nge:') and v is not None and bp.get(k) is None)
-print(n_live, n_built, ','.join(lost))") || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
-  read -r only_live_prov only_built_prov only_lost_prov <<EOF
+# A live key ABSENT from the build is a contract rename (#40's kind of change), not a
+# reader loss: still refused — a one-item republish under a renamed key would leave the
+# other live items on the old one — but diagnosed as what it is.
+lost = sorted(k for k, v in lp.items() if k.startswith('nge:') and v is not None and k in bp and bp[k] is None)
+gone = sorted(k for k, v in lp.items() if k.startswith('nge:') and v is not None and k not in bp)
+print(n_live, n_built, ','.join(lost), ','.join(gone))") || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
+  read -r only_live_prov only_built_prov only_lost_prov only_gone_prov <<EOF
 $only_prov
 EOF
   echo "provenance under --only: live item carries $only_live_prov nge: value(s), this build carries $only_built_prov."
@@ -207,6 +211,12 @@ EOF
     echo "The live $ONLY carries provenance that this build would publish as null: $only_lost_prov." >&2
     echo "A reader that found nothing, or only some sections, or a stage from a tree without the" >&2
     echo "producer's provenance.json. Refusing before anything is written." >&2
+    exit 1
+  fi
+  if [ -n "$only_gone_prov" ]; then
+    echo "The live $ONLY carries nge: key(s) this build does not declare at all: $only_gone_prov." >&2
+    echo "A renamed provenance contract is a full-release change — republishing one item would leave" >&2
+    echo "every other live item on the old key. Refusing." >&2
     exit 1
   fi
 else

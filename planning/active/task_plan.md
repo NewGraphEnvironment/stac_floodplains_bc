@@ -78,14 +78,14 @@ provenance" here means the same thing: at least one non-null `nge:` value.
 - [x] `WSG=bulk Rscript scripts/test_pipeline.R` → PASS on the "producer file present" branch
       (5 non-null); a second WSG without a producer file (e.g. `WSG=kotl`, ~3 min) → PASS on
       the all-null branch — both branches exercised, recorded in `progress.md`
-- [ ] `/code-check`, then PR. No tag and no release; the floor stays 0 until the #26 rebuild
+- [x] `/code-check`, then PR. No tag and no release; the floor stays 0 until the #26 rebuild
 
 ## Validation
 
-- [ ] Validator: 0 and 1 pass, 2 fails on the real bulk tree; harness ALL PASS, argv case red
+- [x] Validator: 0 and 1 pass, 2 fails on the real bulk tree; harness ALL PASS, argv case red
       with the argument removed
-- [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
+- [x] `/code-check` clean on each commit
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
 
 ## Files

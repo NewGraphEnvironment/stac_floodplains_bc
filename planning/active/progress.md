@@ -41,3 +41,9 @@
   naming the keys. Fixture gains `nge:kept` (a value on both sides) so partial loss is
   representable; case 15 is now that shape (live 2, build 1 → refused, 0 aws calls). With the
   total-count guard restored: 2 FAILED and the run syncs before the read-back fails.
+- `/code-check` round 3: converged on the `--only` path (the class across the rounds: a guard
+  written at a coarser granularity than its property — file, then item, now key, and there is no
+  level below key). Two wording fixes: CLAUDE.md and scripts/README.md still described the
+  total-loss predicate; a live key absent from the build (a contract rename) was diagnosed as a
+  reader loss — now refused with its own message. Residual, stated: the full-release floor is
+  item-level by design; per-section counts are printed, not gated.

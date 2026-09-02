@@ -63,9 +63,11 @@ the producer's own files.
 comes from the data cannot be contradicted by it), with no env override. Exact in both directions,
 so every release records the count beside its NEWS entry: below is a reader that found nothing
 (indistinguishable from the forward-only state every presence check passes), above is a floor
-nobody updated. `--only` cannot meet a full-tree floor, so its preflight refuses instead if the
-live item carries `nge:` values and the build's copy carries none — the API drops nulls, so a key
-present on the live item is a value.
+nobody updated. `--only` cannot meet a full-tree floor, so its preflight refuses instead if any
+`nge:` value present on the live item is null on the build's copy — per key, naming them, so a
+reader that kept one section and lost another is refused too (the API drops nulls, so a key present
+on the live item is a value). The full-release floor is item-level by design; the per-section
+counts it prints are the eye's guard for that shape.
 
 `transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
 why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published
