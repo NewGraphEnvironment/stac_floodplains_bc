@@ -41,6 +41,21 @@ STAC_DIR="${STAC_DIR:-data/stac}"
 RAW_DIR="${RAW_DIR:-data/raw}"
 HOST="${GEOSERV_HOST:-root@geopro}"
 S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.py emits
+
+# The provenance floor (#32): EXACTLY how many items carry a non-null nge: value in the
+# build a full release publishes. A LITERAL set by a human, on purpose. Deriving it from
+# the build would reproduce #23 — an expectation that comes from the data cannot be
+# contradicted by it — and an env override would be the escape hatch this exists not to
+# have (the check harness reads this line with an anchored sed, so a `${...:-0}` fails it).
+#
+# Exact in both directions: below the literal is a reader that silently found nothing,
+# which looks exactly like the forward-only state every presence check waves through;
+# above it is a floor nobody updated. So every release records the count here, beside its
+# NEWS entry, and the number to set is the one 01_stage.R prints as "N of M staged item(s)
+# carry run provenance" and item_create.py as "provenance block: N/M". 0 was true of
+# v1.0.0; any full rebuild from today's producer tree carries bulk_co_ff04, so the next
+# full release sets 1 (or whatever its build prints) in the same commit as its NEWS entry.
+PROVENANCE_FLOOR=0
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 ALLOW_RETRACT=""
@@ -167,6 +182,43 @@ if [ -n "$ONLY" ]; then
     exit 1
   fi
   echo "live-vs-build comparison: skipped under --only (this build may hold one group; nothing is retracted)."
+  # The provenance floor cannot apply to a one-group tree, and --only is the release path
+  # in use — so the guard here is the live item itself (#32 review): the API drops null
+  # properties, so an nge: key PRESENT on the live item is a value. Any live value that
+  # this build's copy publishes as null is provenance LOST between the record and the
+  # build — a reader that found nothing, or one that found only some sections — and the
+  # step-5 read-back accepts build-null / served-absent as "the same document", so it
+  # would go through. Per key, not a total count: network found and landcover lost is the
+  # realistic shape, and a count would pass it. Refuse before anything is written.
+  only_prov=$(curl -sf --max-time 60 "$API/items/$ONLY" | python3 -c "
+import json, sys
+live = json.load(sys.stdin)
+built = json.load(open('$STAC_DIR/$ONLY.json'))
+lp, bp = live.get('properties', {}), built['properties']
+n_live = sum(1 for k, v in lp.items() if k.startswith('nge:') and v is not None)
+n_built = sum(1 for k, v in bp.items() if k.startswith('nge:') and v is not None)
+# A live key ABSENT from the build is a contract rename (#40's kind of change), not a
+# reader loss: still refused — a one-item republish under a renamed key would leave the
+# other live items on the old one — but diagnosed as what it is.
+lost = sorted(k for k, v in lp.items() if k.startswith('nge:') and v is not None and k in bp and bp[k] is None)
+gone = sorted(k for k, v in lp.items() if k.startswith('nge:') and v is not None and k not in bp)
+print(n_live, n_built, ','.join(lost), ','.join(gone))") || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
+  read -r only_live_prov only_built_prov only_lost_prov only_gone_prov <<EOF
+$only_prov
+EOF
+  echo "provenance under --only: live item carries $only_live_prov nge: value(s), this build carries $only_built_prov."
+  if [ -n "$only_lost_prov" ]; then
+    echo "The live $ONLY carries provenance that this build would publish as null: $only_lost_prov." >&2
+    echo "A reader that found nothing, or only some sections, or a stage from a tree without the" >&2
+    echo "producer's provenance.json. Refusing before anything is written." >&2
+    exit 1
+  fi
+  if [ -n "$only_gone_prov" ]; then
+    echo "The live $ONLY carries nge: key(s) this build does not declare at all: $only_gone_prov." >&2
+    echo "A renamed provenance contract is a full-release change — republishing one item would leave" >&2
+    echo "every other live item on the old key. Refusing." >&2
+    exit 1
+  fi
 else
 orphans=$(comm -23 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") || true)
 if [ -n "$orphans" ]; then
@@ -265,7 +317,17 @@ echo "=== 1: VALIDATE (gate) ==="
 #
 # On a full release the collection validated here is the STAMPED one, so the Version
 # Extension's schema is checked before anything is published.
-uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local"
+#
+# --expect-provenance: the floor above, on a full release only. --only republishes one
+# item from a tree that may hold one group, which cannot meet a full-tree floor; the
+# preflight above refused already if that item would lose the provenance it has live.
+if [ -n "$ONLY" ]; then
+  echo "provenance floor: skipped under --only (a one-group tree cannot meet a full-tree floor; preflight compared the item's live provenance instead)."
+  uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local"
+else
+  uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local" \
+    --expect-provenance "$PROVENANCE_FLOOR"
+fi
 
 # --- Step 2: sync assets ---------------------------------------------------
 if [ -n "$SKIP_SYNC" ]; then

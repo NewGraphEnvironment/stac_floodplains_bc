@@ -11,10 +11,13 @@
 # the real checkout (uv is shimmed, STAC_DIR/RAW_DIR are absolute), so the copy is the whole
 # script, byte for byte. The shims log their argv, and the assertions read the log:
 #
-#   1  --only <id>   never syncs the tree root, never a JSON sweep, never `load collections`
+#   1  --only <id>   never syncs the tree root, never a JSON sweep, never `load collections`,
+#                    and never passes the provenance floor to the validator (skipped out loud)
 #   2  full release  DOES sync the tree root with --include *.json and DOES `load collections`
 #                    — the positive control, found by the SAME greps case 1 uses. Without it
-#                    case 1 is a search that has never been shown to match anything.
+#                    case 1 is a search that has never been shown to match anything. Also
+#                    passes `--expect-provenance <PROVENANCE_FLOOR>` to the validator (#32):
+#                    uv is shimmed, so the flag is proven from the shim's argv log
 #   3  refusals      exit non-zero with NO aws call: bad id, missing id, not-live id, bare
 #                    --only, --only + --allow-retract; and the untouched PARTIAL_STAGE interlock
 #   4  verify        a membership change after registration -> RELEASE INCOMPLETE
@@ -32,6 +35,9 @@
 #                    live collection with NO version passes (MISSING -> MISSING is unchanged)
 #  13  refusal       a modified tracked file -> refused, no aws call
 #  14  gate          a second, non-release tag on the same commit does not confuse the gate
+#  15  --only        a live item carrying a provenance value that this build would publish as
+#                    null is refused before anything is written — per key, so a partial loss
+#                    (network kept, landcover lost) is refused too (the floor's stand-in)
 #
 # Case 2's "live version 9.9.9 verified" is tautological on its own — the curl shim serves
 # the stamped fixture back — which is why cases 8 and 9 exist: they are what prove the
@@ -85,8 +91,11 @@ def item(iid, sizes):
             "file:size": len(data), "file:checksum": "1220" + hashlib.sha256(data).hexdigest()}
     # nge:probe is null: the real API omits null-valued properties (measured on BULK,
     # 2026-09-02), and the curl shim mirrors that, so the read-back must accept it.
+    # nge:kept is a value on both sides, so a PARTIAL loss is representable (case 15): the
+    # shim can serve a live value for nge:probe while the build still has nge:kept.
     doc = {"type": "Feature", "stac_version": "1.0.0", "id": iid, "collection": coll,
-           "geometry": None, "properties": {"datetime": "2023-01-01T00:00:00Z", "nge:probe": None},
+           "geometry": None,
+           "properties": {"datetime": "2023-01-01T00:00:00Z", "nge:probe": None, "nge:kept": "same"},
            "links": [], "assets": assets}
     json.dump(doc, open(os.path.join(stac, iid + ".json"), "w"))
 item("aaaa_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
@@ -170,6 +179,7 @@ case "$url" in
     | case "${FAKE_LIVE_ITEM_STALE:-}" in
         asset) sed 's/"file:checksum": "1220/"file:checksum": "1220dead/' ;;
         property) sed 's/"datetime": "2023-01-01T00:00:00Z"/"datetime": "2022-01-01T00:00:00Z"/' ;;   # no byte changes
+        provenance) sed 's/"properties": {/"properties": {"nge:probe": "live-value", /' ;;   # live has a value the build does not
         *) cat ;;
       esac
     exit 0 ;;
@@ -225,6 +235,14 @@ n_cp()         { awk -F'\t' -v s="$1" -v d="$2" '$1=="aws" && $3=="cp" && $4==s 
 n_aws_naming() { awk -F'\t' -v x="$1" '$1=="aws" && index($0, x)' "$LOG" | grep -c . || true; }
 n_load_coll()  { awk -F'\t' '$1=="ssh" && index($0, "load collections")' "$LOG" | grep -c . || true; }
 n_load_items() { awk -F'\t' '$1=="ssh" && index($0, "load items")' "$LOG" | grep -c . || true; }
+# The validator's argv: the flag and its value are adjacent fields on the uv line. n_uv is
+# the premise beside every floor_passed compare — an empty result from a run that never
+# invoked the validator at all would otherwise read as "no floor passed".
+n_uv()         { awk -F'\t' '$1=="uv"' "$LOG" | grep -c . || true; }
+floor_passed() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--expect-provenance") print $(i+1) }' "$LOG"; }
+# ...and the flag's own count, because floor_passed prints "" both for an absent flag and for
+# a flag with an empty value — which argparse would reject, but the log would not show.
+n_floor_flag() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--expect-provenance") n++ } END { print n+0 }' "$LOG"; }
 
 refused() { # desc — the last run must have exited non-zero having touched nothing
   if [ "$RC" -ne 0 ] && [ "$(n_aws)" -eq 0 ]; then pass "$1"
@@ -250,6 +268,15 @@ expect_eq "collection.json on disk is stamped" "$(coll_version)" "$TVERSION"
 expect_out "verify read the live version back" "live collection version: $TVERSION — matches the tag just released"
 expect_out "verify read the bucket copy back" "bucket collection.json version: $TVERSION — agrees"
 expect_out "completion line names the version" "RELEASE COMPLETE — v$TVERSION"
+# Read the literal out of the script with an anchored sed, so a renamed variable, a quoted
+# value or a `${PROVENANCE_FLOOR:-0}` rewrite of the literal reads as an empty premise rather
+# than a passing compare. (An override ADDED after the literal is not caught here — the
+# harness sets no such variable — only the literal's own shape is.)
+FLOOR_LITERAL=$(sed -n 's/^PROVENANCE_FLOOR=\([0-9][0-9]*\)$/\1/p' "$RELEASE")
+expect_eq "premise: PROVENANCE_FLOOR is one bare integer literal in the script" "$(printf '%s' "$FLOOR_LITERAL" | grep -c '^[0-9][0-9]*$')" 1
+expect_eq "premise: the validator was invoked once" "$(n_uv)" 1
+expect_eq "the flag appears once on the validator's argv" "$(n_floor_flag)" 1
+expect_eq "validator was given exactly that literal as --expect-provenance" "$(floor_passed)" "$FLOOR_LITERAL"
 echo aaaa > "$RAW/PARTIAL_STAGE"
 
 # --- cases 8-13: the version gate and the version verify ---------------------------------
@@ -333,9 +360,13 @@ expect_eq "exactly two aws calls in total" "$(n_aws)" 2
 expect_eq "no load collections" "$(n_load_coll)" 0
 expect_eq "one load items" "$(n_load_items)" 1
 expect_eq "the other item is untouched" "$(n_aws_naming bbbb)" 0
-expect_eq "all three skips said out loud (interlock, comparison, version gate)" "$(grep -c 'skipped under --only' "$OUT" || true)" 3
+expect_eq "all four skips said out loud (interlock, comparison, version gate, provenance floor)" "$(grep -c 'skipped under --only' "$OUT" || true)" 4
+expect_out "the provenance floor skip is the one named" "provenance floor: skipped under --only"
+expect_eq "premise: the validator was invoked once" "$(n_uv)" 1
+expect_eq "the validator was NOT given a provenance floor (flag absent, not merely empty)" "$(n_floor_flag)" 0
+expect_out "preflight compared the item's live provenance (the control: nothing lost)" "provenance under --only: live item carries 1 nge: value(s), this build carries 1."
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
-expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 2 properties"
+expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 3 properties"
 expect_out "the version gate was skipped out loud" "version gate: skipped under --only"
 expect_out "the live version was read and unchanged" "live collection version: $TVERSION (unchanged by --only"
 
@@ -348,6 +379,16 @@ expect_eq "exit 0" "$RC" 0
 expect_eq "collection.json byte-identical across the run" "$(coll_hash)" "$h0"
 expect_out "MISSING -> MISSING read as unchanged" "live collection version: MISSING (unchanged by --only"
 LIVEV=""
+
+# --- case 15: the floor's stand-in under --only (after case 12: it replaces $OUT) ------------------------------------------
+echo "case 15: a live provenance value this build would publish as null is refused (partial loss)"
+# Live serves nge:kept AND nge:probe; the build has nge:kept and a null nge:probe. Counts are
+# 2 vs 1 — a total-loss check (build == 0) would pass this; the per-key check must not.
+STALE=provenance
+run_release --only aaaa_ch_ff04;                    refused "a partial provenance loss is refused before any write"
+expect_out "counts show the partial shape" "live item carries 2 nge: value(s), this build carries 1."
+expect_out "names the lost key" "would publish as null: nge:probe"
+STALE=""
 
 # --- case 3: refusals ------------------------------------------------------------------
 echo "case 3: refusals touch nothing"

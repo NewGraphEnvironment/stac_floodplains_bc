@@ -55,7 +55,7 @@ of the guard actually guarding something.
 | Step | What |
 |----|----|
 | 0 preflight | `PARTIAL_STAGE` absent; ≥1 item + `collection.json`; SSH reachable; the build compared against the **live** collection — refuses if any live item is missing; then the **version gate** — HEAD exactly at a `vX.Y.Z` tag, tracked tree clean, `NEWS.md` top entry naming that version — and `collection_version.py` stamps `collection.json` (STAC Version Extension) before anything is validated or published |
-| 1 validate | the gate. Nothing below runs unless every document validates |
+| 1 validate | the gate. Nothing below runs unless every document validates; on a full release the validator is also given `PROVENANCE_FLOOR` — a literal in the script, set by a human, naming how many items must carry a non-null `nge:` value (#32) |
 | 2 sync assets | `aws s3 sync` — no `--delete`, no `--size-only`, `--exclude '*.json'` |
 | 3 sync JSON | after the assets, so no document references an object that has not landed |
 | 4 register | collection first (pgstac items reference the collection row), then items |
@@ -136,7 +136,7 @@ What `--only` changes, step by step:
 | Step | Under `--only` |
 |----|----|
 | 0 preflight | `PARTIAL_STAGE` interlock and the live-vs-build comparison are **skipped, out loud** — both guard `collection.json`, which is never published here. Instead: the item's JSON and asset dir must exist, and the item must **already be live** (a new item needs a full release, which updates the collection's extent/summaries/links) |
-| 1 validate | unchanged — the whole tree on disk, so with a full build present this re-hashes ~670 MB |
+| 1 validate | the whole tree on disk, so with a full build present this re-hashes ~670 MB; the provenance floor is **not** applied (a one-group tree cannot meet it) — instead step 0 refuses if any `nge:` value on the live item is null on this build's copy, per key |
 | 2 sync assets | `aws s3 sync data/stac/<id> s3://…/<id>`, same excludes, no `--delete` |
 | 3 sync JSON | `aws s3 cp data/stac/<id>.json s3://…/<id>.json` — **one explicit object**. The full path's `--include '*.json' --exclude '*/*'` sweep would carry `collection.json` with it, and a one-group tree's `collection.json` describes one group |
 | 4 register | `item_register.sh` for that file; `collection_register.sh` is never run |

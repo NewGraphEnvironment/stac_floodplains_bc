@@ -56,6 +56,19 @@ unchanged. Until #40 the identity was published under the fingerprint's name. Th
 in `scripts/fp_provenance.R`, and `scripts/fp_provenance-check.R` proves the reader offline against
 the producer's own files.
 
+**The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in
+`catalogue_release.sh`, passed to `item_validate.py --expect-provenance` on a full release, is the
+**exact** number of items carrying a non-null `nge:` value — a literal equal to the count
+`01_stage.R` printed for that build, never `$n_local` or anything derived (an expectation that
+comes from the data cannot be contradicted by it), with no env override. Exact in both directions,
+so every release records the count beside its NEWS entry: below is a reader that found nothing
+(indistinguishable from the forward-only state every presence check passes), above is a floor
+nobody updated. `--only` cannot meet a full-tree floor, so its preflight refuses instead if any
+`nge:` value present on the live item is null on the build's copy — per key, naming them, so a
+reader that kept one section and lost another is refused too (the API drops nulls, so a key present
+on the live item is a value). The full-release floor is item-level by design; the per-section
+counts it prints are the eye's guard for that shape.
+
 `transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
 why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published
 `file:checksum` would churn on every rebuild while every other asset's stayed stable. Its file and
