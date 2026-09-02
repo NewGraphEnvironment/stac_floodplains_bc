@@ -3544,6 +3544,132 @@ coercion, a `--force` flag, a schema migration, "re-run with `--fix`". Ask what
 the input looks like *after* the suggested fix, and whether the guard would still
 object.
 
+### A library call that dispatches on a global option is not a pure function
+
+A function whose *units* or *algorithm* are chosen by a session-wide setting behaves
+differently depending on what the caller did before reaching your code. Inside a
+package that is not a nuisance, it is a silent correctness bug: the option is set
+somewhere you do not control, usually for a good reason, and your result changes
+without any warning.
+
+`sf::st_distance()` is the live case. With s2 on — the default — a lon/lat distance
+comes back in **metres**. With s2 off it does not. And `cartography.md` in this very
+repo prescribes **`sf_use_s2(FALSE)` at the top of every mapping script**, so the
+setting is routinely off in exactly the sessions that do spatial work.
+
+A tolerance compared against that number then silently changes what it means. A gate
+written as "reject a fix whose bracketing vertices are more than 50 m apart" becomes
+"more than 50 degrees apart" — which rejects nothing, on a planet 180 degrees wide.
+It fails toward **pass**, and neither the code nor the output carries a unit.
+
+- **The tell is a call whose behaviour is documented in terms of a global.** Grep the
+  function's docs for `options(`, `Sys.setenv`, or a package-level `*_use_*` toggle.
+  If the answer depends on one, you cannot call it from library code and reason about
+  the result locally.
+- **Compute it yourself when the maths is small enough to own.** A haversine is six
+  lines, has no global state, and was measured against `sf::st_distance()` over 200
+  BC-scale pairs at **under a millimetre** of disagreement. A gate that is a fraction
+  of a percent out is strictly better than one whose units move with a setting.
+- **Where you must call it, pin the option locally** (`withr::with_options()`, or the
+  library's own scoped setter) rather than assuming the caller's state — and assert the
+  unit in a test, because that is the property that silently changes.
+
+Generalises well past `sf`: `stringsAsFactors` historically, `OutDec`, `digits`,
+`stringi` locale collation (see the `sort()` entry above), pandas' `mode.chained_assignment`,
+anything reading `TZ`. Ask of any library call in package code: *what could a caller
+have set that changes this answer?*
+
+Caught 2026-09-01 in trap#25 while replacing a time-based tolerance with a
+distance-based one — the gate was the whole point of the change, and it would have
+been unitless in half the sessions that ran it.
+
+### A proxy can be inverted, not merely imprecise
+
+The proxy rules above assume the stand-in is *weaker* than the property — a
+compression, losing resolution. There is a worse case: a proxy **negatively
+correlated** with what it stands for, so the guard fires hardest on exactly the data
+it should trust most, and passes what it should refuse.
+
+Measured 2026-09-01 in trap#25. A fix interpolated between two GPS vertices was
+gated on **elapsed time** to the nearer one, on the reasoning that a longer gap means
+a less supported position. The logger emits a vertex on **movement**, not on a timer,
+so a long gap means the person *stood still* — which is when the interpolation is at
+its most accurate:
+
+```
+gap between vertices     n      median distance apart
+<= 10 s               2516      6.5 m
+60-120 s                 7      5.2 m
+2-5 min                  8      5.4 m
+5-15 min                 5      5.3 m
+
+Spearman correlation between gap duration and distance moved: -0.154
+```
+
+Of sixteen gaps over two minutes, fifteen had the subject move 18 m or less. The
+two-minute gate rejected **all sixteen**, including a fix later measured at 2.5 m from
+ground truth. The correct measure — the distance between the bracketing vertices — is
+not a proxy at all: the subject was somewhere between two recorded positions, so that
+distance *is* the error bound.
+
+- **Ask which direction the proxy moves with the property, and measure the sign.** A
+  correlation coefficient over real data is one line and it is the whole check. A
+  proxy nobody has correlated is an assumption, however obvious it looks.
+- **Prefer a quantity that bounds the answer over one that correlates with it.** "How
+  far apart are the two things I interpolated between" cannot be inverted; "how long
+  ago" can.
+- **A generating mechanism you have not established is the usual cause.** The proxy
+  was reasonable for a timer-triggered sampler and wrong for a movement-triggered one,
+  and nothing in the data announced which it was until someone plotted it.
+
+**And a default no fixture can exercise is a judgement wearing a measurement's
+clothes.** That threshold shipped documented as "a judgement rather than a
+measurement", with a note that neither bundled fixture could reach it — their widest
+gaps were 50 s and 6 s against a 120 s default. Writing the limitation down felt like
+diligence and was not: the unexercisable default *was* the defect, found within a day
+of meeting real data. If no test can reach a threshold, do not ship it with a note —
+get data that reaches it, or make the threshold something your fixtures can bound.
+
+### A guard that reads a copy of its subject, or a coarser grain of it, passes on the copy
+
+Two shapes of the same mistake, both measured 2026-09-02 across three issues in
+stac_floodplains_bc (#19, #40, #32), each surfacing only under review and each looking
+correct on the page because the *predicate* was right and only the *object* was wrong.
+
+**The copy.** The guard reads a reflection of the subject rather than the subject:
+
+| the guard read | the subject was | what slipped through |
+|---|---|---|
+| `NEWS.md` on disk | `git show "$tag:NEWS.md"` | an untracked NEWS.md beside a tagged commit passed every gate; the tag held no entry |
+| `git describe --exact-match` | the *release* tag on HEAD (`--match 'v[0-9]*'`) | an annotated note tag won, and the gate refused blaming NEWS.md |
+| `file.mtime(provenance.json)` | the landcover section's own `run$datetime_utc` | every upstream step rewrites the file, so a crashed step followed by another step's re-run looked current |
+
+The tell is a guard whose input is *convenient* — the working tree, the file object,
+git's default pick — where the invariant is about something the convenient thing merely
+usually agrees with. Ask what would have to happen for the two to diverge; if the answer
+is an ordinary workflow (forgot `git add`, added a tag, re-ran a step), read the subject.
+
+**The grain.** The guard is written at a coarser granularity than its property, and the
+fixture in hand happens to agree at that grain:
+
+| round | grain | what it could not see |
+|---|---|---|
+| 1 | file: `provenance.json exists ⇒ some value non-null` | the contract is per section; a file holding one species' sections is a legitimate all-null for the other target — false refusal |
+| 2 | item: `n_built == 0` | network kept, landcover lost — a false pass onto a bucket with no rollback |
+| 3 | key: `{k : live[k] non-null ∧ build[k] null}` | — |
+
+It terminates by enumeration: the property is a set difference over keys and there is no
+level below key. Until you can say that, expect the next round to find the same defect
+one grain down. Sibling of *"A guard's scope is usually a coincidence"* above (that one is
+about the *set* being a coincidence; this is about the *unit*), and of *"A guard that
+encodes the cause you measured is a proxy"* (a mechanism standing in for a property;
+here the property is right and its object or unit is not).
+
+Both shapes share a fixture failure: a fixture with one key, one file or one tag cannot
+represent the divergence, so the harness stays green until a case is written that can —
+a second tag on the commit, a `nge:kept` beside a `nge:probe`, a file rewritten after its
+section. Write that case first; it is the one that goes red.
+
 
 # NGE Feature Workflow
 
