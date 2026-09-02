@@ -77,10 +77,12 @@ pin bump and for Phase 2.
 
 ## Phase 3: Smoke on a real v2 area, review, PR
 
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` — the one rostered area with a v2 file.
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` — the one rostered area with a v2 file.
       Expect: staging succeeds under the new pin, `bulk_co_ff04` carries non-null
       `link_*`, `flooded_version` and null landcover fields (its landcover step has not been
-      re-run), 12 `nge:` keys on the item and 12 `NGE_` tags on the COGs, validator clean.
+      re-run), 12 `nge:` keys on the item; on the COGs the five non-null value tags plus
+      `NGE_PROVENANCE_NULL` naming the seven nulls (a null is never tagged — corrected from
+      "12 tags" after the plan review), validator clean.
       Record the field-by-field values in `progress.md`
 - [ ] `/code-check`, then PR. No tag and no release: the change publishes nothing until the
       next full release, which is #26's rebuild once upstream finishes
@@ -90,7 +92,9 @@ pin bump and for Phase 2.
 
 ## Validation
 
-- [ ] `Rscript scripts/fp_provenance-check.R` passes; the two restore-the-bug cases go red
+- [ ] `Rscript scripts/fp_provenance-check.R` passes; restore-the-bug: the pin at `1L` aborts the
+      run at the synthetic v2 base (an uncaught stop, rc 1, not a FAIL line); dropping the
+      `<year>=` prefix from the fold reddens both the recomputed-rule case and the neexdzii pin
 - [ ] `/code-check` clean on each commit
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion

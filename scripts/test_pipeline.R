@@ -138,10 +138,13 @@ for (mp in meta_paths) {
     "flooded_version", "drift_version", "produced_datetime",
     "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
     "landcover_item_hash"))
-  prov_missing <- setdiff(prov_keys, names(props))
-  if (length(prov_missing)) {
-    stop("item JSON is missing provenance propert(ies): ",
-         paste(prov_missing, collapse = ", "))
+  # Two-sided: a field added to the pipeline but not to this list must fail too, or the
+  # list could stay at eleven forever while everything else moved on (#40 review).
+  item_nge <- grep("^nge:", names(props), value = TRUE)
+  if (!setequal(prov_keys, item_nge)) {
+    stop("item JSON and this test disagree on the provenance property set — missing from ",
+         "the item: ", paste(setdiff(prov_keys, item_nge), collapse = ", "),
+         "; on the item but not in this list: ", paste(setdiff(item_nge, prov_keys), collapse = ", "))
   }
   # Also assert meta.json carries the unprefixed half, so a break between the two halves
   # of the ferry is attributed to the right script rather than surfacing only as a

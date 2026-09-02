@@ -212,6 +212,10 @@ for (wsg in wsgs) {
       skipped <- c(skipped, item_id)
       next
     }
+    # Rasters newer than the record that describes them stop the stage (#40): the item
+    # would otherwise publish landcover_key as a fingerprint of bytes it does not ship.
+    fp_prov_rasters_current(src_wsg, file.path(src_rasters, sprintf("classified_%d.tif", YEARS)),
+                            wsg_prov, species, scenario, item_id)
 
     # Staging dirs + assets are item-id-keyed so multiple items per WSG never collide.
     dst_raw <- file.path(raw_dir, item_id)

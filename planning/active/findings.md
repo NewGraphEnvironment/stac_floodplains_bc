@@ -111,6 +111,29 @@ and the landcover leaf change.
   serialize = FALSE)`. The fold here uses the same construction over the year digests.
 - R packages available here: digest, openssl, jsonlite.
 
+## Plan review (Plan agent, spawned after the baseline; landed after Phases 1–2 were committed)
+
+No blockers. Disposition:
+
+| finding | action |
+|---|---|
+| G1 a year whose digest is JSON null has no fixture; `unlist()` would drop it | fold names the null explicitly; case added with `m["2020"] <- list(NULL)` |
+| G2 the fold's result skipped the scalar guard | fold result assigned to `cur` and falls through to the guard |
+| G3 `years` omitted gives a misattributed stop | `length(years) == 0` stops naming the cause; case added |
+| G4 rasters newer than the record publish a fingerprint of other bytes | `fp_prov_rasters_current()` in the reader (testable), called from 01_stage.R; three cases |
+| G5 `test_pipeline.R` `prov_keys` one-sided | `setequal` against the item's `nge:` keys |
+| G6 stale "eleven" counts | fixed |
+| G7 summary names a skip only when both real files are absent | names neexdzii (the fold's only producer-file proof) and bulk separately |
+| O1 a mixed-version file stops the whole stage | documented at the pin: intended, the alternative is a skip that publishes nulls |
+| O2 the smoke expectation is a snapshot of an upstream run in progress | progress.md records provenance.json's mtime and its landcover key set beside the values |
+| A1 the directory was compared to `wsg`; in v2 `area` names the directory | compared to `area`, `wsg` only when no `area`; neexdzii now reads from its own directory |
+| A2 `sha_source: unresolved_version_mismatch` on flooded/drift is not published | noted, out of scope |
+| S1 fold rule documented where no STAC consumer looks | README paragraph under the pipeline table |
+| S2 no NEWS line | `## Unreleased` section; the release gate refuses it until it becomes a version entry |
+| S4 recompute the digest on the staged copies | follow-up, named in the PR |
+| AC1 "12 NGE_ tags" was wrong (nulls are never tagged) | task_plan corrected |
+| AC2/AC3 restore-the-bug cases unnamed | named in Validation |
+
 ## Errors Encountered
 
 | Error | Resolution |

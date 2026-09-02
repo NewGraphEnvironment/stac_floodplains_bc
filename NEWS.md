@@ -10,6 +10,16 @@ The version is stamped onto the collection by the release, not the build, from t
 release is cut at (`scripts/catalogue_release.sh`; recipe under "Cut a release" in
 `scripts/README.md`). There is no `DESCRIPTION`; releases live here and in git tags.
 
+## Unreleased
+
+- `nge:landcover_key` now publishes a fingerprint of the landcover produced: the producer's
+  per-year content digests (floodplains#64), folded to one `sha256:` value over the lines
+  `<year>=<digest>`, years ascending, newline-joined. It previously carried a hash over the
+  resolved STAC item ids, which an in-place upstream re-derivation cannot move; that value ships
+  under its own name as the twelfth property, `nge:landcover_item_hash` (#40).
+- The provenance reader accepts the producer's `schema_version` 2 and refuses a stage whose
+  landcover rasters are newer than the record describing them.
+
 ## v1.0.0 (2026-09-02)
 
 First versioned release of the catalogue — **20 items** across 19 watershed groups in four

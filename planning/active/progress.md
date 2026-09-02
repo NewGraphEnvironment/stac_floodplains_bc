@@ -19,3 +19,23 @@
   Check script: 38 assertions, 0 failed, 0 skipped. neexdzii's fold pinned at
   `sha256:27a0c5b6…fb89b04`, and recomputed independently in Python from the producer's file
   (hashlib over the same payload): identical. Harness ALL PASS; py_compile + R parse clean.
+- Phase 3 smoke: `WSG=bulk Rscript scripts/test_pipeline.R` 20:07:27Z → PASS in ~3 min. The first
+  real provenance this repo has ever staged: `1 of 1 staged item(s) carry run provenance`;
+  validator `provenance: 12 nge: properties on every item, COG tags agree`. Field by field on
+  `bulk_co_ff04`: `link_run_uid` 20260901_234743-6628379d, `link_config_sha256` sha256:19e3a056…,
+  `link_sha` 689146867a5f…, `link_version` 0.50.0, `flooded_version` 0.5.0 (the #26 fix); the
+  seven landcover fields null (`drift_version`, `produced_datetime`, `landcover_source`,
+  `_collection`, `_stac_url`, `_key`, `_item_hash`) because bulk's step 3 has not been re-run, and
+  `NGE_PROVENANCE_NULL` on the COG names exactly those seven. The v1.0.0 live item still serves
+  all-null; nothing here is released.
+- Snapshot the smoke read (review O2): `bulk/provenance.json` mtime 2026-09-02T19:54:44Z, sections
+  network `co3`, floodplain `co_ff02`+`co_ff04`, landcover `[]` — so "landcover fields null" is
+  the correct reading at that mtime, and flips to non-null once upstream's step 3 lands.
+- Plan review + `/code-check` round 1 (Clean, nine restored defects each reaching its guard):
+  the plan review's gaps applied — check script now 45 assertions, 0 failed, 0 skipped; harness
+  ALL PASS. Smoke re-run after the staging guard was added.
+- Second smoke (after the staging guard): PASS, same values. `/code-check` round 2: one fragility —
+  the mtime guard's message claimed "a step in flight" where a source tree copied without
+  preserved mtimes would trip it too (false refusal, never a wrong publish); the message now
+  names both causes. Everything else on its probe list verified clean, including `area` equals
+  the directory for all 19 rostered groups upstream (`run_region.R` passes `tolower(wsg)`).

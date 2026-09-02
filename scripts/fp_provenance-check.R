@@ -15,8 +15,9 @@
 #     producer's own bytes — the only interop evidence), skipped OUT LOUD when absent, and
 #     counted: a run in which every real-file case skipped says so in its last line.
 #
-# neexdzii is a Bulkley subset and declares wsg "BULK", so its file is read from a temp
-# directory named `bulk` — fp_prov_read compares the declared wsg to the directory name.
+# fp_prov_read compares the declared `area` to the directory it was read from (neexdzii is
+# a Bulkley subset: area "neexdzii", wsg "BULK"), so each real file is read from a temp
+# directory named after its area.
 
 suppressPackageStartupMessages(library(jsonlite))
 
@@ -77,12 +78,12 @@ synthetic <- function() {
 WORK <- tempfile("prov_check_"); dir.create(WORK)
 # Write a document to <WORK>/<case>/bulk/provenance.json and read it back through the
 # real reader, so every case crosses the same JSON round-trip staging does.
-read_doc <- function(doc, case) {
-  d <- file.path(WORK, case, "bulk"); dir.create(d, recursive = TRUE, showWarnings = FALSE)
+read_doc <- function(doc, case, area = "bulk") {
+  d <- file.path(WORK, case, area); dir.create(d, recursive = TRUE, showWarnings = FALSE)
   jsonlite::write_json(doc, file.path(d, "provenance.json"), auto_unbox = TRUE, null = "null", na = "null", digits = NA)
   fp_prov_read(d)
 }
-YEARS <- c(2017L, 2020L, 2023L)   # the published span, as 01_stage.R passes it
+YEARS <- c(2017, 2020, 2023)   # the published span; 01_stage.R passes doubles, folded identically
 item <- function(prov, species = "co", scenario = "co_ff04") fp_prov_item(prov, species, scenario, "check", YEARS)
 
 # --- synthetic cases --------------------------------------------------------------------
@@ -140,8 +141,30 @@ expect_stop("a network section with no inputs$species is a schema break",
             item(read_doc(d, "no_species")), "has no inputs$species")
 d <- synthetic(); names(d$landcover) <- "ff04"
 expect_stop("a re-keyed scenario section stops", item(read_doc(d, "rekeyed")), "not scenario ids of the form")
-d <- synthetic(); d$wsg <- "MORR"
-expect_stop("a file declaring another wsg than its directory stops", read_doc(d, "wrong_wsg"), "declares wsg 'MORR'")
+d <- synthetic(); d$area <- "morr"
+expect_stop("a file declaring another area than its directory stops", read_doc(d, "wrong_area"), "declares area 'morr'")
+d <- synthetic(); d$area <- NULL; d$wsg <- "MORR"
+expect_stop("...and with no area recorded, the wsg is compared instead", read_doc(d, "wrong_wsg"), "declares area 'MORR'")
+d <- synthetic(); d$area <- "neexdzii"
+expect_true("a subset area sharing its parent's wsg reads from its own directory",
+            !is.null(read_doc(d, "subset", area = "neexdzii")))
+
+cat("rasters vs the record that describes them\n")
+# Three rasters older than provenance.json pass; one newer stops; no landcover section -> no check.
+rd <- file.path(WORK, "mtime", "bulk"); dir.create(rd, recursive = TRUE, showWarnings = FALSE)
+jsonlite::write_json(synthetic(), file.path(rd, "provenance.json"), auto_unbox = TRUE, null = "null", na = "null", digits = NA)
+rec <- file.mtime(file.path(rd, "provenance.json"))
+rp <- file.path(rd, sprintf("classified_%d.tif", YEARS)); for (f in rp) writeLines("x", f)
+invisible(Sys.setFileTime(rp, rec - 60))
+mt_prov <- fp_prov_read(rd)
+expect_true("rasters older than the record pass",
+            isTRUE(fp_prov_rasters_current(rd, rp, mt_prov, "co", "co_ff04", "check")))
+invisible(Sys.setFileTime(rp[2], rec + 60))
+expect_stop("one raster newer than the record stops, naming it",
+            fp_prov_rasters_current(rd, rp, mt_prov, "co", "co_ff04", "check"), "classified_2020.tif")
+d <- synthetic(); d$landcover <- list()
+expect_true("no landcover section -> no fingerprint -> no check",
+            isTRUE(fp_prov_rasters_current(rd, rp, read_doc(d, "mtime_nolc"), "co", "co_ff04", "check")))
 
 # --- the landcover fold (#40) ------------------------------------------------------------
 cat("landcover_key: the fold of classified_content_sha256\n")
@@ -160,6 +183,12 @@ expect_stop("a missing year stops", fold_of(list(`2017` = HEX("a"), `2020` = HEX
 expect_stop("an extra year stops", fold_of(list(`2017` = HEX("a"), `2020` = HEX("b"), `2023` = HEX("d"), `2026` = HEX("f"))), "covers year(s) 2017, 2020, 2023, 2026")
 expect_stop("a value that is not sha256:<64 hex> stops", fold_of(list(`2017` = "abc", `2020` = HEX("b"), `2023` = HEX("d"))), "classified_content_sha256[2017] is not")
 expect_stop("a scalar where the map should be stops", fold_of(HEX("a")), "must be an object keyed by year")
+# `m["2020"] <- list(NULL)` keeps the year with a JSON null (upstream writes NA for a raster
+# absent at digest time); `unlist()` would silently drop it. Same lesson as link_log above.
+m <- list(`2017` = HEX("a"), `2020` = HEX("b"), `2023` = HEX("d")); m["2020"] <- list(NULL)
+expect_stop("a year whose digest is JSON null stops, naming the year", fold_of(m), "classified_content_sha256[2020] is null")
+expect_stop("a fold given no years stops, naming the cause",
+            fp_fold_year_digests(list(`2017` = HEX("a")), "check", character(0)), "given no published years")
 d <- synthetic(); d$landcover$co_ff04$inputs["classified_content_sha256"] <- list(NULL)
 expect_true("a JSON-null map publishes NA (modelled absence), not a fold of nothing",
             is_na1(item(read_doc(d, "fold_null"))$landcover_key))
@@ -173,7 +202,7 @@ FP <- Sys.getenv("FLOODPLAINS_DATA", unset = file.path("..", "floodplains", "dat
 real <- function(area) {
   src <- file.path(FP, area, "provenance.json")
   if (!file.exists(src) || file.size(src) == 0) return(NULL)
-  d <- file.path(WORK, paste0("real_", area), "bulk"); dir.create(d, recursive = TRUE, showWarnings = FALSE)
+  d <- file.path(WORK, paste0("real_", area), area); dir.create(d, recursive = TRUE, showWarnings = FALSE)
   file.copy(src, file.path(d, "provenance.json"), overwrite = TRUE)
   fp_prov_read(d)
 }
@@ -203,6 +232,7 @@ if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") el
 
 unlink(WORK, recursive = TRUE)
 cat("\n", N, " assertions, ", FAILS, " failed, ", SKIPPED, " skipped",
-    if (SKIPPED > 0 && is.null(b) && is.null(n)) " — NO real producer file was read; only synthetic cases ran" else "",
+    if (is.null(n)) " — neexdzii absent: the fold was NOT proven against a producer file" else "",
+    if (is.null(b)) " — bulk absent" else "",
     "\n", sep = "")
 quit(status = FAILS)
