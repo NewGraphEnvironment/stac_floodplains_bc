@@ -107,7 +107,7 @@ What `--only` changes, step by step:
 | 2 sync assets | `aws s3 sync data/stac/<id> s3://…/<id>`, same excludes, no `--delete` |
 | 3 sync JSON | `aws s3 cp data/stac/<id>.json s3://…/<id>.json` — **one explicit object**. The full path's `--include '*.json' --exclude '*/*'` sweep would carry `collection.json` with it, and a one-group tree's `collection.json` describes one group |
 | 4 register | `item_register.sh` for that file; `collection_register.sh` is never run |
-| 5 verify | item endpoint 200; collection **membership byte-identical** to the preflight read; size + checksum probes on that item; the live item read back from the API and **every** asset checksum compared to the build — the only proof the pgstac row changed |
+| 5 verify | item endpoint 200; collection **membership byte-identical** to the preflight read; size + checksum probes on that item; the live item read back from the API and its `assets` + `properties` compared to the build **wholesale** — the only proof the pgstac row changed, and checksums alone would miss a labels- or provenance-only republish |
 
 `--only` refuses to combine with `--allow-retract` (retraction is a collection-level operation) and
 composes with `--skip-sync`.
