@@ -34,7 +34,7 @@ stac_dir <- file.path("data", "stac")
 
 # --- Run provenance (#17) -------------------------------------------------
 # Ferried from the producer, never derived here. The names are the STAC property names
-# minus the `nge:` prefix, so 05_stac_register.py maps them mechanically and this vector
+# minus the `nge:` prefix, so item_create.py maps them mechanically and this vector
 # is the single place the set is declared.
 #
 # `link_config_sha256` is link's OWN stored `config_hash` — a hash over 17 config files
@@ -66,7 +66,7 @@ PROV_FIELDS <- c(
 source(file.path("scripts", "fp_provenance.R"))
 
 # Clean rebuild: drop prior staging so a WSG dropped from the region (or a changed
-# scenario/span) can't leave stale artifacts that 03/04/05 would silently re-publish.
+# scenario/span) can't leave stale artifacts that 03 / item_create.py would silently re-publish.
 # The wipe also clears any prior PARTIAL_STAGE marker — a full run leaves none.
 unlink(raw_dir, recursive = TRUE)
 unlink(stac_dir, recursive = TRUE)
@@ -228,7 +228,7 @@ for (wsg in wsgs) {
       dst <- file.path(dst_raw, names(raster_map)[i])
       if (!file.exists(src)) stop("Missing source raster: ", src)
       # Checked, for the same reason the GeoPackage copies below are: file.copy() signals
-      # failure by RETURNING FALSE, not by erroring, so a short copy would be hashed by 05
+      # failure by RETURNING FALSE, not by erroring, so a short copy would be hashed by item_create.py
       # and published with a file:checksum that verifies against the truncated bytes.
       # item_validate.py re-hashes the same file, so it cannot catch it.
       stopifnot("raster copy failed" = file.copy(src, dst, overwrite = TRUE))

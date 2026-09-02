@@ -27,6 +27,7 @@ silent-success hole:
 import argparse
 import hashlib
 import json
+import re
 import struct
 import sys
 import xml.etree.ElementTree as ET
@@ -40,8 +41,32 @@ from rio_cogeo.cogeo import cog_validate
 
 MULTIHASH_SHA256 = "1220"
 
+VERSION_EXT = "https://stac-extensions.github.io/version/v1.2.0/schema.json"
+_SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+
+
+def check_version_stamp(doc: dict) -> "str | None":
+    """`version` present iff the Version Extension is declared, and X.Y.Z if present.
+
+    The build writes neither (item_create.py carries no version) and catalogue_release.sh
+    stamps both, so this validator legitimately sees both states. Half a stamp is the
+    defect, and pystac sees NEITHER half: a `version` with no extension is invisible
+    because the schema that would check it is selected BY the extension list, and the
+    extension with no `version` validates too, because the v1.2.0 schema lists `version`
+    without requiring it (read 2026-09-02). The X.Y.Z shape is ours as well — the schema
+    only says string.
+    """
+    has_ext = VERSION_EXT in (doc.get("stac_extensions") or [])
+    version = doc.get("version")
+    if has_ext != (version is not None):
+        return ("version stamp half-applied: extension "
+                f"{'declared' if has_ext else 'absent'}, version {version!r}")
+    if version is not None and not _SEMVER.match(str(version)):
+        return f"version {version!r} is not X.Y.Z"
+    return None
+
 # Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
-# 05_stac_register.py's PROV_FIELDS rather than importing it — importing that module
+# item_create.py's PROV_FIELDS rather than importing it — importing that module
 # would run the entire build, since it is a script and not a library.
 # The item properties that 02_raster_tag.py mirrors as UPPERCASE GDAL tags. Absolute and
 # hardcoded, for the same reason as REQUIRED_NGE_PROPERTIES: derived from the data, a tag
@@ -53,7 +78,7 @@ MULTIHASH_SHA256 = "1220"
 # other gate still passes: checksums verify, cog_validate passes, and the COGs quietly
 # lose their identity.
 #
-# flood_factor is deliberately absent: it is derived in 05 and has never been tagged.
+# flood_factor is deliberately absent: it is derived in item_create.py and has never been tagged.
 SHARED_TAG_PROPERTIES = {
     "wsg", "species", "scenario", "region",
     "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
@@ -78,7 +103,7 @@ def check_provenance(base: Path) -> list[str]:
     schema validation cannot see custom properties at all. So the required set is named
     here rather than derived from the data.
 
-    Set EQUALITY, not containment: a property added to 05_stac_register.py without being
+    Set EQUALITY, not containment: a property added to item_create.py without being
     declared here fails too, which is what keeps the two lists in step now that they
     cannot import from one another.
 
@@ -114,7 +139,7 @@ def check_cog_tags(base: Path) -> list[str]:
     02_raster_tag.py keeps its own copy of the field list, and nothing else in the repo reads
     a COG — so before this check, adding a twelfth field and forgetting that copy would
     ship silently incomplete COGs. Every other copy of the list is tied to another
-    (fp_provenance.R stopifnot, 05/item_validate set equality); this was the one with no
+    (fp_provenance.R stopifnot, item_create/item_validate set equality); this was the one with no
     guard in the add direction.
 
     Compares against the ITEM, not against a second hardcoded list, so the assertion
@@ -149,7 +174,7 @@ def check_cog_tags(base: Path) -> list[str]:
                 continue
             want[prop.upper()] = str(props[prop])
         for asset in doc.get("assets", {}).values():
-            # Compare against pystac's own constant, the same one 05_stac_register.py
+            # Compare against pystac's own constant, the same one item_create.py
             # writes from. A duplicated media-type literal drifting by a single character
             # would silently match no assets and pass.
             if asset.get("type") != pystac.MediaType.COG:
@@ -340,7 +365,7 @@ def check_cog_rat(base: Path) -> list[str]:
             # Label AND colour. Comparing titles alone would leave the one value on
             # either side that is NOT derived from classes.json unguarded: the no-change
             # colour is a hand-typed literal in both producers (02_raster_tag.py's
-            # NO_CHANGE_RGB and 05_stac_register.py's "D9D9D9"), and a drift between them
+            # NO_CHANGE_RGB and item_create.py's "D9D9D9"), and a drift between them
             # is invisible in every other gate while making a QGIS render and a web legend
             # disagree. The duplication is deliberate; this is what makes it safe.
             #
@@ -670,6 +695,7 @@ def main() -> int:
 
     items = 0
     collections = 0
+    collection_version = None
     failed: list[tuple[str, str]] = []
 
     for path in sorted(args.base.glob("*.json")):
@@ -682,7 +708,12 @@ def main() -> int:
         try:
             if doc.get("type") == "Collection":
                 pystac.Collection.from_dict(doc).validate()
+                stamp_problem = check_version_stamp(doc)
+                if stamp_problem:
+                    failed.append((path.name, stamp_problem))
+                    continue
                 collections += 1
+                collection_version = doc.get("version")
             elif doc.get("type") == "Feature":
                 pystac.Item.from_dict(doc).validate()
                 items += 1
@@ -710,6 +741,8 @@ def main() -> int:
         print(f"FAILED: expected exactly 1 collection.json, found {collections}",
               file=sys.stderr)
         return 1
+    print("collection version: " + (collection_version
+          or "unstamped (a build; catalogue_release.sh stamps the tag on release)"))
 
     # --- file extension: do the published checksums describe the bytes we ship? ---
     #

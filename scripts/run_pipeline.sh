@@ -40,8 +40,8 @@ echo "=== 03: COG ==="
 uv run python scripts/03_cog.py
 
 echo ""
-echo "=== 05: BUILD STAC JSON ==="
-uv run python scripts/05_stac_register.py
+echo "=== BUILD STAC JSON ==="
+uv run python scripts/item_create.py
 
 echo ""
 echo "=== VALIDATE ==="

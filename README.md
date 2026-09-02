@@ -61,7 +61,7 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 | Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`, extract the transition layer to `transition_vector.gpkg`, and compute per-flood-factor floodplain areas |
 | Tag | `02_raster_tag.py` | Embed GDAL metadata tags onto the **staged** rasters: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF0*_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, `NGE_*` run provenance, per-asset `YEAR`. Before the COG conversion, not after (#33) |
 | COG | `03_cog.py` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs (`rasterio.shutil.copy`, DEFLATE) → `data/stac/<item_id>/`, absorbing the class-label RAT into each `.tif` |
-| STAC | `05_stac_register.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
+| STAC | `item_create.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
 | Validate | `item_validate.py` | pystac-validate every document on disk; nonzero exit on any failure |
 
 **`run_pipeline.sh` makes no network writes.** Publishing is a separate command, so a rebuild —
@@ -90,6 +90,12 @@ unrecoverable. Three interlocks, each catching what the previous cannot:
 
 Removal is always deliberate — registration is an upsert, so nothing is deleted implicitly. See
 the retraction recipe in `scripts/README.md`.
+
+Every full release is a **tag**. `catalogue_release.sh` refuses unless HEAD sits exactly on a
+`vX.Y.Z` tag that `NEWS.md`'s top entry names, stamps that version onto the collection (STAC
+Version Extension), and fails unless the API serves it back — so
+`curl -s https://images.a11s.one/collections/stac-floodplains-bc | jq .version` answers which
+release is live. Recipe under "Cut a release" in `scripts/README.md`.
 
 Catalog load (shared `stac` DB → `images.a11s.one`) is **owned by this repo** — `catalogue_release.sh`
 registers over SSH with `pypgstac`, which the [`rtj`](https://github.com/NewGraphEnvironment/rtj)

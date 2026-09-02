@@ -1,4 +1,4 @@
-"""05_stac_register.py — build the stac-floodplains-bc collection + item JSON.
+"""item_create.py — build the stac-floodplains-bc collection + item JSON.
 
 One or more STAC items per watershed group — one per modelled (species, scenario)
 target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06`). Item id is the key
@@ -21,11 +21,8 @@ the bytes on disk, so a second in-process copy here would only drift), and
 publishing is catalogue_release.sh. That split is what lets validation gate the
 asset sync rather than run after it.
 
-The name is now a misnomer — it registers nothing. Renaming is deferred with the
-STAC Version Extension work so the ~10 references move once.
-
 Usage:
-    uv run python scripts/05_stac_register.py
+    uv run python scripts/item_create.py
 """
 
 import hashlib
@@ -163,7 +160,7 @@ def file_meta(path: Path) -> dict:
     reason. So assert the shape ourselves rather than trusting validation.
 
     Safe to hash at build time ONLY because every asset is byte-final by now:
-    02 tags the STAGED rasters, 03 writes the COGs from them, and 05 runs after both.
+    02 tags the STAGED rasters, 03 writes the COGs from them, and this script runs after both.
     The COG write is the last step to touch a published byte, which is what #33
     changed — tagging used to run last, in place, and that moved the main IFD to the
     end of the file. Any future step that touches an asset after this point would

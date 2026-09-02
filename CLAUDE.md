@@ -15,17 +15,18 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Layout
 
-- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `05_stac_register.py`,
+- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `item_create.py`,
   `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
   separate command, so a rebuild or smoke test cannot reach S3 or the live catalog. Source data
   comes from `$FLOODPLAINS_DATA` (default `../floodplains/data`).
 - **Publish** — `scripts/catalogue_release.sh` (validate → sync → register → verify), over
-  `item_register.sh` / `collection_register.sh` / `item_unregister.sh`. Needs AWS credentials and
+  `item_register.sh` / `collection_register.sh` / `item_unregister.sh`, with
+  `collection_version.py` stamping the release version. Needs AWS credentials and
   SSH, not the source tree, so a release can be cut from a machine that does not hold it.
   (There is no `04_s3_upload.R`; its sync folded into the release script in #14.)
   `--only <item_id>` republishes one live item and never `collection.json` — the single-group
   pilot path (#36), pinned by `catalogue_release-check.sh`.
-- `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for steps 03 + 05, run via
+- `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for `03_cog.py` + `item_create.py`, run via
   `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
   the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically.
 - `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs).
@@ -76,6 +77,21 @@ Registration is an **upsert**: nothing is deleted implicitly, and there is no wi
 collection serves zero items. An item dropped from a build therefore stays live until an explicit
 `item_unregister.sh`; the release reports those as orphans and refuses to publish past them
 without `--allow-retract`.
+
+**Every full release is a tag** (#19). `catalogue_release.sh` refuses unless HEAD is exactly at a
+`vX.Y.Z` tag, the tracked tree is clean, and `NEWS.md`'s top entry names that version; it then
+stamps `collection.json` with the STAC Version Extension (`scripts/collection_version.py`)
+*before* the validation gate, and step 5 fails the release unless the API serves that version
+back. The stamp is release-time, not build-time, on purpose: a version means "the published
+catalogue is in this state", the rebuild precedes the tag in every real flow (a build-time stamp
+would be the previous tag), and `git describe` on a tagless clone would otherwise publish a
+fallback. `item_create.py` never writes a version; `item_validate.py` accepts an unstamped build
+and a stamped release but refuses half a stamp. `--only` never publishes the collection, so it
+never stamps, and verifies the live version did not move; step 5 also reads the bucket's
+`collection.json`, because rtj's reload-from-S3 is harmless only while bucket and API agree. Never
+register `collection.json` outside the release — a rebuilt one carries no version. Tags are cut by
+hand on the `NEWS.md` commit, as `stac_uav_bc` does; there is no `DESCRIPTION`, so
+`/gh-pr-merge`'s bump path does not apply here (tell it to skip its steps 6–9 at merge).
 
 **A published null is invisible from the API.** pgstac stores an item property whose value is
 `null` (the row shows the key with `jsonb_typeof` null), and the API omits it on output, while

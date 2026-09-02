@@ -270,7 +270,7 @@ for meta_path in sorted(RAW_DIR.glob("*/meta.json")):
 
     rasters = sorted((RAW_DIR / wsg).glob("*.tif"))
     # Zero rasters iterates nothing and reports "Tagged 0, skipped 0" — indistinguishable
-    # from a clean run. 05 would catch it later as a missing asset; fail where it happened.
+    # from a clean run. item_create.py would catch it later as a missing asset; fail where it happened.
     if not rasters:
         raise SystemExit(f"{wsg}: staged in {RAW_DIR} but has no rasters to tag")
     for cog in rasters:

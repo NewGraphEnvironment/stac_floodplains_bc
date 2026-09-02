@@ -1,9 +1,15 @@
 #!/bin/bash
-# catalogue_release-check.sh — prove catalogue_release.sh --only can never reach collection.json.
+# catalogue_release-check.sh — prove catalogue_release.sh --only can never reach collection.json,
+# and that a full release is a tag.
 #
 # Runs the REAL release script against a synthetic tree with every external replaced by a
 # shim earlier on PATH (aws, ssh, uv, curl). No network, no credentials, no data/stac. The
-# shims log their argv, and the assertions read the log:
+# script runs from a COPY of scripts/ inside a throwaway git repo under $WORK, committed
+# and tagged v9.9.9 with a NEWS.md to match: the release's version gate reads git and
+# NEWS.md from its own checkout, and pointing it at the real one would tie every case to
+# whatever HEAD the developer happens to be on. Nothing else in the release path depends on
+# the real checkout (uv is shimmed, STAC_DIR/RAW_DIR are absolute), so the copy is the whole
+# script, byte for byte. The shims log their argv, and the assertions read the log:
 #
 #   1  --only <id>   never syncs the tree root, never a JSON sweep, never `load collections`
 #   2  full release  DOES sync the tree root with --include *.json and DOES `load collections`
@@ -15,6 +21,21 @@
 #   5  verify        a checksum mismatch under --only still fails the release
 #   6  verify        a live item still serving an OLD asset checksum after registration fails it
 #   7  verify        a live item whose PROPERTIES are stale, with no byte changed, fails it too
+#   8  verify        the API serving a different version than the tag -> RELEASE INCOMPLETE
+#   9  verify        the API serving NO version after a full release fails it; so does the
+#                    bucket copy of collection.json disagreeing with the API
+#  10  refusal       HEAD not exactly at a tag -> refused, no aws call
+#  11  refusal       NEWS.md's top entry not the tag ("## Unreleased" above it) -> refused;
+#                    and a NEWS.md on disk but NOT in the tagged commit -> refused (the gate
+#                    reads the tag's copy, since the clean-tree gate hides untracked files)
+#  12  --only        never stamps: collection.json is byte-identical across the run, and a
+#                    live collection with NO version passes (MISSING -> MISSING is unchanged)
+#  13  refusal       a modified tracked file -> refused, no aws call
+#  14  gate          a second, non-release tag on the same commit does not confuse the gate
+#
+# Case 2's "live version 9.9.9 verified" is tautological on its own — the curl shim serves
+# the stamped fixture back — which is why cases 8 and 9 exist: they are what prove the
+# compare bites.
 #
 # Usage: bash scripts/catalogue_release-check.sh        (exit = number of failed assertions)
 #
@@ -23,15 +44,27 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-RELEASE="$REPO/scripts/catalogue_release.sh"
 
 WORK=$(mktemp -d -t release_check.XXXXXX) || exit 1
 [ -n "$WORK" ] || exit 1
 trap 'rm -rf "$WORK"' EXIT
 
+# --- the throwaway checkout the release runs from ---------------------------------------
+# One tag on the commit, a NEWS.md whose top entry names it, nothing else. Identity given
+# inline, signing off, hooks skipped, so the harness does not depend on the developer's git
+# config (a global commit.gpgsign would otherwise block the fixture commit on a passphrase).
+TREPO="$WORK/repo"
+RELEASE="$TREPO/scripts/catalogue_release.sh"
+TVERSION=9.9.9
+mkdir -p "$TREPO" && cp -R "$REPO/scripts" "$TREPO/scripts" && rm -rf "$TREPO/scripts/__pycache__"
+printf '# fixture\n\n## v%s (2026-01-01)\n\n- fixture release\n' "$TVERSION" > "$TREPO/NEWS.md"
+tgit() { git -C "$TREPO" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false -c tag.gpgSign=false "$@"; }
+tgit init -q -b main && tgit add -A && tgit commit -q --no-verify -m fixture && tgit tag "v$TVERSION"
+TSHA=$(tgit rev-parse HEAD)
+
 BUCKET=check-bucket
 COLL=check-collection
-S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape 05_stac_register.py emits
+S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.py emits
 STAC="$WORK/stac"; RAW="$WORK/raw"; BIN="$WORK/bin"; LOG="$WORK/shim.log"; OUT="$WORK/out.txt"
 mkdir -p "$STAC" "$RAW" "$BIN"
 
@@ -89,7 +122,11 @@ SHIM
 #                        search has already happened (case 4)
 #   -w '%{http_code}' -> 200
 #   -I (any -*I*)     -> Content-Length of the fixture file the href maps to
-#   otherwise         -> the fixture file's bytes (the checksum probe)
+#   /collections/<id> -> the fixture collection.json as on disk (stamped, once case 2 has
+#                        run), with its version forced by FAKE_LIVE_VERSION (`none` drops
+#                        the key entirely — the state before any versioned release)
+#   otherwise         -> the fixture file's bytes (the checksum probe); for the bucket's
+#                        collection.json, FAKE_BUCKET_VERSION forces the version the same way
 # The href map takes the last two path segments, the rule item_validate.py uses.
 cat > "$BIN/curl" <<'SHIM'
 #!/bin/bash
@@ -111,7 +148,17 @@ case "$url" in
     exit 0 ;;
 esac
 if [ -n "$w" ]; then printf '200'; exit 0; fi
+force_version() { # file forced -> JSON on stdout
+  python3 -c 'import json,sys
+d = json.load(open(sys.argv[1])); v = sys.argv[2]
+if v == "none": d.pop("version", None)
+elif v: d["version"] = v
+print(json.dumps(d))' "$1" "$2"
+}
 case "$url" in
+  */collections/$COLLECTION)   # the live collection read (the version gate + step 5)
+    force_version "$STAC_DIR/collection.json" "${FAKE_LIVE_VERSION:-}"
+    exit 0 ;;
   */items/*)   # the live item read-back: the fixture's own JSON, or a stale one (case 6)
     f="$STAC_DIR/${url##*/}.json"
     # Stale ONE asset, the first (classified_2017.tif), and leave the largest correct: a
@@ -132,6 +179,8 @@ f="$STAC_DIR/$rel"
 [ -f "$f" ] || { echo "curl shim: no fixture for $url" >&2; exit 22; }
 if [ -n "$head" ]; then
   printf 'HTTP/1.1 200 OK\r\nContent-Length: %s\r\n\r\n' "$(wc -c < "$f" | tr -d ' ')"
+elif [ "$rel" = collection.json ] && [ -n "${FAKE_BUCKET_VERSION:-}" ]; then
+  force_version "$f" "$FAKE_BUCKET_VERSION"
 else
   cat "$f"
 fi
@@ -142,13 +191,16 @@ chmod +x "$BIN"/aws "$BIN"/ssh "$BIN"/uv "$BIN"/curl
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 LIVE_AFTER=""
 STALE=""
+LIVEV=""
+BUCKETV=""
 RC=0
 run_release() {
   : > "$LOG"; rm -f "$WORK/search_count"
   set +e
-  ( cd "$REPO" && PATH="$BIN:$PATH" SHIM_LOG="$LOG" COUNTER="$WORK/search_count" \
+  ( cd "$TREPO" && PATH="$BIN:$PATH" SHIM_LOG="$LOG" COUNTER="$WORK/search_count" \
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_ITEM_STALE="$STALE" \
+      FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       bash "$RELEASE" "$@" ) > "$OUT" 2>&1 < /dev/null
   RC=$?
   set -e
@@ -178,18 +230,89 @@ refused() { # desc — the last run must have exited non-zero having touched not
   if [ "$RC" -ne 0 ] && [ "$(n_aws)" -eq 0 ]; then pass "$1"
   else fail "$1 (rc=$RC, aws calls=$(n_aws))"; fi
 }
+coll_version() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("version", "MISSING"))' "$STAC/collection.json"; }
+coll_hash()    { shasum -a 256 "$STAC/collection.json" | awk '{print $1}'; }
 
 # --- case 2 first: the positive control ----------------------------------------------
 # A full release on this fixture must reach collection.json by both routes. If these
 # greps cannot find it here, case 1's zeros mean nothing.
 echo "case 2: full release reaches collection.json (positive control)"
 rm "$RAW/PARTIAL_STAGE"
+expect_eq "fixture collection starts unversioned" "$(coll_version)" MISSING
 run_release
 expect_eq "exit 0" "$RC" 0
 expect_eq "two root-source syncs (assets, then JSON)" "$(n_root_sync)" 2
 expect_eq "one --include *.json sweep" "$(n_json_sweep)" 1
 expect_eq "one load collections" "$(n_load_coll)" 1
 expect_eq "one load items" "$(n_load_items)" 1
+expect_out "version gate passed on the tagged checkout" "release v$TVERSION: HEAD at v$TVERSION, tree clean, NEWS.md agrees"
+expect_eq "collection.json on disk is stamped" "$(coll_version)" "$TVERSION"
+expect_out "verify read the live version back" "live collection version: $TVERSION — matches the tag just released"
+expect_out "verify read the bucket copy back" "bucket collection.json version: $TVERSION — agrees"
+expect_out "completion line names the version" "RELEASE COMPLETE — v$TVERSION"
+echo aaaa > "$RAW/PARTIAL_STAGE"
+
+# --- cases 8-13: the version gate and the version verify ---------------------------------
+# All full releases, so the PARTIAL_STAGE marker stays off until the --only cases below.
+rm "$RAW/PARTIAL_STAGE"
+echo "case 8: the API serving a different version than the tag fails the release"
+LIVEV=8.8.8
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
+expect_out "names both versions" "live collection version is '8.8.8', but this release is v$TVERSION"
+LIVEV=""
+
+echo "case 9: the API serving NO version after a full release fails it"
+LIVEV=none
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the absence" "live collection version is 'MISSING', but this release is v$TVERSION"
+LIVEV=""
+echo "case 9b: the bucket copy of collection.json disagreeing with the API fails it"
+BUCKETV=7.7.7
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the bucket version" "bucket collection.json version is '7.7.7', but this release is v$TVERSION"
+BUCKETV=""
+
+echo "case 10: HEAD not exactly at a tag is refused"
+tgit commit -q --no-verify --allow-empty -m "past the tag"
+run_release;                                        refused "untagged HEAD"
+expect_out "says to tag first" "HEAD is not at a vX.Y.Z tag"
+tgit reset -q --hard "$TSHA"
+
+echo "case 11: NEWS.md whose top entry is not the tag is refused"
+printf '# fixture\n\n## Unreleased\n\n- pending\n\n## v%s (2026-01-01)\n\n- fixture release\n' "$TVERSION" > "$TREPO/NEWS.md"
+tgit commit -q --no-verify -am "unreleased section on top" && tgit tag -f "v$TVERSION" >/dev/null
+run_release;                                        refused "NEWS top entry is '## Unreleased'"
+expect_out "names the top entry" "NEWS.md's top entry is '## Unreleased'"
+tgit tag -f "v$TVERSION" "$TSHA" >/dev/null && tgit reset -q --hard "$TSHA"
+
+echo "case 11b: NEWS.md on disk but absent from the tagged commit is refused"
+# The first-release shape: NEWS.md written, never added, commit + tag made beside it. The
+# working copy still names the tag, and --untracked-files=no cannot see it.
+tgit rm -q --cached NEWS.md && tgit commit -q --no-verify -m "news left untracked" && tgit tag -f "v$TVERSION" >/dev/null
+expect_eq "premise: NEWS.md is on disk" "$([ -f "$TREPO/NEWS.md" ] && echo yes)" yes
+expect_eq "premise: NEWS.md is not in the tag" "$(tgit show "v$TVERSION:NEWS.md" >/dev/null 2>&1 || echo absent)" absent
+run_release;                                        refused "untracked NEWS.md"
+expect_out "names the tagged commit" "No NEWS.md in v$TVERSION"
+tgit tag -f "v$TVERSION" "$TSHA" >/dev/null && tgit reset -q --hard "$TSHA"
+
+echo "case 13: a modified tracked file is refused"
+printf '\n# scribble\n' >> "$TREPO/scripts/item_register.sh"
+run_release;                                        refused "dirty tracked tree"
+expect_out "names the file" "Tracked files differ from v$TVERSION"
+tgit checkout -q -- . && expect_eq "throwaway checkout restored" "$(tgit status --porcelain | wc -l | tr -d ' ')" 0
+
+echo "case 14: a second, annotated, non-release tag on the commit does not confuse the gate"
+# An annotated tag wins over a lightweight one in a bare `describe --exact-match`, so
+# without --match the gate would read 'zz-note' as the version and refuse against NEWS.md.
+tgit tag -a zz-note -m "not a release" >/dev/null
+run_release
+expect_eq "exit 0" "$RC" 0
+expect_out "the release tag was the one read" "release v$TVERSION: HEAD at v$TVERSION"
+tgit tag -d zz-note >/dev/null
 echo aaaa > "$RAW/PARTIAL_STAGE"
 
 echo "case 3f: the PARTIAL_STAGE interlock still refuses a full release"
@@ -210,9 +333,21 @@ expect_eq "exactly two aws calls in total" "$(n_aws)" 2
 expect_eq "no load collections" "$(n_load_coll)" 0
 expect_eq "one load items" "$(n_load_items)" 1
 expect_eq "the other item is untouched" "$(n_aws_naming bbbb)" 0
-expect_eq "both skips said out loud" "$(grep -c 'skipped under --only' "$OUT" || true)" 2
+expect_eq "all three skips said out loud (interlock, comparison, version gate)" "$(grep -c 'skipped under --only' "$OUT" || true)" 3
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
 expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 2 properties"
+expect_out "the version gate was skipped out loud" "version gate: skipped under --only"
+expect_out "the live version was read and unchanged" "live collection version: $TVERSION (unchanged by --only"
+
+# --- case 12: --only never stamps, and an unversioned live collection is fine ------------
+echo "case 12: --only leaves collection.json untouched and accepts a live collection with no version"
+h0=$(coll_hash)
+LIVEV=none
+run_release --only aaaa_ch_ff04
+expect_eq "exit 0" "$RC" 0
+expect_eq "collection.json byte-identical across the run" "$(coll_hash)" "$h0"
+expect_out "MISSING -> MISSING read as unchanged" "live collection version: MISSING (unchanged by --only"
+LIVEV=""
 
 # --- case 3: refusals ------------------------------------------------------------------
 echo "case 3: refusals touch nothing"
