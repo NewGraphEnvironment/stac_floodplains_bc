@@ -134,6 +134,20 @@ floodplain footprint; datetime range 2017 → 2023. Assets live under the item-k
 
 - **Raster assets** (titiler-renderable COGs): `classified_2017`, `classified_2020`,
   `classified_2023`, `transition_2017_2023`
+- **Raster assets stream** — a COG does not have to be downloaded. Both the palette and the
+  class labels are embedded (#34/#35), so QGIS and GDAL open one already coloured and labelled
+  straight off S3:
+
+  ```bash
+  GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR \
+  gdalinfo /vsicurl/https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2023.tif
+  ```
+
+  The same `/vsicurl/...` path pastes into QGIS's Add Raster Layer dialog. Set
+  `GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR` or GDAL spends a dozen wasted requests probing for
+  sidecar files that are not there — the bucket answers each with a 403, which is slow rather
+  than fatal, and noisy enough to look like a failure.
+
 - **Vector assets** (download):
   - `floodplain_landcover` → `floodplain_landcover.gpkg` (per-year classified polygons +
     transition patches)

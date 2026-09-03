@@ -253,6 +253,33 @@ That third one is not obvious. SQLite bumps its header change counter on **any**
 transaction, so a writer that rewrote identical rows would still republish a new
 `file:checksum` for unchanged content. The writer compares the rows first and skips.
 
+### Verifying a style against QGIS itself
+
+A style that reloads in our own reader proves only self-consistency. The question that matters
+is what **QGIS** does with a layer opened plain, with no `.qml` handed to it — which is how a
+style that loads cleanly and renders nothing gets caught.
+
+```bash
+R=/Applications/QGIS-final-4_2_1.app/Contents/Resources
+PYTHONPATH="$R/python3.12:$R/python3.12/site-packages:$R/python3.12/lib-dynload" \
+  /Applications/QGIS-final-4_2_1.app/Contents/MacOS/python3.12 probe.py
+```
+
+`PYTHONHOME` does **not** work: the bundle's stdlib is at `Resources/python3.12`, not the
+`Resources/lib/python3.12` that PYTHONHOME implies, so it dies with
+`ModuleNotFoundError: No module named 'encodings'` before running a line. Put the stdlib on
+`PYTHONPATH` instead. In the script, `QgsApplication.setPrefixPath(".../Contents/MacOS", True)`
+then `QgsApplication([], False)` and `initQgis()`.
+
+Two API details that each cost a retry: `renderer.symbols()` requires a `QgsRenderContext()`
+argument rather than `None`, and a raster's embedded palette reads back as
+`layer.renderer().classes()` with `.value` / `.color` / `.label` per entry.
+
+This is how the #46 styles were verified — all 24 layers of a multi-target group opened plain,
+renderer and symbol opacity read back from QGIS — and it is what #48 will need for raster
+opacity. `item_validate.py` covers the same ground without QGIS for anything that runs in the
+pipeline; this is for the questions only the real consumer can answer.
+
 ## Provenance reader check
 
 ```bash
