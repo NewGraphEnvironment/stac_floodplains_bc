@@ -197,6 +197,40 @@ The cold path is the point. A guard nobody has seen fail is decoration, so `NO_P
 rebuilds **differ** and errors if they match — if it passes, the warm run was measuring nothing.
 Measured on `sloc_bt_ff04`: unpinned `5429357d…` vs `c2bfa94b…`; pinned, both `ea0ac66f…`.
 
+## Layer styles
+
+`style_qml-write.py` generates the three QGIS styles this repo ships, all from the one
+`data/raw/classes.json` that already feeds the RAT and `classification:classes` — so the vector
+palette cannot disagree with the labels inside the COGs (#46).
+
+```bash
+uv run python scripts/style_qml-write.py      # regenerate styles/*.qml
+uv run python scripts/style_drift-check.py    # committed styles still match classes.json?
+```
+
+| Style | Applies to | Renderer |
+|---|---|---|
+| `styles/floodplain.qml` | `bt_ff02` / `bt_ff04` / `bt_ff06` in `floodplain.gpkg` | single symbol, ColorBrewer Paired blue |
+| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` in `floodplain_landcover.gpkg` | categorized on `class_name`, 9 io-lulc classes |
+| `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 72 pairs |
+
+All symbols ship at **50% opacity** — these layers are read over a basemap. Transition patches
+are coloured by **destination class**, the same choice the transition COG makes, so the raster and
+vector views of one item agree. The 8 `Trees -> *` loss categories ship switched **on**; the other
+64, including the 8 `<other> -> Trees` gain categories, ship switched **off**, so widening the view
+is a checkbox rather than a re-classify. File names are year-free so a QGIS `path|layername=`
+style survives a change of span.
+
+The styles are **committed**, not generated during a build, so a human reviews what ships — which
+is why the drift check exists: `01_stage.R` rewrites `classes.json` from drift on every run, and
+nothing else would notice that `styles/` had not followed. It is two-sided on the file set as well
+as the bytes, and refuses when it compared nothing.
+
+Symbol and category UUIDs are derived (`uuid5` over a fixed namespace), never `uuid4`. A random id
+makes the generator non-deterministic at identical byte length, which would defeat the byte-compare
+and churn `transition_vector.gpkg`'s published `file:checksum` on every rebuild. The drift check
+caught exactly that on its first run.
+
 ## Provenance reader check
 
 ```bash

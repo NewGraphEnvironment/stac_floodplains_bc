@@ -38,18 +38,18 @@ over-mapped. One tagged release at the end of #26 carries #46, #47 and the rebui
 
 ## Phase 1: Lock the styles as reviewed artifacts
 
-- [ ] Rename `styles/transition_trees.qml` to `styles/transition.qml` — the file holds all
+- [x] Rename `styles/transition_trees.qml` to `styles/transition.qml` — the file holds all
       72 categories, so the name should describe the layer, not the default view. Keeps the
       year-free naming rule that lets a `path|layername=` style survive a change of span.
-- [ ] Settle names: files `floodplain.qml`, `classified.qml`, `transition.qml`; asset keys
+- [x] Settle names: files `floodplain.qml`, `classified.qml`, `transition.qml`; asset keys
       `style_floodplain`, `style_classified`, `style_transition`. #46 currently proposes
       `landcover_class.qml`; align the issue to whichever wins.
-- [ ] Finalise `scripts/style_qml-write.py` (already drafted, generates all three from
+- [x] Finalise `scripts/style_qml-write.py` (already drafted, generates all three from
       `classes.json`) and commit `styles/*.qml`.
-- [ ] `scripts/style_drift-check.R` (or `.py`): regenerate to a temp dir and byte-compare
+- [x] `scripts/style_drift-check.R` (or `.py`): regenerate to a temp dir and byte-compare
       against `styles/`. Fails when `classes.json` has moved and `styles/` has not. Modelled
       on `gpkg_determinism-check.R`, which is the repo's existing standalone-check shape.
-- [ ] Document the generator and the check in `scripts/README.md`, which mentions neither today.
+- [x] Document the generator and the check in `scripts/README.md`, which mentions neither today.
 
 ## Phase 2: Embed into the GeoPackages
 
