@@ -53,28 +53,28 @@ over-mapped. One tagged release at the end of #26 carries #46, #47 and the rebui
 
 ## Phase 2: Embed into the GeoPackages
 
-- [ ] New `scripts/04_gpkg_style.py`. **Python stdlib `sqlite3` only** — the repo has no
+- [x] New `scripts/04_gpkg_style.py`. **Python stdlib `sqlite3` only** — the repo has no
       DBI, no RSQLite, no geopandas and no fiona, and all vector I/O goes through `sf`.
       A `layer_styles` row is a plain INSERT, so this needs no new dependency in either
       language. Schema confirmed against a QGIS-written file: `id`, `f_table_catalog`,
       `f_table_schema`, `f_table_name`, `f_geometry_column`, `styleName`, `styleQML`,
       `styleSLD`, `useAsDefault`, `description`, `owner`, `ui`, `update_time`.
-- [ ] Per item directory, for each of the three GeoPackages: enumerate feature layers from
+- [x] Per item directory, for each of the three GeoPackages: enumerate feature layers from
       `gpkg_contents` where `data_type = 'features'`, map each layer name to a style by
       prefix (`classified_*`, `transition*`, `<sp>_ff0N`), and insert one row with
       `useAsDefault = 1`.
-- [ ] **`f_table_schema` must be `''`, never NULL.** Measured on this repo's own data:
+- [x] **`f_table_schema` must be `''`, never NULL.** Measured on this repo's own data:
       the empty string auto-styles (73 categories, 8 on), NULL falls back to single-symbol
       and logs nothing. This is rfp#17 reproduced here.
-- [ ] **Pin both timestamps to `GPKG_EPOCH` (`2000-01-01T00:00:00.000Z`, `scripts/fp_gpkg.R`).**
+- [x] **Pin both timestamps to `GPKG_EPOCH` (`2000-01-01T00:00:00.000Z`, `scripts/fp_gpkg.R`).**
       Measured: QGIS's writer does not go through OGR, so `OGR_CURRENT_DATE` misses it and
       two live wall-clock stamps land — `layer_styles.update_time` and the
       `gpkg_contents.last_change` row for the styles table. Either one churns
       `transition_vector.gpkg`'s published `file:checksum` on every rebuild.
-- [ ] Leave `styleSLD` NULL. QGIS reads `styleQML`; the SLD QGIS writes alongside is 31% of
+- [x] Leave `styleSLD` NULL. QGIS reads `styleQML`; the SLD QGIS writes alongside is 31% of
       the added bytes and nothing here consumes it.
-- [ ] Insert in a fixed layer order so repeat builds are byte-identical.
-- [ ] Wire into `scripts/run_pipeline.sh` and `scripts/test_pipeline.R` between step 03 and
+- [x] Insert in a fixed layer order so repeat builds are byte-identical.
+- [x] Wire into `scripts/run_pipeline.sh` and `scripts/test_pipeline.R` between step 03 and
       `item_create.py`. It must precede `item_create.py`, which is where `file:checksum` is
       computed.
 

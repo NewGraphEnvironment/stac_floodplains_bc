@@ -30,3 +30,25 @@
 - Re-verified in QGIS 4.2.1 after the UUID change — all three still load, opacity 0.5,
   0 data values unmatched, 8 gain categories present and off
 - Documented in `scripts/README.md`
+
+### Phase 2 — done
+
+- `scripts/04_gpkg_style.py` added, stdlib `sqlite3` only, wired into `run_pipeline.sh`
+  and `test_pipeline.R` between step 03 and `item_create.py`
+- **Two design improvements over what QGIS's own writer produces**, both measured:
+  - No `gpkg_contents` row and no triggers. QGIS auto-styles perfectly without them, and
+    registering the table would add a second wall-clock stamp (`gpkg_contents.last_change`)
+    on top of `layer_styles.update_time`. GDAL lists `layer_styles` as a layer either way,
+    so the registration bought nothing and cost a churn vector. One vector remains, pinned.
+  - `update_time` read from `fp_gpkg.R`'s `GPKG_EPOCH` rather than restated, so the pin has
+    one source.
+- **Determinism took two attempts.** One pass over a virgin file is byte-reproducible, but a
+  second pass was not: SQLite bumps its header change counter on any write transaction and a
+  DELETE leaves freelist pages, so rewriting identical rows still moved the bytes. Now the
+  rows are compared first and the write skipped when they match. Three consecutive passes
+  give one digest on all three files.
+- An unmapped layer raises rather than being skipped — a new or renamed upstream layer must
+  not ship unstyled while its neighbours look correct.
+- Verified in QGIS 4.2.1: all 8 layers across the 3 GeoPackages auto-style on a plain open
+  with no `.qml` loaded — 3 single-symbol, 3 categorized at 9 classes, 2 categorized at 73,
+  every symbol at opacity 0.5.

@@ -40,6 +40,13 @@ echo "=== 03: COG ==="
 uv run python scripts/03_cog.py
 
 echo ""
+echo "=== 04: STYLE ==="
+# Before the STAC build, not after: item_create.py hashes every asset into
+# file:checksum, and a style embedded afterwards would publish a checksum over
+# bytes that no longer match the file. Same ordering reason as 02 before 03 (#33).
+uv run python scripts/04_gpkg_style.py
+
+echo ""
 echo "=== BUILD STAC JSON ==="
 uv run python scripts/item_create.py
 

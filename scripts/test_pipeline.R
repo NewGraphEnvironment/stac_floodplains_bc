@@ -50,6 +50,15 @@ if (system("uv run python scripts/03_cog.py") != 0) {
   stop("03_cog.py failed")
 }
 
+# --- 04 STYLE -------------------------------------------------------------
+# Embeds the layer_styles rows so the published GeoPackages open already styled.
+# Before the STAC build: item_create.py hashes every asset, and a style written
+# afterwards would publish a checksum over bytes that no longer match the file.
+message("\n=== 04: STYLE ===")
+if (system("uv run python scripts/04_gpkg_style.py") != 0) {
+  stop("04_gpkg_style.py failed")
+}
+
 # --- BUILD ----------------------------------------------------------------
 message("\n=== BUILD STAC JSON ===")
 if (system("uv run python scripts/item_create.py") != 0) {
