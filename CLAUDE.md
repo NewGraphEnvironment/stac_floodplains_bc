@@ -15,8 +15,8 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Layout
 
-- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `item_create.py`,
-  `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
+- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `04_gpkg_style.py`,
+  `item_create.py`, `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
   separate command, so a rebuild or smoke test cannot reach S3 or the live catalog. Source data
   comes from `$FLOODPLAINS_DATA` (default `../floodplains/data`).
 - **Publish** — `scripts/catalogue_release.sh` (validate → sync → register → verify), over
@@ -33,6 +33,15 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   `pyproj` via `morecantile` and forced `requires-python` to `>=3.11`; siblings copying this
   `pyproject.toml` inherit that floor. `osgeo` is not available under uv (`uv pip install gdal`
   has no usable wheels), and rasterio has no RAT API — both are why the RAT is written as PAM XML.
+- `styles/` — the three QGIS layer styles (#46), generated from `data/raw/classes.json` by
+  `style_qml-write.py` and **committed**, so a human reviews what ships. `04_gpkg_style.py`
+  embeds them in each GeoPackage's `layer_styles` table and copies them beside the assets;
+  `item_create.py` publishes them as `style_*` assets. `style_drift-check.py` (a pipeline step)
+  regenerates and byte-compares so they cannot go stale against the class table, and
+  `style_determinism-check.py` is the churn guard, sibling to `gpkg_determinism-check.R` —
+  needed separately because a `sqlite3` write never passes through GDAL, so `OGR_CURRENT_DATE`
+  does not reach it. Symbol ids are `uuid5`, never `uuid4`: a random id makes the generator
+  non-deterministic at identical byte length and would churn every published `file:checksum`.
 - `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs).
 
 ## Collection model

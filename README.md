@@ -58,7 +58,7 @@ item's tree-change is listed and summed separately.
 
 ## Pipeline
 
-Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through five stages
+Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through six stages
 (`scripts/run_pipeline.sh`):
 
 | Step | Script | What |
@@ -66,7 +66,8 @@ Reads `$FLOODPLAINS_DATA` (default `../floodplains/data`); processes through fiv
 | Stage | `01_stage.R` | Discover WSGs + their publish targets; for each item (`<wsg>_<scenario>`) stage `rasters/<scenario>/{classified_2017,2020,2023,transition}.tif` + `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/{raw,stac}/<item_id>/`, extract the transition layer to `transition_vector.gpkg`, and compute per-flood-factor floodplain areas |
 | Tag | `02_raster_tag.py` | Embed GDAL metadata tags onto the **staged** rasters: `WSG`, `SPECIES`, `SCENARIO`, `REGION`, `FLOODPLAIN_FF0*_KM2`, `GROSS_LOSS_HA`, `GROSS_GAIN_HA`, `NET_HA`, `NGE_*` run provenance, per-asset `YEAR`. Before the COG conversion, not after (#33) |
 | COG | `03_cog.py` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs (`rasterio.shutil.copy`, DEFLATE) → `data/stac/<item_id>/`, absorbing the class-label RAT into each `.tif` |
-| STAC | `item_create.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json` |
+| Style | `04_gpkg_style.py` | Embed a `layer_styles` row per feature layer in all three GeoPackages so they open styled in QGIS, from the same `classes.json` that feeds the RAT (#46); copy the three `.qml` beside the assets. Before the STAC build, since that is where `file:checksum` is computed |
+| STAC | `item_create.py` | Build the STAC collection + one item per target → `data/stac/<item_id>.json`, including the three `style_*` assets |
 | Validate | `item_validate.py` | pystac-validate every document on disk; nonzero exit on any failure |
 
 Every item also carries twelve `nge:` run-provenance properties, published as explicit nulls
