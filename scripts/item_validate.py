@@ -654,6 +654,24 @@ def check_cog_layout(base: Path) -> list[str]:
     return problems
 
 
+def _qml_renderer(qml: str) -> tuple[str, str]:
+    """(renderer type, classification attribute) for a QML."""
+    rend = ET.fromstring(qml).find("renderer-v2")
+    if rend is None:
+        return ("", "")
+    return (rend.get("type") or "", rend.get("attr") or "")
+
+
+def _qml_drawn(qml: str) -> set[str]:
+    """Category values a categorized QML actually DRAWS (render != false)."""
+    rend = ET.fromstring(qml).find("renderer-v2")
+    if rend is None:
+        return set()
+    cats = rend.find("categories")
+    return {c.get("value") for c in ([] if cats is None else list(cats))
+            if (c.get("render") or "true") != "false"}
+
+
 def _qml_categories(qml: str) -> dict[str, str]:
     """{category value: '#rrggbb'} from a categorized QML, or {} if not categorized.
 
@@ -756,6 +774,36 @@ def check_layer_styles(base: Path) -> list[str]:
                     problems.append(
                         f"{item_id}/{gname} style for '{table}' has useAsDefault="
                         f"{use_default!r}, expected 1 — it will not load automatically")
+
+                # A style can be present, well-formed, load cleanly and still render
+                # NOTHING — if it categorizes on a column the layer does not have, or on
+                # values none of its features carry. Nothing structural sees that, so
+                # check it against the layer's own rows. This is the arm that a fixture
+                # of one single-species group could never have reached: MORR's bundle
+                # carries `classified_*_patches` and `*_by_blue_line_key` layers that
+                # KOTL has none of.
+                rtype, attr = _qml_renderer(qml or "")
+                if rtype == "categorizedSymbol":
+                    con2 = sqlite3.connect(f"file:{gpkg}?mode=ro", uri=True)
+                    try:
+                        cols = {r[1] for r in con2.execute(
+                            f'PRAGMA table_info("{table}")')}
+                        if attr not in cols:
+                            problems.append(
+                                f"{item_id}/{gname} style for '{table}' categorizes on "
+                                f"'{attr}', which is not a column of that layer — it "
+                                f"loads styled and renders nothing")
+                        else:
+                            present = {str(r[0]) for r in con2.execute(
+                                f'SELECT DISTINCT "{attr}" FROM "{table}"') if r[0] is not None}
+                            drawn = _qml_drawn(qml or "")
+                            if present and not (present & drawn):
+                                problems.append(
+                                    f"{item_id}/{gname} style for '{table}' draws none of "
+                                    f"the {len(present)} distinct '{attr}' value(s) the "
+                                    f"layer actually holds — it renders blank")
+                    finally:
+                        con2.close()
 
                 cats = _qml_categories(qml or "")
                 if not cats:

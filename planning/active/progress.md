@@ -120,3 +120,25 @@ three style keys were verified present by the absolute count in `test_pipeline.R
 by per-key assertions, which is the pairing this repo already prescribes for that blind
 spot (#23). A full `run_pipeline.sh` over all rostered groups is what exercises the
 cross-item arm, and that happens in #26.
+
+### Phase 5 addendum — the arm a single-group fixture could not reach
+
+Ran the smoke test on **MORR**, the multi-target group, after KOTL passed. It carries 24
+styled layers per item against KOTL's 8, and three layer shapes KOTL has none of:
+`classified_<sp>_<scen>_<year>_patches`, `<sp>_ff0N_by_blue_line_key` and
+`<sp>_ff04_by_gnis_name`. The style mapping handled all of them, and both MORR items
+built with 10 assets and validated clean — which also exercises the cross-item asset-key
+check with more than one item for the first time.
+
+Checking those layers in QGIS surfaced a property nothing structural could see: **a style
+can be present, well-formed, load cleanly and render nothing**, if it categorizes on a
+column the layer lacks or on values none of its features carry. Every existing arm passes
+in that state.
+
+Added it to `check_layer_styles()` without needing QGIS — read the renderer's attribute
+from the QML, confirm the layer has that column, and confirm at least one distinct value
+in the layer falls in a category the style actually draws. Both arms proven to fire: a
+style pointed at `no_such_column`, and a style with every category switched to
+`render="false"` (which keeps all 9 categories, so a count-based check stays green).
+
+Eight guard arms now restored and confirmed.
