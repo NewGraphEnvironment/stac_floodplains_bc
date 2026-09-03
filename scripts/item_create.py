@@ -44,6 +44,23 @@ STAC_DIR = Path("data/stac")
 S3_BASE = f"https://{BUCKET}.s3.{S3_REGION}.amazonaws.com"
 
 GPKG_MEDIA_TYPE = "application/geopackage+sqlite3"
+# A QML is XML, and there is no registered media type for a QGIS layer style. Naming an
+# unregistered `application/...+xml` would assert a type nobody can resolve; `application/xml`
+# is what it demonstrably is.
+QML_MEDIA_TYPE = "application/xml"
+
+# The layer styles published beside the data (#46), generated from the same classes.json
+# that feeds the RAT and classification:classes, and embedded in each GeoPackage's
+# layer_styles table by 04_gpkg_style.py. Published as assets as well, for consumers who
+# merge items into one GeoPackage or who disable default styles. Keys are prefixed rather
+# than named for the file stem: `floodplain` and `transition_vector` are already asset
+# keys, and a stem collision would silently replace a data asset while leaving the count
+# unchanged — the trap already documented for `transition_vector` below.
+STYLE_ASSETS = {
+    "style_floodplain": ("floodplain.qml", "QGIS layer style: floodplain delineations"),
+    "style_classified": ("classified.qml", "QGIS layer style: classified land cover"),
+    "style_transition": ("transition.qml", "QGIS layer style: land-cover transitions"),
+}
 PROJECTION_EXT = "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
 FILE_EXT = "https://stac-extensions.github.io/file/v2.1.0/schema.json"
 CLASSIFICATION_EXT = (
@@ -276,6 +293,15 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         extra_fields=file_meta(wsg_dir / "transition_vector.gpkg"),
     )
 
+    for _key, (_file, _title) in STYLE_ASSETS.items():
+        assets[_key] = pystac.Asset(
+            href=s3_href(f"{meta['item_id']}/{_file}"),
+            media_type=QML_MEDIA_TYPE,
+            title=_title,
+            roles=["style"],
+            extra_fields=file_meta(wsg_dir / _file),
+        )
+
     properties = {
         "title": f"{meta['wsg']} {meta['scenario']} floodplain land-cover change "
                  f"{span[0]}-{span[1]}",
@@ -361,6 +387,7 @@ for _mp in meta_paths:
         [f"classified_{yr}.tif" for yr in _meta["years"]]
         + [f"transition_{_span[0]}_{_span[1]}.tif",
            "floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg"]
+        + [f for f, _ in STYLE_ASSETS.values()]
     ):
         try:
             with (_dir / _name).open("rb") as _fh:
@@ -384,6 +411,7 @@ for meta_path in meta_paths:
         + [wsg_dir / "floodplain_landcover.gpkg"]
         + [wsg_dir / "floodplain.gpkg"]
         + [wsg_dir / "transition_vector.gpkg"]
+        + [wsg_dir / f for f, _ in STYLE_ASSETS.values()]
     )
     missing = [p.name for p in expected if not p.exists()]
     if missing:

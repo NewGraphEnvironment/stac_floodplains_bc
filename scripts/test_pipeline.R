@@ -50,6 +50,15 @@ if (system("uv run python scripts/03_cog.py") != 0) {
   stop("03_cog.py failed")
 }
 
+# --- 04 STYLE -------------------------------------------------------------
+# Embeds the layer_styles rows so the published GeoPackages open already styled.
+# Before the STAC build: item_create.py hashes every asset, and a style written
+# afterwards would publish a checksum over bytes that no longer match the file.
+message("\n=== 04: STYLE ===")
+if (system("uv run python scripts/04_gpkg_style.py") != 0) {
+  stop("04_gpkg_style.py failed")
+}
+
 # --- BUILD ----------------------------------------------------------------
 message("\n=== BUILD STAC JSON ===")
 if (system("uv run python scripts/item_create.py") != 0) {
@@ -208,8 +217,23 @@ for (mp in meta_paths) {
   # another. Size is checked against disk here; item_validate.py re-hashes the bytes
   # (this test asserts the fields ship at all, which is the cheap half).
   item_assets <- jsonlite::read_json(item_json)$assets
-  if (length(item_assets) != 7L) {
-    stop("expected 7 assets in ", basename(item_json), ", found ", length(item_assets))
+  # 7 data assets + 3 layer styles (#46). Absolute, not derived: a count taken from the
+  # item would agree with itself however many assets went missing.
+  if (length(item_assets) != 10L) {
+    stop("expected 10 assets in ", basename(item_json), ", found ", length(item_assets))
+  }
+  # The three styles must be present under their own keys and carry roles: ["style"].
+  # `floodplain` and `transition_vector` are already asset keys, so a stem-keyed style
+  # would replace a data asset and leave the count unchanged -- the same trap the
+  # transition_vector comment below describes.
+  for (skey in c("style_floodplain", "style_classified", "style_transition")) {
+    if (is.null(item_assets[[skey]])) {
+      stop("style asset '", skey, "' missing from ", basename(item_json))
+    }
+    if (!identical(unlist(item_assets[[skey]]$roles), "style")) {
+      stop("asset '", skey, "' roles is ",
+           paste(unlist(item_assets[[skey]]$roles), collapse = "/"), ", expected 'style'")
+    }
   }
   # The transition COG and the transition gpkg must BOTH be present under distinct keys.
   # `transition_2017_2023` is the COG key and is also the stem of the gpkg's old proposed
@@ -249,9 +273,22 @@ for (mp in meta_paths) {
   #
   # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
   # layer itself), and passing both emits a warning.
+  # `layer_styles` is a non-spatial table (04_gpkg_style.py), and GDAL reports it as a
+  # layer — with or without a `gpkg_contents` row, measured — so `st_layers()` returns it
+  # alongside the real ones. Filter on the PROPERTY that matters, having a geometry, not
+  # on the name: a name test would pass the day a second non-spatial table appears, and
+  # the loop below would then demand a `wsg` column from it. Restored the bug to confirm
+  # the unfiltered loop fails on a styled file.
+  feature_layers <- function(gpkg) {
+    l <- sf::st_layers(gpkg)
+    l$name[!vapply(l$geomtype, function(g) length(g) == 0L || is.na(g[[1]]), logical(1))]
+  }
   for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg")) {
     gpkg <- file.path(item_dir, gp)
-    for (lyr in sf::st_layers(gpkg)$name) {
+    lyrs <- feature_layers(gpkg)
+    # A filter that removed everything would make every assertion below vacuous.
+    if (!length(lyrs)) stop("no feature layers found in ", gp, " — the layer filter is wrong")
+    for (lyr in lyrs) {
       cols <- names(sf::st_read(gpkg, quiet = TRUE,
                                 query = sprintf('SELECT * FROM "%s" LIMIT 0', lyr)))
       if (!"wsg" %in% cols) {

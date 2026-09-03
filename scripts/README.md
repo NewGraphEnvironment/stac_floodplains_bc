@@ -22,6 +22,7 @@ the catalog host, so it can be cut from a machine that does not hold the source 
 | Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`, extract the transition layer to `transition_vector.gpkg` (layer `transition`); derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
 | Tag | `02_raster_tag.py` | Embed GDAL metadata tags from `meta.json` onto the **staged** rasters (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, run provenance, per-asset year). Before the COG conversion, not after — tagging a finished COG in place moves its main IFD to the end of the file (#33). Also authors the class-label RAT as a PAM `.aux.xml` beside each staged raster, which `03` absorbs into the COG (#34/#35) |
 | COG | `03_cog.py` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` via `rasterio.shutil.copy` (a GDAL `CreateCopy`), which carries the tags, colour table, band description **and the class-label RAT** through. This is the last step to touch a published byte. Python rather than terra since #34: only a RAT can put labels inside a `.tif`, and RAT-in-`GDAL_METADATA` needs GDAL 3.12+ while terra links 3.8.5 |
+| Style | `04_gpkg_style.py` | Embed a `layer_styles` row per feature layer in all three GeoPackages, so QGIS opens them already coloured with the same palette the COGs carry in their RAT (#46). Stdlib `sqlite3` — a GeoPackage is a SQLite database and a style row is an INSERT, so no GDAL and no new dependency. `f_table_schema` is `''`, never NULL (QGIS matches with `= ''` and NULL never equals, so a NULL row is written, logs nothing, and the layer opens unstyled). No `gpkg_contents` row and no triggers, unlike QGIS's own writer: measured to auto-style fine without them, and registering the table adds a second wall-clock stamp that would churn `file:checksum`. `update_time` pinned to `GPKG_EPOCH`, read from `fp_gpkg.R` so the two cannot drift. A re-run compares first and skips the write, because SQLite bumps its header change counter on any write transaction |
 | STAC | `item_create.py` | Build the collection + one `<item_id>.json` per target into `data/stac/`; asset hrefs under `<item_id>/`. Also hashes every asset into `file:checksum` + `file:size`. Build only — no validation, no network; the collection carries no `version` until `catalogue_release.sh` stamps it |
 | Extract | `fp_gpkg.R` | Sourced by `01_stage.R`: pins `OGR_CURRENT_DATE` and writes single-layer GeoPackages into a fresh file (the only case the pin makes byte-reproducible) |
 | Validate | `item_validate.py` | pystac-validate every document **on disk**, so what is checked is what ships. Requires exactly the staged item count, so a wrong `--base` fails instead of reporting `valid: 0` and exiting 0. Also re-hashes every asset and asserts the published `file:checksum`/`file:size` match the bytes |
@@ -196,6 +197,61 @@ ITEM=bulk_co_ff04 Rscript scripts/gpkg_determinism-check.R
 The cold path is the point. A guard nobody has seen fail is decoration, so `NO_PIN=1` asserts the
 rebuilds **differ** and errors if they match — if it passes, the warm run was measuring nothing.
 Measured on `sloc_bt_ff04`: unpinned `5429357d…` vs `c2bfa94b…`; pinned, both `ea0ac66f…`.
+
+## Layer styles
+
+`style_qml-write.py` generates the three QGIS styles this repo ships, all from the one
+`data/raw/classes.json` that already feeds the RAT and `classification:classes` — so the vector
+palette cannot disagree with the labels inside the COGs (#46).
+
+```bash
+uv run python scripts/style_qml-write.py      # regenerate styles/*.qml
+uv run python scripts/style_drift-check.py    # committed styles still match classes.json?
+                                             # (also run by run_pipeline.sh, before step 04)
+```
+
+| Style | Applies to | Renderer |
+|---|---|---|
+| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_gnis_name` / `_by_blue_line_key` variants on some groups | single symbol, ColorBrewer Paired blue |
+| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` | categorized on `class_name`, 9 io-lulc classes |
+| `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 72 pairs |
+
+All symbols ship at **50% opacity** — these layers are read over a basemap. Transition patches
+are coloured by **destination class**, the same choice the transition COG makes, so the raster and
+vector views of one item agree. The 8 `Trees -> *` loss categories ship switched **on**; the other
+64, including the 8 `<other> -> Trees` gain categories, ship switched **off**, so widening the view
+is a checkbox rather than a re-classify. File names are year-free so a QGIS `path|layername=`
+style survives a change of span.
+
+The styles are **committed**, not generated during a build, so a human reviews what ships — which
+is why the drift check exists: `01_stage.R` rewrites `classes.json` from drift on every run, and
+nothing else would notice that `styles/` had not followed. It is two-sided on the file set as well
+as the bytes, and refuses when it compared nothing.
+
+Symbol and category UUIDs are derived (`uuid5` over a fixed namespace), never `uuid4`. A random id
+makes the generator non-deterministic at identical byte length, which would defeat the byte-compare
+and churn `transition_vector.gpkg`'s published `file:checksum` on every rebuild. The drift check
+caught exactly that on its first run.
+
+### Style determinism check
+
+`gpkg_determinism-check.R` covers GDAL's timestamp pin. It cannot cover the style step:
+`04_gpkg_style.py` writes through `sqlite3`, which GDAL never sees, so `OGR_CURRENT_DATE`
+does not reach it and the style carries its own pin.
+
+```bash
+uv run python scripts/style_determinism-check.py            # warm: rebuilds must MATCH
+NO_PIN=1 uv run python scripts/style_determinism-check.py   # cold: rebuilds must DIFFER
+ITEM=bulk_co_ff04 uv run python scripts/style_determinism-check.py
+```
+
+Three properties, measured on `kotl_bt_ff04`: two writes with the pin are byte-identical
+across all three GeoPackages; two writes with a wall-clock stamp differ (the cold path, so a
+warm pass means something); and re-running the style step does not move a single byte.
+
+That third one is not obvious. SQLite bumps its header change counter on **any** write
+transaction, so a writer that rewrote identical rows would still republish a new
+`file:checksum` for unchanged content. The writer compares the rows first and skips.
 
 ## Provenance reader check
 
