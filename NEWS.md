@@ -23,6 +23,15 @@ release is cut at (`scripts/catalogue_release.sh`; recipe under "Cut a release" 
   number of items carrying a non-null `nge:` value, recorded as a literal beside each release.
   `--only` refuses to replace a live item's provenance with nulls.
 
+- The three GeoPackages now open in QGIS already styled (#46). A `layer_styles` row per feature
+  layer carries a renderer generated from the same `data/raw/classes.json` that feeds the raster
+  attribute table and `classification:classes`, so the vector and raster views of one item cannot
+  colour the same ground differently. The styles ship as STAC assets too — `style_floodplain`,
+  `style_classified`, `style_transition`, `roles: ["style"]` — for merged multi-item GeoPackages
+  and for consumers who disable default styles. Transition patches are coloured by destination
+  class; the eight `Trees -> *` loss categories ship switched on and the other 64, gain included,
+  ship off. All vector symbols at 50% opacity. Adds ~208 KB per `transition_vector.gpkg` (+5.5%).
+
 ## v1.0.0 (2026-09-02)
 
 First versioned release of the catalogue — **20 items** across 19 watershed groups in four
