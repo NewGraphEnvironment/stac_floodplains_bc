@@ -286,6 +286,16 @@ EXPECTED_RAT_ROWS = {"classified": 9, "transition": 81}
 # an expectation derived from the file could not fire, because a GeoPackage that lost its
 # style table would also report zero layers to compare against.
 STYLED_GPKGS = ("floodplain.gpkg", "floodplain_landcover.gpkg", "transition_vector.gpkg")
+STYLE_DIR = Path("styles")
+
+# The style assets every item must publish. Absolute for the same reason as the RAT
+# rows: `check_checksums` compares each item's asset keys against the LARGEST set it
+# saw, so three keys lost from every item is uniform and invisible there (#23).
+EXPECTED_STYLE_ASSETS = {
+    "style_floodplain": "floodplain.qml",
+    "style_classified": "classified.qml",
+    "style_transition": "transition.qml",
+}
 EXPECTED_STYLE_CATEGORIES = {"classified": 9, "transition": 73}
 
 # The producer writes the vector's `transition` column with an ASCII arrow and the RAT's
@@ -654,64 +664,122 @@ def check_cog_layout(base: Path) -> list[str]:
     return problems
 
 
-def _qml_renderer(qml: str) -> tuple[str, str]:
-    """(renderer type, classification attribute) for a QML."""
-    rend = ET.fromstring(qml).find("renderer-v2")
+def _qml_root(qml: str | None) -> ET.Element | None:
+    """Parse a styleQML blob once. None when it is NULL or not XML."""
+    if not qml:
+        return None
+    try:
+        return ET.fromstring(qml)
+    except ET.ParseError:
+        return None
+
+
+def _renderer(root: ET.Element) -> tuple[str, str]:
+    rend = root.find("renderer-v2")
     if rend is None:
         return ("", "")
     return (rend.get("type") or "", rend.get("attr") or "")
 
 
-def _qml_drawn(qml: str) -> set[str]:
-    """Category values a categorized QML actually DRAWS (render != false)."""
-    rend = ET.fromstring(qml).find("renderer-v2")
-    if rend is None:
-        return set()
-    cats = rend.find("categories")
-    return {c.get("value") for c in ([] if cats is None else list(cats))
-            if (c.get("render") or "true") != "false"}
+def _categories(root: ET.Element) -> dict[str, tuple[str, bool]]:
+    """{category value: ('#rrggbb', drawn)} for a categorized renderer.
 
-
-def _qml_categories(qml: str) -> dict[str, str]:
-    """{category value: '#rrggbb'} from a categorized QML, or {} if not categorized.
-
-    Reads the renderer QGIS will actually use, not the file's prose.
+    Colour is read from the symbol QGIS will paint, and `drawn` is the category's
+    own render state — the 64 non-Trees transition categories ship `render="false"`
+    by design, so the two have to be distinguishable.
     """
-    root = ET.fromstring(qml)
     rend = root.find("renderer-v2")
-    if rend is None or rend.get("type") != "categorizedSymbol":
+    if rend is None:
         return {}
-    colours = {}
-    # Explicit `is None`: an Element's truth value is its child count today and becomes
-    # always-True in a future Python, so `or []` would silently change meaning.
+    colours, visible = {}, {}
     syms = rend.find("symbols")
     for sym in ([] if syms is None else list(syms)):
-        layer = sym.find("layer")
-        if layer is None:
-            continue
-        opt = layer.find("Option")
-        for o in ([] if opt is None else list(opt)):
-            if o.get("name") == "color":
-                rgb = o.get("value", "").split(",")[:3]
+        # A symbol drawn at zero opacity, or whose only layer is disabled, paints
+        # nothing however right its colour is.
+        try:
+            alpha = float(sym.get("alpha") or "1")
+        except ValueError:
+            alpha = 0.0
+        painted = alpha > 0
+        colour = ""
+        for layer in sym.findall("layer"):
+            if (layer.get("enabled") or "1") != "1":
+                continue
+            opt = layer.find("Option")
+            vals = {o.get("name"): o.get("value", "")
+                    for o in ([] if opt is None else list(opt))}
+            if vals.get("style") == "no" and vals.get("outline_style") == "no":
+                continue
+            if not colour:
+                rgb = vals.get("color", "").split(",")[:3]
                 if len(rgb) == 3:
-                    colours[sym.get("name")] = "#%02x%02x%02x" % tuple(int(v) for v in rgb)
+                    colour = "#%02x%02x%02x" % tuple(int(v) for v in rgb)
+            break
+        else:
+            painted = False
+        colours[sym.get("name")] = colour
+        visible[sym.get("name")] = painted
     out = {}
     cats = rend.find("categories")
     for cat in ([] if cats is None else list(cats)):
-        out[cat.get("value")] = colours.get(cat.get("symbol"), "")
+        sym = cat.get("symbol")
+        drawn = (cat.get("render") or "true") != "false" and visible.get(sym, False)
+        out[cat.get("value")] = (colours.get(sym, ""), drawn)
     return out
 
 
-def check_layer_styles(base: Path) -> list[str]:
-    """Every GeoPackage carries a default style, and it agrees with the raster palette.
+def _single_symbol_paints(root: ET.Element) -> bool:
+    """Does a single-symbol renderer actually paint anything?
 
-    Three properties, and the third is the one that matters. A style can be present,
-    well-formed and still colour the vectors differently from the COG of the same ground
-    — which is the drift #46 exists to close — so the embedded QML's categories are
-    compared against this item's own `classification:classes`.
+    The floodplain delineations get no palette comparison — there is no attribute to
+    categorize on — so this is the only thing standing between a hand-edit and nine
+    invisible layers per item.
+    """
+    rend = root.find("renderer-v2")
+    if rend is None:
+        return False
+    syms = rend.find("symbols")
+    for sym in ([] if syms is None else list(syms)):
+        try:
+            if float(sym.get("alpha") or "1") <= 0:
+                continue
+        except ValueError:
+            continue
+        for layer in sym.findall("layer"):
+            if (layer.get("enabled") or "1") != "1":
+                continue
+            opt = layer.find("Option")
+            vals = {o.get("name"): o.get("value", "")
+                    for o in ([] if opt is None else list(opt))}
+            if vals.get("style") != "no" or vals.get("outline_style") != "no":
+                return True
+    return False
+
+
+def check_layer_styles(base: Path) -> list[str]:
+    """Every GeoPackage opens styled, and that style agrees with the raster palette.
+
+    Note on what the palette arm can and cannot prove. Both sides descend from one
+    `data/raw/classes.json`: `classification:classes` through `item_create.py`, the
+    embedded QML through `styles/*.qml`. So this catches a `styles/` tree that has gone
+    stale against the class table, and a style embedded against the wrong layer — it
+    does NOT independently verify the colours are the ones drift intends. Nothing here
+    can; that is what `classes.json` being ferried from `drift::dft_class_table()`
+    rather than retyped is for.
+
+    What it does prove independently: the style loads (the rfp#17 NULL trap), it is the
+    renderer that style is supposed to be, it paints something, and every value the
+    layer actually holds has a category.
     """
     problems: list[str] = []
     checked_files = 0
+    # Which renderer each style must be. An implicit "not categorized, therefore fine"
+    # is a guard failing toward pass: `nullSymbol` is a legitimate QGIS renderer that
+    # draws absolutely nothing, and it would sail through a check keyed on categories.
+    EXPECT_RENDERER = {"floodplain": "singleSymbol",
+                       "classified": "categorizedSymbol",
+                       "transition": "categorizedSymbol"}
+
     for path in sorted(base.glob("*.json")):
         doc = json.loads(path.read_text())
         if doc.get("type") != "Feature":
@@ -719,15 +787,54 @@ def check_layer_styles(base: Path) -> list[str]:
         item_id = doc["id"]
         item_dir = base / item_id
 
-        # The raster palette this item published, keyed by title. Ground truth for the
-        # comparison below, and it comes from the item document rather than classes.json
-        # so a build that published the wrong palette cannot agree with itself.
+        # --- the three style ASSETS: absolute, because the cross-item key check
+        # --- cannot see a loss that hits every item identically (#23).
+        assets = doc.get("assets", {})
+        for key, fname in sorted(EXPECTED_STYLE_ASSETS.items()):
+            asset = assets.get(key)
+            if asset is None:
+                problems.append(
+                    f"{item_id} publishes no '{key}' asset — every item losing it "
+                    f"looks uniform to the cross-item key check, so this literal is "
+                    f"the only thing that fires")
+                continue
+            if asset.get("roles") != ["style"]:
+                problems.append(
+                    f"{item_id} asset '{key}' has roles {asset.get('roles')!r}, "
+                    f"expected ['style']")
+            if not str(asset.get("href", "")).endswith("/" + fname):
+                problems.append(
+                    f"{item_id} asset '{key}' points at {asset.get('href')!r}, which "
+                    f"does not end in {fname} — the key and the file it publishes have "
+                    f"come apart, and href, checksum and size would all still agree")
+            # Three copies of one artifact exist: the repo's, the one beside the
+            # assets, and the blob inside the GeoPackage. Tie the first two together
+            # here; the third is tied below.
+            local, repo_copy = item_dir / fname, STYLE_DIR / fname
+            if local.exists() and repo_copy.exists() and \
+                    local.read_bytes() != repo_copy.read_bytes():
+                problems.append(
+                    f"{item_id}/{fname} differs from {repo_copy} — the published style "
+                    f"is not the reviewed one")
+
+        # The raster palette this item published. Every classified asset must carry the
+        # same table, so a per-year palette bug cannot hide behind a merge.
         raster: dict[str, dict[str, str]] = {}
-        for key, asset in doc.get("assets", {}).items():
-            for entry in asset.get("classification:classes") or []:
-                raster.setdefault(
-                    "transition" if key.startswith("transition") else "classified",
-                    {})[entry["title"]] = "#" + entry["color_hint"].lower()
+        per_year: list[tuple[str, dict[str, str]]] = []
+        for key, asset in assets.items():
+            entries = asset.get("classification:classes")
+            if not entries:
+                continue
+            kind = "transition" if key.startswith("transition") else "classified"
+            table = {e["title"]: "#" + e["color_hint"].lower() for e in entries}
+            if kind == "classified":
+                per_year.append((key, table))
+            raster.setdefault(kind, {}).update(table)
+        for key, table in per_year[1:]:
+            if table != per_year[0][1]:
+                problems.append(
+                    f"{item_id} asset '{key}' publishes a different class table from "
+                    f"'{per_year[0][0]}' — the years disagree about the palette")
 
         for gname in STYLED_GPKGS:
             gpkg = item_dir / gname
@@ -745,90 +852,139 @@ def check_layer_styles(base: Path) -> list[str]:
                     continue
                 layers = [r[0] for r in con.execute(
                     "SELECT table_name FROM gpkg_contents WHERE data_type='features'")]
+                geom_of = dict(con.execute(
+                    "SELECT table_name, column_name FROM gpkg_geometry_columns"))
                 rows = con.execute(
-                    "SELECT f_table_name, f_table_schema, useAsDefault, styleQML "
-                    "FROM layer_styles").fetchall()
+                    "SELECT f_table_name, f_table_schema, useAsDefault, styleName, "
+                    "f_geometry_column, styleQML FROM layer_styles").fetchall()
+                cols_of = {lyr: {r[1] for r in con.execute(
+                    f'PRAGMA table_info("{lyr}")')} for lyr in layers}
+
+                def distinct(lyr: str, attr: str, _c=con) -> set[str]:
+                    return {str(r[0]) for r in _c.execute(
+                        f'SELECT DISTINCT "{attr}" FROM "{lyr}"') if r[0] is not None}
+
+                styled = {r[0] for r in rows}
+                for missing in sorted(set(layers) - styled):
+                    problems.append(
+                        f"{item_id}/{gname} layer '{missing}' has no style row — it "
+                        f"opens unstyled while every other layer looks correct")
+                for extra in sorted(styled - set(layers)):
+                    problems.append(
+                        f"{item_id}/{gname} has a style row for '{extra}', which is "
+                        f"not a feature layer in this file")
+
+                for table, schema, use_default, style_name, geom, qml in rows:
+                    where = f"{item_id}/{gname} style for '{table}'"
+                    # NULL here is written successfully, logs nothing, and makes QGIS
+                    # fall back to a single symbol: it matches with `= ''` and NULL
+                    # never equals. The failure this check exists to catch (rfp#17).
+                    if schema != "":
+                        problems.append(
+                            f"{where} has f_table_schema={schema!r}, expected '' — "
+                            f"QGIS matches with = '' and NULL never equals, so this "
+                            f"layer opens unstyled with nothing logged")
+                    if use_default != 1:
+                        problems.append(
+                            f"{where} has useAsDefault={use_default!r}, expected 1 — "
+                            f"it will not load automatically")
+                    # Same silent-unstyled signature as the NULL schema above: QGIS
+                    # matches the row on this column too, and the writer fills it from
+                    # a `or "geom"` fallback that nothing else validates.
+                    if table in geom_of and geom != geom_of[table]:
+                        problems.append(
+                            f"{where} has f_geometry_column={geom!r} but the layer's "
+                            f"geometry column is {geom_of[table]!r}")
+
+                    root = _qml_root(qml)
+                    if root is None:
+                        # Named, rather than an uncaught ParseError out of this
+                        # function — a half-written style row is exactly what this
+                        # check exists to report, and a traceback points at Python.
+                        problems.append(
+                            f"{where} has a NULL or unparseable styleQML — the row "
+                            f"exists, so every presence check passes, and the layer "
+                            f"opens unstyled")
+                        continue
+                    # Tie the third copy of the artifact to the other two.
+                    kind = style_name if style_name in EXPECT_RENDERER else None
+                    if kind is None:
+                        problems.append(
+                            f"{where} has styleName={style_name!r}, which names none "
+                            f"of {sorted(EXPECT_RENDERER)}")
+                        continue
+                    repo_copy = STYLE_DIR / f"{kind}.qml"
+                    if repo_copy.exists() and qml != repo_copy.read_text(encoding="utf-8"):
+                        problems.append(
+                            f"{where} embeds a style that is not {repo_copy} — the "
+                            f"GeoPackage carries something no one reviewed")
+
+                    rtype, attr = _renderer(root)
+                    if rtype != EXPECT_RENDERER[kind]:
+                        problems.append(
+                            f"{where} uses renderer {rtype!r}, expected "
+                            f"{EXPECT_RENDERER[kind]!r} — a nullSymbol or singleSymbol "
+                            f"style loads cleanly and paints nothing or one colour, "
+                            f"and a check keyed on categories would skip it")
+                        continue
+
+                    if rtype == "singleSymbol":
+                        if not _single_symbol_paints(root):
+                            problems.append(
+                                f"{where} is a single symbol that paints nothing — "
+                                f"zero opacity, no enabled layer, or no fill and no "
+                                f"outline")
+                        continue
+
+                    if attr not in cols_of.get(table, set()):
+                        problems.append(
+                            f"{where} categorizes on {attr!r}, which is not a column "
+                            f"of that layer — it loads styled and renders nothing")
+                        continue
+
+                    cats = _categories(root)
+                    if len(cats) != EXPECTED_STYLE_CATEGORIES[kind]:
+                        problems.append(
+                            f"{where} has {len(cats)} categories, expected "
+                            f"{EXPECTED_STYLE_CATEGORIES[kind]}")
+                    present = distinct(table, attr)
+                    # Coverage, not intersection: a single renamed class leaves eight
+                    # others matching, so "any value is drawn" stays green while one
+                    # class is uncategorized and invisible.
+                    uncategorized = sorted(present - set(cats))
+                    if uncategorized:
+                        problems.append(
+                            f"{where} has no category for {len(uncategorized)} value(s) "
+                            f"the layer holds ({', '.join(uncategorized[:3])}"
+                            f"{', ...' if len(uncategorized) > 3 else ''}) — those "
+                            f"features draw with no symbol")
+                    # "At least one category is switched on" is a STYLE property only
+                    # where every category ships on. For `transition` 64 of 72 ship
+                    # off by design, so requiring a drawn value there would assert a
+                    # DATA property — that this watershed happened to lose trees — and
+                    # refuse a correct release on a correct dataset.
+                    if kind == "classified" and present and not any(
+                            cats[v][1] for v in present if v in cats):
+                        problems.append(
+                            f"{where} draws none of the {len(present)} value(s) the "
+                            f"layer holds — it renders blank")
+                    for value, (colour, _drawn) in sorted(cats.items()):
+                        if value == "NULL":
+                            continue
+                        title = value.replace(VECTOR_ARROW, RASTER_ARROW)
+                        want = raster.get(kind, {}).get(title)
+                        if want is None:
+                            problems.append(
+                                f"{where} draws category {value!r}, which is not in "
+                                f"this item's classification:classes — the vector "
+                                f"legend names something the raster does not")
+                        elif want != colour:
+                            problems.append(
+                                f"{where} draws {value!r} as {colour or 'nothing'} but "
+                                f"the raster publishes {want} — the vector and raster "
+                                f"views of the same ground would disagree")
             finally:
                 con.close()
-
-            styled = {r[0] for r in rows}
-            for missing in sorted(set(layers) - styled):
-                problems.append(
-                    f"{item_id}/{gname} layer '{missing}' has no style row — it opens "
-                    f"unstyled while every other layer in the file looks correct")
-            for extra in sorted(styled - set(layers)):
-                problems.append(
-                    f"{item_id}/{gname} has a style row for '{extra}', which is not a "
-                    f"feature layer in this file")
-
-            for table, schema, use_default, qml in rows:
-                # NULL here is written successfully, logs nothing, and makes QGIS fall
-                # back to a single symbol: it matches the row with `= ''` and NULL never
-                # equals. The one failure this check exists to catch (rfp#17).
-                if schema != "":
-                    problems.append(
-                        f"{item_id}/{gname} style for '{table}' has f_table_schema="
-                        f"{schema!r}, expected '' — QGIS matches with = '' and NULL never "
-                        f"equals, so this layer opens unstyled with nothing logged")
-                if use_default != 1:
-                    problems.append(
-                        f"{item_id}/{gname} style for '{table}' has useAsDefault="
-                        f"{use_default!r}, expected 1 — it will not load automatically")
-
-                # A style can be present, well-formed, load cleanly and still render
-                # NOTHING — if it categorizes on a column the layer does not have, or on
-                # values none of its features carry. Nothing structural sees that, so
-                # check it against the layer's own rows. This is the arm that a fixture
-                # of one single-species group could never have reached: MORR's bundle
-                # carries `classified_*_patches` and `*_by_blue_line_key` layers that
-                # KOTL has none of.
-                rtype, attr = _qml_renderer(qml or "")
-                if rtype == "categorizedSymbol":
-                    con2 = sqlite3.connect(f"file:{gpkg}?mode=ro", uri=True)
-                    try:
-                        cols = {r[1] for r in con2.execute(
-                            f'PRAGMA table_info("{table}")')}
-                        if attr not in cols:
-                            problems.append(
-                                f"{item_id}/{gname} style for '{table}' categorizes on "
-                                f"'{attr}', which is not a column of that layer — it "
-                                f"loads styled and renders nothing")
-                        else:
-                            present = {str(r[0]) for r in con2.execute(
-                                f'SELECT DISTINCT "{attr}" FROM "{table}"') if r[0] is not None}
-                            drawn = _qml_drawn(qml or "")
-                            if present and not (present & drawn):
-                                problems.append(
-                                    f"{item_id}/{gname} style for '{table}' draws none of "
-                                    f"the {len(present)} distinct '{attr}' value(s) the "
-                                    f"layer actually holds — it renders blank")
-                    finally:
-                        con2.close()
-
-                cats = _qml_categories(qml or "")
-                if not cats:
-                    continue  # single-symbol style (the floodplain delineations)
-                kind = "classified" if table.startswith("classified") else "transition"
-                if len(cats) != EXPECTED_STYLE_CATEGORIES[kind]:
-                    problems.append(
-                        f"{item_id}/{gname} style for '{table}' has {len(cats)} "
-                        f"categories, expected {EXPECTED_STYLE_CATEGORIES[kind]}")
-                for value, colour in sorted(cats.items()):
-                    if value == "NULL":
-                        continue
-                    title = value.replace(VECTOR_ARROW, RASTER_ARROW)
-                    want = raster.get(kind, {}).get(title)
-                    if want is None:
-                        problems.append(
-                            f"{item_id}/{gname} style for '{table}' draws category "
-                            f"{value!r}, which is not in this item's "
-                            f"classification:classes — the vector legend names something "
-                            f"the raster does not")
-                    elif want != colour:
-                        problems.append(
-                            f"{item_id}/{gname} style for '{table}' draws {value!r} as "
-                            f"{colour} but the raster publishes {want} — the vector and "
-                            f"raster views of the same ground would disagree")
 
     # A check that opened nothing is not a pass.
     if checked_files == 0:
@@ -1039,8 +1195,10 @@ def main() -> int:
         for msg in bad_styles:
             print(f"  {msg}", file=sys.stderr)
         return 1
-    print(f"layer styles: every feature layer in {len(STYLED_GPKGS)} GeoPackages carries a "
-          f"default style, and its categories agree with classification:classes")
+    print(f"layer styles: every feature layer in {len(STYLED_GPKGS)} GeoPackages carries "
+          f"the expected renderer, paints something, has a category for every value it "
+          f"holds, and agrees with classification:classes; "
+          f"{len(EXPECTED_STYLE_ASSETS)} style assets published per item")
 
     # --- COG layout: is the range-request property the format promises actually there? ---
     bad_layout = check_cog_layout(args.base)

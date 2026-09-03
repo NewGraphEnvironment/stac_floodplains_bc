@@ -40,6 +40,14 @@ echo "=== 03: COG ==="
 uv run python scripts/03_cog.py
 
 echo ""
+echo "=== STYLE DRIFT ==="
+# Before embedding, not after: `01_stage.R` rewrites data/raw/classes.json from drift on
+# every run, and styles/ is committed, so the two can part company with nothing noticing.
+# Temp-dir only, milliseconds, and it turns a downstream RAT-row failure into the actual
+# instruction ("regenerate and commit the styles").
+uv run python scripts/style_drift-check.py
+
+echo ""
 echo "=== 04: STYLE ==="
 # Before the STAC build, not after: item_create.py hashes every asset into
 # file:checksum, and a style embedded afterwards would publish a checksum over

@@ -207,12 +207,13 @@ palette cannot disagree with the labels inside the COGs (#46).
 ```bash
 uv run python scripts/style_qml-write.py      # regenerate styles/*.qml
 uv run python scripts/style_drift-check.py    # committed styles still match classes.json?
+                                             # (also run by run_pipeline.sh, before step 04)
 ```
 
 | Style | Applies to | Renderer |
 |---|---|---|
-| `styles/floodplain.qml` | `bt_ff02` / `bt_ff04` / `bt_ff06` in `floodplain.gpkg` | single symbol, ColorBrewer Paired blue |
-| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` in `floodplain_landcover.gpkg` | categorized on `class_name`, 9 io-lulc classes |
+| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_gnis_name` / `_by_blue_line_key` variants on some groups | single symbol, ColorBrewer Paired blue |
+| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` | categorized on `class_name`, 9 io-lulc classes |
 | `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 72 pairs |
 
 All symbols ship at **50% opacity** — these layers are read over a basemap. Transition patches

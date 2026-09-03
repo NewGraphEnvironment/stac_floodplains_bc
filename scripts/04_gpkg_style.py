@@ -86,7 +86,8 @@ def gpkg_epoch() -> str:
     is; a second copy would be one fact derived twice, and the two would drift the
     first time anyone changed it.
     """
-    m = re.search(r'^GPKG_EPOCH\s*<-\s*"([^"]+)"', FP_GPKG_R.read_text(), re.M)
+    m = re.search(r'^GPKG_EPOCH\s*<-\s*"([^"]+)"',
+                  FP_GPKG_R.read_text(encoding="utf-8"), re.M)
     if not m:
         raise SystemExit(
             f"could not read GPKG_EPOCH from {FP_GPKG_R} — the timestamp pin moved or "
@@ -102,7 +103,10 @@ def load_styles() -> dict[str, str]:
         raise SystemExit(
             f"missing style(s) in {STYLE_DIR}: {', '.join(missing)} — run "
             f"`uv run python scripts/style_qml-write.py`")
-    return {w: (STYLE_DIR / w).read_text() for w in wanted}
+    # Explicit encoding: every QML carries non-ASCII in its version header, and the
+    # generator writes UTF-8. A locale default would mojibake or raise, and the
+    # mangled bytes would then be embedded and published under a checksum over them.
+    return {w: (STYLE_DIR / w).read_text(encoding="utf-8") for w in wanted}
 
 
 def feature_layers(con: sqlite3.Connection) -> list[tuple[str, str]]:
@@ -207,8 +211,8 @@ def main() -> int:
         # an unchanged rewrite would move the mtime for no change in content.
         for name, text in sorted(styles.items()):
             dst = item / name
-            if not dst.exists() or dst.read_text() != text:
-                dst.write_text(text)
+            if not dst.exists() or dst.read_text(encoding="utf-8") != text:
+                dst.write_text(text, encoding="utf-8")
 
         total_rows += rows
         print(f"  {item.name}: {rows} style row(s) across {len(FILE_STYLES)} GeoPackages, "

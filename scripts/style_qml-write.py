@@ -17,11 +17,13 @@ wipes that palette. Tracked separately.
 
 Outputs (into styles/):
   floodplain.qml
-      Single blue fill for the bt_ff02 / bt_ff04 / bt_ff06 layers of
-      floodplain.gpkg, which carry no class attribute.
+      Single blue fill for every layer of floodplain.gpkg, which carry no class
+      attribute. A single-species group has three (`<sp>_ff02/04/06`); MORR has nine,
+      including `<sp>_ff04_by_gnis_name` and `<sp>_ff0N_by_blue_line_key`.
   classified.qml
-      Categorized on `class_name`. For the classified_<sp>_<scen>_<year> layers
-      of floodplain_landcover.gpkg.
+      Categorized on `class_name`. For the classified_<sp>_<scen>_<year> layers of
+      floodplain_landcover.gpkg, and their `_patches` variants, which carry the same
+      column. A multi-target group holds both species' layers in one file.
   transition.qml
       Categorized on `transition` ("Trees -> Rangeland"). Every Trees -> X
       category is switched on; every other origin ships switched off, so the

@@ -142,3 +142,52 @@ style pointed at `no_such_column`, and a style with every category switched to
 `render="false"` (which keeps all 9 categories, so a count-based check stays green).
 
 Eight guard arms now restored and confirmed.
+
+### Review round — two concurrent reviewers, 20 findings
+
+Both read the branch at `7c41af5`. Everything below was reproduced before acting on it.
+
+**The blocker both found, in different words: `if not cats: continue` turned "I could not
+read a palette here" into "this is fine".** A style whose renderer is `nullSymbol` (a real
+QGIS renderer that draws nothing) or `singleSymbol` skipped the palette check, the category
+count and the renders-blank arm — every classified layer in every item could have drawn
+nothing, green. Closed by asserting the expected renderer per style, keyed off `styleName`.
+
+**`floodplain.qml` had no content check at all.** Nine layers per item on some groups, and
+the only assertions were about loading. A white fill, `alpha="0"`, or fill and outline both
+`no` all passed. Closed with `_single_symbol_paints()`.
+
+**A false refusal that would have blocked a correct release.** The renders-blank arm asked
+whether the style draws any value the layer holds. For `transition`, 64 of 72 categories
+ship off by design, so a watershed with no Trees-origin change is a correct dataset with a
+correct style and was refused. Measured margin across the 48 staged transition layers: the
+thinnest was 3 distinct Trees-origin values. Split into two properties — every value has a
+category (a style property, both kinds) and at least one is drawn (only where all categories
+ship on, i.e. classified). Both directions re-proven.
+
+**The style assets had no absolute assertion in the release gate.** `check_checksums`
+compares each item's key set against the largest one it saw, so three keys lost from every
+item is uniform and invisible; the only absolute count lived in the smoke test, which
+`catalogue_release.sh` never runs. Added `EXPECTED_STYLE_ASSETS` to the validator, with
+`roles` and href checks.
+
+**Three copies of one artifact, no guard tying any pair.** `styles/x.qml`, the copy beside
+the assets, and the blob inside the GeoPackage. A one-word edit to `STYLE_ASSETS` would
+publish the wrong style under the right key with href, checksum and size all agreeing.
+All three are now compared.
+
+Also fixed: `present & drawn` was an intersection test, so one renamed class of nine passed
+— now coverage; a NULL `styleQML` raised an uncaught `ParseError` instead of a named
+problem; `f_geometry_column` was written from a fallback and never validated; the classified
+palette was merged across years, hiding a per-year bug; `kind` duplicated the writer's
+mapping rule and is now read from `styleName`; `read_text`/`write_text` had no `encoding=`;
+the drift check ran in nothing and is now a pipeline step; the docstrings described the
+single-species layer set.
+
+**11 guard arms restored and confirmed to fire**, plus the false-refusal case confirmed to
+be accepted and its genuine counterpart still refused. `check_layer_styles` runs in 0.7 s
+over all 23 items, so none of this is a cost.
+
+Declined: the S3 object content type for `.qml` will be `binary/octet-stream` because
+`aws s3 sync` cannot set per-extension types. The STAC declaration is the authoritative one
+and it is correct.
