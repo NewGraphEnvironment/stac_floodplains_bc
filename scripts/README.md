@@ -232,6 +232,26 @@ makes the generator non-deterministic at identical byte length, which would defe
 and churn `transition_vector.gpkg`'s published `file:checksum` on every rebuild. The drift check
 caught exactly that on its first run.
 
+### Style determinism check
+
+`gpkg_determinism-check.R` covers GDAL's timestamp pin. It cannot cover the style step:
+`04_gpkg_style.py` writes through `sqlite3`, which GDAL never sees, so `OGR_CURRENT_DATE`
+does not reach it and the style carries its own pin.
+
+```bash
+uv run python scripts/style_determinism-check.py            # warm: rebuilds must MATCH
+NO_PIN=1 uv run python scripts/style_determinism-check.py   # cold: rebuilds must DIFFER
+ITEM=bulk_co_ff04 uv run python scripts/style_determinism-check.py
+```
+
+Three properties, measured on `kotl_bt_ff04`: two writes with the pin are byte-identical
+across all three GeoPackages; two writes with a wall-clock stamp differ (the cold path, so a
+warm pass means something); and re-running the style step does not move a single byte.
+
+That third one is not obvious. SQLite bumps its header change counter on **any** write
+transaction, so a writer that rewrote identical rows would still republish a new
+`file:checksum` for unchanged content. The writer compares the rows first and skips.
+
 ## Provenance reader check
 
 ```bash

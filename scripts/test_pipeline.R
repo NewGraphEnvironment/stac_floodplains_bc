@@ -258,9 +258,22 @@ for (mp in meta_paths) {
   #
   # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
   # layer itself), and passing both emits a warning.
+  # `layer_styles` is a non-spatial table (04_gpkg_style.py), and GDAL reports it as a
+  # layer — with or without a `gpkg_contents` row, measured — so `st_layers()` returns it
+  # alongside the real ones. Filter on the PROPERTY that matters, having a geometry, not
+  # on the name: a name test would pass the day a second non-spatial table appears, and
+  # the loop below would then demand a `wsg` column from it. Restored the bug to confirm
+  # the unfiltered loop fails on a styled file.
+  feature_layers <- function(gpkg) {
+    l <- sf::st_layers(gpkg)
+    l$name[!vapply(l$geomtype, function(g) length(g) == 0L || is.na(g[[1]]), logical(1))]
+  }
   for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg")) {
     gpkg <- file.path(item_dir, gp)
-    for (lyr in sf::st_layers(gpkg)$name) {
+    lyrs <- feature_layers(gpkg)
+    # A filter that removed everything would make every assertion below vacuous.
+    if (!length(lyrs)) stop("no feature layers found in ", gp, " — the layer filter is wrong")
+    for (lyr in lyrs) {
       cols <- names(sf::st_read(gpkg, quiet = TRUE,
                                 query = sprintf('SELECT * FROM "%s" LIMIT 0', lyr)))
       if (!"wsg" %in% cols) {

@@ -52,3 +52,20 @@
 - Verified in QGIS 4.2.1: all 8 layers across the 3 GeoPackages auto-style on a plain open
   with no `.qml` loaded — 3 single-symbol, 3 categorized at 9 classes, 2 categorized at 73,
   every symbol at opacity 0.5.
+
+### Phase 3 — done
+
+- Confirmed the break before fixing it: the unmodified `test_pipeline.R` loop errors with
+  `layer 'layer_styles' ... has no wsg column` against a styled GeoPackage.
+- Fixed by filtering to layers that HAVE a geometry, not by excluding the name
+  `layer_styles` — a name test would pass the day a second non-spatial table appears. The
+  filter refuses if it removed everything, so it cannot make the assertions vacuous.
+- Audited the other two `st_layers()` callers: `fp_gpkg.R:65` and `01_stage.R:294` are a
+  membership test and a `setdiff` against a needed set, both of which tolerate an extra
+  layer. Neither needed changing.
+- `scripts/style_determinism-check.py` added rather than extending the R check: the style
+  pin is a different mechanism in a different language, and `OGR_CURRENT_DATE` cannot reach
+  a row written through `sqlite3`. Warm, cold and re-run-is-a-no-op arms all pass.
+- The check's first run failed usefully — the writer refused a temp file named
+  `a_floodplain.gpkg` because it keys its style map on the basename. That is the production
+  behaviour we want, so the check moved to subdirectories instead.

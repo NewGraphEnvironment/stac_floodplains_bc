@@ -80,14 +80,14 @@ over-mapped. One tagged release at the end of #26 carries #46, #47 and the rebui
 
 ## Phase 3: Repair what embedding breaks
 
-- [ ] **`sf::st_layers()` lists `layer_styles` as a layer.** Measured on a styled copy: both
+- [x] **`sf::st_layers()` lists `layer_styles` as a layer.** Measured on a styled copy: both
       `ogrinfo` and `sf` report it. `test_pipeline.R`'s attribute loop iterates
       `sf::st_layers(gpkg)$name` and asserts every layer carries a `wsg` column, so
       embedding makes that loop fail on a correct file. Restrict the loop to feature layers.
-- [ ] Extend `scripts/gpkg_determinism-check.R`, which today covers only the
+- [x] Extend `scripts/gpkg_determinism-check.R`, which today covers only the
       `transition_vector.gpkg` extraction, to cover a styled file — otherwise the pin added
       in Phase 2 has no test.
-- [ ] Grep for any other layer enumeration that would now see `layer_styles`.
+- [x] Grep for any other layer enumeration that would now see `layer_styles`.
 
 ## Phase 4: Publish the styles as STAC assets
 
