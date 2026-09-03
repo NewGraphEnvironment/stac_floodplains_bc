@@ -69,3 +69,20 @@
 - The check's first run failed usefully — the writer refused a temp file named
   `a_floodplain.gpkg` because it keys its style map on the basename. That is the production
   behaviour we want, so the check moved to subdirectories instead.
+
+### Phase 4 — done
+
+- `04_gpkg_style.py` now also copies the three `.qml` into each item directory, writing
+  only when the bytes differ so an unchanged rerun does not move an mtime.
+- `item_create.py` publishes them as `style_floodplain` / `style_classified` /
+  `style_transition`, media type `application/xml`, `roles: ["style"]`, each with
+  `file:checksum` and `file:size` from the existing `file_meta()`.
+- Keys are prefixed rather than named for the file stem, deliberately: `floodplain` and
+  `transition_vector` are already asset keys, so a stem-keyed style would replace a data
+  asset and leave the asset count unchanged — the same trap the `transition_vector`
+  comment in that file already describes.
+- Both preflight filename lists extended from `STYLE_ASSETS`, so the list has one source.
+- `test_pipeline.R`: asset count 7 -> 10, plus per-key presence and a `roles == ["style"]`
+  assertion, since a count alone cannot tell a style from a replaced data asset.
+- Built and validated: 10 assets on `kotl_bt_ff04`, `item_validate.py` green including its
+  re-hash of every asset.

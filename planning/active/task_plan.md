@@ -91,17 +91,17 @@ over-mapped. One tagged release at the end of #26 carries #46, #47 and the rebui
 
 ## Phase 4: Publish the styles as STAC assets
 
-- [ ] Copy the three `.qml` into each item directory during staging or step 04. Per-item
+- [x] Copy the three `.qml` into each item directory during staging or step 04. Per-item
       copies rather than one shared object at the bucket root, because
       `item_validate.py`'s `check_checksums` asserts `href_parts[-2] == item_id`. Cost is
       about 160 KB per item.
-- [ ] `scripts/item_create.py`: three new assets alongside the existing hardcoded blocks,
+- [x] `scripts/item_create.py`: three new assets alongside the existing hardcoded blocks,
       each with `file_meta()` for `file:checksum` / `file:size`, media type
       `application/xml`, `roles: ["style"]`. Also update the two enumerated filename lists
       used by the preflight (around lines 361 and 382).
-- [ ] `.qml` needs no sync change — verified that `catalogue_release.sh`'s excludes are
+- [x] `.qml` needs no sync change — verified that `catalogue_release.sh`'s excludes are
       `.*`, `*/.*`, `*.json`, `*.aux.xml`, so a `.qml` in an item directory uploads.
-- [ ] `test_pipeline.R`: the hardcoded `length(item_assets) != 7L` becomes 10.
+- [x] `test_pipeline.R`: the hardcoded `length(item_assets) != 7L` becomes 10.
 
 ## Phase 5: Validate, and prove the guards fire
 

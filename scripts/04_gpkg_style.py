@@ -196,8 +196,23 @@ def main() -> int:
             if not gpkg.exists():
                 raise SystemExit(f"{gpkg} is absent — staging did not complete")
             rows += style_gpkg(gpkg, styles, epoch)
+
+        # Also place the styles beside the assets, so `item_create.py` can publish them
+        # as STAC assets. Per-item copies rather than one shared object at the bucket
+        # root: `item_validate.py`'s checksum check resolves an asset's local path from
+        # its href and asserts the second-to-last segment is the item id, so a
+        # root-level style would have no item directory to live in. About 160 KB each.
+        #
+        # Written only when the bytes differ, for the same reason the style rows are:
+        # an unchanged rewrite would move the mtime for no change in content.
+        for name, text in sorted(styles.items()):
+            dst = item / name
+            if not dst.exists() or dst.read_text() != text:
+                dst.write_text(text)
+
         total_rows += rows
-        print(f"  {item.name}: {rows} style row(s) across {len(FILE_STYLES)} GeoPackages")
+        print(f"  {item.name}: {rows} style row(s) across {len(FILE_STYLES)} GeoPackages, "
+              f"{len(styles)} .qml copied")
 
     print(f"styles embedded: {total_rows} row(s) over {len(items)} item(s), "
           f"update_time pinned to {epoch}")

@@ -217,8 +217,23 @@ for (mp in meta_paths) {
   # another. Size is checked against disk here; item_validate.py re-hashes the bytes
   # (this test asserts the fields ship at all, which is the cheap half).
   item_assets <- jsonlite::read_json(item_json)$assets
-  if (length(item_assets) != 7L) {
-    stop("expected 7 assets in ", basename(item_json), ", found ", length(item_assets))
+  # 7 data assets + 3 layer styles (#46). Absolute, not derived: a count taken from the
+  # item would agree with itself however many assets went missing.
+  if (length(item_assets) != 10L) {
+    stop("expected 10 assets in ", basename(item_json), ", found ", length(item_assets))
+  }
+  # The three styles must be present under their own keys and carry roles: ["style"].
+  # `floodplain` and `transition_vector` are already asset keys, so a stem-keyed style
+  # would replace a data asset and leave the count unchanged -- the same trap the
+  # transition_vector comment below describes.
+  for (skey in c("style_floodplain", "style_classified", "style_transition")) {
+    if (is.null(item_assets[[skey]])) {
+      stop("style asset '", skey, "' missing from ", basename(item_json))
+    }
+    if (!identical(unlist(item_assets[[skey]]$roles), "style")) {
+      stop("asset '", skey, "' roles is ",
+           paste(unlist(item_assets[[skey]]$roles), collapse = "/"), ", expected 'style'")
+    }
   }
   # The transition COG and the transition gpkg must BOTH be present under distinct keys.
   # `transition_2017_2023` is the COG key and is also the stem of the gpkg's old proposed
