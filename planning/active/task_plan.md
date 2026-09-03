@@ -105,15 +105,15 @@ over-mapped. One tagged release at the end of #26 carries #46, #47 and the rebui
 
 ## Phase 5: Validate, and prove the guards fire
 
-- [ ] `scripts/item_validate.py`: assert every GeoPackage carries a `layer_styles` row for
+- [x] `scripts/item_validate.py`: assert every GeoPackage carries a `layer_styles` row for
       every feature layer, that `f_table_schema` is `''` on all of them, and that the
       embedded QML's category values equal `classification:classes` on the same item. Follow
       the file's existing convention of absolute literals (`EXPECTED_RAT_ROWS`) rather than
       expectations derived from the artifact.
-- [ ] **Restore each defect and watch the check go red**, per the repo's convention:
+- [x] **Restore each defect and watch the check go red**, per the repo's convention:
       set `f_table_schema` to NULL and confirm refusal; drop a row and confirm refusal;
       edit `classes.json` and confirm the drift check fails.
-- [ ] Confirm the cross-item asset-key equality check in `check_checksums` still passes with
+- [x] Confirm the cross-item asset-key equality check in `check_checksums` still passes with
       three keys added uniformly.
 
 ## Verification

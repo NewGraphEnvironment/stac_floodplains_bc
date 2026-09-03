@@ -27,6 +27,7 @@ silent-success hole:
 import argparse
 import hashlib
 import json
+import sqlite3
 import re
 import struct
 import sys
@@ -280,6 +281,18 @@ GDAL_METADATA_TAG = 42112
 # table went empty, the RAT, the STAC classes and the expectation would all go empty
 # together and every comparison would pass. 9 land-cover classes; 9x9 transitions.
 EXPECTED_RAT_ROWS = {"classified": 9, "transition": 81}
+
+# The layer styles embedded by 04_gpkg_style.py (#46). Absolute, like the RAT rows above:
+# an expectation derived from the file could not fire, because a GeoPackage that lost its
+# style table would also report zero layers to compare against.
+STYLED_GPKGS = ("floodplain.gpkg", "floodplain_landcover.gpkg", "transition_vector.gpkg")
+EXPECTED_STYLE_CATEGORIES = {"classified": 9, "transition": 73}
+
+# The producer writes the vector's `transition` column with an ASCII arrow and the RAT's
+# titles with U+2192. Measured, and deliberate on both sides — so the comparison below has
+# to translate rather than assume they match.
+VECTOR_ARROW = " -> "
+RASTER_ARROW = " \u2192 "
 
 
 def _read_embedded_rat(path: Path) -> ET.Element | None:
@@ -641,6 +654,142 @@ def check_cog_layout(base: Path) -> list[str]:
     return problems
 
 
+def _qml_categories(qml: str) -> dict[str, str]:
+    """{category value: '#rrggbb'} from a categorized QML, or {} if not categorized.
+
+    Reads the renderer QGIS will actually use, not the file's prose.
+    """
+    root = ET.fromstring(qml)
+    rend = root.find("renderer-v2")
+    if rend is None or rend.get("type") != "categorizedSymbol":
+        return {}
+    colours = {}
+    # Explicit `is None`: an Element's truth value is its child count today and becomes
+    # always-True in a future Python, so `or []` would silently change meaning.
+    syms = rend.find("symbols")
+    for sym in ([] if syms is None else list(syms)):
+        layer = sym.find("layer")
+        if layer is None:
+            continue
+        opt = layer.find("Option")
+        for o in ([] if opt is None else list(opt)):
+            if o.get("name") == "color":
+                rgb = o.get("value", "").split(",")[:3]
+                if len(rgb) == 3:
+                    colours[sym.get("name")] = "#%02x%02x%02x" % tuple(int(v) for v in rgb)
+    out = {}
+    cats = rend.find("categories")
+    for cat in ([] if cats is None else list(cats)):
+        out[cat.get("value")] = colours.get(cat.get("symbol"), "")
+    return out
+
+
+def check_layer_styles(base: Path) -> list[str]:
+    """Every GeoPackage carries a default style, and it agrees with the raster palette.
+
+    Three properties, and the third is the one that matters. A style can be present,
+    well-formed and still colour the vectors differently from the COG of the same ground
+    — which is the drift #46 exists to close — so the embedded QML's categories are
+    compared against this item's own `classification:classes`.
+    """
+    problems: list[str] = []
+    checked_files = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc["id"]
+        item_dir = base / item_id
+
+        # The raster palette this item published, keyed by title. Ground truth for the
+        # comparison below, and it comes from the item document rather than classes.json
+        # so a build that published the wrong palette cannot agree with itself.
+        raster: dict[str, dict[str, str]] = {}
+        for key, asset in doc.get("assets", {}).items():
+            for entry in asset.get("classification:classes") or []:
+                raster.setdefault(
+                    "transition" if key.startswith("transition") else "classified",
+                    {})[entry["title"]] = "#" + entry["color_hint"].lower()
+
+        for gname in STYLED_GPKGS:
+            gpkg = item_dir / gname
+            if not gpkg.exists():
+                problems.append(f"{item_id}: {gname} is absent")
+                continue
+            checked_files += 1
+            con = sqlite3.connect(f"file:{gpkg}?mode=ro", uri=True)
+            try:
+                if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                                   "AND name='layer_styles'").fetchone():
+                    problems.append(
+                        f"{item_id}/{gname} has no layer_styles table — it will open "
+                        f"unstyled in QGIS (04_gpkg_style.py did not run)")
+                    continue
+                layers = [r[0] for r in con.execute(
+                    "SELECT table_name FROM gpkg_contents WHERE data_type='features'")]
+                rows = con.execute(
+                    "SELECT f_table_name, f_table_schema, useAsDefault, styleQML "
+                    "FROM layer_styles").fetchall()
+            finally:
+                con.close()
+
+            styled = {r[0] for r in rows}
+            for missing in sorted(set(layers) - styled):
+                problems.append(
+                    f"{item_id}/{gname} layer '{missing}' has no style row — it opens "
+                    f"unstyled while every other layer in the file looks correct")
+            for extra in sorted(styled - set(layers)):
+                problems.append(
+                    f"{item_id}/{gname} has a style row for '{extra}', which is not a "
+                    f"feature layer in this file")
+
+            for table, schema, use_default, qml in rows:
+                # NULL here is written successfully, logs nothing, and makes QGIS fall
+                # back to a single symbol: it matches the row with `= ''` and NULL never
+                # equals. The one failure this check exists to catch (rfp#17).
+                if schema != "":
+                    problems.append(
+                        f"{item_id}/{gname} style for '{table}' has f_table_schema="
+                        f"{schema!r}, expected '' — QGIS matches with = '' and NULL never "
+                        f"equals, so this layer opens unstyled with nothing logged")
+                if use_default != 1:
+                    problems.append(
+                        f"{item_id}/{gname} style for '{table}' has useAsDefault="
+                        f"{use_default!r}, expected 1 — it will not load automatically")
+
+                cats = _qml_categories(qml or "")
+                if not cats:
+                    continue  # single-symbol style (the floodplain delineations)
+                kind = "classified" if table.startswith("classified") else "transition"
+                if len(cats) != EXPECTED_STYLE_CATEGORIES[kind]:
+                    problems.append(
+                        f"{item_id}/{gname} style for '{table}' has {len(cats)} "
+                        f"categories, expected {EXPECTED_STYLE_CATEGORIES[kind]}")
+                for value, colour in sorted(cats.items()):
+                    if value == "NULL":
+                        continue
+                    title = value.replace(VECTOR_ARROW, RASTER_ARROW)
+                    want = raster.get(kind, {}).get(title)
+                    if want is None:
+                        problems.append(
+                            f"{item_id}/{gname} style for '{table}' draws category "
+                            f"{value!r}, which is not in this item's "
+                            f"classification:classes — the vector legend names something "
+                            f"the raster does not")
+                    elif want != colour:
+                        problems.append(
+                            f"{item_id}/{gname} style for '{table}' draws {value!r} as "
+                            f"{colour} but the raster publishes {want} — the vector and "
+                            f"raster views of the same ground would disagree")
+
+    # A check that opened nothing is not a pass.
+    if checked_files == 0:
+        problems.append(
+            f"no GeoPackages were style-checked under {base} — the style contract was "
+            f"not actually checked against anything")
+    return problems
+
+
 def check_checksums(base: Path) -> list[str]:
     """Verify every asset's `file:checksum` and `file:size` against the file on disk.
 
@@ -833,6 +982,17 @@ def main() -> int:
           + ", ".join(f"{s} {n}" for s, n in per_section.items())
           + f"; floor {'none' if args.expect_provenance is None else args.expect_provenance}), "
           f"COG tags agree")
+
+    # --- layer styles: do the GeoPackages open styled, and does that style agree
+    # --- with the raster palette for the same ground? (#46)
+    bad_styles = check_layer_styles(args.base)
+    if bad_styles:
+        print(f"FAILED: {len(bad_styles)} layer-style problem(s)", file=sys.stderr)
+        for msg in bad_styles:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"layer styles: every feature layer in {len(STYLED_GPKGS)} GeoPackages carries a "
+          f"default style, and its categories agree with classification:classes")
 
     # --- COG layout: is the range-request property the format promises actually there? ---
     bad_layout = check_cog_layout(args.base)

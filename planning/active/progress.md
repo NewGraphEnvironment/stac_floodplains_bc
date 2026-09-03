@@ -86,3 +86,37 @@
   assertion, since a count alone cannot tell a style from a replaced data asset.
 - Built and validated: 10 assets on `kotl_bt_ff04`, `item_validate.py` green including its
   re-hash of every asset.
+
+### Phase 5 — done
+
+- `check_layer_styles()` added to `item_validate.py`: every feature layer carries a style
+  row, `f_table_schema` is `''`, `useAsDefault` is 1, and — the arm that matters — the
+  embedded QML's categories are compared against **this item's own**
+  `classification:classes`, so a vector legend that disagrees with the raster of the same
+  ground is refused. Absolute literals (`STYLED_GPKGS`, `EXPECTED_STYLE_CATEGORIES`),
+  matching the file's existing convention, and it refuses if it opened nothing.
+- The comparison has to translate: the producer writes the vector's `transition` column
+  with an ASCII arrow and the RAT's titles with U+2192. Both deliberate, so the check
+  converts rather than assuming they match.
+- **The first restore-the-bug run was a false pass, and checking the message is what
+  caught it.** All five mutations exited 1, but none printed a style message: mutating the
+  GeoPackage changes its bytes, so `check_checksums` fired first and short-circuited. The
+  proofs only mean anything with `item_create.py` re-run in between so the checksums match.
+- Six arms, each fired for its own reason after that fix: NULL `f_table_schema`, a missing
+  row, no table at all, `useAsDefault = 0`, a colour disagreeing with the raster, and a
+  category the raster does not name.
+- One of those six needed a second attempt too: ElementTree escapes the arrow as `-&gt;`
+  in the raw file, so a plain string replace on `styleQML` matched nothing and the test
+  silently mutated nothing. A test artifact, not a code defect — the validator parses the
+  XML and sees the unescaped value.
+- Full `WSG=kotl Rscript scripts/test_pipeline.R` green end to end, and all three
+  standalone checks pass on both arms.
+
+### Known limitation, stated rather than papered over
+
+`check_checksums`'s cross-item asset-key equality check cannot discriminate on a
+single-item tree: with one item, the largest observed key set IS that item's set. The
+three style keys were verified present by the absolute count in `test_pipeline.R` (10) and
+by per-key assertions, which is the pairing this repo already prescribes for that blind
+spot (#23). A full `run_pipeline.sh` over all rostered groups is what exercises the
+cross-item arm, and that happens in #26.
