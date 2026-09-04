@@ -248,6 +248,83 @@ def check_collection_metadata(doc: dict) -> list[str]:
     return problems
 
 
+# The items published as over-mapped (#26). Duplicated from item_create.py's DEPRECATED_ITEMS
+# rather than imported, for the reasons given above REQUIRED_NGE_PROPERTIES: importing that
+# module runs the whole build, and a guard that reads the value it checks is x == x.
+EXPECTED_DEPRECATED = {"mcgr_ch_ff04", "pine_bt_ff04"}
+
+
+def check_deprecated(base: Path) -> list[str]:
+    """Exactly the items that could not be re-run are marked, and the marker self-clears (#26).
+
+    pystac cannot help here at all. The Version Extension's Item branch is
+    `properties: {"$ref": "#/definitions/fields"}` with NO `required`, and every field in
+    `fields` is optional — so an item declaring the extension and carrying no `deprecated`
+    validates clean, and one carrying `deprecated` without declaring the extension validates
+    too, because the schema is selected BY the extension list. Both directions are ours.
+
+    SET EQUALITY, not containment, and the literal's own ids checked against the build: a
+    marker that spread, a marker that was dropped, and an id left behind by a rename are three
+    different defects and only the first is visible to a containment check.
+
+    The self-clearing arm is the one that matters over time. This is written data that
+    outlives the fix (`code-check.md`, "Written data outlives the fix"): when floodplains#76
+    unblocks and MCGR is rebuilt, nothing would remove it from the literal, and it would
+    publish as deprecated forever while carrying corrected geometry — a lie in the opposite
+    direction from the one #26 opened. So an item marked deprecated may not carry a non-null
+    `nge:flooded_version`, and the first corrected build fails the release until the id is
+    deleted from the literal.
+
+    What that arm encodes is "deprecated HERE means not-rebuilt". True by construction today —
+    both marked items have no upstream provenance.json at all — and it would misfire on an item
+    deprecated for some other reason while carrying provenance. That is a deliberate coupling,
+    not an oversight: the alternative is a marker with no expiry, and this repo has already
+    published one forward-only field it could not take back.
+    """
+    problems: list[str] = []
+    marked: set[str] = set()
+    seen: set[str] = set()
+
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc.get("id", path.stem)
+        seen.add(item_id)
+        props = doc.get("properties", {})
+        flag = props.get("deprecated")
+        has_ext = VERSION_EXT in (doc.get("stac_extensions") or [])
+
+        if flag is not None and flag is not True:
+            # `deprecated: false` is the extension's default and says nothing; publishing it
+            # explicitly on some items and not others would make absence ambiguous.
+            problems.append(f"{item_id}: deprecated is {flag!r} — publish true or omit it")
+        if has_ext != (flag is not None):
+            problems.append(
+                f"{item_id}: version extension half-applied — extension "
+                f"{'declared' if has_ext else 'absent'}, deprecated "
+                f"{'present' if flag is not None else 'absent'}")
+        if flag is True:
+            marked.add(item_id)
+            fv = props.get("nge:flooded_version")
+            if fv is not None:
+                problems.append(
+                    f"{item_id}: marked deprecated but carries nge:flooded_version {fv!r} — "
+                    f"it has been rebuilt, so delete it from DEPRECATED_ITEMS in "
+                    f"item_create.py and EXPECTED_DEPRECATED here rather than publishing a "
+                    f"corrected item labelled stale")
+
+    if marked != EXPECTED_DEPRECATED:
+        for i in sorted(EXPECTED_DEPRECATED - marked):
+            problems.append(f"{i}: expected deprecated: true, not marked")
+        for i in sorted(marked - EXPECTED_DEPRECATED):
+            problems.append(f"{i}: marked deprecated but not in the expected set")
+    # A literal naming an item nothing publishes makes the compare above vacuous on that name.
+    for i in sorted(EXPECTED_DEPRECATED - seen):
+        problems.append(f"{i}: named in EXPECTED_DEPRECATED but absent from the build")
+    return problems
+
+
 def check_citation_premise(base: Path) -> list[str]:
     """Do the items still come from the collection the citation names? (#47)
 
@@ -1387,6 +1464,20 @@ def main() -> int:
         for msg in bad_premise:
             print(f"  {msg}", file=sys.stderr)
         return 1
+
+    # --- deprecation: are the over-mapped items marked, and only them? (#26) ---
+    # Here rather than after check_checksums, for the same reason as the premise check above:
+    # behind the 670 MB re-read, any asset drift short-circuits it and a restore-the-bug proof
+    # for this guard proves nothing (#46).
+    bad_dep = check_deprecated(args.base)
+    if bad_dep:
+        print(f"FAILED: {len(bad_dep)} deprecation-marker problem(s)", file=sys.stderr)
+        for msg in bad_dep:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"deprecation: exactly {len(EXPECTED_DEPRECATED)} item(s) published "
+          f"deprecated ({', '.join(sorted(EXPECTED_DEPRECATED))}), each declaring the "
+          f"version extension and carrying no nge:flooded_version")
     print(f"licence: {EXPECTED_LICENSE} with rel=license + rel=derived_from links, "
           f"{len(EXPECTED_PROVIDERS)} providers, sci:citation verbatim; no item's "
           f"nge:landcover_collection or nge:landcover_stac_url contradicts the "

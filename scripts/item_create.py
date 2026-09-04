@@ -66,8 +66,23 @@ FILE_EXT = "https://stac-extensions.github.io/file/v2.1.0/schema.json"
 CLASSIFICATION_EXT = (
     "https://stac-extensions.github.io/classification/v2.0.0/schema.json")
 SCIENTIFIC_EXT = "https://stac-extensions.github.io/scientific/v1.0.0/schema.json"
+# Same extension collection_version.py stamps the release version with; it also defines
+# `deprecated` on ITEMS, which is what #26 uses below.
+VERSION_EXT = "https://stac-extensions.github.io/version/v1.2.0/schema.json"
 
 CLASSES_PATH = RAW_DIR / "classes.json"
+
+# The items that could not be re-run after the `flooded` bankfull units fix, and so remain
+# over-mapped (#26; blocked upstream by floodplains#76 — MCGR is absent from `fresh`, PINE
+# diverges 10.8% from the bcfp reference). They publish marked rather than withheld: holding
+# the release for them would block 18 corrections indefinitely on a fix with no date.
+#
+# A LITERAL a human sets, the same shape and the same reason as PROVENANCE_FLOOR (#32) — an
+# expectation derived from the data cannot be contradicted by it. item_validate.py asserts
+# EXACTLY this set carries the marker, and refuses when an item in it has gained a
+# nge:flooded_version, so a rebuilt MCGR fails the release until the id is deleted here
+# rather than publishing as deprecated forever.
+DEPRECATED_ITEMS = {"mcgr_ch_ff04", "pine_bt_ff04"}
 
 # --- Licence and attribution (#47) ----------------------------------------------------
 #
@@ -411,6 +426,20 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
     # null properties through to_dict(), a JSON round trip, from_dict() and validate().
     properties.update({f"nge:{f}": meta[f] for f in PROV_FIELDS})
 
+    # The two areas that could not be re-run publish MARKED (#26). Both already differ by
+    # carrying null on all twelve nge: properties while every rebuilt group carries
+    # nge:flooded_version 0.5.0 — but the API drops nulls (#31/#36, measured), so from
+    # outside a consumer sees only that two items LACK a field, and absence is not a
+    # statement. `deprecated` is the positive one.
+    #
+    # Note the asymmetry that makes publishing it on two items and not twenty-one sound: the
+    # Version Extension defines `deprecated` with `default: false`, so for the other 21
+    # absence IS a statement, backed by the extension — unlike the nge: nulls, where it is not.
+    exts = [PROJECTION_EXT, FILE_EXT, CLASSIFICATION_EXT]
+    if item_id in DEPRECATED_ITEMS:
+        properties["deprecated"] = True
+        exts.append(VERSION_EXT)
+
     item = pystac.Item(
         id=item_id,
         geometry=meta["geometry"],
@@ -418,7 +447,7 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         datetime=end_dt,
         properties=properties,
         assets=assets,
-        stac_extensions=[PROJECTION_EXT, FILE_EXT, CLASSIFICATION_EXT],
+        stac_extensions=exts,
     )
     item.collection_id = COLLECTION_ID
     item.add_link(pystac.Link(

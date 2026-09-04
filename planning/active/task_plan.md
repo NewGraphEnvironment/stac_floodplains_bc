@@ -43,21 +43,21 @@ recalled rather than read. Phase 4 records it.
 
 `scripts/item_create.py`.
 
-- [ ] `DEPRECATED_ITEMS = {"mcgr_ch_ff04", "pine_bt_ff04"}` — a hardcoded literal a human sets, the same shape as `PROVENANCE_FLOOR` (#32) and for the same reason: an expectation derived from the data cannot be contradicted by it
-- [ ] On exactly those items, set `deprecated: true` and add `VERSION_EXT` (`version/v1.2.0`) to that item's `stac_extensions`. The other 21 carry neither — the extension defines `deprecated` with `default: false`, so absence is a statement here, unlike the `nge:` nulls (#31/#36) where it is not
-- [ ] Comment why a positive marker is needed at all: both already differ by carrying null on all twelve `nge:` properties, but **the API drops nulls**, so from outside a consumer sees only that two items *lack* a field
-- [ ] Regenerate: `uv run python scripts/item_create.py`
+- [x] `DEPRECATED_ITEMS = {"mcgr_ch_ff04", "pine_bt_ff04"}` — a hardcoded literal a human sets, the same shape as `PROVENANCE_FLOOR` (#32) and for the same reason: an expectation derived from the data cannot be contradicted by it
+- [x] On exactly those items, set `deprecated: true` and add `VERSION_EXT` (`version/v1.2.0`) to that item's `stac_extensions`. The other 21 carry neither — the extension defines `deprecated` with `default: false`, so absence is a statement here, unlike the `nge:` nulls (#31/#36) where it is not
+- [x] Comment why a positive marker is needed at all: both already differ by carrying null on all twelve `nge:` properties, but **the API drops nulls**, so from outside a consumer sees only that two items *lack* a field
+- [x] Regenerate: `uv run python scripts/item_create.py`
 
 ## Phase 2: Guard it, and make it self-clear
 
 `scripts/item_validate.py`. A new `check_deprecated(base)`, absolute like `check_provenance`.
 
-- [ ] **Set equality**, not containment: exactly `DEPRECATED_ITEMS` carry `deprecated: true`. Catches both a marker that spread and one that was dropped
-- [ ] **Every id in the literal exists in the build** — a stale id after a rename would otherwise make the set compare vacuous on a name nothing publishes
-- [ ] **Biconditional**: an item declares `VERSION_EXT` iff it carries `deprecated`. The extension's Item branch has no `required`, so declaring it with no field validates clean — the #34/#35 trap, and pystac cannot see the other direction at all
-- [ ] **Self-clearing** — the point of the phase. Refuse when an item marked deprecated carries a **non-null `nge:flooded_version`**. This is written data that outlives the fix: when floodplains#76 unblocks and `mcgr` is rebuilt, nothing would remove it from the literal and it would publish as deprecated forever. The first corrected build then fails the release until the entry is deleted
-- [ ] Say in the comment what that guard actually encodes — "deprecated **here** means not-rebuilt". It couples the marker to the absence of provenance, which is true by construction today and would misfire on an item deprecated for some other reason while carrying provenance
-- [ ] Run it **before** `check_checksums`, as `check_citation_premise` does, so a proof cannot be short-circuited by the 670 MB re-read (#46)
+- [x] **Set equality**, not containment: exactly `DEPRECATED_ITEMS` carry `deprecated: true`. Catches both a marker that spread and one that was dropped
+- [x] **Every id in the literal exists in the build** — a stale id after a rename would otherwise make the set compare vacuous on a name nothing publishes
+- [x] **Biconditional**: an item declares `VERSION_EXT` iff it carries `deprecated`. The extension's Item branch has no `required`, so declaring it with no field validates clean — the #34/#35 trap, and pystac cannot see the other direction at all
+- [x] **Self-clearing** — the point of the phase. Refuse when an item marked deprecated carries a **non-null `nge:flooded_version`**. This is written data that outlives the fix: when floodplains#76 unblocks and `mcgr` is rebuilt, nothing would remove it from the literal and it would publish as deprecated forever. The first corrected build then fails the release until the entry is deleted
+- [x] Say in the comment what that guard actually encodes — "deprecated **here** means not-rebuilt". It couples the marker to the absence of provenance, which is true by construction today and would misfire on an item deprecated for some other reason while carrying provenance
+- [x] Run it **before** `check_checksums`, as `check_citation_premise` does, so a proof cannot be short-circuited by the 670 MB re-read (#46)
 
 ## Phase 3: Restore each bug and prove the guard fires
 
