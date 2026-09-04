@@ -32,7 +32,7 @@ One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<speci
 | `transition_vector` | the transition patches alone — the change layer without the three dissolved epochs that carry most of the bytes |
 | `style_classified` `style_floodplain` `style_transition` | QGIS layer styles, also embedded in each GeoPackage so the layers open already coloured |
 
-Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and tell which version of a moving product a figure came from. Every GeoPackage layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute.
+Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and pin which build a figure came from. (A checksum answers *are my bytes current*, not *did the values change* — a re-encode moves every checksum.) Every GeoPackage layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute.
 
 **The collection mixes flood factors.** `ff04` is the functional floodplain and `ff06` the wider valley bottom, so filter on `flood_factor` before comparing or summing groups — an unfiltered aggregate adds different extents together.
 
@@ -40,7 +40,7 @@ Every asset publishes `file:checksum` and `file:size`, so you can confirm a down
 
 *Generated from the live API on 2026-09-04: 23 items across 22 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 1.1.0.*
 
-| WSG | Region | Species | Scenario | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
+| WSG | Region | Species | Flood factor | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |:---|:---|:---|:---|---:|---:|---:|---:|
 | KOTL | Columbia | bull trout | ff04 | 676 | 536 | 338 | -198 |
 | LARL | Columbia | bull trout | ff04 | 286 | 122 | 56 | -66 |
@@ -67,9 +67,9 @@ Every asset publishes `file:checksum` and `file:size`, so you can confirm a down
 | MORR | Skeena | chinook | ff06 | 372 | 343 | 606 | +264 |
 | **Total** |  |  |  | **7,273** | **17,008** | **13,775** | **-3,233** |
 
-Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item’s **own** scenario extent, which is why the `Scenario` column matters. The total counts each group’s `ff04` extent once (MORR’s two items share one physical floodplain) while the tree-change columns sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
+Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item’s **own** extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **7,273 km²** of floodplain, **17,008 ha** lost, **13,775 ha** gained, **-3,233 ha** net. That km² total counts each group’s `ff04` extent once — MORR’s two items share one physical floodplain — while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
 
-**2 items published `deprecated: true`** (`pine_bt_ff04`, `mcgr_ch_ff04`). They were modelled before a bankfull-units fix in `flooded` and over-map the floodplain, so their figures read high — republished rather than withdrawn, because a withdrawn item is invisible while a deprecated one is a warning a client can act on.
+**2 items published `deprecated: true`** (`mcgr_ch_ff04`, `pine_bt_ff04`). They were modelled before a bankfull-units fix in `flooded` and over-map the floodplain, so their figures read high — republished rather than withdrawn, because a withdrawn item is invisible while a deprecated one is a warning a client can act on.
 
 ## Query it
 

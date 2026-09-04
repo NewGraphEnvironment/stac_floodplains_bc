@@ -122,14 +122,18 @@ One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<speci
 | `transition_vector` | the transition patches alone — the change layer without the three dissolved epochs that carry most of the bytes |
 | `style_classified` `style_floodplain` `style_transition` | QGIS layer styles, also embedded in each GeoPackage so the layers open already coloured |
 
-Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and tell which version of a moving product a figure came from. Every GeoPackage layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute.
+Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and pin which build a figure came from. (A checksum answers *are my bytes current*, not *did the values change* — a re-encode moves every checksum.) Every GeoPackage layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute.
 
 **The collection mixes flood factors.** `ff04` is the functional floodplain and `ff06` the wider valley bottom, so filter on `flood_factor` before comparing or summing groups — an unfiltered aggregate adds different extents together.
 
 ## Coverage
 
 ```{r tab, echo=FALSE}
-tab <- fp_readme_table(props)
+tab <- fp_readme_table(props)   # formatted strings + bold total, for kable
+rows <- fp_readme_rows(props)   # numerics, for DT -- so it sorts and filters as numbers
+tot <- fp_readme_totals(props)
+num <- c("Floodplain (km²)", "Gross loss (ha)", "Gross gain (ha)", "Net (ha)")
+stopifnot(all(vapply(rows[num], is.numeric, logical(1))))
 ```
 
 `r if (identical(params$rmd_on, FALSE)) fp_readme_caption(props, version, fetched_at)`
@@ -139,15 +143,20 @@ knitr::kable(tab, align = c("l", "l", "l", "l", "r", "r", "r", "r"))
 ```
 
 ```{r tab-cap, echo=FALSE, results="asis", eval=identical(params$rmd_on, TRUE)}
-my_caption <- fp_readme_caption(props, version, fetched_at)
-my_tab_caption_rmd()
+# Passed by value. The default argument resolves in the function's enclosure (globalenv, where
+# `source()` put it), which only coincides with the knit environment under the documented
+# `Rscript -e` path -- `render(envir = new.env())`, as RStudio's Knit button does, halts here.
+my_tab_caption_rmd(fp_readme_caption(props, version, fetched_at))
 ```
 
 ```{r tab-dt, echo=FALSE, eval=identical(params$rmd_on, TRUE)}
-my_dt_table(tab, cols_freeze_left = 2, page_length = 25)
+# The numeric frame, and no total row: a total inside a sortable table moves into the body on
+# the first click. The totals are stated in the prose below instead.
+my_dt_table(rows, cols_freeze_left = 2, page_length = 25) |>
+  DT::formatRound(num, digits = 0)
 ```
 
-Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item's **own** scenario extent, which is why the `Scenario` column matters. The total counts each group's `ff04` extent once (MORR's two items share one physical floodplain) while the tree-change columns sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
+Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item's **own** extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **`r fp_readme_int(tot$km2)` km²** of floodplain, **`r fp_readme_int(tot$loss)` ha** lost, **`r fp_readme_int(tot$gain)` ha** gained, **`r fp_readme_int(tot$net, signed = TRUE)` ha** net. That km² total counts each group's `ff04` extent once — MORR's two items share one physical floodplain — while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
 
 ```{r dep, echo=FALSE, results="asis"}
 d <- props$id[props$deprecated]
@@ -158,7 +167,7 @@ if (length(d) > 0) {
            "rather than withdrawn, because a withdrawn item is invisible while a deprecated ",
            "one is a warning a client can act on.\n"),
     ifelse(length(d) == 1, "One item", paste(length(d), "items")),
-    paste0("`", d, "`", collapse = ", "),
+    paste0("`", sort(d), "`", collapse = ", "),
     ifelse(length(d) == 1, "It was", "They were"),
     ifelse(length(d) == 1, "over-maps", "over-map"),
     ifelse(length(d) == 1, "its", "their")

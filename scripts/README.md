@@ -308,6 +308,26 @@ producer's own `$FLOODPLAINS_DATA/{bulk,neexdzii}/provenance.json` when present,
 when not. Exit status is the number of failed assertions. Run it whenever the reader or the
 upstream writer changes; it is the only exercise of the reader that needs no stage.
 
+## Attribution drift check
+
+```bash
+uv run python scripts/attribution_drift-check.py
+```
+
+`ATTRIBUTION.md` reproduces the `sci:citation` sentence, the landcover collection id and the
+outbound licence — a fourth and fifth copy of literals this repo deliberately duplicates rather
+than shares, and until #53 the only copies nothing asserted. They are also the copies a licensor
+actually reads, so an upstream move to `v03` would turn `check_citation_premise` red on the
+machine-readable surface while the human-readable one went on claiming the old attribution.
+
+Compares against `item_create.py` by full equality, resolving `CITATION`'s f-string placeholders
+from the same file and stripping only markdown decoration. The constant arms read the **parsed
+value**, not whether the literal appears somewhere in the file: a first version asked the latter
+and stayed silent through a `v02` → `v03` mutation, because a comment still named `v02`.
+
+Proven in both directions — clean tree exits 0 with no arms; changing one word of the blockquote,
+the collection id, or the licence each exits 1 naming the arm that fired.
+
 ## Environment flags
 
 | Flag | Effect | Risk |

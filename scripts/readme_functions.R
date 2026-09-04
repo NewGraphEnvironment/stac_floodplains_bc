@@ -151,14 +151,14 @@ fp_readme_check_complete <- function(q, n_bucket) {
 #' summing the column across scenarios would be summing different extents. The total therefore
 #' counts each watershed group's ff04 extent ONCE (MORR's two items share one physical
 #' floodplain) while the tree-change totals sum every item.
-fp_readme_table <- function(props) {
+fp_readme_rows <- function(props) {
+  fp_readme_check_regions(props)
   rows <- props |>
     dplyr::mutate(
       km2 = fp_readme_km2(props),
       # A lookup miss is NA; Python's `SPECIES.get(sp, sp)` printed the raw code. A new species
       # must not ship an empty cell in a committed table.
-      Species = dplyr::coalesce(unname(SPECIES[.data$species]), .data$species),
-      Scenario = paste0("ff0", .data$flood_factor)
+      Species = dplyr::coalesce(unname(SPECIES[.data$species]), .data$species)
     ) |>
     dplyr::arrange(.data$region, .data$wsg, .data$flood_factor, .data$species)
 
@@ -174,27 +174,53 @@ fp_readme_table <- function(props) {
          call. = FALSE)
   }
 
-  total_km2 <- rows |>
-    dplyr::distinct(.data$wsg, .keep_all = TRUE) |>
-    (\(x) sum(x$floodplain_ff04_km2))()
-
-  tab <- tibble::tibble(
+  # The column is headed "Flood factor", not "Scenario": the items' `scenario` property is
+  # species-pinned (`ch_ff04`, `co_ff04`, `ch_ff06`), so a reader taking `ff06` from a column
+  # headed Scenario into `ext_query(scenario == "ff06")` -- the example three sections down --
+  # gets zero items back.
+  tibble::tibble(
     WSG = rows$wsg,
     Region = tools::toTitleCase(rows$region),
     Species = rows$Species,
-    Scenario = rows$Scenario,
-    `Floodplain (km²)` = fp_readme_int(rows$km2),
-    `Gross loss (ha)` = fp_readme_int(rows$gross_loss_ha),
-    `Gross gain (ha)` = fp_readme_int(rows$gross_gain_ha),
-    `Net (ha)` = fp_readme_int(rows$net_ha, signed = TRUE)
+    `Flood factor` = paste0("ff0", rows$flood_factor),
+    `Floodplain (km²)` = round(rows$km2),
+    `Gross loss (ha)` = round(rows$gross_loss_ha),
+    `Gross gain (ha)` = round(rows$gross_gain_ha),
+    `Net (ha)` = round(rows$net_ha)
   )
+}
 
+#' The totals, counted the way the caption says
+#'
+#' Each group's ff04 extent once -- MORR's two items share one physical floodplain -- while the
+#' tree-change columns sum every item.
+fp_readme_totals <- function(props) {
+  km2 <- props |>
+    dplyr::distinct(.data$wsg, .keep_all = TRUE) |>
+    (\(x) sum(x$floodplain_ff04_km2))()
+  list(km2 = km2, loss = sum(props$gross_loss_ha),
+       gain = sum(props$gross_gain_ha), net = sum(props$net_ha))
+}
+
+#' The markdown table: formatted strings plus a bold total row
+#'
+#' Formatting belongs to the TARGET, not to the frame. `kable()` renders a pre-formatted
+#' character column and markdown bold correctly; `DT` renders neither -- it prints `**Total**`
+#' literally and sorts a character column lexicographically, so `1,052` files between `101` and
+#' `117` on a page whose own caption tells the reader to click the sort arrows. One derived fact
+#' with two consumers, which is why they are now two functions.
+fp_readme_table <- function(props) {
+  rows <- fp_readme_rows(props)
+  tot <- fp_readme_totals(props)
+  num <- c("Floodplain (km²)", "Gross loss (ha)", "Gross gain (ha)", "Net (ha)")
+  tab <- rows
+  for (k in num) tab[[k]] <- fp_readme_int(rows[[k]], signed = identical(k, "Net (ha)"))
   dplyr::bind_rows(tab, tibble::tibble(
-    WSG = "**Total**", Region = "", Species = "", Scenario = "",
-    `Floodplain (km²)` = paste0("**", fp_readme_int(total_km2), "**"),
-    `Gross loss (ha)` = paste0("**", fp_readme_int(sum(rows$gross_loss_ha)), "**"),
-    `Gross gain (ha)` = paste0("**", fp_readme_int(sum(rows$gross_gain_ha)), "**"),
-    `Net (ha)` = paste0("**", fp_readme_int(sum(rows$net_ha), signed = TRUE), "**")
+    WSG = "**Total**", Region = "", Species = "", `Flood factor` = "",
+    `Floodplain (km²)` = paste0("**", fp_readme_int(tot$km2), "**"),
+    `Gross loss (ha)` = paste0("**", fp_readme_int(tot$loss), "**"),
+    `Gross gain (ha)` = paste0("**", fp_readme_int(tot$gain), "**"),
+    `Net (ha)` = paste0("**", fp_readme_int(tot$net, signed = TRUE), "**")
   ))
 }
 
@@ -445,12 +471,6 @@ fp_readme_fig <- function(fp, wsg, props, path = "fig/coverage.png", width = 9, 
 
   dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
   tmap::tmap_save(m, path, width = width, height = round(width / asp, 2), dpi = dpi)
-  # tmap writes 72 dpi into the PNG header whatever `dpi` says, and macOS/Safari size the image
-  # from that header (cartography skill).
-  if (nzchar(Sys.which("sips"))) {
-    system2("sips", c("-s", "dpiWidth", dpi, "-s", "dpiHeight", dpi, shQuote(path)),
-            stdout = FALSE, stderr = FALSE)
-  }
   path
 }
 
