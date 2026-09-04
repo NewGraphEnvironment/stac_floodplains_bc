@@ -15,13 +15,22 @@ extent — for 22 watershed groups in
 
 <img src="fig/coverage.png" alt="Coverage of the stac-floodplains-bc collection: British Columbia with the published watershed groups filled by region and their modelled floodplains drawn over them." width="100%" />
 
-Each watershed group is coloured by region; the dark threads inside them are the published floodplains themselves. An interactive version, with every item’s figures in a popup, is at <https://www.newgraphenvironment.com/stac_floodplains_bc/>.
+Each watershed group is coloured by region; the dark threads inside them are the published floodplains themselves. An interactive version — click any group for its figures and download links for every asset — is at <https://www.newgraphenvironment.com/stac_floodplains_bc/>.
 
 <br>
 
+## Read this before you use the numbers
+
+**This is a screening and exploration tool, not a validated change-detection product.** The floodplain is DEM-derived, the land cover is a global 10 m product applied to BC valley bottoms, and **neither has been field-validated**. The figures say *where to look*, not what happened on the ground. The two that bite hardest:
+
+- **About two-thirds of detected floodplain tree loss is unattributed** — attribution returns roughly 5% fire / 36% harvest / 62% residual on BULK, 3% / 33% / 64% on KOTL. That residual is *unexplained*, not noise: real removal we cannot source, drought, water-level change, terrain shadow and misclassification have not been separated from one another.
+- **Cross-group comparison is not valid yet.** With no treed-area denominator, a group whose floodplain is mostly open water cannot be set against a forested one on hectares lost.
+
+“Tree loss” means pixels leaving the tree class; acquisition timing within a year is unknown and unrecoverable from the source; and despite the `ff` names this is **not** a flood-frequency product. The full list lives with the modelling, in [`floodplains`](https://github.com/NewGraphEnvironment/floodplains) → [Reading the outputs](https://github.com/NewGraphEnvironment/floodplains#reading-the-outputs-experimental) — read it before citing anything here. It is all published openly so it can be interrogated; please do, and file what you find.
+
 ## What is in the catalogue
 
-One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<species>_ff0N`. Most groups publish one; MORR publishes two. Each item carries ten assets:
+One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<species>_ff0N`. Most groups publish one; MORR publishes two. Ten assets each — every one downloadable from its group’s popup on the [interactive map](https://www.newgraphenvironment.com/stac_floodplains_bc/):
 
 | asset | what it is |
 |----|----|
@@ -105,7 +114,12 @@ Lutra Consulting’s [STAC in QGIS post](https://www.lutraconsulting.co.uk/blogs
 
 ## How it is built, and where
 
-**No modelling happens in this repository.** It stages the outputs another repository produced, converts the rasters to Cloud-Optimized GeoTIFFs, tags them, uploads them, and registers the STAC collection. If a number needs recomputing it is fixed upstream and republished here. The chain, each link its own repository:
+**No modelling happens in this repository.** Every number in this catalogue is produced by
+[**`floodplains`**](https://github.com/NewGraphEnvironment/floodplains) — the driver repo, and the
+place to go for how the model works, what it assumes, and what is still unresolved. This
+repository only stages those outputs, converts the rasters to Cloud-Optimized GeoTIFFs, tags them,
+uploads them, and registers the STAC collection. If a figure needs recomputing it is fixed there
+and republished here. The chain, each link its own repository:
 
 [`fresh`](https://github.com/NewGraphEnvironment/fresh) (stream network) → [`link`](https://github.com/NewGraphEnvironment/link) (habitat interpretation) → [`flooded`](https://github.com/NewGraphEnvironment/flooded) (floodplain delineation) → [`drift`](https://github.com/NewGraphEnvironment/drift) (land-cover change) → [`floodplains`](https://github.com/NewGraphEnvironment/floodplains) (driver) → **this repository** (publish only)
 
