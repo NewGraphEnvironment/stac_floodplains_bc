@@ -77,17 +77,17 @@ recalled rather than read. Phase 4 records it.
 
 Publishes to `s3://stac-floodplains-bc`, versioning **Suspended — no rollback**.
 
-- [ ] Commit `NEWS.md`, tag `v1.1.0` by hand on that commit (as `stac_uav_bc` does; no `DESCRIPTION` here, so `/gh-pr-merge`'s bump path stays out of it)
-- [ ] `bash scripts/catalogue_release.sh` — validate → sync → register → verify. No orphans, so no `--allow-retract`
-- [ ] This is the first release where step 5's licence read-back runs for real, and the first test of whether `rel: license` / `rel: derived_from` survive pgstac's `get_links()` on this deployment — read from source, never measured here. A drop fails the release **after** the sync and the pgstac load
-- [ ] Push the tag only once the release has succeeded
+- [x] Commit `NEWS.md`, tag `v1.1.0` by hand on that commit (as `stac_uav_bc` does; no `DESCRIPTION` here, so `/gh-pr-merge`'s bump path stays out of it)
+- [x] `bash scripts/catalogue_release.sh` — validate → sync → register → verify. No orphans, so no `--allow-retract`
+- [x] This is the first release where step 5's licence read-back runs for real, and the first test of whether `rel: license` / `rel: derived_from` survive pgstac's `get_links()` on this deployment — read from source, never measured here. A drop fails the release **after** the sync and the pgstac load
+- [x] Push the tag only once the release has succeeded
 
 ## Phase 6: After the release
 
-- [ ] `python3 scripts/readme_coverage-table.py --write` — 23 items from the live API, committed past the tag by design (#41)
-- [ ] Confirm from the API: 23 items, `version: 1.1.0`, `license: CC-BY-4.0`, and `deprecated: true` served on exactly the two
-- [ ] Close #26 and #47 — #47 was deliberately left open at merge because its verification is a live-API read that only this release can satisfy
-- [ ] Update the `published-assets-stale-vs-main` memory: the catalogue is corrected except for two marked items, and `v2.0.0` awaits floodplains#76
+- [x] `python3 scripts/readme_coverage-table.py --write` — 23 items from the live API, committed past the tag by design (#41)
+- [x] Confirm from the API: 23 items, `version: 1.1.0`, `license: CC-BY-4.0`, and `deprecated: true` served on exactly the two
+- [x] Close #26 and #47 — #47 was deliberately left open at merge because its verification is a live-API read that only this release can satisfy
+- [x] Update the `published-assets-stale-vs-main` memory: the catalogue is corrected except for two marked items, and `v2.0.0` awaits floodplains#76
 
 ## Validation
 

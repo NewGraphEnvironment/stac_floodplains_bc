@@ -30,4 +30,12 @@
   data; round 3 caught the same over-drop on the mirror arm. Three factual errors caught in
   the release note: 18->12->13 items, 5-33% -> 1.5-33.5%, and the checksum discriminator
 - Harness 100 -> 111 assertions; 9k/9l/9m each proved to discriminate against a scratch copy
-- Next: commit, PR, merge, then tag + release
+- PR #52 merged (`3749de2`); tagged `v1.1.0` on the NEWS commit
+- **RELEASE COMPLETE — v1.1.0, 23 items live.** Step 5 verified the version, the licence,
+  both links, `sci:citation` and the deprecation markers, on the API and the bucket.
+  Confirmed independently from the API afterwards: 23 items, `deprecated` on exactly
+  `mcgr_ch_ff04` + `pine_bt_ff04`, `tabr_ch_ff04` now 154.63 km² (was 232.69)
+- **#47's open premise is answered by measurement**: `rel: license` and `rel: derived_from`
+  DO survive pgstac's `get_links()` on this deployment — the API serves both
+- README coverage table regenerated from the live API (23 items, 22 groups)
+- Next: close #26 and #47, update memory

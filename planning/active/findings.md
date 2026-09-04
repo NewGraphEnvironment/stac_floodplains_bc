@@ -49,6 +49,39 @@ where it is not.
 item declaring the extension with no `deprecated` validates clean — the #34/#35 trap again,
 and the reason every assertion in Phase 2 is absolute and hardcoded rather than derived.
 
+## The pgstac link premise, answered by the release
+
+#47 published `rel: license` and `rel: derived_from` on the strength of reading
+stac-fastapi-pgstac's `INFERRED_LINK_RELS` — and recorded, explicitly, that this was **not**
+measured against `images.a11s.one`, because no collection there published such a link. The
+v1.1.0 release settles it. The API now serves:
+
+```
+link rels: ['derived_from', 'queryables', 'items', 'license', 'parent', 'root', 'self']
+```
+
+Both survive. The reasoning was right, and it is now a measurement rather than a source read.
+Step 5 is what would have caught the other outcome — after the sync and the pgstac load, which
+is the cost that was named at the time and accepted.
+
+## Release outcome — v1.1.0
+
+Every step-5 assertion passed on the first run: version, licence, both link hrefs,
+`sci:citation`, and the deprecation markers, on the API **and** the bucket copy. Confirmed
+afterwards from the API rather than from the release's own output:
+
+| | |
+|---|---|
+| items served | 23 |
+| `version` / `license` | `1.1.0` / `CC-BY-4.0` |
+| `providers` | 6 |
+| `deprecated: true` | exactly `mcgr_ch_ff04`, `pine_bt_ff04` |
+| `tabr_ch_ff04` ff04 | **154.63 km²**, was 232.69 |
+
+The tag was pushed only after the release succeeded, per the recipe: a pushed tag asserts the
+catalogue is in that state, and a failed release would have left a public tag for a state that
+never went live.
+
 ## Code-check round 3 — the same mechanism, one arm over
 
 Round 3's headline finding is round 2's own fix recurring on its mirror. Round 2 taught me that

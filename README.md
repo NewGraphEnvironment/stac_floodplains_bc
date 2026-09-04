@@ -24,31 +24,34 @@ and the catalogue version it describes. `Floodplain (km²)` is each item's **own
 so — so read that column before comparing rows (each item also publishes all three ff02/ff04/ff06
 areas). Tree-cover change over that extent, 2017 → 2023:
 
-*Generated from the live API by `scripts/readme_coverage-table.py`: 20 items across 19 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 1.0.0.*
+*Generated from the live API by `scripts/readme_coverage-table.py`: 23 items across 22 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 1.1.0.*
 
 | WSG | Region | Species | Scenario | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |----|----|----|----|----:|----:|----:|----:|
-| KOTL | Columbia | bull trout | ff04 | 708 | 642 | 420 | -222 |
-| LARL | Columbia | bull trout | ff04 | 307 | 204 | 100 | -104 |
-| SLOC | Columbia | bull trout | ff04 | 130 | 110 | 75 | -36 |
-| BOWR | Fraser | chinook | ff04 | 298 | 461 | 287 | -174 |
-| FRAN | Fraser | chinook | ff04 | 883 | 7,177 | 897 | -6,280 |
-| LCHL | Fraser | chinook | ff04 | 325 | 1,261 | 1,747 | +486 |
-| LSAL | Fraser | chinook | ff04 | 256 | 986 | 1,006 | +21 |
+| KOTL | Columbia | bull trout | ff04 | 676 | 536 | 338 | -198 |
+| LARL | Columbia | bull trout | ff04 | 286 | 122 | 56 | -66 |
+| SLOC | Columbia | bull trout | ff04 | 117 | 74 | 52 | -23 |
+| BOWR | Fraser | chinook | ff04 | 236 | 292 | 203 | -89 |
+| FRAN | Fraser | chinook | ff04 | 782 | 5,264 | 590 | -4,674 |
+| LCHL | Fraser | chinook | ff04 | 233 | 912 | 1,073 | +161 |
+| LNTH | Fraser | chinook | ff04 | 152 | 272 | 65 | -207 |
+| LSAL | Fraser | chinook | ff04 | 186 | 560 | 650 | +90 |
 | MCGR | Fraser | chinook | ff04 | 290 | 510 | 817 | +307 |
-| MORK | Fraser | chinook | ff04 | 626 | 946 | 1,212 | +266 |
+| MORK | Fraser | chinook | ff04 | 417 | 623 | 772 | +149 |
 | NECR | Fraser | chinook | ff04 | 397 | 1,943 | 915 | -1,028 |
-| TABR | Fraser | chinook | ff04 | 233 | 608 | 352 | -257 |
-| UFRA | Fraser | chinook | ff04 | 188 | 544 | 719 | +175 |
-| WILL | Fraser | chinook | ff04 | 305 | 645 | 576 | -69 |
+| TABR | Fraser | chinook | ff04 | 155 | 347 | 150 | -197 |
+| THOM | Fraser | chinook | ff04 | 87 | 56 | 3 | -53 |
+| UFRA | Fraser | chinook | ff04 | 147 | 414 | 529 | +115 |
+| UNTH | Fraser | chinook | ff04 | 101 | 260 | 179 | -81 |
+| WILL | Fraser | chinook | ff04 | 236 | 486 | 352 | -133 |
 | PARS | Peace | bull trout | ff04 | 410 | 1,076 | 2,696 | +1,620 |
-| PCEA | Peace | bull trout | ff04 | 1,068 | 101 | 210 | +109 |
+| PCEA | Peace | bull trout | ff04 | 1,052 | 84 | 137 | +53 |
 | PINE | Peace | bull trout | ff04 | 380 | 763 | 1,497 | +734 |
 | BULK | Skeena | coho | ff04 | 387 | 1,565 | 827 | -738 |
 | KISP | Skeena | chinook | ff04 | 190 | 199 | 693 | +494 |
 | MORR | Skeena | coho | ff04 | 358 | 309 | 576 | +268 |
 | MORR | Skeena | chinook | ff06 | 372 | 343 | 606 | +264 |
-| **Total** | | | | **7,737** | **20,394** | **16,228** | **-4,166** |
+| **Total** | | | | **7,273** | **17,008** | **13,775** | **-3,233** |
 
 Gross loss = area tree-covered in 2017 but not 2023; gross gain = the reverse; net = gain − loss
 (negative = net tree loss). Figures are aggregated from each item's transition layer. Per-row
