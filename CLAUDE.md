@@ -90,6 +90,35 @@ layer names are deliberately year-free so QGIS `path|layername=` styles survive 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace
 directly to the model.
 
+**The collection is `CC-BY-4.0`, and the repo is MIT** (#47) — two licences over two different
+things, as in `stac_dem_bc` and `stac_uav_bc`. The products derive from Impact Observatory's
+`io-lulc-annual-v02` (CC BY 4.0, no share-alike, so the derivative may carry our own licence),
+delineated off MRDEM-30 (OGL-Canada-2.0) and the FWA (OGL-BC); all three oblige credit, and CC BY
+also obliges a statement that the input was **modified**, which is why one lives in the collection
+description. `item_create.py` publishes the licence, six `providers`, a `rel: license` and a
+`rel: derived_from` link, and `sci:citation`. Those literals are **duplicated verbatim** in
+`item_validate.py` and a third time as `EXPECT_LICENSE` in `catalogue_release.sh`, never shared: a
+guard that imports the value it checks is a round-trip through our own assignment. The duplication
+is only safe because the assertions are full equality — token containment would let the copies
+drift while still sharing enough words to pass. `check_citation_premise` is the one guard that
+reads the *data*: it refuses a build whose items contradict the citation on either the landcover
+collection id **or** the STAC URL it was read from — the two move independently, and a host move
+alone would change the licensor while leaving the id untouched. An upstream move to `v03` turns
+the attribution red instead of publishing a lie.
+
+Publishing a field is not serving it, so step 5 reads it back from the API **and** the bucket —
+by VALUE, not presence: `license` against the constant, and `sci:citation` plus both link hrefs
+against the `collection.json` this release published. Presence is the wrong question, because
+pgstac rebuilds a collection's `links` through `get_links()`, dropping every rel in
+`INFERRED_LINK_RELS` (`self/item/parent/collection/root/items/child`) — which is why the build's
+`rel: item` links are served as none — and the one thing it does to a link it *keeps* is rewrite
+the href through `urljoin`. `license` and `derived_from` fall outside the dropped set, which is
+read from stac-fastapi-pgstac's source and **not yet measured against this deployment**: no
+collection on `images.a11s.one` publishes a `rel: license` link today, so the first full release
+is what finds out — at step 5, after the sync and the pgstac load. Items carry no `license` of their own, deliberately: STAC inherits it
+from the collection, and per-item source attribution is the `nge:landcover_*` block the floor keeps
+non-null.
+
 **Class labels ship inside the COGs, as a GDAL Raster Attribute Table** (#34/#35), and as
 `classification:classes` on every raster asset — both generated from one `data/raw/classes.json`
 that `01_stage.R` ferries from `drift::dft_class_table("io-lulc")`, so the two surfaces cannot

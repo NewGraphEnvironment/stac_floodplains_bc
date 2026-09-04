@@ -66,6 +66,221 @@ def check_version_stamp(doc: dict) -> "str | None":
         return f"version {version!r} is not X.Y.Z"
     return None
 
+
+# --- Licence and attribution (#47) -----------------------------------------------------
+#
+# ABSOLUTE expectations, duplicated from item_create.py rather than imported. Two reasons,
+# and only the second is the one the REQUIRED_NGE_PROPERTIES block below gives:
+#
+#   * importing item_create.py runs the entire build — it raises SystemExit at module level
+#     when nothing is staged, and writes 24 files as an import side effect; and
+#   * a guard that reads the value it checks is a round-trip through our own assignment. It
+#     returns identical, forever. That reason is decisive here in a way it is not for the
+#     provenance set: these are literals, not values derived from the data, so "a value that
+#     vanished would take the expectation with it" does not apply and the x == x hazard does.
+#
+# The duplication is only safe because every assertion below is FULL EQUALITY. Token
+# containment would let the two copies drift arbitrarily far while still sharing enough
+# words to pass — and for a citation, "contains the word Esri" is satisfied by a bag of
+# words that attributes nothing to anybody.
+#
+# pystac's own validation covers exactly ONE of the four ways this can be wrong. Measured
+# 2026-09-03 against the real collection, not reasoned from the schema:
+#
+#   extension declared + sci:citation present  -> passes    (correct)
+#   extension declared, sci:citation dropped   -> REJECTED  (pystac gets there first)
+#   sci:citation present, extension NOT declared -> passes  <- guarded here
+#   neither present                            -> passes    <- guarded here
+#   extension + a citation of "x"              -> passes    <- guarded here
+#
+# The extension's Collection branch is a `oneOf` -> `allOf` -> `anyOf` whose four arms want a
+# top-level sci: field, or one in `assets`, `item_assets`, or `summaries` — and the summaries
+# arm requires a sci: key INSIDE summaries, which ours (scenario/species/region/flood_factor)
+# does not have. So the extension-without-a-field direction really is refused. The other
+# three are not: the schema is selected BY the extension list, so it cannot see a field
+# published without its extension; and where it does look, `sci:citation` is only `type:
+# string`, so it can never tell the right attribution from the wrong one.
+#
+# An earlier version of this comment claimed all four passed, from a schema dump truncated
+# mid-word. The restore-the-bug run is what caught it: that case fired pystac's schema error
+# instead of this guard's message. Hence: measure, then write the comment.
+SCIENTIFIC_EXT = "https://stac-extensions.github.io/scientific/v1.0.0/schema.json"
+EXPECTED_LICENSE = "CC-BY-4.0"
+EXPECTED_LICENSE_HREF = "https://creativecommons.org/licenses/by/4.0/"
+EXPECTED_SOURCE_COLLECTION = "io-lulc-annual-v02"
+# The other half of what the citation claims — "accessed via Microsoft Planetary
+# Computer". A host move keeping the collection id would leave the id check green.
+EXPECTED_SOURCE_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
+EXPECTED_DERIVED_FROM_HREF = (
+    "https://planetarycomputer.microsoft.com/api/stac/v1/collections/io-lulc-annual-v02")
+
+EXPECTED_PROVIDERS = [
+    {"name": "Impact Observatory", "roles": ["producer", "processor", "licensor"],
+     "url": "https://www.impactobservatory.com/"},
+    {"name": "Esri", "roles": ["licensor"],
+     "url": "https://www.esri.com/"},
+    {"name": "Microsoft", "roles": ["host"],
+     "url": "https://planetarycomputer.microsoft.com"},
+    {"name": "Natural Resources Canada", "roles": ["producer", "licensor"],
+     "url": "https://natural-resources.canada.ca/"},
+    {"name": "Province of British Columbia", "roles": ["producer", "licensor"],
+     "url": "https://catalogue.data.gov.bc.ca/"},
+    {"name": "New Graph Environment Ltd.", "roles": ["processor", "host"],
+     "url": "https://www.newgraphenvironment.com"},
+]
+
+EXPECTED_CITATION = (
+    "New Graph Environment Ltd. (2026). Floodplain Land-Cover Change in British Columbia "
+    "[data set]. Derived from Impact Observatory, 10m Annual Land Use Land Cover (9-class) "
+    "V2 (io-lulc-annual-v02), licensed under CC BY 4.0 "
+    "(https://creativecommons.org/licenses/by/4.0/), accessed via Microsoft Planetary "
+    "Computer; modified by clipping to modelled floodplain extents and cross-tabulating "
+    "2017 against 2023 into land-cover transitions. Floodplain delineation contains "
+    "information licensed under the Open Government Licence – Canada (MRDEM-30, Natural "
+    "Resources Canada) and the Open Government Licence – British Columbia (Freshwater "
+    "Atlas stream network, Province of British Columbia). Stream network built with the "
+    "link package, reproducing the bcfishpass modelling approach."
+)
+
+# Asserted as a whole substring of the description, never as a marker word: a marker like
+# "modif" is satisfied by a description that says UNmodified. This is a licence obligation
+# (CC BY 4.0 §3(a)(1)(B)), not prose, which is why it is pinned as tightly as the citation.
+EXPECTED_DERIVATION_STATEMENT = (
+    "Land cover is derived from Impact Observatory's 10 m annual land use / land cover "
+    "(io-lulc-annual-v02, CC BY 4.0, via Microsoft Planetary Computer) and is "
+    "modified: clipped to the modelled floodplain extent and cross-tabulated between 2017 "
+    "and 2023 into land-cover transitions. Every year is read from that one collection, "
+    "recorded per item as nge:landcover_collection and fingerprinted as nge:landcover_key, "
+    "so the series cannot silently mix releases and manufacture change."
+)
+
+
+def _provider_key(p: dict) -> tuple:
+    """A provider compared WHOLE, with `roles` order-normalised.
+
+    Deliberately not a (name, roles) projection. A projection is blind to a `url` that is
+    missing or points at the wrong organisation — and CC BY 4.0 §3(a)(1)(A) obliges the URI
+    when one is supplied — and it is blind to any field added later. Comparing the whole
+    record means a surprise shows up as a difference rather than as silence.
+    """
+    return tuple(sorted(
+        (k, frozenset(v) if k == "roles" else v) for k, v in p.items()))
+
+
+def check_collection_metadata(doc: dict) -> list[str]:
+    """The licence, attribution and citation the source licences oblige (#47).
+
+    Returns EVERY problem, not the first. `check_version_stamp` returns `str | None`
+    because it guards one field; this guards five, and a caller that reported one of them
+    per run would cost a release round-trip per defect.
+
+    Pure on the document — the premise that ties these literals to the data they describe
+    lives in check_citation_premise(), which needs the items.
+    """
+    problems: list[str] = []
+
+    license_ = doc.get("license")
+    if license_ != EXPECTED_LICENSE:
+        problems.append(
+            f"collection license is {license_!r}, expected {EXPECTED_LICENSE!r}"
+            + (" — 'proprietary' claims a restriction we do not hold, and the source"
+               " licence obliges credit we would not be giving"
+               if license_ == "proprietary" else ""))
+
+    # `or []`, not `if "providers" in doc`: pystac omits the key ENTIRELY for an empty
+    # list (collection.py `if self.providers:`), so a presence gate would skip the whole
+    # comparison on exactly the input that has lost every provider.
+    providers = doc.get("providers") or []
+    if len(providers) != len(EXPECTED_PROVIDERS):
+        problems.append(
+            f"collection carries {len(providers)} provider(s), expected "
+            f"{len(EXPECTED_PROVIDERS)}")
+    # The count above is not redundant with the set compare below: a set cannot see a
+    # duplicate, so six correct providers plus a repeat of one of them compares equal.
+    got = {_provider_key(p) for p in providers}
+    want = {_provider_key(p) for p in EXPECTED_PROVIDERS}
+    if got != want:
+        missing = sorted(dict(k).get("name", "?") for k in want - got)
+        extra = sorted(dict(k).get("name", "?") for k in got - want)
+        if missing:
+            problems.append(f"providers missing or altered: {', '.join(missing)}")
+        if extra:
+            problems.append(f"providers not expected: {', '.join(extra)}")
+
+    links = doc.get("links") or []
+    for rel, href in (("license", EXPECTED_LICENSE_HREF),
+                      ("derived_from", EXPECTED_DERIVED_FROM_HREF)):
+        matching = [link for link in links if link.get("rel") == rel]
+        if len(matching) != 1:
+            problems.append(
+                f"expected exactly 1 rel={rel!r} link, found {len(matching)}")
+        elif matching[0].get("href") != href:
+            problems.append(
+                f"rel={rel!r} link points at {matching[0].get('href')!r}, expected {href!r}")
+
+    # The biconditional check_version_stamp uses, but for only ONE of its two halves. The
+    # extension declared with no field is refused by the schema before this runs (measured;
+    # see the table above), so this arm is belt-and-braces there. The other half is the
+    # load-bearing one: a sci: field published WITHOUT its extension is invisible to pystac,
+    # because the schema that would check it is selected by the extension list.
+    has_ext = SCIENTIFIC_EXT in (doc.get("stac_extensions") or [])
+    citation = doc.get("sci:citation")
+    if has_ext != (citation is not None):
+        problems.append(
+            "scientific extension half-applied: extension "
+            f"{'declared' if has_ext else 'absent'}, sci:citation "
+            f"{'present' if citation is not None else 'absent'}")
+    elif citation is None:
+        # Named separately from the verbatim mismatch below. Both states are detected either
+        # way, but "does not match verbatim" points at a citation that is not there, and
+        # acting on it lands you on the half-applied arm next run.
+        problems.append(
+            "the collection publishes no attribution at all — neither the scientific "
+            "extension nor sci:citation. CC BY 4.0 obliges credit; add both")
+    elif citation != EXPECTED_CITATION:
+        problems.append("sci:citation does not match the expected attribution verbatim")
+
+    if EXPECTED_DERIVATION_STATEMENT not in (doc.get("description") or ""):
+        problems.append(
+            "collection description is missing the derivation/modification statement "
+            "CC BY 4.0 §3(a)(1)(B) obliges")
+
+    return problems
+
+
+def check_citation_premise(base: Path) -> list[str]:
+    """Do the items still come from the collection the citation names? (#47)
+
+    The licence, the providers and the citation are literals a human wrote. Nothing else
+    here would notice if `drift` moved upstream to io-lulc-annual-v03 — the build would keep
+    publishing an attribution that had quietly become false, with every other guard green.
+    This is the premise those literals rest on, asserted beside them.
+
+    BOTH halves of what the citation claims, because it makes two claims and they can move
+    independently: the collection id (`io-lulc-annual-v02`) and where it was read from
+    ("accessed via Microsoft Planetary Computer"). A move to the same collection id on a
+    different host — an Esri-hosted variant on different terms — leaves the id untouched, so
+    checking the id alone would let it through while the citation named the wrong licensor.
+
+    A NULL value stays legal on either: the provenance floor (#32) is what governs how many
+    items must carry one, and refusing here would be a guard failing toward abort on a build
+    the floor deliberately permits.
+    """
+    problems: list[str] = []
+    claims = (("nge:landcover_collection", EXPECTED_SOURCE_COLLECTION),
+              ("nge:landcover_stac_url", EXPECTED_SOURCE_STAC_URL))
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        for prop, want in claims:
+            got = doc.get("properties", {}).get(prop)
+            if got is not None and got != want:
+                problems.append(
+                    f"{path.name}: {prop} is {got!r}, but the published citation "
+                    f"attributes {want!r}")
+    return problems
+
 # Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
 # item_create.py's PROV_FIELDS rather than importing it — importing that module
 # would run the entire build, since it is a script and not a library.
@@ -1117,9 +1332,18 @@ def main() -> int:
         try:
             if doc.get("type") == "Collection":
                 pystac.Collection.from_dict(doc).validate()
+                # Both checks run before either can `continue`, so a wrong licence and a
+                # half-applied version stamp are reported together rather than one release
+                # apart. And both run HERE rather than after the count check below: that
+                # would put them behind check_checksums' ~670 MB re-read, which
+                # short-circuits on any asset drift and would make a restore-the-bug proof
+                # for these guards meaningless (#46).
+                coll_problems = check_collection_metadata(doc)
                 stamp_problem = check_version_stamp(doc)
                 if stamp_problem:
-                    failed.append((path.name, stamp_problem))
+                    coll_problems.append(stamp_problem)
+                if coll_problems:
+                    failed.extend((path.name, p) for p in coll_problems)
                     continue
                 collections += 1
                 collection_version = doc.get("version")
@@ -1152,6 +1376,22 @@ def main() -> int:
         return 1
     print("collection version: " + (collection_version
           or "unstamped (a build; catalogue_release.sh stamps the tag on release)"))
+
+    # --- licence: does the collection say what a consumer may do, and credit whom? ---
+    #
+    # The document half ran in the loop above. This is the premise it rests on: the
+    # attribution names a source collection, and the items have to still be built from it.
+    bad_premise = check_citation_premise(args.base)
+    if bad_premise:
+        print(f"FAILED: {len(bad_premise)} citation-premise problem(s)", file=sys.stderr)
+        for msg in bad_premise:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"licence: {EXPECTED_LICENSE} with rel=license + rel=derived_from links, "
+          f"{len(EXPECTED_PROVIDERS)} providers, sci:citation verbatim; no item's "
+          f"nge:landcover_collection or nge:landcover_stac_url contradicts the "
+          f"citation (each is {EXPECTED_SOURCE_COLLECTION} / the Planetary Computer, "
+          f"or null, independently)")
 
     # --- file extension: do the published checksums describe the bytes we ship? ---
     #

@@ -65,8 +65,82 @@ PROJECTION_EXT = "https://stac-extensions.github.io/projection/v1.1.0/schema.jso
 FILE_EXT = "https://stac-extensions.github.io/file/v2.1.0/schema.json"
 CLASSIFICATION_EXT = (
     "https://stac-extensions.github.io/classification/v2.0.0/schema.json")
+SCIENTIFIC_EXT = "https://stac-extensions.github.io/scientific/v1.0.0/schema.json"
 
 CLASSES_PATH = RAW_DIR / "classes.json"
+
+# --- Licence and attribution (#47) ----------------------------------------------------
+#
+# The published products are a derivative of Impact Observatory's io-lulc-annual-v02, which
+# is CC BY 4.0 with NO share-alike — so the derivative may carry our own licence, and
+# CC-BY-4.0 is the natural match. The two other inputs are attribution-only as well
+# (MRDEM-30 is OGL-Canada-2.0, the BC Freshwater Atlas is OGL-BC), so nothing constrains the
+# choice; what all three oblige is credit, a licence link, and a statement that the input
+# was modified. Every fact below was read from the producers' own collection records on
+# 2026-09-03 rather than reasoned about — including the three source roles.
+#
+# Every literal here is duplicated in item_validate.py as an ABSOLUTE expectation, and
+# deliberately NOT shared. A guard that imports the value it checks is a round-trip through
+# our own assignment: it returns identical, forever. (Importing this module would also run
+# the entire build — it raises SystemExit at module level and writes 24 files.) The
+# duplication is only safe because those assertions are full equality, so a drift between
+# the two copies shows up as a readable diff rather than as two strings that still share
+# enough tokens to pass.
+COLLECTION_LICENSE = "CC-BY-4.0"
+LICENSE_HREF = "https://creativecommons.org/licenses/by/4.0/"
+SOURCE_COLLECTION_ID = "io-lulc-annual-v02"
+SOURCE_COLLECTION_HREF = (
+    "https://planetarycomputer.microsoft.com/api/stac/v1/collections/"
+    + SOURCE_COLLECTION_ID)
+
+# Roles for the first three are COPIED from the source collection's own `providers` block,
+# not inferred from what those organisations do. The last three are ours to state.
+PROVIDERS = [
+    {"name": "Impact Observatory", "roles": ["producer", "processor", "licensor"],
+     "url": "https://www.impactobservatory.com/"},
+    {"name": "Esri", "roles": ["licensor"],
+     "url": "https://www.esri.com/"},
+    {"name": "Microsoft", "roles": ["host"],
+     "url": "https://planetarycomputer.microsoft.com"},
+    {"name": "Natural Resources Canada", "roles": ["producer", "licensor"],
+     "url": "https://natural-resources.canada.ca/"},
+    {"name": "Province of British Columbia", "roles": ["producer", "licensor"],
+     "url": "https://catalogue.data.gov.bc.ca/"},
+    {"name": "New Graph Environment Ltd.", "roles": ["processor", "host"],
+     "url": "https://www.newgraphenvironment.com"},
+]
+
+# CC BY 4.0 §3(a)(1)(B) obliges a statement that the licensed material was modified, so this
+# is a licence obligation and not a nicety — it ships in the description, which is the field
+# a consumer reads. The v02 re-release caution rides with it: the July 2023 v2 re-release
+# re-aligned the series to the Sentinel-2 grid and reduced anomalous Bare<->vegetation
+# transitions, so mixing releases across years would manufacture change. Every year here is
+# read from the one collection, recorded per item, which is what makes the claim checkable.
+DERIVATION_STATEMENT = (
+    "Land cover is derived from Impact Observatory's 10 m annual land use / land cover "
+    f"({SOURCE_COLLECTION_ID}, CC BY 4.0, via Microsoft Planetary Computer) and is "
+    "modified: clipped to the modelled floodplain extent and cross-tabulated between 2017 "
+    "and 2023 into land-cover transitions. Every year is read from that one collection, "
+    "recorded per item as nge:landcover_collection and fingerprinted as nge:landcover_key, "
+    "so the series cannot silently mix releases and manufacture change."
+)
+
+# The attribution sentence, carried identically by sci:citation and README.md's Attribution
+# section. The two OGL sentences are the licences' own prescribed wording — en dash
+# included — and bcfishpass is a METHOD citation, not a licence obligation: nothing
+# published here redistributes its data, the published geometry being FWA-derived.
+CITATION = (
+    "New Graph Environment Ltd. (2026). Floodplain Land-Cover Change in British Columbia "
+    "[data set]. Derived from Impact Observatory, 10m Annual Land Use Land Cover (9-class) "
+    f"V2 ({SOURCE_COLLECTION_ID}), licensed under CC BY 4.0 "
+    f"({LICENSE_HREF}), accessed via Microsoft Planetary Computer; modified by clipping to "
+    "modelled floodplain extents and cross-tabulating 2017 against 2023 into land-cover "
+    "transitions. Floodplain delineation contains information licensed under the Open "
+    "Government Licence – Canada (MRDEM-30, Natural Resources Canada) and the Open "
+    "Government Licence – British Columbia (Freshwater Atlas stream network, Province "
+    "of British Columbia). Stream network built with the link package, reproducing the "
+    "bcfishpass modelling approach."
+)
 
 # Multihash prefix for sha2-256: 0x12 = function code, 0x20 = 32-byte digest length.
 # file:checksum is a multihash, NOT a bare digest — see file_meta().
@@ -467,11 +541,43 @@ collection = pystac.Collection(
         "land-cover GeoPackage, a floodplain delineation GeoPackage (ff02/ff04/ff06 "
         "extents), and the transition layer on its own for consumers that do not need "
         "the classified epochs. Floodplain area per flood-factor and tree loss/gain/net properties "
-        "are aggregated from the layers produced by the `floodplains` driver."
+        "are aggregated from the layers produced by the `floodplains` driver. "
+        + DERIVATION_STATEMENT
     ),
     extent=pystac.Extent(spatial=spatial_extent, temporal=temporal_extent),
-    license="proprietary",
+    license=COLLECTION_LICENSE,
+    providers=[pystac.Provider.from_dict(p) for p in PROVIDERS],
+    # A literal, matching PROJECTION_EXT / FILE_EXT / CLASSIFICATION_EXT on the item rather
+    # than ScientificExtension.ext(): this file declares extensions by URL throughout.
+    # Dropping the FIELD while keeping this line is refused by the schema (measured — the
+    # extension's Collection branch wants a sci: key at top level, in assets, in item_assets
+    # or inside `summaries`, and ours carries scenario/species/region/flood_factor). Dropping
+    # THIS LINE while keeping the field is not refused: the schema is selected BY the
+    # extension list, so pystac would never look. item_validate.py guards that direction as a
+    # biconditional, and the citation's content, which no schema can check — `sci:citation`
+    # is only `type: string`.
+    stac_extensions=[SCIENTIFIC_EXT],
+    extra_fields={"sci:citation": CITATION},
 )
+
+# CC BY 4.0 obliges a link to the licence, and naming the source is worth more when it
+# resolves. Both survive to the API: stac-fastapi-pgstac drops only the rels it infers
+# (self/item/parent/collection/root/items/child — which is why the `item` links added below
+# are served as none), and resolves every other href through urljoin, leaving an absolute
+# one unchanged. That is read from its source, not measured here, which is why
+# catalogue_release.sh step 5 reads all three fields back from the live API.
+collection.add_link(pystac.Link(
+    rel="license",
+    target=LICENSE_HREF,
+    media_type="text/html",
+    title="CC BY 4.0",
+))
+collection.add_link(pystac.Link(
+    rel="derived_from",
+    target=SOURCE_COLLECTION_HREF,
+    media_type="application/json",
+    title=f"Impact Observatory {SOURCE_COLLECTION_ID}",
+))
 
 # Summaries let a client discover the queryable values without downloading items —
 # which matters here because the items are 3-9 MB each. Derived from the built items
