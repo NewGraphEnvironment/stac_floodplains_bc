@@ -42,7 +42,34 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   needed separately because a `sqlite3` write never passes through GDAL, so `OGR_CURRENT_DATE`
   does not reach it. Symbol ids are `uuid5`, never `uuid4`: a random id makes the generator
   non-deterministic at identical byte length and would churn every published `file:checksum`.
-- `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs).
+- **Landing page + site** — `README.Rmd` is the single source, rendering `README.md`
+  (`github_document`) and `index.html` (GitHub Pages, served from `main` at `/`, live at
+  `www.newgraphenvironment.com/stac_floodplains_bc`). `scripts/readme_functions.R` holds the one
+  guarded `rstac` call that feeds both the coverage figure and the coverage table, replacing the
+  retired `readme_coverage-table.py` (#41/#53) — two fetches in two languages was the "one fact
+  derived twice" shape. `params$rmd_on` switches the targets (**defaults `false`**: `README.md`
+  is the artifact an accidental Knit would destroy and must never contain a widget);
+  `update_query` decides whether the API is read at all. Both targets render **byte-identically**
+  from an unchanged cache, which took pinning three id sources — `htmlwidgets::setWidgetIdSeed()`,
+  `set.seed()` for mapgl's `sample()`-based legend id, and keeping the shields.io badges off the
+  `self_contained` target, because `--embed-resources` **fetches them at render time**. Popups
+  carry every asset's download link, hrefs read from the API and never constructed (the key is
+  `style_classified`, the file is `classified.qml`). Regenerating is release step 6, past the tag;
+  #55 tracks doing it automatically on a version tag, which matters because those links outlive
+  the figures beside them.
+- `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs) **except
+  `data/readme_items.rds`**, the render cache, negated in `.gitignore` so it is tracked.
+- `fig/` — the committed coverage map plus two QGIS screenshots. `ATTRIBUTION.md` holds the
+  licence reasoning that used to sit on the landing page, and `scripts/attribution_drift-check.py`
+  asserts its copies against `item_create.py` by full equality — they were a fourth and fifth copy
+  of literals this repo duplicates deliberately, and the only ones nothing checked.
+
+**The two READMEs are complementary, and the boundary is a rule** (floodplains#77): each repo
+states only what it owns, and **neither restates the other's numbers**. `floodplains` owns the
+model, its uncertainties and how to re-run; this repo owns the item model, access, and the
+licensing of the published products. `floodplains` saying "20 items live" while the collection
+serves 23 is what the rule exists to stop. It cuts both ways — this README's safety summary
+currently restates upstream attribution percentages, which floodplains#77 leaves open.
 
 ## Collection model
 
