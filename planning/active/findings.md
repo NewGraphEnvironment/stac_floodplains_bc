@@ -53,6 +53,8 @@
 
 | Error | Resolution |
 |-------|------------|
+| `git check-ignore -v data/readme_items.rds` printed the negation pattern and **exited 0**, which reads as "still ignored" | `-v` reports the last matching pattern, negations included, and its exit status is not a per-file verdict. Test each path with `git check-ignore -q <f>` in a loop and branch on the status, or the verification says the opposite of the truth. |
+| `p_bad$wsg == "morr"` matched nothing, so the guard-4 proof died on its own `stopifnot` rather than on the guard | The API publishes `wsg` **uppercase** and `region` **lowercase**. Measured rather than assumed; `fp_readme_wsg()` now asserts every published group got a polygon, so a case change on either side is loud instead of returning an empty map. |
 
 ## Issue context
 

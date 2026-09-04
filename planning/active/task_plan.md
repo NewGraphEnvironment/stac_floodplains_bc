@@ -33,26 +33,26 @@ regression.
 
 - [ ] `README.Rmd` scaffold: YAML params (`rmd_on`, `update_query`), `setup` chunk, `build` chunk
       (`eval = FALSE`) with both `rmarkdown::render()` calls, generated-from banner
-- [ ] `scripts/readme_functions.R` — sourced by the Rmd; holds `my_dt_table` / `my_tab_caption_rmd`
+- [x] `scripts/readme_functions.R` — sourced by the Rmd; holds `my_dt_table` / `my_tab_caption_rmd`
       (ported from `stac_dem_bc/scripts/staticimports.R` + `functions.R`)
-- [ ] `.gitignore`: negate the cache (`!data/readme_items.rds`) — `data/*.rds` is currently ignored,
+- [x] `.gitignore`: negate the cache (`!data/readme_items.rds`) — `data/*.rds` is currently ignored,
       and `git add` on an ignored path exits 0 while tracking nothing
-- [ ] Verify with `git check-ignore -v data/readme_items.rds` (expect no output)
+- [x] Verify with `git check-ignore -v data/readme_items.rds` (expect no output)
 
 ## Phase 2: The one call, its guards, and the cache
 
-- [ ] `fp_readme_fetch()` in `scripts/readme_functions.R`: one `rstac` POST search (`limit = 1000`),
+- [x] `fp_readme_fetch()` in `scripts/readme_functions.R`: one `rstac` POST search (`limit = 1000`),
       returning items + collection version
-- [ ] Port every guard from `scripts/readme_coverage-table.py` — behaviour, not text:
-      - [ ] refuse if any link has `rel == "next"` (paged)
-      - [ ] refuse if zero features, **before** the cross-check (0 == 0 would otherwise pass)
-      - [ ] cross-check the feature count against the **bucket** `collection.json`'s `rel: item`
+- [x] Port every guard from `scripts/readme_coverage-table.py` — behaviour, not text:
+      - [x] refuse if any link has `rel == "next"` (paged)
+      - [x] refuse if zero features, **before** the cross-check (0 == 0 would otherwise pass)
+      - [x] cross-check the feature count against the **bucket** `collection.json`'s `rel: item`
             link count — the API rewrites served links, so the bucket copy is the independent side
-      - [ ] assert items within a WSG agree on `floodplain_ff04_km2`, so the once-per-group km²
+      - [x] assert items within a WSG agree on `floodplain_ff04_km2`, so the once-per-group km²
             total does not depend on response order
-- [ ] Keep the caption's content: item count, group count, regions, **catalogue version**
+- [x] Keep the caption's content: item count, group count, regions, **catalogue version**
 - [ ] Burn `data/readme_items.rds` (properties + version + simplified WSG polygons)
-- [ ] **Restore-the-bug proof** for each guard: force a `next` link, an empty feature list, and a
+- [x] **Restore-the-bug proof** for each guard: force a `next` link, an empty feature list, and a
       bucket-count mismatch, and confirm each refuses. Grep the output for the *message* — four
       guards means four ways to exit non-zero and only one is the evidence
 

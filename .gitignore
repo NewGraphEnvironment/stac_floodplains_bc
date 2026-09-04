@@ -4,6 +4,9 @@ data/*.geojson
 data/*.tif
 data/*.csv
 data/*.rds
+# ...except the README's render cache: README.Rmd reads it so a routine render needs no
+# network. It must be TRACKED -- `git add` on an ignored path exits 0 and tracks nothing.
+!data/readme_items.rds
 data/*.parquet
 data/raw/
 data/stac/
