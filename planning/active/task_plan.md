@@ -26,13 +26,13 @@ from the artifact.
 
 `scripts/item_create.py` (the `pystac.Collection(...)` block, ~line 460).
 
-- [ ] Add module-level constants beside the existing config: `COLLECTION_LICENSE = "CC-BY-4.0"`, `LICENSE_HREF`, `SOURCE_COLLECTION_HREF` (the PC `io-lulc-annual-v02` collection URL), `PROVIDERS`, `CITATION`, `SCIENTIFIC_EXT`
-- [ ] `PROVIDERS` — six entries, roles for Impact Observatory / Esri / Microsoft copied from the source record rather than reasoned: Impact Observatory `[producer, processor, licensor]`; Esri `[licensor]`; Microsoft `[host]`; Natural Resources Canada `[producer, licensor]`; Province of British Columbia `[producer, licensor]`; New Graph Environment Ltd. `[processor, host]`. Every entry carries a `url`
-- [ ] Set `license=COLLECTION_LICENSE` and `providers=[pystac.Provider.from_dict(p) for p in PROVIDERS]`
-- [ ] Add a `rel: license` link (`type: text/html`, `title: CC BY 4.0`) and a `rel: derived_from` link to `SOURCE_COLLECTION_HREF` — the measured `INFERRED_LINK_RELS` finding means both survive to the API, so the attribution is resolvable and not merely stated
-- [ ] Declare the scientific extension via `ScientificExtension.ext(collection, add_if_missing=True)` (not a literal in `stac_extensions=`) and set `sci:citation = CITATION`
-- [ ] Extend the collection `description` with the derivation + **modification** statement CC BY 4.0 §3(a)(1)(B) obliges, and the one-sentence release-mixing caution the issue asks for
-- [ ] Rebuild (`uv run python scripts/item_create.py`) and read `data/stac/collection.json` by eye
+- [x] Add module-level constants beside the existing config: `COLLECTION_LICENSE = "CC-BY-4.0"`, `LICENSE_HREF`, `SOURCE_COLLECTION_HREF` (the PC `io-lulc-annual-v02` collection URL), `PROVIDERS`, `CITATION`, `SCIENTIFIC_EXT`
+- [x] `PROVIDERS` — six entries, roles for Impact Observatory / Esri / Microsoft copied from the source record rather than reasoned: Impact Observatory `[producer, processor, licensor]`; Esri `[licensor]`; Microsoft `[host]`; Natural Resources Canada `[producer, licensor]`; Province of British Columbia `[producer, licensor]`; New Graph Environment Ltd. `[processor, host]`. Every entry carries a `url`
+- [x] Set `license=COLLECTION_LICENSE` and `providers=[pystac.Provider.from_dict(p) for p in PROVIDERS]`
+- [x] Add a `rel: license` link (`type: text/html`, `title: CC BY 4.0`) and a `rel: derived_from` link to `SOURCE_COLLECTION_HREF` — the measured `INFERRED_LINK_RELS` finding means both survive to the API, so the attribution is resolvable and not merely stated
+- [x] Declare the scientific extension and set `sci:citation = CITATION` — as a **URL literal** in `stac_extensions=`, not `ScientificExtension.ext()` as the plan said: this file declares `PROJECTION_EXT` / `FILE_EXT` / `CLASSIFICATION_EXT` that way throughout, and comments at line 234 already record that the `.ext()` route was rejected once here. What `.ext()` would have bought — not forgetting the declaration — is bought instead by the Phase 2 biconditional, which is stronger
+- [x] Extend the collection `description` with the derivation + **modification** statement CC BY 4.0 §3(a)(1)(B) obliges, and the one-sentence release-mixing caution the issue asks for
+- [x] Rebuild (`uv run python scripts/item_create.py`) and read `data/stac/collection.json` by eye
 
 Draft `CITATION` and the description sentence land in `findings.md` for review before they
 are hardcoded in two places.

@@ -9,4 +9,8 @@
   this PR cuts a release (which also publishes #26)
 - Created branch `47-collection-publishes-license-proprietary` off main
 - Scaffolded PWF baseline with approved phases
-- Next: Phase 1 — collection metadata in `scripts/item_create.py`
+- Phase 1: collection metadata in `scripts/item_create.py` — licence, six providers,
+  `rel: license` + `rel: derived_from` links, scientific extension + `sci:citation`,
+  and the CC BY §3(a)(1)(B) modification statement in the description. Rebuilt: 23
+  items, collection validates against core + scientific v1.0.0
+- Next: Phase 2 — the validator guard in `scripts/item_validate.py`
