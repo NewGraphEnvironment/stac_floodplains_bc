@@ -10,11 +10,68 @@ The version is stamped onto the collection by the release, not the build, from t
 release is cut at (`scripts/catalogue_release.sh`; recipe under "Cut a release" in
 `scripts/README.md`). There is no `DESCRIPTION`; releases live here and in git tags.
 
-## Unreleased
+**`v2.0.0` is reserved for the release in which every published area carries corrected
+geometry.** `mcgr_ch_ff04` and `pine_bt_ff04` cannot be re-run until floodplains#76 is
+resolved, so until then a correction release is a minor bump, however much data it moves.
+Recorded here because it is a decision (airvine, 2026-09-03) that previously existed only
+in conversation — it was in neither #26, #19, any archived planning file, nor the project
+memory, and had to be recalled rather than read.
 
-The next full release publishes **23 items** — the 20 live today plus `lnth_ch_ff04`,
-`thom_ch_ff04` and `unth_ch_ff04` — with `PROVENANCE_FLOOR=21`, the exact count this build
-carries. No item is dropped, so no `--allow-retract`.
+## v1.1.0 (2026-09-03)
+
+**The published floodplain geometry was wrong, and this release replaces every item it can.** Every
+item in v1.0.0 was built with the `flooded` bankfull units defect (#26): `fl_flood_surface()`
+fed hectares and millimetres into Hall et al. (2007) coefficients that take km² and cm/yr, so
+bankfull depth was **3.5926x** too large. A `ff04` item was not the functional floodplain its
+id claims — it was a waterline at roughly 14x bankfull depth, against Hall's field-validated 3.
+
+Areas cannot be scaled, so the items were rebuilt upstream on `flooded` >= 0.5.0. Every
+corrected extent is a strict subset of what was published. **Twelve items shrink materially,
+by 1.5% to 33.5%**, and a thirteenth (`necr_ch_ff04`) moves 0.01 km² — measured 2026-09-03 as
+each item's own `floodplain_ff0*_km2` on the live API against the same property in this build,
+compared exactly:
+
+| item | published km² | corrected km² | retained |
+|---|---:|---:|---:|
+| `tabr_ch_ff04` | 232.69 | 154.63 | 66.5% |
+| `mork_ch_ff04` | 625.74 | 416.87 | 66.6% |
+| `lchl_ch_ff04` | 324.87 | 232.56 | 71.6% |
+| `lsal_ch_ff04` | 256.06 | 185.89 | 72.6% |
+| `will_ch_ff04` | 304.93 | 236.09 | 77.4% |
+| `ufra_ch_ff04` | 188.18 | 146.93 | 78.1% |
+| `bowr_ch_ff04` | 298.16 | 235.75 | 79.1% |
+| `fran_ch_ff04` | 883.09 | 782.02 | 88.6% |
+| `sloc_bt_ff04` | 129.57 | 117.49 | 90.7% |
+| `larl_bt_ff04` | 306.88 | 286.16 | 93.2% |
+| `kotl_bt_ff04` | 707.80 | 676.09 | 95.5% |
+| `pcea_bt_ff04` | 1067.59 | 1051.96 | 98.5% |
+| `necr_ch_ff04` | 396.52 | 396.51 | 100.0% |
+
+Seven items are unchanged — five were already corrected in v1.0.0, and the two marked below
+could not be re-run. Any figure a consumer holds for one of the thirteen is now wrong.
+
+**Do not use `file:checksum` to tell which items changed.** Measured: every asset on *every*
+item has a new checksum in this release, including items whose geometry is identical, because
+the RAT and COG rewrites (#33/#34/#35) touch every byte. The checksum answers "are my bytes
+current", which is what it is for — it cannot answer "did the geometry change". Compare the
+item's own `floodplain_ff0*_km2` against the table above, or read `nge:flooded_version`:
+`0.5.0` means corrected, absent means not.
+
+The catalogue goes from 20 items to **23** — three new Thompson groups in the Fraser region
+(`thom_ch_ff04`, `lnth_ch_ff04`, `unth_ch_ff04`). No item is dropped.
+
+- **Two items publish `deprecated: true`** — `mcgr_ch_ff04` and `pine_bt_ff04`, which could
+  not be re-run (floodplains#76: MCGR is absent from `fresh`; PINE diverges 10.8% from the
+  bcfp reference). They remain over-mapped. Holding the release for them would have blocked 18
+  corrections indefinitely, so they ship marked rather than withheld or left looking current.
+  Both also carry null on all twelve `nge:` properties while every rebuilt group carries
+  `nge:flooded_version = "0.5.0"` — but the API omits nulls, so absence alone is not a
+  statement and the marker is the positive one. `item_validate.py` refuses a build where the
+  marker has spread, been dropped, or been left on an item that has since been rebuilt, and
+  equally one where an item **not** built on `flooded` >= 0.5.0 publishes *unmarked*.
+- `PROVENANCE_FLOOR` is **21**: the two marked items have no upstream `provenance.json`.
+
+Also in this release, as merged code with no release between (#46, #47, #40, #32):
 
 - The collection now states its licence and credits its sources (#47). It publishes
   `license: CC-BY-4.0` in place of `proprietary`, a `rel: license` link, six `providers`,

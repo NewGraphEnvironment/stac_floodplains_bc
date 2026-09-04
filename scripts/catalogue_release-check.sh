@@ -12,7 +12,9 @@
 # script, byte for byte. The shims log their argv, and the assertions read the log:
 #
 #   1  --only <id>   never syncs the tree root, never a JSON sweep, never `load collections`,
-#                    and never passes the provenance floor to the validator (skipped out loud)
+#                    and never passes the provenance floor to the validator (skipped out loud),
+#                    but DOES pass --partial, without which the deprecation set compare (#26)
+#                    refuses every group but the two marked ones
 #   2  full release  DOES sync the tree root with --include *.json and DOES `load collections`
 #                    — the positive control, found by the SAME greps case 1 uses. Without it
 #                    case 1 is a search that has never been shown to match anything. Also
@@ -50,6 +52,12 @@
 #                  the only failure mode and not even the likely one: rewriting an href is
 #                  what pgstac does to a link it keeps
 #  9i  verify      the API dropping the rel=derived_from link -> refused
+#  9k  verify      the API dropping a deprecation marker -> refused (#26)
+#  9m  verify      retracting a marked item under --allow-retract does NOT fail the
+#                  release — the one line covering the served-set intersection
+#  9l  verify      the API marking an item this build does not -> refused. Both
+#                  directions: a lost marker republishes a stale item looking current,
+#                  an invented one stamps a permanent false claim on a correct item
 #  9j  verify      a BUILT collection.json missing the citation and the licence link is
 #                  refused, naming the BUILD as the side at fault. Every knob above breaks
 #                  only the served side, so without this the both-absent state — where a
@@ -121,6 +129,11 @@ def item(iid, sizes):
     json.dump(doc, open(os.path.join(stac, iid + ".json"), "w"))
 item("aaaa_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
 item("bbbb_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
+# One fixture item carries the #26 marker, so step 5's read-back has something to compare.
+# With every item unmarked the check is NONE == NONE and no negative case can reach it.
+_b = json.load(open(os.path.join(stac, "bbbb_ch_ff04.json")))
+_b["properties"]["deprecated"] = True
+json.dump(_b, open(os.path.join(stac, "bbbb_ch_ff04.json"), "w"))
 # The licence fields (#47) are part of the fixture because step 5 now reads all three back
 # from the API and from the bucket, so a full release refuses a collection without them.
 # They are the values catalogue_release.sh expects, not item_create.py's real ones: this
@@ -183,7 +196,26 @@ case "$url" in
     ids="$FAKE_LIVE_IDS"
     if [ -e "$COUNTER" ] && [ -n "${FAKE_LIVE_IDS_AFTER:-}" ]; then ids="$FAKE_LIVE_IDS_AFTER"; fi
     touch "$COUNTER"
-    python3 -c 'import json,sys; print(json.dumps({"features":[{"id":i} for i in sys.argv[1].split()]}))' "$ids"
+    # Echo `properties.deprecated` back from the BUILT tree, so step 5's marker read-back has
+    # a positive control at all (#26). Serving ids only made it a NONE == NONE tautology that
+    # no fixture could break — the same trap this harness already documents for the version
+    # and licence checks. FAKE_LIVE_DEPRECATED overrides the served set: `none` drops every
+    # marker, any other value is the literal id list to serve.
+    python3 -c 'import glob, json, os, sys
+ids = sys.argv[1].split()
+forced = os.environ.get("FAKE_LIVE_DEPRECATED", "")
+if forced == "none":
+    marked = set()
+elif forced:
+    marked = set(forced.split())
+else:
+    marked = set()
+    for p in glob.glob(os.path.join(sys.argv[2], "*.json")):
+        d = json.load(open(p))
+        if d.get("type") == "Feature" and (d.get("properties") or {}).get("deprecated") is True:
+            marked.add(d["id"])
+feats = [{"id": i, "properties": ({"deprecated": True} if i in marked else {})} for i in ids]
+print(json.dumps({"features": feats}))' "$ids" "$STAC_DIR"
     exit 0 ;;
 esac
 if [ -n "$w" ]; then printf '200'; exit 0; fi
@@ -252,6 +284,7 @@ LIVEV=""
 BUCKETV=""
 LIVELIC=""
 BUCKETLIC=""
+LIVEDEP=""
 RC=0
 run_release() {
   : > "$LOG"; rm -f "$WORK/search_count"
@@ -261,6 +294,7 @@ run_release() {
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
+      FAKE_LIVE_DEPRECATED="$LIVEDEP" \
       bash "$RELEASE" "$@" ) > "$OUT" 2>&1 < /dev/null
   RC=$?
   set -e
@@ -293,6 +327,11 @@ floor_passed() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--expect-pr
 # ...and the flag's own count, because floor_passed prints "" both for an absent flag and for
 # a flag with an empty value — which argparse would reject, but the log would not show.
 n_floor_flag() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--expect-provenance") n++ } END { print n+0 }' "$LOG"; }
+# --partial (#26) is the mirror of the floor: passed under --only, absent on a full release.
+# Without it the deprecation check's whole-catalogue set compare refuses every group but the
+# two marked ones, so #36's single-group path dies quietly. uv is shimmed, so this is proven
+# from the argv log rather than from reading the script.
+n_partial_flag() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--partial") n++ } END { print n+0 }' "$LOG"; }
 
 refused() { # desc — the last run must have exited non-zero having touched nothing
   if [ "$RC" -ne 0 ] && [ "$(n_aws)" -eq 0 ]; then pass "$1"
@@ -319,6 +358,7 @@ expect_out "verify read the live version back" "live collection version: $TVERSI
 expect_out "verify read the bucket copy back" "bucket collection.json version: $TVERSION — agrees"
 expect_out "verify read the licence back from the API" "live collection licence: CC-BY-4.0, sci:citation and both links served as published"
 expect_out "verify read the licence back from the bucket" "bucket collection.json licence: agrees"
+expect_out "verify read the deprecation markers back" "deprecation markers served: bbbb_ch_ff04"
 expect_out "completion line names the version" "RELEASE COMPLETE — v$TVERSION"
 # Read the literal out of the script with an anchored sed, so a renamed variable, a quoted
 # value or a `${PROVENANCE_FLOOR:-0}` rewrite of the literal reads as an empty premise rather
@@ -337,6 +377,7 @@ expect_eq "premise: PROVENANCE_FLOOR is one bare integer literal in the script" 
 expect_eq "premise: the validator was invoked once" "$(n_uv)" 1
 expect_eq "the flag appears once on the validator's argv" "$(n_floor_flag)" 1
 expect_eq "validator was given exactly that literal as --expect-provenance" "$(floor_passed)" "$FLOOR_LITERAL"
+expect_eq "a full release does NOT pass --partial" "$(n_partial_flag)" 0
 echo aaaa > "$RAW/PARTIAL_STAGE"
 
 # --- cases 8-13: the version gate and the version verify ---------------------------------
@@ -443,6 +484,40 @@ expect_out "names the build as the side at fault (citation)" "built-has-no-citat
 expect_out "names the build as the side at fault (link)" "built-has-no-license-link"
 cp "$WORK/coll_built.bak" "$STAC/collection.json"
 
+# 9k/9l are to the deprecation read-back what 8/9 are to the version gate. The shim echoes the
+# built markers, so case 2's line above is tautological on its own — these are what prove the
+# compare bites. Both directions, because losing a marker and inventing one are different
+# failures: the first republishes a stale item looking current, the second stamps a permanent
+# false "stale" claim on a correct one.
+echo "case 9k: the API dropping a deprecation marker fails the release"
+LIVEDEP=none
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
+expect_out "names both sides" "the API serves deprecated on 'NONE' but this build marks 'bbbb_ch_ff04'"
+LIVEDEP=""
+
+echo "case 9l: the API marking an item this build does not fails the release"
+LIVEDEP="aaaa_ch_ff04 bbbb_ch_ff04"
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the extra marker" "the API serves deprecated on 'aaaa_ch_ff04 bbbb_ch_ff04'"
+LIVEDEP=""
+
+# 9m covers the one line in the step-5 block that nothing else reaches: the intersection of
+# the served marked-set with the build's ids. Deleting `served &= built_ids` leaves every other
+# case green, because it only matters when an item is live-and-marked but absent from the
+# build — which is exactly a retraction, and only --allow-retract permits one.
+echo "case 9m: retracting a marked item does not falsely fail the release (--allow-retract)"
+mv "$STAC/bbbb_ch_ff04.json" "$WORK/bbbb.json.bak"
+LIVEDEP="bbbb_ch_ff04"          # live still serves it marked; this build no longer has it
+run_release --allow-retract
+expect_eq "exit 0" "$RC" 0
+expect_out "release completed" "RELEASE COMPLETE"
+expect_out "the surviving marker set is the build's, not the API's" "deprecation markers served: NONE"
+LIVEDEP=""
+mv "$WORK/bbbb.json.bak" "$STAC/bbbb_ch_ff04.json"
+
 echo "case 10: HEAD not exactly at a tag is refused"
 tgit commit -q --no-verify --allow-empty -m "past the tag"
 run_release;                                        refused "untagged HEAD"
@@ -504,6 +579,7 @@ expect_eq "all four skips said out loud (interlock, comparison, version gate, pr
 expect_out "the provenance floor skip is the one named" "provenance floor: skipped under --only"
 expect_eq "premise: the validator was invoked once" "$(n_uv)" 1
 expect_eq "the validator was NOT given a provenance floor (flag absent, not merely empty)" "$(n_floor_flag)" 0
+expect_eq "the validator WAS given --partial (#26: without it a one-group tree is refused)" "$(n_partial_flag)" 1
 expect_out "preflight compared the item's live provenance (the control: nothing lost)" "provenance under --only: live item carries 1 nge: value(s), this build carries 1."
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
 expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 3 properties"

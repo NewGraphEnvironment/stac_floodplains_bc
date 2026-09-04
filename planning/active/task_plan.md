@@ -61,17 +61,17 @@ recalled rather than read. Phase 4 records it.
 
 ## Phase 3: Restore each bug and prove the guard fires
 
-- [ ] Positive control: clean tree, validator green, the new summary line prints
-- [ ] Mutate the **source** (`item_create.py`'s literal, or `meta.json` for the provenance arm), rebuild, validate, and **grep the output for that guard's own message** — never the exit status (#46, and it caught a false premise in #47)
-- [ ] One proof each: the literal emptied; a third id added; an id that is not in the build; `deprecated` set without `VERSION_EXT`; `VERSION_EXT` without `deprecated`; and a deprecated item given a non-null `nge:flooded_version` (the self-clear)
-- [ ] Assert each mutation took before believing what follows, and record the table in `findings.md`
+- [x] Positive control: clean tree, validator green, the new summary line prints
+- [x] Mutate the **source** (`item_create.py`'s literal, or `meta.json` for the provenance arm), rebuild, validate, and **grep the output for that guard's own message** — never the exit status (#46, and it caught a false premise in #47)
+- [x] One proof each: the literal emptied; a third id added; an id that is not in the build; `deprecated` set without `VERSION_EXT`; `VERSION_EXT` without `deprecated`; and a deprecated item given a non-null `nge:flooded_version` (the self-clear)
+- [x] Assert each mutation took before believing what follows, and record the table in `findings.md`
 
 ## Phase 4: Release bookkeeping
 
-- [ ] `NEWS.md`: fold the `## Unreleased` block (already carrying #46, #40, #32, #47) into a `## v1.1.0 (YYYY-MM-DD)` entry that leads with the geometry correction — 18 items rebuilt, per-item before/after from the issue's table, 3 new Thompson items, 2 published deprecated
-- [ ] **Record the version convention** in `NEWS.md`'s header, beside the existing "a tag means the catalogue is in this state": `v2.0.0` is reserved for the release where every area is corrected. This is the decision that was lost; write it where the next person reads it
-- [ ] Verify `PROVENANCE_FLOOR=21` is still what the build prints (it is, but the floor is exact in both directions, so re-read it rather than trust)
-- [ ] `/code-check` before the commit
+- [x] `NEWS.md`: fold the `## Unreleased` block (already carrying #46, #40, #32, #47) into a `## v1.1.0 (YYYY-MM-DD)` entry that leads with the geometry correction — 18 items rebuilt, per-item before/after from the issue's table, 3 new Thompson items, 2 published deprecated
+- [x] **Record the version convention** in `NEWS.md`'s header, beside the existing "a tag means the catalogue is in this state": `v2.0.0` is reserved for the release where every area is corrected. This is the decision that was lost; write it where the next person reads it
+- [x] Verify `PROVENANCE_FLOOR=21` is still what the build prints (it is, but the floor is exact in both directions, so re-read it rather than trust)
+- [x] `/code-check` — 3 rounds, 20 findings, all fixed, none dismissed. Each round found defects inside the previous round's fixes; round 3's headline was round 2's own mechanism recurring on its mirror arm. Harness 100 -> 111 assertions. Three factual errors caught in the release note itself
 
 ## Phase 5: Cut the release
 
@@ -91,7 +91,7 @@ Publishes to `s3://stac-floodplains-bc`, versioning **Suspended — no rollback*
 
 ## Validation
 
-- [ ] `bash scripts/catalogue_release-check.sh` green (100 assertions today)
-- [ ] `uv run python scripts/item_validate.py` green on 23 items with floor 21
+- [x] `bash scripts/catalogue_release-check.sh` green — 111 assertions, 0 FAIL; cases 9k/9l/9m added and each proved to discriminate
+- [x] `uv run python scripts/item_validate.py` green on 23 items
 - [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work; `/planning-archive` on completion
+- [x] PWF checkboxes match landed work; `/planning-archive` on completion

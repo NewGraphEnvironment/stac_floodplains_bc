@@ -399,7 +399,10 @@ echo "=== 1: VALIDATE (gate) ==="
 # preflight above refused already if that item would lose the provenance it has live.
 if [ -n "$ONLY" ]; then
   echo "provenance floor: skipped under --only (a one-group tree cannot meet a full-tree floor; preflight compared the item's live provenance instead)."
-  uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local"
+  # --partial for the same reason (#26): the deprecation check's set compare is against the
+  # WHOLE catalogue, and a one-group tree cannot meet it — without this every group but the
+  # two marked ones is refused, killing the #36 single-group path. Its per-item arms still run.
+  uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local" --partial
 else
   uv run python scripts/item_validate.py --base "$STAC_DIR" --expect "$n_local" \
     --expect-provenance "$PROVENANCE_FLOOR"
@@ -652,6 +655,59 @@ if [ -z "$ONLY" ]; then
     READFAIL) : ;;
     *)  echo "  the API is not serving the licence this build published: ${live_licence#BAD }" >&2
         fail=1 ;;
+  esac
+
+  # The deprecation markers (#26), read back for exactly the reason the licence is: the
+  # field's ENTIRE purpose is that a consumer sees it, and publishing is not serving. Per-item
+  # rather than a collection field, so it rides the same fielded search the id comparison uses.
+  #
+  # One reader, one pass over the build, one token — the licence_of shape. The first version
+  # of this did it in three guarded stages that read the build TWICE per file (~226 MB of
+  # JSON parsing) and had three places to fail toward pass; collapsing it removes the class
+  # rather than patching instances.
+  #
+  # The served set is intersected with the build's ids on purpose: registration is an upsert,
+  # so under --allow-retract a dropped marked item stays live, and comparing raw sets would
+  # report RELEASE INCOMPLETE for a retraction the operator explicitly asked for.
+  #
+  # Be honest about the cost. Orphans are the id comparison's business above, but that
+  # comparison gates BOTH its message and `fail=1` on `[ -z "$ALLOW_RETRACT" ]` — so in the one
+  # mode this intersection exists for, a retracted item that is still live serving
+  # `deprecated: true` is reported by nothing, and RELEASE COMPLETE prints. Retracting a marked
+  # item therefore wants an explicit `item_unregister.sh` for it; the release will not say so.
+  #
+  # A build-side null cannot reach here — item_validate.py refuses `deprecated: null` — so
+  # served-absent means served-absent rather than served-and-dropped-by-the-API.
+  dep_state=$(curl -sf --max-time 120 -X POST "$API_ROOT/search" \
+    -H 'Content-Type: application/json' \
+    -d "{\"collections\":[\"$COLLECTION\"],\"limit\":1000,\"fields\":{\"include\":[\"id\",\"properties.deprecated\"]}}" \
+    | python3 -c "
+import glob, json, sys
+served = {f['id'] for f in json.load(sys.stdin)['features']
+          if (f.get('properties') or {}).get('deprecated') is True}
+built_ids, built_marked = set(), set()
+for path in glob.glob('$STAC_DIR/*.json'):
+    d = json.load(open(path))
+    if d.get('type') != 'Feature':
+        continue
+    built_ids.add(d['id'])
+    if (d.get('properties') or {}).get('deprecated') is True:
+        built_marked.add(d['id'])
+served &= built_ids
+fmt = lambda s: ' '.join(sorted(s)) or 'NONE'
+print('OK ' + fmt(built_marked) if served == built_marked
+      else 'BAD ' + fmt(served) + '|' + fmt(built_marked))") \
+    || { echo "  could not read the deprecation markers back after registration" >&2
+         dep_state="READFAIL"; fail=1; }
+  case "$dep_state" in
+    "OK "*) echo "deprecation markers served: ${dep_state#OK }" ;;
+    READFAIL) : ;;
+    *) # `|` cannot appear in an id: item_create.py builds them as <wsg>_<sp>_ff0N from
+       # directory names, and item_validate.py refuses anything else. (The shape check at the
+       # top of THIS script validates only $ONLY, so it is not the reason.)
+       _d="${dep_state#BAD }"
+       echo "  the API serves deprecated on '${_d%%|*}' but this build marks '${_d#*|}'" >&2
+       fail=1 ;;
   esac
 
   bucket_licence=$(curl -sf --max-time 60 "$S3_BASE/collection.json" | licence_of "$STAC_DIR/collection.json") \
