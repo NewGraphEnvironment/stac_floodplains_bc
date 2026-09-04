@@ -806,6 +806,29 @@ Two traps from seeding one repo out of another's history (fish_passage_template_
   existed). After any path repoint, grep the constructor form too (`"planning"` as a bare
   segment, `os.path.join`, `Path(...) /`), and run one script that writes.
 
+### `git check-ignore -v` prints the matching pattern, and its exit status is not a per-file verdict
+
+`-v` reports the **last matching pattern**, negations included. So a path un-ignored by a `!` rule
+prints a line *and exits 0* — which reads as "still ignored" when the file is in fact tracked.
+
+Measured 2026-09-04 in stac_floodplains_bc, adding `!data/readme_items.rds` under `data/*.rds`:
+
+```
+$ git check-ignore -v data/readme_items.rds
+.gitignore:9:!data/readme_items.rds   data/readme_items.rds     # exit 0 — but NOT ignored
+```
+
+`planning.md`'s "expect no output" is right for a plainly-unignored path (nothing prints, exit 1);
+it does not hold once a negation is involved. Test each path and branch on the status:
+
+```bash
+for f in a b c; do git check-ignore -q "$f" && echo "IGNORED $f" || echo "ok $f"; done
+```
+
+And **not-ignored is not tracked.** The predicate that matters for anything a reader will fetch is
+`git ls-files --error-unmatch <path>` — see "A link to a repo-hosted artifact must be *tracked*"
+in `code-check.md`.
+
 
 # Code Check Conventions
 
@@ -979,6 +1002,7 @@ not by a reviewer saying you have converged: the class recurs one axis over, and
 | 2026-09-04 | stac_floodplains_bc#26 | **A guard written against the whole artifact silently redefines every mode that passes it a subset** — new per-item checks also asserted whole-catalogue set membership, so a documented single-item republish path (`--only`) began refusing every item but the two the set named. Nothing announced it: the release harness shims the validator away, so its own suite could not see it. The line is not "set compare vs the rest" but whether an arm names an id the subset **contains** — six of seven did. Three review rounds each got that partition wrong in one direction, including one that fixed it for an arm and not its mirror; write the partition down beside the guard, because it is what the next person will get wrong |
 | 2026-08-30 | gq | **A guard that compares against a vendored copy cannot see the copy go stale** — two of three vendored artifacts had silently drifted; the exemption test compared against `template_groups.csv` rather than the templates, so the issue saying "the suite is red" was itself stale; two remedies, not alternatives — a currency check gated on the source being present (`skip()` in CI, said out loud), and a date or upstream version stamped beside the witness |
 | 2026-08-26 | gq#61 | **A guard's escape hatches are where it goes to die — read them first** — a `legend_exempt` list naming all nine drawn layers with reason "drawn and legended"; a `dir.exists("vignettes")` lookup that walked out of the package under `R CMD check` |
+| 2026-09-04 | floodplains#73/stac_floodplains_bc#26 | **Comparing a published artifact against its local source cannot tell "already current" from "never regenerated"** — sweeping 20 published STAC items for staleness by diffing each one's published area against the upstream file, two items matched exactly and were labelled *already corrected*. They were the two that had **never been re-run**, so both sides were the same stale July output — the equality was the defect, not the absence of one. The discriminator is regeneration status (here, does `provenance.json` exist), never equality: a comparison whose two sides can share one source is blind exactly where nothing was updated. Byte comparison does not rescue it either — GeoPackages rewritten layer-by-layer differed by one 4096-byte SQLite page with identical content, so checksums answered "same build?" when the question was "same content?"; only a content measure (area) separated the cases, and a 2% tolerance on it then mislabelled a genuinely stale item at 1.5% |
 | 2026-09-02 | stac_floodplains_bc#19/#40/#32 | **A guard that reads a copy of its subject, or a coarser grain of it, passes on the copy** — `NEWS.md` on disk vs `git show "$tag:NEWS.md"`; `git describe` picking a note tag; file mtime vs the section's own timestamp; three grains before the property was per-key |
 | 2026-09-01 | stac_floodplains_bc#22 | **A new feature can silently invalidate an unrelated flag's stated rationale** — `--skip-sync` justified as "every href resolves"; adding `file:checksum` made that insufficient; grep the bypasses when you add a guarantee |
 | 2026-09-02 | ngr#7/#36 | **A fix that reaches one enforcement surface reads as complete on all of them** — five in one issue, each correct in its own dimension and silent in an adjacent one: `^CLAUDE\.md$` in `.Rbuildignore` while pkgdown published `CLAUDE.html` to the public web; a publish gate tested against both answers except under `nullglob`, where the loop runs zero times over an empty site; a CI flag sparing five runners a live API while `R CMD check` then failed on the same vignettes; one property enforced by mechanisms that do not read each other's config, and the fix is *evidence to everyone afterwards that it was handled*; name every mechanism enforcing the property, verify against the artifact each one produces with a positive control, and when two requirements conflict outright find the third option — the R surfaces and their remedies are under `R CMD build` in `code-check-r.md` |
@@ -1060,6 +1084,7 @@ worktree rather than force-pushing into someone else's PR.
 | 2026-08-28 | rfp#219 | **Running a generator is not committing what it generated** — four schema CSVs gained a column, the builder ran clean in memory, the shipped GeoPackages were never rebuilt; CI caught it only because a drift guard rebuilds and byte-compares |
 | 2026-08-29 | stac_dem_bc | **A writer that rewrites a whole file changes more than the rows you added** — Python `csv.writer` converted an entire CSV to CRLF on a two-row append; 21 insertions, 19 deletions for two rows; open in append mode with an explicit `lineterminator` and diff before staging — staging by path does not help when the churned file is the one you are staging |
 | 2026-08-28 | floodplains#44 | **Config round-trips discard everything that is not data** — a "load, change a key, write back" update (`yaml::write_yaml`, `json.dump`, `toml.dump`, some `yq -i`) round-trips the data and silently drops comments, key order, blank lines and equivalent spellings (`null` vs `~`); the file still parses with the right values, so nothing fails, and what is lost is the only record of why a setting is what it is; the first working fix for a runner destroying hand-maintained config then deleted 8 lines of rationale in one `area.yml` and an open question in another — a fix for silent data loss is itself a prime candidate for it; edit only the lines you own (locate the key, rewrite that line keeping its trailing comment, append new keys past the block they must not land inside, refuse rather than mangle a nested block), reserve the full serialize for the create path, and assert it — count comment lines before and after and check `all(before_lines %in% after_lines)`; the region run went from 50 deletions to 2 insertions |
+| 2026-09-04 | stac_floodplains_bc#53 | **A committed generated artifact churns on every render unless every id and timestamp generator is pinned — and a `self_contained` renderer may reach the network to make one** — a 5.8 MB `index.html` rewrote itself identically on each build from three sources: `htmlwidgets` container ids, `mapgl`'s `paste0("legend-", as.hexmode(sample(...)))` legend id, and — the one that mattered on its own — pandoc's `--embed-resources` **fetching the shields.io badges at render time**, putting a network call inside a render documented as needing none and varying the output with whatever came back. `htmlwidgets::setWidgetIdSeed()` and `set.seed()` pin the first two; the third is fixed by keeping remote images off the self-contained target. Same class the repo pins `OGR_CURRENT_DATE` and uuid5 for, one toolchain over. **Assert it rather than assuming: render twice and compare digests** — the byte-compare is what found all three, and what will find the fourth |
 | 2026-09-01 | — | **The two safe ways to edit a CSV each break the other's case** — `csv.writer` re-quotes every field by its own rules, so editing 2 rows of a 6-row file rewrote all 6 and buried the real change ("A writer that rewrites a whole file changes more than the rows you added" covers the terminator half, not the quoting half); the obvious fix, plain-text replacement inside the field, then put a comma into an unquoted field, every data row gained a column, and `read.csv` silently consumed column 1 as row names; the rule is conditional — plain-text only when the field is already quoted or the inserted text carries no delimiter, `csv.writer` (with `lineterminator='\n'`) only when every data row is being edited anyway; afterwards assert field count per row and the reader's column names, because a column shift produces data that parses |
 
 ### A wrapper's exit is not the work
@@ -1493,6 +1518,13 @@ regression and one to find it. Neither was visible by reading.
   about something singular, no `qty()` is wanted at all.
 - **Put `cli::qty(n)` immediately before the marker it governs**, never at the
   head of the string, when one is needed.
+- **A quantity does not carry between bullets.** Each element of a `cli_abort()`
+  vector is its own string, so a `{?it/them}` in an `i =` bullet has no quantity
+  in scope even when the headline above it interpolated one — and this failure is
+  loud rather than silent: `Cannot pluralize without a quantity` replaces the
+  whole message, so the abort still fires and says nothing about what was wrong.
+  Each bullet needs its own `qty()`. Caught 2026-09-03 in trap#32, in a refusal
+  whose headline pluralised correctly two lines above.
 - **Render at n = 1 and n = 2 through the real code path**, not through
   `cli::format_error()` on a hand-built string. A single-quantity test cannot see
   either direction, and a message rendered outside its function may substitute
@@ -2483,3 +2515,131 @@ behaviour, the domain convention otherwise.
 | `/planning-init` | First time in a repo — creates directory structure |
 | `/planning-update` | Mid-session — sync checkboxes and progress |
 | `/planning-archive` | Issue complete — archive and create fresh active/ |
+
+
+# Reference Management Conventions
+
+How references flow between Claude Code, Zotero, and technical writing at New Graph Environment.
+
+## Tool Routing
+
+Three tools, different purposes. Use the right one.
+
+| Need | Tool | Why |
+|------|------|-----|
+| Search by keyword, read metadata/fulltext, semantic search | **MCP `zotero_*` tools** | pyzotero, works with Zotero item keys |
+| Look up by citation key (e.g., `irvine2020ParsnipRiver`) | **`/zotero-lookup` skill** | Citation keys are a BBT feature — pyzotero can't resolve them |
+| Create items, attach PDFs, deduplicate | **`/zotero-api` skill** | Connector API for writes, JS console for attachments |
+
+**Citation keys vs item keys:** Citation keys (like `irvine2020ParsnipRiver`) come from Better BibTeX. Item keys (like `K7WALMSY`) are native Zotero. The MCP works with item keys. `/zotero-lookup` bridges citation keys to item data.
+
+**BBT citation key storage:** As of Feb 2025+, BBT stores citation keys as a `citationKey` field directly in `zotero.sqlite` (via Zotero's item data system), not in a separate BBT database. The old `better-bibtex.sqlite` and `better-bibtex.migrated` files are stale and no longer updated. Query citation keys with: `SELECT idv.value FROM items i JOIN itemData id ON i.itemID = id.itemID JOIN itemDataValues idv ON id.valueID = idv.valueID JOIN fields f ON id.fieldID = f.fieldID WHERE f.fieldName = 'citationKey'`.
+
+**BBT citekey format is locally patched to strip `&`:** the `citekeyFormat` pref (`extensions.zotero.translators.better-bibtex.citekeyFormat` in `~/Library/Application Support/Zotero/Profiles/*/prefs.js`) has a `.replace(find = "&", replace = "")` segment added by hand. Without it, institutional authors containing `&` (e.g. "BC Species & Ecosystem Explorer", "WA Dept of Fish & Wildlife") leak `&` into the citekey, and pandoc's `@key` parser stops at `&` — so cites render broken in any bookdown/quarto build even though biblatex accepts the key. Reapply via Zotero → Tools → Run JavaScript: `Zotero.Prefs.set("translators.better-bibtex.citekeyFormat", val)` (also patch `citekeyFormatEditing` to match). Survives Zotero/BBT auto-updates; reverts only on a profile reset or a manual edit via the BBT preferences UI. Detect drift: `grep citekeyFormat ~/Library/Application\ Support/Zotero/Profiles/*/prefs.js` should show the `.replace(find = "&", ...)` chain. Teammates on Skeena/Fraser/restoration machines that hit the same `@key`-breaks-at-`&` drift should run the same `Zotero.Prefs.set`.
+
+## Adding References Workflow
+
+### 1. Search and flag
+
+When research turns up a reference:
+- **DOI available:** Tell the user — Zotero's magic wand (DOI lookup) is the fastest path
+- **ResearchGate link:** Flag to user for manual check — programmatic fetch is blocked (403), but full text is often there
+- **BC gov report:** Search [ACAT](https://a100.gov.bc.ca/pub/acat/), for.gov.bc.ca library, EIRS viewer
+- **Paywalled:** Note it, move on. Don't waste time trying to bypass.
+
+### 2. Add to Zotero
+
+**Preferred order:**
+1. DOI magic wand in Zotero UI (fastest, most complete metadata)
+2. Web API POST with `collections` array (grey literature, local PDFs — targets collection directly, no UI interaction needed)
+3. `saveItems` via `/zotero-api` (batch creation from structured data — requires UI collection selection)
+4. JS console script for group library (when connector can't target the right collection)
+
+**Collection targeting:** `saveItems` drops items into whatever collection is selected in Zotero's UI. Always confirm with the user before calling it. **Web API bypasses this** — include `"collections": ["KEY"]` in the POST body. Find collection keys with `?q=name` search on the collections endpoint.
+
+### 3. Attach PDFs
+
+`saveItems` attachments silently fail. Don't use them. Instead:
+
+1. **Web API S3 upload (preferred):** Create attachment item → get upload auth → build S3 body (Python: prefix + file bytes + suffix) → POST to S3 → register with uploadKey. Works without Zotero running. See `/zotero-api` skill section 4.
+2. **JS console fallback:** Download with `curl`, attach via `item_attach_pdf.js` in Zotero JS console.
+3. Verify attachment exists via MCP: `zotero_get_item_children`
+
+### 4. Verify
+
+After manual adds, confirm via MCP:
+- `zotero_search_items` — find by title
+- `zotero_get_item_metadata` — check fields are complete
+- `zotero_get_item_children` — confirm PDF attached
+
+### 5. Clean up
+
+If duplicates were created (common with `saveItems` retries):
+- Run `collection_dedup.js` via Zotero JS console
+- It keeps the copy with the most attachments, trashes the rest
+
+## In Reports (bookdown)
+
+### Bibliography generation
+
+```yaml
+# index.Rmd — dynamic bib from Zotero via Better BibTeX
+bibliography: "`r rbbt::bbt_write_bib('references.bib', overwrite = TRUE)`"
+```
+
+`rbbt` pulls from BBT, which syncs with Zotero. Edit references in Zotero → rebuild report → bibliography updates.
+
+**Library targeting:** rbbt must know which Zotero library to search. This is set globally in `~/.Rprofile`:
+
+```r
+# default library — NewGraphEnvironment group (libraryID 9, group 4733734)
+options(rbbt.default.library_id = 9)
+```
+
+Without this option, rbbt searches only the personal library (libraryID 1) and won't find group library references. The library IDs map to Zotero's internal numbering — use `/zotero-lookup` with `SELECT DISTINCT libraryID FROM citationkey` against the BBT database to discover available libraries.
+
+### Citation syntax
+
+- `[@key2020]` — parenthetical: (Author 2020)
+- `@key2020` — narrative: Author (2020)
+- `[@key1; @key2]` — multiple
+- `nocite:` in YAML — include uncited references
+
+### Cite primary sources
+
+When a review paper references an older study, trace back to the original and cite it. Don't attribute findings to the review when the original exists. (See LLM Agent Conventions in `newgraph.md`.)
+
+**When the original is unavailable** (paywalled, out of print, can't locate): use secondary citation format in the prose and include bib entries for both sources:
+
+> Smith et al. (2003; as cited in Doctor 2022) found that...
+
+Both `@smith2003` and `@doctor2022` go in the `.bib` file. The reader can then track down the original themselves. Flag incomplete metadata on the primary entry — it's better to have a partial reference than none at all.
+
+## PDF Fallback Chain
+
+When you need a PDF and the obvious URL doesn't work:
+
+1. DOI resolver → publisher site (often has OA link)
+2. Europe PMC (`europepmc.org/backend/ptpmcrender.fcgi?accid=PMC{ID}&blobtype=pdf`) — ncbi blocks curl
+3. SciELO — needs `User-Agent: Mozilla/5.0` header
+4. ResearchGate — flag to user for manual download
+5. Semantic Scholar — sometimes has OA links
+6. Ask user for institutional access
+
+Always verify downloads: `file paper.pdf` should say "PDF document", not HTML.
+
+## Searching Paper Content (ragnar)
+
+### Setup (per project)
+- `scripts/rag_build.R` — maps citation keys to Zotero PDF attachment keys, builds DuckDB
+- `data/rag/` gitignored — store is local, not committed
+- Dependencies: ragnar, Ollama with nomic-embed-text model
+- See `/lit-search` skill for full recipe
+
+### Query
+`ragnar_store_connect()` then `ragnar_retrieve()` — returns chunks with source file attribution.
+
+### Anti-patterns
+- NEVER write abstracts manually — if CrossRef has no abstract, leave blank
+- NEVER cite specific numbers without verifying from the source PDF via ragnar search
+- NEVER paraphrase equations — copy exact notation and cite page/section
