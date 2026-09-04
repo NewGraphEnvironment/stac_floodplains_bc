@@ -15,6 +15,14 @@ bash scripts/catalogue_release.sh --only <item_id>  # republish ONE item; never 
 Only the rebuild needs `$FLOODPLAINS_DATA` (~900 MB). A release needs AWS credentials and SSH to
 the catalog host, so it can be cut from a machine that does not hold the source tree.
 
+## Prerequisites
+
+| for | needs |
+|---|---|
+| rebuild (`run_pipeline.sh`) | [`uv`](https://docs.astral.sh/uv/) — `uv run` syncs the env from `pyproject.toml` + `uv.lock` (pystac, rasterio; GDAL **3.12+**, which is what puts the class-label RAT inside the COG rather than in a sidecar). R with `sf`, `readr` and `drift`. A populated `$FLOODPLAINS_DATA` tree (~900 MB, default `../floodplains/data`) |
+| release (`catalogue_release.sh`) | AWS credentials for `s3://stac-floodplains-bc`, and SSH to the catalog host. **Not** the source tree — which is the point of the split |
+| README render | R with `rmarkdown`, `knitr`, `rstac`, `sf`, `geojsonsf`, `jsonlite`, `bcdata`, `bcmaps`, `tmap` (**v4**), `mapgl`, `DT`, `htmlwidgets`, `dplyr`, `purrr`, `tibble` and `glue`. Past the tag, so it need not be the release machine |
+
 ## Rebuild — `run_pipeline.sh`
 
 | Step | Script | What |
@@ -89,11 +97,18 @@ curl -s https://images.a11s.one/collections/stac-floodplains-bc | jq .version
 # 5. only now publish the tag: a pushed tag says the catalogue IS in this state, and a release
 #    that failed would otherwise leave a public tag for a state that never went live
 git push origin vX.Y.Z
-# 6. regenerate README.md's coverage table from what the API now serves, and commit it. This
-#    commit is past the tag by design (the tag marks the catalogue's state, not the README);
-#    the generated caption names the version the table describes.
-python3 scripts/readme_coverage-table.py --write
+# 6. rebuild the repo README from what the API now serves, and commit it. This commit is past
+#    the tag by design (the tag marks the catalogue's state, not the README), so it can happen
+#    later, and on a DIFFERENT machine than the one that cut the release -- it needs R and
+#    rstac, which a release-only machine has no reason to hold. The caption the render writes
+#    names the version the table describes.
+Rscript -e 'rmarkdown::render("README.Rmd", "github_document", params = list(rmd_on = FALSE, update_query = TRUE))'
+Rscript -e 'rmarkdown::render("README.Rmd", "html_document", output_file = "index.html", params = list(rmd_on = TRUE, update_query = FALSE))'
 ```
+
+Step 6 in that order, always: the `github_document` render is the one that refreshes
+`data/readme_items.rds` and `fig/coverage.png` from the live API, and `index.html` reads the cache
+it leaves. Reversed, the site publishes the previous release's figures.
 
 `--only` republishes one item and never the collection, so it needs no tag and moves no version.
 `--allow-retract` is a full release and stamps like any other. Between the tag and the release,

@@ -16,6 +16,13 @@ data/stac/
 .RData
 .Rproj.user
 README.html
+# knitr/rmarkdown intermediates. A chunk that PRINTS a plot instead of routing through
+# fp_readme_fig() lands its image in README_files/ -- untracked, so it renders on the
+# author's machine and 404s for everyone else.
+README_files/
+index_files/
+*.knit.md
+*.utf8.md
 
 # Python
 __pycache__/

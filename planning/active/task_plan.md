@@ -31,7 +31,7 @@ regression.
 
 ## Phase 1: Render harness
 
-- [ ] `README.Rmd` scaffold: YAML params (`rmd_on`, `update_query`), `setup` chunk, `build` chunk
+- [x] `README.Rmd` scaffold: YAML params (`rmd_on`, `update_query`), `setup` chunk, `build` chunk
       (`eval = FALSE`) with both `rmarkdown::render()` calls, generated-from banner
 - [x] `scripts/readme_functions.R` — sourced by the Rmd; holds `my_dt_table` / `my_tab_caption_rmd`
       (ported from `stac_dem_bc/scripts/staticimports.R` + `functions.R`)
@@ -51,52 +51,52 @@ regression.
       - [x] assert items within a WSG agree on `floodplain_ff04_km2`, so the once-per-group km²
             total does not depend on response order
 - [x] Keep the caption's content: item count, group count, regions, **catalogue version**
-- [ ] Burn `data/readme_items.rds` (properties + version + simplified WSG polygons)
+- [x] Burn `data/readme_items.rds` (properties + version + simplified WSG polygons)
 - [x] **Restore-the-bug proof** for each guard: force a `next` link, an empty feature list, and a
       bucket-count mismatch, and confirm each refuses. Grep the output for the *message* — four
       guards means four ways to exit non-zero and only one is the evidence
 
 ## Phase 3: Figure and map
 
-- [ ] `fig/coverage.png`: `bcmaps::bc_bound()` outline, WSG polygons filled by region, item
+- [x] `fig/coverage.png`: `bcmaps::bc_bound()` outline, WSG polygons filled by region, item
       floodplain geometry stroked over them, WSG labels. Committed.
-- [ ] `mapgl` map for `index.html` from the cached WSG polygons, coloured by region, popups carrying
+- [x] `mapgl` map for `index.html` from the cached WSG polygons, coloured by region, popups carrying
       each item's species / scenario / floodplain km² / loss / gain / net
-- [ ] Confirm `index.html` size stays sane (`self_contained: true` embeds everything)
+- [x] Confirm `index.html` size stays sane (`self_contained: true` embeds everything)
 
 ## Phase 4: Prose
 
-- [ ] Badges (status, item count, endpoint); one plain-language paragraph, no unexpanded acronym
-- [ ] Asset table — three GeoPackages, four COGs, three styles — one line each, replacing the
+- [x] Badges (status, item count, endpoint); one plain-language paragraph, no unexpanded acronym
+- [x] Asset table — three GeoPackages, four COGs, three styles — one line each, replacing the
       75-line `## Item model`
-- [ ] Coverage table + caption from the chunk; note the two `deprecated: true` items (#26)
-- [ ] Query section trimmed to the two `rstac` calls that matter + the QGIS `/vsicurl/` one-liner
-- [ ] Pipeline chain, every link live: `fresh` → `link` → `flooded` → `drift` → `floodplains` →
+- [x] Coverage table + caption from the chunk; note the two `deprecated: true` items (#26)
+- [x] Query section trimmed to the two `rstac` calls that matter + the QGIS `/vsicurl/` one-liner
+- [x] Pipeline chain, every link live: `fresh` → `link` → `flooded` → `drift` → `floodplains` →
       **this repo (publish only)**, stating plainly that no modelling happens here
-- [ ] Credits, two distinct debts: *method/software* (Devin Cairns / BlueGeo — VCA, MIT; USDA VCA
+- [x] Credits, two distinct debts: *method/software* (Devin Cairns / BlueGeo — VCA, MIT; USDA VCA
       Toolbox; Simon Norris / `bcfishpass`, Apache 2.0) and *data* (Impact Observatory, NRCan,
       Province of BC — shortened from the current #47 text)
-- [ ] Licence in two sentences; the "Why CC BY 4.0 outbound" table **kept in the repo** but moved
+- [x] Licence in two sentences; the "Why CC BY 4.0 outbound" table **kept in the repo** but moved
       off the first screen
-- [ ] Sister collections on the same endpoint
+- [x] Sister collections on the same endpoint
 
 ## Phase 5: Move the internals out, retire the generator
 
-- [ ] Add a **Prerequisites** section to `scripts/README.md` (uv, R, AWS credentials,
+- [x] Add a **Prerequisites** section to `scripts/README.md` (uv, R, AWS credentials,
       `$FLOODPLAINS_DATA`) — the one part of the moved content it does not already cover
-- [ ] Delete `## Pipeline`, `### Guards`, `## Prerequisites` from the README; link
+- [x] Delete `## Pipeline`, `### Guards`, `## Prerequisites` from the README; link
       `scripts/README.md` in one line
-- [ ] `git rm scripts/readme_coverage-table.py`
-- [ ] Rewrite `scripts/README.md` step 6 of "Cut a release": name the Rmd render, and say the table
+- [x] `git rm scripts/readme_coverage-table.py`
+- [x] Rewrite `scripts/README.md` step 6 of "Cut a release": name the Rmd render, and say the table
       can be regenerated from a **different machine** than the one that cut the release — it is past
       the tag, a repo-content commit, not part of publishing
-- [ ] Re-grep for the retired script; expect hits only under `planning/archive/`
+- [x] Re-grep for the retired script; expect hits only under `planning/archive/`
 
 ## Phase 6: Render, publish, verify
 
-- [ ] Render both targets; commit `README.md`, `index.html`, `fig/coverage.png`,
+- [x] Render both targets; commit `README.md`, `index.html`, `fig/coverage.png`,
       `data/readme_items.rds`
-- [ ] Add `.nojekyll`
+- [x] Add `.nojekyll`
 - [ ] Enable Pages: `gh api -X POST repos/NewGraphEnvironment/stac_floodplains_bc/pages` with
       `source.branch=main`, `source.path=/` (matching `stac_dem_bc`)
 - [ ] Verify every changed claim against the artifact, not against the old README (#26's
@@ -104,7 +104,7 @@ regression.
 
 ## Validation
 
-- [ ] `README.md` comfortably under 150 lines and opens with what the catalogue *is*
+- [x] `README.md` comfortably under 150 lines and opens with what the catalogue *is*
 - [ ] `/code-check` clean on each commit
-- [ ] PWF checkboxes match landed work
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
