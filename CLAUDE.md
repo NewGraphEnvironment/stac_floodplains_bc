@@ -128,10 +128,11 @@ against the `collection.json` this release published. Presence is the wrong ques
 pgstac rebuilds a collection's `links` through `get_links()`, dropping every rel in
 `INFERRED_LINK_RELS` (`self/item/parent/collection/root/items/child`) — which is why the build's
 `rel: item` links are served as none — and the one thing it does to a link it *keeps* is rewrite
-the href through `urljoin`. `license` and `derived_from` fall outside the dropped set, which is
-read from stac-fastapi-pgstac's source and **not yet measured against this deployment**: no
-collection on `images.a11s.one` publishes a `rel: license` link today, so the first full release
-is what finds out — at step 5, after the sync and the pgstac load. Items carry no `license` of their own, deliberately: STAC inherits it
+the href through `urljoin`. `license` and `derived_from` fall outside the dropped set — read from
+stac-fastapi-pgstac's source, and **measured on this deployment at the v1.1.0 release**
+(2026-09-03), which is the first time any collection on `images.a11s.one` published such a link.
+The API serves `['derived_from', 'license', 'items', 'parent', 'root', 'self', 'queryables']`, so
+both survive and step 5's read-back is what keeps that true. Items carry no `license` of their own, deliberately: STAC inherits it
 from the collection, and per-item source attribution is the `nge:landcover_*` block the floor keeps
 non-null.
 
