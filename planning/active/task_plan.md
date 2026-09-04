@@ -44,14 +44,14 @@ are hardcoded in two places.
 importing them** — importing `item_create.py` runs the whole build (it `SystemExit`s at
 module level and writes 24 files), and a shared constant would make the guard `x == x`.
 
-- [ ] `check_collection_metadata(doc) -> list[str]` — a **list**, not `str | None`, so a wrong licence and wrong providers report together rather than one release apart
-- [ ] `license` — string equality against the hardcoded value
-- [ ] `providers` — read `doc.get("providers") or []` (pystac omits the key entirely for an empty list, so a presence gate would skip silently). Assert `len(...) == 6` **and** set equality over the **full provider dicts** with `roles` normalised to a frozenset. Not a `(name, roles)` projection: that is blind to a duplicate entry and to a wrong or missing `url`
-- [ ] Links — exactly one `rel: license` with the exact href; exactly one `rel: derived_from` with the exact href
-- [ ] `sci:citation` — **full string equality** against the hardcoded literal, not token containment. Containment passes for a bag of words that attributes nothing; equality makes drift a readable diff. Same for the description's modification sentence — a whole-substring literal, since a marker like `modif` is satisfied by a description saying *unmodified*
-- [ ] Scientific extension declared **iff** `sci:citation` is present — the biconditional `check_version_stamp` already uses (`item_validate.py:60-63`); half a declaration is invisible to pystac in both directions
-- [ ] **Premise assertion** (the one thing tying the literals to the data): every item whose `nge:landcover_collection` is non-null must equal the collection the citation names. Null stays legal — 2 items legitimately carry none. Without this, a `drift` move to `io-lulc-annual-v03` publishes a false licence claim with every guard green
-- [ ] Wire it into the `Collection` branch of the loop **before** `check_version_stamp`, collecting both sets of problems and `continue`ing once. Placing it after the count check would put it behind `check_checksums`' 670 MB re-read, which can short-circuit it — the #46 failure mode exactly
+- [x] `check_collection_metadata(doc) -> list[str]` — a **list**, not `str | None`, so a wrong licence and wrong providers report together rather than one release apart
+- [x] `license` — string equality against the hardcoded value
+- [x] `providers` — read `doc.get("providers") or []` (pystac omits the key entirely for an empty list, so a presence gate would skip silently). Assert `len(...) == 6` **and** set equality over the **full provider dicts** with `roles` normalised to a frozenset. Not a `(name, roles)` projection: that is blind to a duplicate entry and to a wrong or missing `url`
+- [x] Links — exactly one `rel: license` with the exact href; exactly one `rel: derived_from` with the exact href
+- [x] `sci:citation` — **full string equality** against the hardcoded literal, not token containment. Containment passes for a bag of words that attributes nothing; equality makes drift a readable diff. Same for the description's modification sentence — a whole-substring literal, since a marker like `modif` is satisfied by a description saying *unmodified*
+- [x] Scientific extension declared **iff** `sci:citation` is present — the biconditional `check_version_stamp` already uses (`item_validate.py:60-63`); half a declaration is invisible to pystac in both directions
+- [x] **Premise assertion** (the one thing tying the literals to the data): every item whose `nge:landcover_collection` is non-null must equal the collection the citation names. Null stays legal — 2 items legitimately carry none. Without this, a `drift` move to `io-lulc-annual-v03` publishes a false licence claim with every guard green
+- [x] Wire it into the `Collection` branch of the loop **before** `check_version_stamp`, collecting both sets of problems and `continue`ing once. Placing it after the count check would put it behind `check_checksums`' 670 MB re-read, which can short-circuit it — the #46 failure mode exactly
 
 ## Phase 3: Restore the bug and prove each guard fires
 

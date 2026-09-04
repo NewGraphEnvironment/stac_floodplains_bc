@@ -13,4 +13,9 @@
   `rel: license` + `rel: derived_from` links, scientific extension + `sci:citation`,
   and the CC BY §3(a)(1)(B) modification statement in the description. Rebuilt: 23
   items, collection validates against core + scientific v1.0.0
-- Next: Phase 2 — the validator guard in `scripts/item_validate.py`
+- Phase 2: `check_collection_metadata` (licence, 6 providers whole-record, both links,
+  citation verbatim, extension biconditional, derivation statement) + 
+  `check_citation_premise` tying the literals to every item's `nge:landcover_collection`.
+  Positive control: validator green in 2m45s, and the independently-typed second copy
+  of the citation matched the build's byte for byte
+- Next: Phase 3 — restore each bug and prove the guard fires
