@@ -55,7 +55,15 @@ S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.p
 # carry run provenance" and item_create.py as "provenance block: N/M". 0 was true of
 # v1.0.0; any full rebuild from today's producer tree carries bulk_co_ff04, so the next
 # full release sets 1 (or whatever its build prints) in the same commit as its NEWS entry.
-PROVENANCE_FLOOR=0
+# 21 of 23, measured on the build this release publishes: 2 items legitimately carry no
+# provenance at all. Exact in both directions, so this is the count and not a lower bound.
+PROVENANCE_FLOOR=21
+
+# The licence the collection must be SERVING when the release finishes (#47). A third
+# copy of item_create.py's COLLECTION_LICENSE and item_validate.py's EXPECTED_LICENSE, and
+# deliberately so: those two check the bytes on disk, this one checks what a consumer is
+# actually handed. They can disagree, which is the entire point of step 5 reading it back.
+EXPECT_LICENSE="CC-BY-4.0"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 ALLOW_RETRACT=""
@@ -120,6 +128,74 @@ fetch_live_ids() {
 # pipeline, and every caller tests the exit status before using the value.
 version_of() { python3 -c "import sys,json; print(json.load(sys.stdin).get('version', 'MISSING'))"; }
 fetch_live_version() { curl -sf --max-time 60 "$API" | version_of; }
+
+# The licence, the licence link and the citation, as whatever is serving the collection
+# actually hands them over (#47). Prints ONE token — OK, or BAD followed by each field that
+# is wrong — so the caller branches on a value rather than on a grep, which under pipefail
+# would read a failed fetch as a clean no-match. A failed fetch or an unparseable body
+# raises here and fails the pipeline, exactly as version_of does, so "served wrong" and
+# "could not read" stay distinguishable.
+#
+# It is read back rather than assumed because publishing a field is not serving it, and for
+# the link that gap is real: pgstac REBUILDS a collection's links array through get_links(),
+# dropping every rel it infers — which is why the 23 rel=item links this build publishes are
+# served as none. rel=license falls outside that set and should survive. This is what turns
+# "should" into evidence.
+#
+# The expected value arrives as argv, not interpolated into the script text: a literal
+# spliced into a quoted python -c body is one apostrophe away from a syntax error, and the
+# whole point of this function is that it fails loudly rather than emptily.
+#
+# Compared FIELD BY FIELD against the collection.json this release published, not merely
+# checked for presence. Presence is not the question: the question is what the pipe did to
+# the values, and the one thing pgstac does to a link it keeps is rewrite the href through
+# urljoin. A presence check answers OK for a licence link pointing anywhere at all, and for
+# a citation reading "Copyright. All rights reserved." (both measured).
+#
+# Comparing served against published is not a round-trip through our own assignment: the
+# published copy is this pipeline's INPUT, and item_validate.py already gated it verbatim
+# against its own independently written literal before a byte was synced. `license` is the
+# exception, compared to the constant as well, because it is the one field a consumer's
+# rights actually turn on.
+#
+# Absence is refused on every field, on both sides — see the note on the citation branch
+# for which arm does that and which one only names the side at fault.
+licence_of() {  # $1 = the published collection.json; served JSON on stdin
+  python3 -c '
+import json, sys
+want, local_path = sys.argv[1], sys.argv[2]
+served, built = json.load(sys.stdin), json.load(open(local_path))
+
+def href(d, rel):
+    ls = [l for l in (d.get("links") or []) if l.get("rel") == rel]
+    return ls[0].get("href") if len(ls) == 1 else None
+
+bad = []
+if served.get("license") != want:
+    bad.append("license=" + repr(served.get("license")))
+# The three-way split matters; the `built-has-no-*` arms do NOT change any verdict.
+# Verified over all 16 absence states: it is the `is None` arm on the SERVED side, in each
+# branch below, that refuses every absence including both-absent — which is the hole a plain
+# `served != built` had, since None == None. What the built-side arms change is which side
+# the message accuses, and that is worth the branch: "the build never published it" sends
+# you to collection.json, "the API dropped it" sends you to pgstac. A release log naming the
+# wrong one costs an investigation in the wrong place.
+if built.get("sci:citation") is None:
+    bad.append("built-has-no-citation")
+elif served.get("sci:citation") is None:
+    bad.append("sci:citation-absent")
+elif served.get("sci:citation") != built.get("sci:citation"):
+    bad.append("sci:citation-differs")
+for rel in ("license", "derived_from"):
+    s, b = href(served, rel), href(built, rel)
+    if b is None:
+        bad.append("built-has-no-" + rel + "-link")
+    elif s is None:
+        bad.append("rel=" + rel + "-link-absent")
+    elif s != b:
+        bad.append("rel=" + rel + "-href=" + repr(s))
+print("OK" if not bad else "BAD " + " ".join(bad))' "$EXPECT_LICENSE" "$1"
+}
 
 # --- Step 0: preflight, before anything is written ------------------------
 echo "=== 0: PREFLIGHT ==="
@@ -552,6 +628,41 @@ if [ -z "$ONLY" ]; then
     echo "  bucket collection.json version is '$bucket_version', but this release is v$VERSION" >&2
     fail=1
   fi
+fi
+
+# The licence a CONSUMER is handed is the only one that governs what they may do with the
+# data, and it is the last thing in this pipeline that is not yet evidence: item_validate.py
+# proved the bytes on disk, and everything between here and there — the sync, pypgstac, the
+# API's own serialiser — is a place they could be lost. Both surfaces, for the same reason
+# the version stamp checks both: rtj's stac_register-all.sh can reload this collection from
+# S3, which is harmless only while bucket and API agree.
+#
+# Full release only. --only never publishes collection.json, so there is nothing here it
+# could have changed, and asserting a licence it did not write would make an unrelated
+# drift refuse a correct republish.
+if [ -z "$ONLY" ]; then
+  # READFAIL rather than a BAD token: the read failure is already reported on its own line,
+  # and letting it fall through would print a second, false line claiming the API served
+  # something wrong. Distinguishing the two is the point of the sentinel.
+  live_licence=$(curl -sf --max-time 60 "$API" | licence_of "$STAC_DIR/collection.json") \
+    || { echo "  could not read the live collection licence after registration" >&2
+         live_licence="READFAIL"; fail=1; }
+  case "$live_licence" in
+    OK) echo "live collection licence: $EXPECT_LICENSE, sci:citation and both links served as published" ;;
+    READFAIL) : ;;
+    *)  echo "  the API is not serving the licence this build published: ${live_licence#BAD }" >&2
+        fail=1 ;;
+  esac
+
+  bucket_licence=$(curl -sf --max-time 60 "$S3_BASE/collection.json" | licence_of "$STAC_DIR/collection.json") \
+    || { echo "  could not read the licence from the bucket copy of collection.json" >&2
+         bucket_licence="READFAIL"; fail=1; }
+  case "$bucket_licence" in
+    OK) echo "bucket collection.json licence: agrees" ;;
+    READFAIL) : ;;
+    *)  echo "  the bucket copy does not carry the licence this build published: ${bucket_licence#BAD }" >&2
+        fail=1 ;;
+  esac
 fi
 
 [ "$fail" -eq 0 ] || { echo "RELEASE INCOMPLETE" >&2; exit 1; }

@@ -549,10 +549,13 @@ collection = pystac.Collection(
     providers=[pystac.Provider.from_dict(p) for p in PROVIDERS],
     # A literal, matching PROJECTION_EXT / FILE_EXT / CLASSIFICATION_EXT on the item rather
     # than ScientificExtension.ext(): this file declares extensions by URL throughout.
-    # Forgetting the declaration is guarded in item_validate.py as a BICONDITIONAL — the
-    # extension iff sci:citation — because pystac sees neither half on its own. The
-    # extension's Collection branch is an `anyOf` with an arm requiring only `summaries`,
-    # which this collection has, so declaring it with no sci: field at all validates clean.
+    # Dropping the FIELD while keeping this line is refused by the schema (measured — the
+    # extension's Collection branch wants a sci: key at top level, in assets, in item_assets
+    # or inside `summaries`, and ours carries scenario/species/region/flood_factor). Dropping
+    # THIS LINE while keeping the field is not refused: the schema is selected BY the
+    # extension list, so pystac would never look. item_validate.py guards that direction as a
+    # biconditional, and the citation's content, which no schema can check — `sci:citation`
+    # is only `type: string`.
     stac_extensions=[SCIENTIFIC_EXT],
     extra_fields={"sci:citation": CITATION},
 )

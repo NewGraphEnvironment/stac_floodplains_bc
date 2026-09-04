@@ -256,3 +256,49 @@ items$features[[1]]$assets$classified_2023$href
 `pyproject.toml` + `uv.lock` — pystac / rasterio, GDAL **3.12+** for RAT-in-`GDAL_METADATA`);
 R with `sf`, `readr`, `drift`;
 AWS credentials for `s3://stac-floodplains-bc`; a populated `floodplains/data/<wsg>/` tree.
+
+## Attribution
+
+Two licences, over two different things.
+
+- **The scripts in this repo** are [MIT](LICENSE), as in `stac_dem_bc` and `stac_uav_bc`.
+- **The published catalogue metadata and derived products** — everything under
+  `s3://stac-floodplains-bc` and the collection served at `images.a11s.one` — are
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The collection publishes that
+  as its `license`, with a `rel: license` link, six `providers`, and this same sentence as
+  `sci:citation`:
+
+> New Graph Environment Ltd. (2026). Floodplain Land-Cover Change in British Columbia
+> [data set]. Derived from Impact Observatory, 10m Annual Land Use Land Cover (9-class) V2
+> (`io-lulc-annual-v02`), licensed under CC BY 4.0
+> (<https://creativecommons.org/licenses/by/4.0/>), accessed via Microsoft Planetary
+> Computer; modified by clipping to modelled floodplain extents and cross-tabulating 2017
+> against 2023 into land-cover transitions. Floodplain delineation contains information
+> licensed under the Open Government Licence – Canada (MRDEM-30, Natural Resources Canada)
+> and the Open Government Licence – British Columbia (Freshwater Atlas stream network,
+> Province of British Columbia). Stream network built with the `link` package, reproducing
+> the `bcfishpass` modelling approach.
+
+### Why CC BY 4.0 outbound
+
+Read from each producer's own record on 2026-09-03, not inferred:
+
+| input | licence | what it obliges |
+|---|---|---|
+| [`io-lulc-annual-v02`](https://planetarycomputer.microsoft.com/api/stac/v1/collections/io-lulc-annual-v02) — Impact Observatory 10 m annual LULC | `CC-BY-4.0` | credit, a licence link, and a statement that the material was **modified** |
+| [`mrdem-30`](https://datacube.services.geo.ca/stac/api/collections/mrdem-30) — NRCan DTM, the terrain the floodplains are delineated off | `OGL-Canada-2.0` | "Contains information licensed under the Open Government Licence – Canada" |
+| BC Freshwater Atlas stream network, via `link` / `fresh` | Open Government Licence – British Columbia | the equivalent BC sentence |
+
+None is share-alike, so the derived products may carry our own licence and CC BY 4.0 is the
+natural match. `bcfishpass` is a **method** citation rather than a licence obligation:
+nothing published here redistributes its override data — the published geometry is
+FWA-derived — so it is credited as the modelling approach the network reproduces.
+
+That chain of reasoning is the one thing no guard can check, which is why it is written
+down. What *is* checked, absolutely and on every build, is in `scripts/item_validate.py`
+(`check_collection_metadata`, `check_citation_premise`) and read back from the live API by
+step 5 of `scripts/catalogue_release.sh`.
+
+Items carry no `license` of their own, deliberately: STAC inherits it from the collection,
+and the per-item source attribution is the `nge:landcover_*` provenance block, which the
+release's provenance floor (#32) is what keeps non-null.

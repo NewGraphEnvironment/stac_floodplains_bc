@@ -12,6 +12,35 @@ release is cut at (`scripts/catalogue_release.sh`; recipe under "Cut a release" 
 
 ## Unreleased
 
+The next full release publishes **23 items** — the 20 live today plus `lnth_ch_ff04`,
+`thom_ch_ff04` and `unth_ch_ff04` — with `PROVENANCE_FLOOR=21`, the exact count this build
+carries. No item is dropped, so no `--allow-retract`.
+
+- The collection now states its licence and credits its sources (#47). It publishes
+  `license: CC-BY-4.0` in place of `proprietary`, a `rel: license` link, six `providers`,
+  a `rel: derived_from` link to the source collection, and `sci:citation`. The products are a
+  derivative of Impact Observatory's `io-lulc-annual-v02` (CC BY 4.0, via Planetary Computer),
+  delineated off MRDEM-30 (OGL-Canada-2.0) and the BC Freshwater Atlas (OGL-BC) — all
+  attribution-only, none share-alike, so CC BY 4.0 outbound is permitted. CC BY also obliges a
+  statement that the input was **modified**, which now ships in the collection description
+  along with the one-sentence caution that every year is read from one release and so cannot
+  manufacture change. `proprietary` was wrong in both directions: it claimed a restriction we
+  do not hold and withheld credit the source licence obliges.
+- The repo carries an MIT `LICENSE` for the scripts, matching `stac_dem_bc` and `stac_uav_bc`,
+  with a README **Attribution** section stating the split and the reasoning behind the outbound
+  licence. `pyproject.toml` names the same MIT.
+- `item_validate.py` gates all of it absolutely — `check_collection_metadata` (licence,
+  providers as whole records, both links, `sci:citation` verbatim, and the extension declared
+  iff the field is present) and `check_citation_premise`, which refuses a build whose items name
+  a landcover collection — or a STAC URL — the published citation does not attribute; the id and
+  the host move independently, and a host move alone would change the licensor. pystac covers one of the
+  four ways this can go wrong — it refuses the extension declared with no field — and none of
+  the other three: a field published without its extension is invisible to it, and
+  `sci:citation` is only `type: string`, so no schema can tell the right attribution from
+  the wrong one.
+  Step 5 of the release then reads the licence back from the API **and** the bucket, because
+  publishing a field is not serving it.
+
 - `nge:landcover_key` now publishes a fingerprint of the landcover produced: the producer's
   per-year content digests (floodplains#64), folded to one `sha256:` value over the lines
   `<year>=<digest>`, years ascending, newline-joined. It previously carried a hash over the

@@ -39,14 +39,35 @@
 #                    null is refused before anything is written — per key, so a partial loss
 #                    (network kept, landcover lost) is refused too (the floor's stand-in)
 #
+#  9c  verify      the API serving license 'proprietary' after a full release -> refused
+#  9d  verify      the API dropping sci:citation -> refused
+#  9e  verify      the API dropping the rel=license link -> refused; the one of the three
+#                  that could plausibly vanish alone, since pgstac rebuilds a collection's
+#                  links through get_links() rather than serving the stored array
+#  9f  verify      the bucket copy losing the licence -> refused, as for the version
+#  9g  verify      the API serving an ALTERED sci:citation -> refused
+#  9h  verify      the rel=license link served at a REWRITTEN href -> refused. Deletion is not
+#                  the only failure mode and not even the likely one: rewriting an href is
+#                  what pgstac does to a link it keeps
+#  9i  verify      the API dropping the rel=derived_from link -> refused
+#  9j  verify      a BUILT collection.json missing the citation and the licence link is
+#                  refused, naming the BUILD as the side at fault. Every knob above breaks
+#                  only the served side, so without this the both-absent state — where a
+#                  plain `served != built` compares equal — has no fixture
+#
 # Case 2's "live version 9.9.9 verified" is tautological on its own — the curl shim serves
 # the stamped fixture back — which is why cases 8 and 9 exist: they are what prove the
-# compare bites.
+# compare bites. Its "licence verified" lines are tautological for exactly the same reason,
+# and 9c-9j are their 8-and-9.
 #
 # Usage: bash scripts/catalogue_release-check.sh        (exit = number of failed assertions)
 #
 # The one thing this cannot see: item_validate.py is shimmed away (uv exits 0), so a wrong
-# --expect under --only is not covered here. Its own guards are proven in the validator.
+# --expect under --only is not covered here — nor are check_collection_metadata and
+# check_citation_premise (#47), which never run in this harness for the same reason. Those
+# are proven against the real build, by mutating item_create.py's constants and grepping
+# for each guard's own message; what is proven HERE is only that the release refuses a
+# collection the API or the bucket is not serving correctly.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -100,8 +121,17 @@ def item(iid, sizes):
     json.dump(doc, open(os.path.join(stac, iid + ".json"), "w"))
 item("aaaa_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
 item("bbbb_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
+# The licence fields (#47) are part of the fixture because step 5 now reads all three back
+# from the API and from the bucket, so a full release refuses a collection without them.
+# They are the values catalogue_release.sh expects, not item_create.py's real ones: this
+# fixture stands in for a released collection, and its citation only has to be non-empty.
 json.dump({"type": "Collection", "stac_version": "1.0.0", "id": coll, "description": "fixture",
-           "license": "proprietary", "extent": {}, "links": []},
+           "license": "CC-BY-4.0", "extent": {},
+           "sci:citation": "fixture citation",
+           "links": [{"rel": "license",
+                      "href": "https://creativecommons.org/licenses/by/4.0/"},
+                     {"rel": "derived_from",
+                      "href": "https://example.invalid/collections/src"}]},
           open(os.path.join(stac, "collection.json"), "w"))
 PY
 echo aaaa > "$RAW/PARTIAL_STAGE"
@@ -157,16 +187,33 @@ case "$url" in
     exit 0 ;;
 esac
 if [ -n "$w" ]; then printf '200'; exit 0; fi
-force_version() { # file forced -> JSON on stdout
+# Serve the fixture collection with one field broken on request. The licence knobs break
+# exactly ONE field each, deliberately: a case that broke all three could pass on the
+# strength of any one of them, and would not show that the compare bites per field.
+force_fields() { # file version_forced licence_forced -> JSON on stdout
   python3 -c 'import json,sys
-d = json.load(open(sys.argv[1])); v = sys.argv[2]
+d = json.load(open(sys.argv[1])); v = sys.argv[2]; lic = sys.argv[3]
 if v == "none": d.pop("version", None)
 elif v: d["version"] = v
-print(json.dumps(d))' "$1" "$2"
+def drop(rel): d["links"] = [l for l in d.get("links", []) if l.get("rel") != rel]
+def rewrite(rel, href):
+    for l in d.get("links", []):
+        if l.get("rel") == rel: l["href"] = href
+if lic == "license": d["license"] = "proprietary"
+elif lic == "citation": d.pop("sci:citation", None)
+# The ALTERED modes, not just the absent ones. A presence check answers OK for a citation
+# reading "all rights reserved" and for a licence link pointing anywhere at all, and href
+# rewriting is precisely what pgstac does to a link it keeps (urljoin against the API root).
+elif lic == "citation-altered": d["sci:citation"] = "Copyright. All rights reserved."
+elif lic == "link": drop("license")
+elif lic == "link-href": rewrite("license", "https://images.a11s.one/collections/creativecommons.org/licenses/by/4.0/")
+elif lic == "derived-link": drop("derived_from")
+elif lic: raise SystemExit("unknown licence knob: " + lic)
+print(json.dumps(d))' "$1" "$2" "$3"
 }
 case "$url" in
   */collections/$COLLECTION)   # the live collection read (the version gate + step 5)
-    force_version "$STAC_DIR/collection.json" "${FAKE_LIVE_VERSION:-}"
+    force_fields "$STAC_DIR/collection.json" "${FAKE_LIVE_VERSION:-}" "${FAKE_LIVE_LICENCE:-}"
     exit 0 ;;
   */items/*)   # the live item read-back: the fixture's own JSON, or a stale one (case 6)
     f="$STAC_DIR/${url##*/}.json"
@@ -189,8 +236,8 @@ f="$STAC_DIR/$rel"
 [ -f "$f" ] || { echo "curl shim: no fixture for $url" >&2; exit 22; }
 if [ -n "$head" ]; then
   printf 'HTTP/1.1 200 OK\r\nContent-Length: %s\r\n\r\n' "$(wc -c < "$f" | tr -d ' ')"
-elif [ "$rel" = collection.json ] && [ -n "${FAKE_BUCKET_VERSION:-}" ]; then
-  force_version "$f" "$FAKE_BUCKET_VERSION"
+elif [ "$rel" = collection.json ] && { [ -n "${FAKE_BUCKET_VERSION:-}" ] || [ -n "${FAKE_BUCKET_LICENCE:-}" ]; }; then
+  force_fields "$f" "${FAKE_BUCKET_VERSION:-}" "${FAKE_BUCKET_LICENCE:-}"
 else
   cat "$f"
 fi
@@ -203,6 +250,8 @@ LIVE_AFTER=""
 STALE=""
 LIVEV=""
 BUCKETV=""
+LIVELIC=""
+BUCKETLIC=""
 RC=0
 run_release() {
   : > "$LOG"; rm -f "$WORK/search_count"
@@ -211,6 +260,7 @@ run_release() {
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
+      FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
       bash "$RELEASE" "$@" ) > "$OUT" 2>&1 < /dev/null
   RC=$?
   set -e
@@ -267,12 +317,22 @@ expect_out "version gate passed on the tagged checkout" "release v$TVERSION: HEA
 expect_eq "collection.json on disk is stamped" "$(coll_version)" "$TVERSION"
 expect_out "verify read the live version back" "live collection version: $TVERSION — matches the tag just released"
 expect_out "verify read the bucket copy back" "bucket collection.json version: $TVERSION — agrees"
+expect_out "verify read the licence back from the API" "live collection licence: CC-BY-4.0, sci:citation and both links served as published"
+expect_out "verify read the licence back from the bucket" "bucket collection.json licence: agrees"
 expect_out "completion line names the version" "RELEASE COMPLETE — v$TVERSION"
 # Read the literal out of the script with an anchored sed, so a renamed variable, a quoted
 # value or a `${PROVENANCE_FLOOR:-0}` rewrite of the literal reads as an empty premise rather
 # than a passing compare. (An override ADDED after the literal is not caught here — the
 # harness sets no such variable — only the literal's own shape is.)
 FLOOR_LITERAL=$(sed -n 's/^PROVENANCE_FLOOR=\([0-9][0-9]*\)$/\1/p' "$RELEASE")
+# Same premise for the licence (#47). Step 5's only comparison against a constant is
+# `license`, so an env fallback added later — EXPECT_LICENSE="${EXPECT_LICENSE:-CC-BY-4.0}" —
+# would hand the one field a consumer's rights turn on an override, and every case here would
+# stay green because the harness never sets it. The floor is pinned as a bare literal for
+# exactly this reason; so is this. Same limitation as the floor's, said out loud: this reads
+# the ASSIGNMENT, so it catches an inline default but not a separate later reassignment.
+LICENCE_LITERAL=$(sed -n 's/^EXPECT_LICENSE="\([^"$]*\)"$/\1/p' "$RELEASE")
+expect_eq "premise: EXPECT_LICENSE is one bare literal with no env fallback" "$LICENCE_LITERAL" "CC-BY-4.0"
 expect_eq "premise: PROVENANCE_FLOOR is one bare integer literal in the script" "$(printf '%s' "$FLOOR_LITERAL" | grep -c '^[0-9][0-9]*$')" 1
 expect_eq "premise: the validator was invoked once" "$(n_uv)" 1
 expect_eq "the flag appears once on the validator's argv" "$(n_floor_flag)" 1
@@ -302,6 +362,86 @@ run_release
 expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "names the bucket version" "bucket collection.json version is '7.7.7', but this release is v$TVERSION"
 BUCKETV=""
+
+# Cases 9c-9e are to the licence read-back what 8 and 9 are to the version gate. Case 2's
+# "licence verified" line is tautological on its own — the curl shim serves the fixture
+# straight back from disk — so without these the new step-5 check is a search that has
+# never been shown to match anything. One field broken per case, because the three are
+# lost by different mechanisms: `license` and `sci:citation` ride in the stored document,
+# while the LINK is rebuilt by pgstac's get_links() and is the one that could plausibly
+# vanish on its own.
+echo "case 9c: the API serving license 'proprietary' after a full release fails it"
+LIVELIC=license
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
+expect_out "names the served licence" "the API is not serving the licence this build published: license='proprietary'"
+LIVELIC=""
+
+echo "case 9d: the API dropping sci:citation fails the release"
+LIVELIC=citation
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the dropped citation" "the API is not serving the licence this build published: sci:citation-absent"
+LIVELIC=""
+
+echo "case 9e: the API dropping the rel=license link fails the release"
+LIVELIC=link
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the absent link" "the API is not serving the licence this build published: rel=license-link-absent"
+LIVELIC=""
+
+echo "case 9f: the bucket copy losing the licence fails it too"
+BUCKETLIC=license
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the bucket licence" "the bucket copy does not carry the licence this build published: license='proprietary'"
+BUCKETLIC=""
+
+# 9g-9i are the ALTERED modes. 9c-9f only DELETE a field, and a check written as "is it
+# present" passes every one of them while still answering OK for a citation reading
+# "all rights reserved" and a licence link pointing anywhere at all — both measured against
+# the real collection before this was fixed. Href rewriting is not hypothetical either: it
+# is the one thing pgstac does to a link it keeps.
+echo "case 9g: the API serving an ALTERED sci:citation fails the release"
+LIVELIC=citation-altered
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the differing citation" "the API is not serving the licence this build published: sci:citation-differs"
+LIVELIC=""
+
+echo "case 9h: the API serving the rel=license link at a REWRITTEN href fails the release"
+LIVELIC=link-href
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the rewritten href" "rel=license-href="
+LIVELIC=""
+
+echo "case 9i: the API dropping the rel=derived_from link fails the release"
+LIVELIC=derived-link
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the absent derived_from link" "rel=derived_from-link-absent"
+LIVELIC=""
+
+# 9j mutates the BUILT side, which every knob above leaves alone. Without it the both-absent
+# state — the one round 2's fix is actually about — has no fixture at all, and a rewrite back
+# to a plain `served != built` would stay green here because None == None. Proved to
+# discriminate: on the pre-fix form this case reports RELEASE COMPLETE while publishing a
+# collection carrying no attribution whatsoever.
+echo "case 9j: a BUILT collection missing the citation and the licence link is refused"
+cp "$STAC/collection.json" "$WORK/coll_built.bak"
+python3 -c 'import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d.pop("sci:citation", None)
+d["links"] = [l for l in d.get("links", []) if l.get("rel") != "license"]
+json.dump(d, open(p, "w"))' "$STAC/collection.json"
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the build as the side at fault (citation)" "built-has-no-citation"
+expect_out "names the build as the side at fault (link)" "built-has-no-license-link"
+cp "$WORK/coll_built.bak" "$STAC/collection.json"
 
 echo "case 10: HEAD not exactly at a tag is refused"
 tgit commit -q --no-verify --allow-empty -m "past the tag"
