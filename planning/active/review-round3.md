@@ -1,255 +1,281 @@
-# Review round 3 — #47, scoped to round 2's fixes
+# Code-check round 3 — #26 deprecation markers
 
-Reviewed the **working tree** (index == worktree: `git diff` is empty, `git diff --cached`
-carries all 15 files). Everything below was measured, not read.
+Scoped to **round 2's fixes**. Reviewed `git diff main` (11 files), plus
+`scripts/item_validate.py`, `scripts/catalogue_release.sh` and
+`scripts/catalogue_release-check.sh` read in full against the working tree — which has moved
+past the diff I was handed (the step-5 read-back is now **one** `python3` with **one**
+`json.load` per file, and the BAD message already splits the two sides through `_d`; both
+concerns in the brief's Q3 were already fixed before I got here).
 
-What I ran:
+Everything below was **run**, not reasoned:
 
-- `bash scripts/catalogue_release-check.sh` → **ALL PASS**, exit 0, 9.3 s.
-- **Restored round 2's exact defect** (the citation arm as a bare value compare, which is what
-  round 2 measured passing on both-absent) → **case 9d goes red on its own message**
-  (`no 'sci:citation-absent' in output`), 9c/9e–9i stay green. So 9d does pin the new arm.
-- **Deleted the whole step-5 licence block** → **17** assertions red, including case 2's two
-  positive-control lines. The block as a unit is well pinned.
-- **Deleted each `built-has-no-*` arm** (three of them, two separate runs) → **ALL PASS both
-  times.** See finding 1.
-- **Full absence truth table** for `licence_of`, over three program variants, with the field
-  set enumerated from the function's own AST rather than by reading it (table below).
-- Re-ran the **pystac five-state table** in `item_validate.py:87–95` against the real
-  collection: all five rows reproduce exactly as written.
-- Build measured: 23 items, `nge:landcover_collection` = `io-lulc-annual-v02` on 21 / null on 2,
-  `nge:landcover_stac_url` = the Planetary Computer on the **same** 21, 21 carrying a non-null
-  `nge:` value. `PROVENANCE_FLOOR=21` is exact in both directions. Collection: `CC-BY-4.0`,
-  6 providers, both links at the expected hrefs, 770-char citation.
-- `uv lock --check` clean, `uv.lock` unmodified.
-- **README.md's quoted citation is byte-identical** to the published `sci:citation` after
-  normalising the markdown blockquote (`> ` prefixes, backticks, the `<...>` autolink). A
-  fourth copy that nothing checks, but it currently agrees.
+- `bash scripts/catalogue_release-check.sh` on the unmutated tree → **ALL PASS**, exit 0.
+- Four restore-the-bug mutations of `catalogue_release.sh`, each run through the full harness.
+- `check_deprecated` driven directly over seven hand-built trees, both modes.
+- The proposed fix for finding 1 applied to a copy and re-run over all seven trees **and**
+  the real `data/stac`.
+- Every number in the `v1.1.0` entry recomputed from the **live API** (20 items) against
+  `data/stac/` (23 items) — including a full 140-asset checksum sweep, not a sample.
+
+**Convergence: the class round 2 opened is NOT closed.** One arm still sits on the wrong side
+of the `--partial` line, and the enumeration below shows which one and why. Round 2 fixed the
+instance; the mechanism recurred one arm over.
 
 ---
 
 ## Findings
 
-### [fragile] scripts/catalogue_release.sh:161 and :173–176 — the rationale round 2 added, and the one it copied, are both false about the code they sit in
+### 1. **[bug]** `scripts/item_validate.py:355-358` — `--partial` still disables an arm for ids the tree **contains**, and it is the arm that catches the two literals desynchronising
 
-The comment above the citation arm:
-
-> Absent on BOTH sides compares equal, so without this the step reports "served as published"
-> about a field that exists nowhere — the same hole the built-has-no-`<rel>`-link arm below
-> closes for the links
-
-and the one at line 161 it cites:
-
-> `built-has-no-<rel>-link` matters: without it, a link absent from BOTH sides compares equal
-> and the whole check goes quiet on the input that most needs it.
-
-Neither is true of the function as written. Measured — the field set enumerated from the AST
-(`served.license`, `{served,built}.sci:citation`, `href({served,built}, rel)` for
-rel ∈ {`license`, `derived_from`}; note `built.license` is never read), then every absence
-state run through three variants:
-
-| state | current | built-arms removed | value-compare only (the true prior form) |
-|---|---|---|---|
-| control | PASS | PASS | PASS |
-| `license` absent SERVED | refuse | refuse | refuse |
-| `license` absent BOTH | refuse | refuse | refuse |
-| citation absent BOTH | refuse | refuse | **PASS** |
-| citation absent SERVED only | refuse | refuse | refuse |
-| citation absent BUILT only | refuse | refuse | refuse |
-| citation differs | refuse | refuse | refuse |
-| `license` link absent BOTH | refuse | refuse | **PASS** |
-| `license` link absent SERVED only | refuse | refuse | refuse |
-| `license` link absent BUILT only | refuse | refuse | refuse |
-| `derived_from` link absent BOTH | refuse | refuse | **PASS** |
-| `derived_from` link absent SERVED only | refuse | refuse | refuse |
-| `derived_from` link absent BUILT only | refuse | refuse | refuse |
-
-The middle column is identical to the first in **every** state. The three `built-has-no-*`
-arms change no verdict; they only change which side the message points at. What actually
-closes the both-absent hole is the `elif served… is None` / `elif s is None` arm sitting
-immediately below each of them — and either arm alone closes it (I checked both directions:
-removing only `elif served is None` also refuses, via `built-has-no-citation`). They are
-mutually redundant, which is fine; the comments asserting one of them is load-bearing are not.
-
-Why it matters rather than being pedantry. Round 2's finding was argued from a comparison —
-*"the link arm was added for exactly this reason and the citation arm was not"* — and that
-comparison rests on a claim about the link arm that is false. The fix is harmless, but the
-repo now carries two comments telling the next reader which arm is safety-critical, and
-they name the wrong one. `code-check.md`, "An assertion that matches an interpolated value
-cannot see the claim around it": the tell is a comment that says what something *is* rather
-than naming it, and the predicate here is sound while the sentence is not.
-
-Cheapest honest fix is to say what is true: the absence arms are redundant on purpose, either
-one refuses, and the built-side one exists so the message points at the build rather than at
-the API.
-
-### [fragile] scripts/catalogue_release-check.sh — the both-absent state, which is the state round 2's fix is *about*, has no fixture; one is three lines and is discriminating
-
-Every licence knob in `force_fields` mutates the **served** side only (the shim rewrites the
-API/bucket response; `$STAC/collection.json` on disk, which `licence_of` reads as "built", is
-never touched). So no case can reach any `built-has-no-*` arm — proved by deleting all three
-and getting **ALL PASS**.
-
-That is the answer to *"is there any assertion that would still pass if the guard it tests were
-deleted outright?"* — there is no assertion for those three arms at all.
-
-The load-bearing gap is not the arms (finding 1: they change no verdict) but the **state**.
-Nothing pins "no citation anywhere → refused". The only thing standing between the prior
-value-compare-only form and a green release is case 9d's *message* string, which is a proxy: a
-plausible rewrite such as
+Round 2 moved `marked - EXPECTED_DEPRECATED` above `if partial: return` on the argument that
+it "names only ids the tree actually contains, so it holds on ANY tree". That argument applies
+to **half** of the arm still behind the flag:
 
 ```python
-if served.get("sci:citation") is None and built.get("sci:citation") is not None:
-    bad.append("sci:citation-absent")
-elif served.get("sci:citation") != built.get("sci:citation"):
-    bad.append("sci:citation-differs")
+if partial:
+    return problems
+for i in sorted(EXPECTED_DEPRECATED - marked):        # <- only the ids ABSENT from the
+    problems.append(f"{i}: expected deprecated: true, not marked")   #    tree need a full view
 ```
 
-keeps 9d green and reopens the silent pass.
+`EXPECTED_DEPRECATED - marked` needs the whole catalogue only for ids **not in the tree**.
+Restricted to `(EXPECTED_DEPRECATED & seen) - marked` it names only ids the tree contains — the
+exact form round 1 prescribed (*"restrict them to ids the build actually contains:
+`(EXPECTED_DEPRECATED & seen)` vs `marked`"*), which round 2 adopted for the other direction
+and not for this one.
 
-I built the fixture and proved it both ways. Inserted before case 10:
+**Measured.** A subset tree holding `mcgr_ch_ff04`, unmarked, carrying a non-null
+`nge:flooded_version`:
+
+```
+-- S2 mcgr present, unmarked, fv non-null
+  partial=True : CLEAN
+  partial=False: ['mcgr_ch_ff04: expected deprecated: true, not marked', ...]
+```
+
+Same result with a second, healthy group beside it (S3), so it is not an artefact of a
+one-item tree.
+
+**Why it matters, and why `--only` is the likely path.** The two literals are hand-set in two
+files, and `EXPECTED_DEPRECATED - marked` is the *only* guard that fires when
+`item_create.py`'s copy is edited and `item_validate.py`'s is not. The documented future flow
+for #26 is precisely that edit: the docstring at `:279-283` says *"when floodplains#76 unblocks
+and MCGR is rebuilt … the first corrected build fails the release until the id is deleted from
+the literal"*. An operator deleting it from `DEPRECATED_ITEMS` only, and republishing through
+the single-group pilot path (`--only mcgr_ch_ff04`, which is what #36 exists for), gets a
+CLEAN gate — and publishes an item whose geometry may not have moved, unmarked, looking
+current. That is the failure #26 was opened to prevent, on a bucket with versioning Suspended.
+
+Step 5's read-back cannot catch it either: the deprecation block is inside
+`if [ -z "$ONLY" ]` (`catalogue_release.sh:646`), so under `--only` nothing observes the marker
+from the consumer's side.
+
+The converse arm covers this **only while `fv` is null**, which is true of `mcgr`/`pine`
+today and stops being true the moment the producer emits a `provenance.json` for them.
+
+**Fix, verified.** Move it above the early return with `& seen`:
+
+```python
+for i in sorted((EXPECTED_DEPRECATED & seen) - marked):
+    problems.append(f"{i}: expected deprecated: true, not marked")
+if partial:
+    return problems
+for i in sorted(EXPECTED_DEPRECATED - seen):
+    ...
+```
+
+Applied to a copy and re-run: S2/S3 become `['mcgr_ch_ff04: expected deprecated: true, not
+marked']` under `partial=True`; the healthy fixture stays CLEAN both ways; and
+`data/stac` stays **CLEAN both ways**. It also *removes* a duplicate message on a full
+release — an id in the literal but absent from the build currently reports both "not marked"
+and "absent from the build", and with `& seen` reports only the accurate one (S1/S7).
+
+---
+
+### 2. **[fragile]** `CLAUDE.md:102`, `scripts/README.md:59`, `scripts/item_validate.py:263` — three surfaces state something S2/S3 disproves
+
+- `item_validate.py:263` — *"`partial` drops the two arms that need to see the WHOLE
+  catalogue"*
+- `CLAUDE.md:102` — *"`--partial`, which drops only the two arms that ask about ids **absent**
+  from the tree"*
+- `scripts/README.md:59` — *"drops only the arms asking about ids absent from the tree"*
+
+`EXPECTED_DEPRECATED - marked` asks about ids that are **unmarked**, which includes ids present
+in the tree. This is round 2 finding 6 recurring on the arm round 2 did not move, and
+`findings.md` already names this class as explicitly not closed after four rounds on #47.
+Fixing finding 1 makes all three sentences true again — the cheap direction.
+
+(`NEWS.md:70`'s *"the marker … been dropped"* survives, because for the two real items `fv` is
+null and the converse arm catches it. It becomes false the day either gains a provenance
+record.)
+
+---
+
+### 3. **[fragile]** `scripts/catalogue_release.sh:691` — `served &= built_ids` is load-bearing and has **zero** coverage
+
+This one line is round 2 finding 8's entire fix. Two mutations, both run:
+
+| mutation | harness result |
+|---|---|
+| delete `served &= built_ids` | **ALL PASS** — nothing notices |
+| delete the whole step-5 deprecation block | 6 FAILED (case 2's read-back, 9k ×3, 9l ×2) |
+
+So the block is well covered and the line inside it is not. And it is not decoration — I added
+a case that exercises the mode it exists for (a full `--allow-retract` release where the build
+drops the marked fixture item while the shim still serves it marked) and ran it both ways:
+
+```
+=== WITH the intersection ===        === WITHOUT ===
+  ok    exit 0                         FAIL  exit 0 (got '1', want '0')
+  ok    RELEASE COMPLETE               ... RELEASE INCOMPLETE, after the sync and register
+```
+
+That is the exact defect round 2 reported, reproduced by removing the fix. Every other change
+in this diff has a restore-the-bug proof; this one does not, and the harness already has the
+machinery (`FAKE_LIVE_IDS`, `FAKE_LIVE_DEPRECATED`, `ALLOW_RETRACT`). Note when placing it:
+my probe case perturbed case 10 downstream, so it needs `PARTIAL_STAGE` and the fixture
+restored before the next case, as 9j already does for `collection.json`.
+
+---
+
+### 4. **[fragile]** `scripts/catalogue_release.sh:671-672` — the comment justifying the intersection names a guard that is switched off in the one mode the intersection is for
+
+> *"Orphans are already the id comparison's business above, which names them and offers
+> `item_unregister.sh`."*
+
+`catalogue_release.sh:512`:
 
 ```bash
-echo "case 9j: a BUILT collection.json with no sci:citation (absent from both sides) fails it"
-python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d.pop("sci:citation",None); json.dump(d,open(sys.argv[1],"w"))' "$STAC/collection.json"
-run_release
-expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
-expect_out "names the built-side absence" "built-has-no-citation"
-python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["sci:citation"]="fixture citation"; json.dump(d,open(sys.argv[1],"w"))' "$STAC/collection.json"
+if [ -n "$extra" ] && [ -z "$ALLOW_RETRACT" ]; then
+  echo "LIVE BUT NOT IN THIS BUILD:"; ...; fail=1
+fi
 ```
 
-- against the current script: **both assertions pass**;
-- against the value-compare-only form: **`exit non-zero` FAILS — the release completes green,
-  `RELEASE COMPLETE`, publishing a collection that carries no attribution at all.**
+Under `--allow-retract` — the *only* mode in which the intersection changes the outcome —
+orphans are neither named nor counted. So a deliberately retracted `mcgr_ch_ff04` stays live
+serving `deprecated: true`, step 5 prints `deprecation markers served: pine_bt_ff04`, and the
+release prints `RELEASE COMPLETE` with nothing anywhere saying an item was left behind still
+claiming to be stale. The accommodation is right; the reader's reason to trust it is not.
+One line — echo the retracted set out loud under `--allow-retract` — closes it.
 
-That is the assertion the suite is missing. It works because `item_validate.py` is shimmed away
-in this harness, so nothing upstream intercepts the mutated build.
+---
 
-**Reachability on a real release: none.** `check_collection_metadata` refuses a build with no
-`sci:citation` in every state (round 2 proved this by mutation; I re-confirmed the pystac half
-today), and step 1 gates step 5. So this is defence-in-depth being pinned, not a live hole —
-same standing the link arms already have.
+### 5. **[fragile]** `scripts/item_validate.py:337` — `fv is not None` is a proxy for "rebuilt on flooded >= 0.5.0", and only the *null* half of the proxy is stated
 
-### [low] scripts/README.md:59, CLAUDE.md and NEWS.md still describe `check_citation_premise` as a one-property guard
+The converse arm's message (round 2's rewrite) is honest about the null direction: *"carries no
+`nge:flooded_version`, so nothing here can tell whether it was rebuilt on flooded >= 0.5.0"*.
+Nothing says the same about the non-null direction, and the code never reads the **value**: an
+item publishing `nge:flooded_version = "0.4.0"` passes unmarked through both modes. That is an
+over-mapped item shipping looking current — #26's own failure, one version string over.
 
-Round 2's finding 3 corrected the step-**5** row and left every other surface. The code
-(`item_validate.py:270–271`) now checks **two** properties; three documents name one:
+Measured today: all 21 provenanced items carry exactly `"0.5.0"`, so the gap is not live. It is
+cheap to close — `_SEMVER` is already compiled at `item_validate.py:46` — and closing it would
+make CLAUDE.md's *"marked **iff** it lacks `nge:flooded_version`"* and `NEWS.md`'s *"`0.5.0`
+means corrected"* the same statement, which they currently are not.
 
-- `scripts/README.md`, step 1 row: *"every item's `nge:landcover_collection` checked against the
-  collection the citation attributes (#47)"*
-- `CLAUDE.md`, new paragraph: *"it refuses a build whose items name a landcover collection the
-  citation does not attribute"*
-- `NEWS.md`, Unreleased: *"which refuses a build whose items name a landcover collection the
-  published citation does not attribute"*
+---
 
-`nge:landcover_stac_url` is the half round 1 asked for precisely because a host move keeping the
-collection id is invisible to the id check. A reader trusting any of the three would conclude it
-is unguarded. `code-check.md`, "A fix that reaches one enforcement surface reads as complete on
-all of them" — the same class round 2 named, one surface over.
+### 6. **[fragile]** `scripts/catalogue_release.sh:700` — the delimiter comment cites a check that does not cover its subject
 
-### [low] scripts/item_validate.py:1390–1393 — the success line states a conjunction the code checks per-property
+> ``# `|` is a safe delimiter: the id shape check at the top of this script rejects it.``
 
-```
-… every item's nge:landcover_collection is io-lulc-annual-v02 and its
-nge:landcover_stac_url is the Planetary Computer, or null
-```
-
-`check_citation_premise` applies its null tolerance **per property** (`for prop, want in claims:
-… if got is not None and got != want`), so an item with the collection set and the URL null
-passes, and the printed sentence is false of that item — "or null" reads as governing the pair.
-This is the operator's verdict line for a guard whose whole job is to keep a published legal
-claim honest.
-
-Not reachable in today's data (measured: both properties set on the same 21 items, both null on
-the same 2, and both live in `PROV_SECTIONS["landcover"]`, so the producer writes them together).
-Wording only; the code is right.
-
-Separately, the same line omits the derivation-statement check `check_collection_metadata` also
-performs (CC BY 4.0 §3(a)(1)(B)) — an undercount, harmless.
+The shape check (`:102-103`) validates `$ONLY` only. The ids being joined here come from
+`$STAC_DIR/*.json` and from the API, neither of which passes through it. Unreachable in
+practice — `item_create.py` emits `<wsg>_<sp>_ff0N` — but the stated reason is not the reason.
+`fmt` joining on a character no id can contain (or emitting JSON) is the honest form.
 
 ---
 
 ## Answers to the specific questions
 
-**1. `licence_of`'s citation ordering — right? Can any pair collapse? Is the hole open
-anywhere else?**
+**Q1 — is round 2's `--partial` split correct? Is any arm on the wrong side?** One is. The
+complete arm set, and where each sits:
 
-Ordering is right, and it is *insensitive* to ordering: the two absence arms are mutually
-redundant, so either order refuses every absence state (measured, both orders). No pair
-collapses to a pass — the truth table above has zero PASS cells outside the control.
+| # | arm | names ids… | safe on a subset? | current side |
+|---|---|---|---|---|
+| 1 | `flag is not _ABSENT and flag is not True` | in tree | yes | always ✅ |
+| 2 | `has_ext != (flag present)` | in tree | yes | always ✅ |
+| 3 | self-clear: `flag is True and fv is not None` | in tree | yes | always ✅ |
+| 4 | converse: `flag is not True and fv is None` | in tree | yes | always ✅ |
+| 5 | `marked - EXPECTED_DEPRECATED` | ⊆ marked ⊆ seen | yes | always ✅ (round 2) |
+| 6 | `EXPECTED_DEPRECATED - marked` | **mixed** — `& seen` is in tree | **partly** | partial-only ❌ |
+| 7 | `EXPECTED_DEPRECATED - seen` | absent by definition | no | partial-only ✅ |
 
-The field set is complete, taken from the AST rather than from reading:
+Seven arms, one misplaced, and the misplacement is *partial* (row 6 splits cleanly into a
+subset-safe half and a full-tree half). That is the enumeration, not a claim of convergence:
+**the class is open until row 6 is split.**
 
-| field | absent SERVED | absent BUILT | absent BOTH |
-|---|---|---|---|
-| `license` | `BAD license=None` | not read from built at all — compared to the `EXPECT_LICENSE` constant, so built's copy is irrelevant here and is gated at step 1 by `item_validate.py`'s own `EXPECTED_LICENSE` | `BAD license=None` |
-| `sci:citation` | `sci:citation-absent` | `built-has-no-citation` | `built-has-no-citation` |
-| `links[rel=license].href` | `rel=license-link-absent` | `built-has-no-license-link` | `built-has-no-license-link` |
-| `links[rel=derived_from].href` | `rel=derived_from-link-absent` | `built-has-no-derived_from-link` | `built-has-no-derived_from-link` |
+**Q2 — does the converse arm's message match what the code does?** Yes for the null branch,
+including the third remedy round 2 asked for ("fix the provenance instead"). It leaves the
+non-null branch's proxy unstated — finding 5. The self-clear message at `:339-345` matches
+its code exactly, both branches.
 
-**No cell is a silent pass.** `href()` folds "no link", "two links" and "link with no href"
-into `None`, so all three refuse — with a message that says "absent" for a duplicate, which
-round 2 already noted and which fails safe.
+**Q3 — trace the step-5 python.** The working tree's version is a single reader; the two-`json.load`
+shape described in the brief is gone. Checked:
 
-One field the function does **not** read: `providers`. Neither success line nor either
-document claims it does, so this is scope, not a false claim — `check_collection_metadata`
-pins all six as whole records on disk, and round 2 measured that a sibling collection's
-providers do survive pgstac.
+| case | behaviour |
+|---|---|
+| `collection.json` in the glob | skipped by `d.get('type') != 'Feature'` ✅ |
+| a file that will not parse / has no `id` | raises → non-zero → `pipefail` → `READFAIL`, `fail=1`, verdict line still printed ✅ |
+| `curl` fails, or returns non-JSON with a 200 | same path ✅ |
+| inner command succeeds but prints nothing | unreachable (`print` is unconditional); would fall to `*)` → `fail=1`, i.e. **toward refuse** ✅ |
+| response missing `features` | `KeyError` → `READFAIL` ✅ |
+| served set is empty while the build marks two | `BAD NONE\|mcgr… pine…` → `fail=1` ✅ (this is case 9k) |
+| `served &= built_ids` masking a real mismatch | bounded: anything outside `built_ids` is an orphan, which `:509-515` refuses **unless** `--allow-retract` — findings 3 and 4 |
 
-**2. Does `item_validate.py`'s reworded summary claim anything the code does not check?**
-Yes, marginally — finding 4 (the conjunction). Everything else in the line is checked:
-`license` by value, both links by exactly-one-plus-href, `len(EXPECTED_PROVIDERS)` providers
-as whole records, `sci:citation` verbatim. The five-state pystac table the rewording rests on
-reproduces exactly (measured today against the real collection, all five rows).
+**Q4 — do 9k/9l discriminate? Does marking `bbbb` break anything?** Both discriminate:
+deleting the step-5 block turns 9k red on all three assertions and 9l red on two, plus case 2's
+read-back — 6 FAILED. Both `n_partial_flag` assertions bite in both directions (removing
+`--partial` from the `--only` branch → case 15 red; adding it to the full branch → case 2 red).
+Marking `bbbb` breaks nothing: every `--only` case runs against `aaaa_ch_ff04` (lines 551-640),
+`bbbb` appears only as the untouched-sibling assertion and in the live-id lists, and the harness
+is ALL PASS. Case 15's provenance read-back and cases 6/7's item read-back all read `aaaa`.
 
-**3. Does 9d still exercise what it claims? Is any harness assertion stale or vacuous?**
-9d exercises the `served is None` arm and is discriminating: restoring round 2's exact defect
-turns its message assertion red while its `exit non-zero` assertion stays green — so the
-message is the load-bearing half, which is the #46 discipline working. 9g's
-`sci:citation-differs` is now a distinct string from 9d's, closing round 2's operator-ambiguity
-note.
+**Q5 — NEWS.md, every number re-derived.** All correct. Measured against the live API (20
+features) and `data/stac` (23 items), compared **exactly**, not to a tolerance:
 
-Nothing is stale. Nothing is vacuous in the sense of "passes on the broken code":
+| claim | measured |
+|---|---|
+| 23 items, 20 live, 3 new, no item dropped | 23 / 20 / `lnth`,`thom`,`unth` / **0 orphans** ✅ |
+| three new groups are Thompson, region fraser | all three `region = fraser` ✅ |
+| thirteen change, seven unchanged | 13 / 7, over `floodplain_ff0{2,4,6}_km2`, `gross_loss_ha`, `gross_gain_ha`, `net_ha` ✅ |
+| all 13 table rows (published, corrected, retained) | every row reproduces to the printed digit ✅ |
+| "1.5% to 33.5%" | `pcea` 1.46%, `tabr` 33.55% ✅ |
+| `necr_ch_ff04` 396.52 → 396.51 | ✅ |
+| `PROVENANCE_FLOOR` 21 | 21 items carry ≥1 non-null `nge:` ✅ (`catalogue_release.sh:60`) |
+| exactly `mcgr`+`pine` marked, `fv` null on exactly those two | ✅ |
+| `nge:flooded_version` `0.5.0` on all 21 | one distinct value, `0.5.0` ✅ |
+| the two marked items declare 4 extensions, the rest 3 | ✅ |
 
-- `LICENCE_LITERAL` — the sed fails to `""` on a renamed variable, an inline `${…:-}` default,
-  an unquoted value or a trailing comment, and `""` ≠ `CC-BY-4.0`, so it fails **loud** in every
-  degradation I could construct. The stated limitation (a *separate later reassignment*) is
-  real and is now written out, matching `PROVENANCE_FLOOR`'s. `grep -c '^EXPECT_LICENSE=' = 1`
-  would still close it terminally; documenting it is a defensible choice, not a defect.
-- Case 2's two licence lines are tautological **on their own** — the harness says so — and
-  deleting the step-5 block turns them red along with 15 other assertions.
-- What *is* untested: the three `built-has-no-*` arms (finding 2). Deleting them is invisible.
+**The new checksum paragraph is true, and now measured over the whole population** rather than
+the five items round 2 sampled: **140 assets across all 20 common items, 0 with an identical
+`file:checksum`.** So *"every asset on every item has a new checksum in this release, including
+items whose geometry is identical"* is literally correct, and *"it cannot answer 'did the
+geometry change'"* follows.
 
-**4. Anything failing toward pass or toward silent success?**
-Nothing in the shipped code. Traced again and all refuse: a failed/non-JSON read → `json.load`
-raises → `pipefail` → `READFAIL` → `fail=1` with no second false line; an unknown `force_fields`
-knob → `SystemExit` → empty shim stdout → `READFAIL` → the case's own message assertion goes
-red rather than silently passing; `expect_out`'s `grep -q --` patterns contain no BRE
-metacharacter that could widen a match (`CC-BY-4.0`'s dots match themselves).
+**Q6 — any harness assertion that would still pass if its guard were deleted?** One, and it is
+finding 3: `served &= built_ids`. Every other assertion added in rounds 1–2 was mutated and
+went red.
 
-The only silent-success shape in this area is the **absent fixture** of finding 2, which is
-about the suite, not the release.
+**Q7 — anything failing toward pass or silent success?** Finding 1 (a CLEAN gate on input the
+full gate refuses) and finding 4 (a retraction that leaves a marked orphan live, silently). The
+step-5 reader itself fails toward **refuse** on every input I could construct, which is the
+right direction.
 
 ---
 
-## Convergence — what I can show, and what I cannot
+## Verified correct, so no action
 
-**Closed, and shown rather than asserted:** *"a field `licence_of` reads can be absent from one
-or both sides and still return OK."* The candidate set is not a judgement — it is the four
-`served`/`built` field reads extracted from the function's own AST, and nothing sits above that
-source, because the function reads no other document and takes no other input than `$1` and
-`EXPECT_LICENSE`. All four × {served-absent, built-absent, both-absent} = 12 states plus the
-value-differs cases were executed; zero passes. Deleting the redundancy and the whole block
-were both executed too. That class is terminal.
-
-**Not closed:** *"a comment or a printed line claims something the code does not do."* Round 1
-found it in a docstring, round 2 in two documents, round 3 in two code comments and one success
-line — four rounds, four instances, each one *inside the previous round's fix*. I have no
-enumeration for this class: the candidate set is every sentence in the diff that makes a claim,
-and I read them rather than measured them. The right terminator, if you want one, is the
-`code-check.md` recipe — parse the file, dump every comment and every `print`/`echo` that makes
-a positive claim about behaviour, and mark which ones name a mechanism rather than a fact. That
-set is finite and small here (roughly a dozen), and doing it from recollection is exactly what
-left round 2's two false comments standing.
-
-So: **the licence guard itself has converged; the prose around it has not been shown to.**
+- The `--partial` and full-release summary lines at `item_validate.py:1514-1526` claim exactly
+  what runs — the "iff" holds under `--partial` because both directions are per-item arms, and
+  "each declaring the version extension" is what arm 2 asserts.
+- `item_create.py`: `exts` is a fresh list per call; `deprecated` is not `NGE_`-prefixed
+  (`check_cog_tags` unaffected) and not in `REQUIRED_NGE_PROPERTIES` (`check_provenance`'s set
+  equality unaffected). The real tree is CLEAN through `check_deprecated` in both modes.
+- `--partial` is `store_true`, default `False`, one call site; `run_pipeline.sh`,
+  `test_pipeline.R` and the full-release branch pass no flag.
+- The `dep_state` search is the third `/search` of a full release, so it reads
+  `FAKE_LIVE_IDS_AFTER` in the harness and the post-registration set in production —
+  consistent with `after_ids`, which it is compared against indirectly.
+- `limit: 1000` matches `fetch_live_ids`; a truncated page would drop a served marker and fail
+  **loud**.

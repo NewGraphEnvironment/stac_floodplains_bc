@@ -42,6 +42,9 @@ from rio_cogeo.cogeo import cog_validate
 
 MULTIHASH_SHA256 = "1220"
 
+# Distinguishes "key absent" from "key present with a null value" — see check_deprecated.
+_ABSENT = object()
+
 VERSION_EXT = "https://stac-extensions.github.io/version/v1.2.0/schema.json"
 _SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 
@@ -245,6 +248,146 @@ def check_collection_metadata(doc: dict) -> list[str]:
             "collection description is missing the derivation/modification statement "
             "CC BY 4.0 §3(a)(1)(B) obliges")
 
+    return problems
+
+
+# The items published as over-mapped (#26). Duplicated from item_create.py's DEPRECATED_ITEMS
+# rather than imported, for the reasons given above REQUIRED_NGE_PROPERTIES: importing that
+# module runs the whole build, and a guard that reads the value it checks is x == x.
+EXPECTED_DEPRECATED = {"mcgr_ch_ff04", "pine_bt_ff04"}
+
+# The `flooded` release that fixed the bankfull units defect. The guards below turn on whether
+# an item was built at or above it — not on whether it carries a version at all, which is a
+# PROXY: an item rebuilt on 0.4.0 carries a version, is still over-mapped, and would pass a
+# presence check unmarked. Not live today (all 21 carry 0.5.0), which is exactly when a proxy
+# is cheapest to replace with the property.
+MIN_FLOODED_VERSION = (0, 5, 0)
+
+
+def _corrected(fv: object) -> bool:
+    """Was this item built on a `flooded` at or above the units fix?
+
+    Anything unparseable is False — a version we cannot read is one we cannot vouch for, and
+    the two states this feeds both fail toward refusing to publish rather than toward silence.
+    """
+    if not isinstance(fv, str) or not _SEMVER.match(fv):
+        return False
+    return tuple(int(part) for part in fv.split(".")) >= MIN_FLOODED_VERSION
+
+
+def check_deprecated(base: Path, partial: bool = False) -> list[str]:
+    """Exactly the items that could not be re-run are marked, and the marker self-clears (#26).
+
+    `partial` drops exactly one arm: ids named in the literal but ABSENT from the tree, which
+    is the normal state of a subset rather than a defect. Under `--only` the tree may hold a
+    single group, and asserting the whole catalogue against it refuses every group but the
+    marked two, killing the #36 single-group path. Same reasoning and the same shape as
+    `--expect-provenance`, which the release also skips there.
+
+    Everything else runs on any tree, because every other arm names an id the tree CONTAINS.
+
+    pystac cannot help here at all. The Version Extension's Item branch is
+    `properties: {"$ref": "#/definitions/fields"}` with NO `required`, and every field in
+    `fields` is optional — so an item declaring the extension and carrying no `deprecated`
+    validates clean, and one carrying `deprecated` without declaring the extension validates
+    too, because the schema is selected BY the extension list. Both directions are ours.
+
+    SET EQUALITY, not containment, and the literal's own ids checked against the build: a
+    marker that spread, a marker that was dropped, and an id left behind by a rename are three
+    different defects and only the first is visible to a containment check.
+
+    The self-clearing arm is the one that matters over time. This is written data that
+    outlives the fix (`code-check.md`, "Written data outlives the fix"): when floodplains#76
+    unblocks and MCGR is rebuilt, nothing would remove it from the literal, and it would
+    publish as deprecated forever while carrying corrected geometry — a lie in the opposite
+    direction from the one #26 opened. So an item marked deprecated may not carry a non-null
+    `nge:flooded_version`, and the first corrected build fails the release until the id is
+    deleted from the literal.
+
+    What that arm encodes is "deprecated HERE means not-rebuilt". True by construction today —
+    both marked items have no upstream provenance.json at all — and it would misfire on an item
+    deprecated for some other reason while carrying provenance. That is a deliberate coupling,
+    not an oversight: the alternative is a marker with no expiry, and this repo has already
+    published one forward-only field it could not take back.
+    """
+    problems: list[str] = []
+    marked: set[str] = set()
+    seen: set[str] = set()
+
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc.get("id", path.stem)
+        seen.add(item_id)
+        # `or {}`, not a default: `"properties": null` returns None from .get with a default
+        # and would raise AttributeError on the next line instead of being reported.
+        props = doc.get("properties") or {}
+        # A sentinel, because absent and an explicit JSON null are different states and this
+        # guard's whole subject is that a published null is invisible from the API (#31/#36).
+        flag = props.get("deprecated", _ABSENT)
+        has_ext = VERSION_EXT in (doc.get("stac_extensions") or [])
+
+        if flag is not _ABSENT and flag is not True:
+            # `deprecated: false` is the extension's default and says nothing; publishing it
+            # explicitly on some items and not others would make absence ambiguous. `null` is
+            # worse still — the API would drop it, so it reads as absent to every consumer.
+            problems.append(f"{item_id}: deprecated is {flag!r} — publish true or omit it")
+        if has_ext != (flag is not _ABSENT):
+            problems.append(
+                f"{item_id}: version extension half-applied — extension "
+                f"{'declared' if has_ext else 'absent'}, deprecated "
+                f"{'present' if flag is not _ABSENT else 'absent'}")
+
+        # BOTH directions. The self-clear alone is `marked -> not rebuilt`; the converse,
+        # `not rebuilt -> marked`, is the one #26 exists to enforce, and nothing else covers
+        # it: an unmarked item with no provenance adds zero to the provenance floor's count,
+        # so an exact floor of 21 is satisfied by 21 provenanced items whatever ships beside
+        # them. Without this, a 24th over-mapped item ships looking current and every guard
+        # stays green.
+        fv = props.get("nge:flooded_version")
+        if flag is True:
+            marked.add(item_id)
+            if _corrected(fv):
+                problems.append(
+                    f"{item_id}: marked deprecated but carries nge:flooded_version {fv!r}. "
+                    f"If it has been rebuilt, delete it from DEPRECATED_ITEMS in "
+                    f"item_create.py and EXPECTED_DEPRECATED here. If it is deprecated for "
+                    f"some other reason, this guard is the wrong one — it encodes "
+                    f"'deprecated here means not-rebuilt' and needs widening, not silencing")
+        elif not _corrected(fv):
+            _v = "no nge:flooded_version" if fv is None else f"nge:flooded_version {fv!r}"
+            problems.append(
+                f"{item_id}: carries {_v}, so nothing here can vouch that it was built on "
+                f"flooded >= {'.'.join(map(str, MIN_FLOODED_VERSION))}, and it publishes "
+                f"unmarked. Rebuild it, or mark it. Do NOT mark it merely to clear this: if it "
+                f"WAS built on a corrected flooded and only the upstream provenance.json is "
+                f"missing or unreadable, the geometry is right and marking it publishes a false "
+                f"claim — fix the provenance instead")
+
+    # The line is not "set compare vs the rest" — it is whether an arm names an id the tree
+    # CONTAINS. Both of these do (`marked` and `& seen` are subsets of `seen`), so both hold on
+    # any tree and run even under --partial:
+    #
+    #   * a marker outside the literal would otherwise sail through an --only release and
+    #     upsert a permanent false "stale" claim into pgstac — the direction with no rollback;
+    #   * an item IN the literal, present, and unmarked is the state produced by editing
+    #     item_create.py's literal and not this one. That is the documented future flow for
+    #     #26 (mcgr is rebuilt, someone deletes it from one copy), and --only is exactly the
+    #     path an operator would reach for. Step 5's read-back is inside `if [ -z "$ONLY" ]`,
+    #     so nothing downstream would catch it either.
+    for i in sorted(marked - EXPECTED_DEPRECATED):
+        problems.append(f"{i}: marked deprecated but not in the expected set")
+    for i in sorted((EXPECTED_DEPRECATED & seen) - marked):
+        problems.append(f"{i}: expected deprecated: true, not marked")
+
+    # Only this one genuinely needs the whole catalogue: it asks about ids ABSENT from the
+    # tree, which is the normal state of a subset rather than a defect.
+    if partial:
+        return problems
+    # A literal naming an item nothing publishes makes the compare above vacuous on that name.
+    for i in sorted(EXPECTED_DEPRECATED - seen):
+        problems.append(f"{i}: named in EXPECTED_DEPRECATED but absent from the build")
     return problems
 
 
@@ -1299,6 +1442,11 @@ def main() -> int:
                    help="EXACT number of items carrying a non-null nge: value (#32). Set by the "
                         "release from a human-chosen literal, never derived from the build; "
                         "omitted (a rebuild) means no check")
+    p.add_argument("--partial", action="store_true",
+                   help="the tree holds a SUBSET of the catalogue (catalogue_release.sh --only). "
+                        "Drops the whole-catalogue arms of the deprecation check (#26); every "
+                        "per-item arm still runs. Default is strict, so a forgotten flag refuses "
+                        "rather than waves through")
     args = p.parse_args()
     if args.expect_provenance is not None and args.expect_provenance < 0:
         print("FAILED: --expect-provenance must be >= 0", file=sys.stderr)
@@ -1387,6 +1535,26 @@ def main() -> int:
         for msg in bad_premise:
             print(f"  {msg}", file=sys.stderr)
         return 1
+
+    # --- deprecation: are the over-mapped items marked, and only them? (#26) ---
+    # Here rather than after check_checksums, for the same reason as the premise check above:
+    # behind the 670 MB re-read, any asset drift short-circuits it and a restore-the-bug proof
+    # for this guard proves nothing (#46).
+    bad_dep = check_deprecated(args.base, partial=args.partial)
+    if bad_dep:
+        print(f"FAILED: {len(bad_dep)} deprecation-marker problem(s)", file=sys.stderr)
+        for msg in bad_dep:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    if args.partial:
+        print("deprecation: --partial, so ids named in the literal but absent from this tree "
+              "are not asserted; every other arm ran, including marked iff not built on "
+              f"flooded >= {'.'.join(map(str, MIN_FLOODED_VERSION))}")
+    else:
+        print(f"deprecation: exactly {len(EXPECTED_DEPRECATED)} item(s) published "
+              f"deprecated ({', '.join(sorted(EXPECTED_DEPRECATED))}), each declaring the "
+              f"version extension, and every item is marked iff its nge:flooded_version is "
+              f"below {'.'.join(map(str, MIN_FLOODED_VERSION))} or unreadable")
     print(f"licence: {EXPECTED_LICENSE} with rel=license + rel=derived_from links, "
           f"{len(EXPECTED_PROVIDERS)} providers, sci:citation verbatim; no item's "
           f"nge:landcover_collection or nge:landcover_stac_url contradicts the "

@@ -1,108 +1,97 @@
-# Task: Collection publishes license: proprietary — it is a CC BY 4.0 derivative of Impact Observatory LULC and must say so, with providers + citation (#47)
+# Task: Published floodplain items were built with the flooded bankfull units defect and are over-mapped (#26)
 
-The published collection must state its licence correctly and carry the attribution
-CC BY 4.0 requires: the land-cover input is Impact Observatory's 10 m annual LULC
-(`io-lulc-annual-v02`, via Planetary Computer), and the published products are derivatives
-of it (clipped to the floodplain, cross-tabulated 2017 → 2023).
+Every floodplain product in the live catalogue was built with the `flooded` bankfull units
+defect (fixed in `flooded` 0.5.0). `fl_flood_surface()` fed hectares and millimetres into
+Hall et al. coefficients that take km² and cm/yr, so bankfull depth was **3.5926x** too
+large: a `ff04` item is a waterline at ~14x bankfull depth, not the functional floodplain
+its id claims. Areas cannot be scaled — the items had to be rebuilt.
 
-**Measured 2026-09-03 on the live API:** the collection serves `"license": "proprietary"`,
-no `providers`, no citation, and the repo has no `LICENSE` file. That is wrong in both
-directions — it claims a restriction we do not hold, and it omits the credit the source
-licence obliges. The items' `nge:landcover_source` / `_collection` / `_stac_url` properties
-exist but are null on every live item (#17 forward-only) and the API drops nulls, so from
-the API the source is not named anywhere today.
+**That rebuild is already on disk.** `data/stac` holds 23 items, 21 carrying
+`nge:flooded_version = "0.5.0"`, no `PARTIAL_STAGE` marker. This issue is what remains:
+mark the two items that could not be re-run, and publish.
 
-**Decisions taken with the user:** `LICENSE` = MIT for the code, CC-BY-4.0 for the
-published catalogue (sibling-consistent with `stac_dem_bc` / `stac_uav_bc`); provider name
-is the legal entity **New Graph Environment Ltd.**; this PR cuts a release, which also
-publishes #26's item remodel.
+**Measured 2026-09-03/04:**
 
-pystac covers exactly **one** of the four ways the citation can be wrong — measured, after
-an earlier reading of the schema said it covered none. It refuses the extension declared with
-no field; it cannot see a field published without its extension, cannot see both being absent,
-and cannot check the citation's content at all (`sci:citation` is only `type: string`). Every
-guard below is therefore absolute and hardcoded, never derived from the artifact.
+| fact | value |
+|---|---|
+| local build | 23 items; live 20; **0 orphans** |
+| new (not rebuilds) | `thom_ch_ff04`, `lnth_ch_ff04`, `unth_ch_ff04` |
+| carrying a non-null `nge:` value | **21** of 23 → `PROVENANCE_FLOOR=21` (already set) |
+| carrying **zero** non-null `nge:` values | exactly `mcgr_ch_ff04`, `pine_bt_ff04` |
+| `nge:flooded_version` | `0.5.0` on 21, null on those same 2 |
+| item `stac_extensions` | 3 on all 23 (projection, file, classification) |
 
-## Phase 1: Collection metadata in the build
+`mcgr` and `pine` cannot be re-run (floodplains#76: MCGR absent from `fresh`; PINE diverges
+10.8% from the bcfp reference). Holding the release for them would block 18 corrections
+indefinitely, so they publish **marked** rather than withheld.
 
-`scripts/item_create.py` (the `pystac.Collection(...)` block, ~line 460).
+**Decisions already made, not re-opened here:** publish 23 items with the 2 marked
+(airvine, 2026-09-03); `PROVENANCE_FLOOR=21`; #46 and #47 land first as merged code with no
+release between — both done, so one tagged release carries all three.
 
-- [x] Add module-level constants beside the existing config: `COLLECTION_LICENSE = "CC-BY-4.0"`, `LICENSE_HREF`, `SOURCE_COLLECTION_HREF` (the PC `io-lulc-annual-v02` collection URL), `PROVIDERS`, `CITATION`, `SCIENTIFIC_EXT`
-- [x] `PROVIDERS` — six entries, roles for Impact Observatory / Esri / Microsoft copied from the source record rather than reasoned: Impact Observatory `[producer, processor, licensor]`; Esri `[licensor]`; Microsoft `[host]`; Natural Resources Canada `[producer, licensor]`; Province of British Columbia `[producer, licensor]`; New Graph Environment Ltd. `[processor, host]`. Every entry carries a `url`
-- [x] Set `license=COLLECTION_LICENSE` and `providers=[pystac.Provider.from_dict(p) for p in PROVIDERS]`
-- [x] Add a `rel: license` link (`type: text/html`, `title: CC BY 4.0`) and a `rel: derived_from` link to `SOURCE_COLLECTION_HREF` — the measured `INFERRED_LINK_RELS` finding means both survive to the API, so the attribution is resolvable and not merely stated
-- [x] Declare the scientific extension and set `sci:citation = CITATION` — as a **URL literal** in `stac_extensions=`, not `ScientificExtension.ext()` as the plan said: this file declares `PROJECTION_EXT` / `FILE_EXT` / `CLASSIFICATION_EXT` that way throughout, and comments at line 234 already record that the `.ext()` route was rejected once here. What `.ext()` would have bought — not forgetting the declaration — is bought instead by the Phase 2 biconditional, which is stronger
-- [x] Extend the collection `description` with the derivation + **modification** statement CC BY 4.0 §3(a)(1)(B) obliges, and the one-sentence release-mixing caution the issue asks for
-- [x] Rebuild (`uv run python scripts/item_create.py`) and read `data/stac/collection.json` by eye
+**Version — v1.1.0.** `v2.0.0` is reserved for the release where *all* data is corrected,
+and `mcgr`/`pine` are not (airvine, 2026-09-04). This decision was never written down
+anywhere — not in #26, #19, the archived PWFs or memory — which is why it had to be
+recalled rather than read. Phase 4 records it.
 
-Draft `CITATION` and the description sentence land in `findings.md` for review before they
-are hardcoded in two places.
+## Phase 0: Clear the decks
 
-## Phase 2: The validator guard
+- [ ] `/planning-archive` #47's PWF to `planning/archive/2026-09-issue-47-collection-licence/`. Its code shipped in PR #51; its **Phase 6 was this release**, and that work transfers here rather than being tracked in two places
+- [ ] Confirm `data/stac` is still the 23-item corrected build and the tree is clean before anything is written
 
-`scripts/item_validate.py`. House style is the `REQUIRED_NGE_PROPERTIES` block (lines
-68–130): absolute, hardcoded, set-equality. **Duplicate Phase 1's literals rather than
-importing them** — importing `item_create.py` runs the whole build (it `SystemExit`s at
-module level and writes 24 files), and a shared constant would make the guard `x == x`.
+## Phase 1: Mark the two items that cannot be re-run
 
-- [x] `check_collection_metadata(doc) -> list[str]` — a **list**, not `str | None`, so a wrong licence and wrong providers report together rather than one release apart
-- [x] `license` — string equality against the hardcoded value
-- [x] `providers` — read `doc.get("providers") or []` (pystac omits the key entirely for an empty list, so a presence gate would skip silently). Assert `len(...) == 6` **and** set equality over the **full provider dicts** with `roles` normalised to a frozenset. Not a `(name, roles)` projection: that is blind to a duplicate entry and to a wrong or missing `url`
-- [x] Links — exactly one `rel: license` with the exact href; exactly one `rel: derived_from` with the exact href
-- [x] `sci:citation` — **full string equality** against the hardcoded literal, not token containment. Containment passes for a bag of words that attributes nothing; equality makes drift a readable diff. Same for the description's modification sentence — a whole-substring literal, since a marker like `modif` is satisfied by a description saying *unmodified*
-- [x] Scientific extension declared **iff** `sci:citation` is present — the biconditional `check_version_stamp` already uses (`item_validate.py:60-63`); half a declaration is invisible to pystac in both directions
-- [x] **Premise assertion** (the one thing tying the literals to the data): every item whose `nge:landcover_collection` is non-null must equal the collection the citation names. Null stays legal — 2 items legitimately carry none. Without this, a `drift` move to `io-lulc-annual-v03` publishes a false licence claim with every guard green
-- [x] Wire it into the `Collection` branch of the loop **before** `check_version_stamp`, collecting both sets of problems and `continue`ing once. Placing it after the count check would put it behind `check_checksums`' 670 MB re-read, which can short-circuit it — the #46 failure mode exactly
+`scripts/item_create.py`.
 
-## Phase 3: Restore the bug and prove each guard fires
+- [x] `DEPRECATED_ITEMS = {"mcgr_ch_ff04", "pine_bt_ff04"}` — a hardcoded literal a human sets, the same shape as `PROVENANCE_FLOOR` (#32) and for the same reason: an expectation derived from the data cannot be contradicted by it
+- [x] On exactly those items, set `deprecated: true` and add `VERSION_EXT` (`version/v1.2.0`) to that item's `stac_extensions`. The other 21 carry neither — the extension defines `deprecated` with `default: false`, so absence is a statement here, unlike the `nge:` nulls (#31/#36) where it is not
+- [x] Comment why a positive marker is needed at all: both already differ by carrying null on all twelve `nge:` properties, but **the API drops nulls**, so from outside a consumer sees only that two items *lack* a field
+- [x] Regenerate: `uv run python scripts/item_create.py`
 
-Per the #46 row: **grep the output for the expected message, never just the exit status** —
-this file now has many guards and each of them exits 1.
+## Phase 2: Guard it, and make it self-clear
 
-- [x] Positive control first: clean tree, validator green, the new summary line prints
-- [x] Mutate the constant in **`item_create.py`**, rebuild, then validate — not a hand-edit of `collection.json`. A hand-edit proves only the validator; it stays green forever if the build never applies the constant (rfp#243, "guard the chooser")
-- [x] One proof per guard, **8 of 8 fired their own message**. One had to be retargeted: "extension declared with `sci:citation` dropped" came back `*** WRONG GUARD` because pystac rejects that state first — a premise I had written into three files was wrong, read from a schema dump truncated mid-word. The reachable direction is the mirror: `sci:citation` kept, extension not declared. Table in `findings.md`
-- [x] Record each as *mutation → message matched* in `findings.md`, and assert the mutation actually took before trusting the result
+`scripts/item_validate.py`. A new `check_deprecated(base)`, absolute like `check_provenance`.
 
-## Phase 4: Read the licence back from the consumer
+- [x] **Set equality**, not containment: exactly `DEPRECATED_ITEMS` carry `deprecated: true`. Catches both a marker that spread and one that was dropped
+- [x] **Every id in the literal exists in the build** — a stale id after a rename would otherwise make the set compare vacuous on a name nothing publishes
+- [x] **Biconditional**: an item declares `VERSION_EXT` iff it carries `deprecated`. The extension's Item branch has no `required`, so declaring it with no field validates clean — the #34/#35 trap, and pystac cannot see the other direction at all
+- [x] **Self-clearing** — the point of the phase. Refuse when an item marked deprecated carries a **non-null `nge:flooded_version`**. This is written data that outlives the fix: when floodplains#76 unblocks and `mcgr` is rebuilt, nothing would remove it from the literal and it would publish as deprecated forever. The first corrected build then fails the release until the entry is deleted
+- [x] Say in the comment what that guard actually encodes — "deprecated **here** means not-rebuilt". It couples the marker to the absence of provenance, which is true by construction today and would misfire on an item deprecated for some other reason while carrying provenance
+- [x] Run it **before** `check_checksums`, as `check_citation_premise` does, so a proof cannot be short-circuited by the 670 MB re-read (#46)
 
-The API is the only place that proves pgstac did not drop what we published — and
-`rel: license` is the least-attested of the three fields, since links go through
-`get_links()`, a different code path from the stored content blob.
+## Phase 3: Restore each bug and prove the guard fires
 
-- [x] `catalogue_release.sh` step 5, **full release only**: one `python3` reader over the fetched collection printing a single token, `|| live_meta=""`, then a `case` — the `live_state` shape at lines 490–517, never `curl | grep -q` (under `pipefail` a failed fetch reads as a clean no-match)
-- [x] Assert the API serves `license == CC-BY-4.0`, a `rel: license` link, and a non-empty `sci:citation`; distinguish "served, wrong" from "could not read" the way `fetch_live_version` distinguishes `MISSING`
-- [x] Mirror it on the **bucket** copy beside the existing `bucket_version` check — rtj's `stac_register-all.sh` reloads from S3, so a licence that reached pgstac but not the bucket gets silently reverted. Same argument the file already makes for the version stamp
-- [x] `catalogue_release-check.sh`: the fixture collection (lines 103–105) gains `license`, `providers`, the two links and `sci:citation`, or cases 2/8/9/9b/14 start failing
-- [x] Add three **negative** cases via `FAKE_LIVE_*` knobs on the curl shim, generalising `force_version()`: API serves `proprietary`; API serves no `sci:citation`; API serves no `rel: license` link — each must give `RELEASE INCOMPLETE`. Without them the new step-5 check is tautological, because the shim serves the fixture straight back from disk — the harness names this trap itself at lines 42–44
-- [x] Update the numbered case list in the harness docstring, its "what this cannot see" note (the new validator guard never runs there — `uv` is shimmed), and the release-step table in `scripts/README.md`
+- [x] Positive control: clean tree, validator green, the new summary line prints
+- [x] Mutate the **source** (`item_create.py`'s literal, or `meta.json` for the provenance arm), rebuild, validate, and **grep the output for that guard's own message** — never the exit status (#46, and it caught a false premise in #47)
+- [x] One proof each: the literal emptied; a third id added; an id that is not in the build; `deprecated` set without `VERSION_EXT`; `VERSION_EXT` without `deprecated`; and a deprecated item given a non-null `nge:flooded_version` (the self-clear)
+- [x] Assert each mutation took before believing what follows, and record the table in `findings.md`
 
-## Phase 5: Repo licensing surfaces
+## Phase 4: Release bookkeeping
 
-- [x] `LICENSE` — MIT, `Copyright (c) 2025 Allan Irvine`, byte-consistent with the two siblings
-- [x] `README.md` — an `## Attribution` section carrying the same sentence as `sci:citation`, and stating plainly that the **scripts** are MIT while the **published catalogue metadata and derived products** are CC BY 4.0
-- [x] Record the outbound-licence reasoning beside it: io-lulc is CC BY with no ShareAlike; both OGLs permit redistribution under our own terms given attribution; MRDEM contributes a delineation, not redistributed pixels. No guard can ever check that chain, which is why it is written down
-- [x] `pyproject.toml` — add the `license` field (a third carrier of the same fact today unset)
-- [x] Record the deliberate **no** on item-level `license`: STAC 1.0/1.1 inherit it from the collection, and #26's provenance floor is what keeps the per-item `nge:landcover_*` attribution non-null
-- [x] `CLAUDE.md` — a short paragraph under the collection model naming the licence, the providers and where the citation literal lives in two files and why
-- [x] `NEWS.md` — the release entry, naming both #47 and #26 with the floor `21` recorded beside it
+- [x] `NEWS.md`: fold the `## Unreleased` block (already carrying #46, #40, #32, #47) into a `## v1.1.0 (YYYY-MM-DD)` entry that leads with the geometry correction — 18 items rebuilt, per-item before/after from the issue's table, 3 new Thompson items, 2 published deprecated
+- [x] **Record the version convention** in `NEWS.md`'s header, beside the existing "a tag means the catalogue is in this state": `v2.0.0` is reserved for the release where every area is corrected. This is the decision that was lost; write it where the next person reads it
+- [x] Verify `PROVENANCE_FLOOR=21` is still what the build prints (it is, but the floor is exact in both directions, so re-read it rather than trust)
+- [x] `/code-check` — 3 rounds, 20 findings, all fixed, none dismissed. Each round found defects inside the previous round's fixes; round 3's headline was round 2's own mechanism recurring on its mirror arm. Harness 100 -> 111 assertions. Three factual errors caught in the release note itself
 
-## Phase 6: Cut the release (post-merge)
+## Phase 5: Cut the release
 
-Publishes #47's metadata **and** #26's item remodel. No orphans, so no `--allow-retract`.
-The first release after this must be **full**, not `--only`: a release machine holding a
-`data/stac` built before Phase 1 will now be refused, correctly. The tag is cut by hand on
-the `NEWS.md` commit once it is on main, as `stac_uav_bc` does.
+Publishes to `s3://stac-floodplains-bc`, versioning **Suspended — no rollback**.
 
-- [ ] `PROVENANCE_FLOOR=21` in `catalogue_release.sh` — the literal count `01_stage.R` printed for this build, and the count measured above
-- [ ] Full rebuild through `run_pipeline.sh`, then `item_validate.py` clean
-- [ ] `NEWS.md` top entry names the version; tag `vX.Y.Z` by hand on that commit
-- [ ] `bash scripts/catalogue_release.sh` — validate → sync (3 new items' assets + `collection.json`) → register → verify
-- [ ] Confirm from the API, not from the release output
+- [ ] Commit `NEWS.md`, tag `v1.1.0` by hand on that commit (as `stac_uav_bc` does; no `DESCRIPTION` here, so `/gh-pr-merge`'s bump path stays out of it)
+- [ ] `bash scripts/catalogue_release.sh` — validate → sync → register → verify. No orphans, so no `--allow-retract`
+- [ ] This is the first release where step 5's licence read-back runs for real, and the first test of whether `rel: license` / `rel: derived_from` survive pgstac's `get_links()` on this deployment — read from source, never measured here. A drop fails the release **after** the sync and the pgstac load
+- [ ] Push the tag only once the release has succeeded
+
+## Phase 6: After the release
+
+- [ ] `python3 scripts/readme_coverage-table.py --write` — 23 items from the live API, committed past the tag by design (#41)
+- [ ] Confirm from the API: 23 items, `version: 1.1.0`, `license: CC-BY-4.0`, and `deprecated: true` served on exactly the two
+- [ ] Close #26 and #47 — #47 was deliberately left open at merge because its verification is a live-API read that only this release can satisfy
+- [ ] Update the `published-assets-stale-vs-main` memory: the catalogue is corrected except for two marked items, and `v2.0.0` awaits floodplains#76
 
 ## Validation
 
-- [x] `bash scripts/catalogue_release-check.sh` green: 90 assertions, 0 FAIL, cases 9c-9f each asserting their own message
-- [x] `/code-check` — 3 rounds, 14 findings, all fixed, none dismissed. Round 2 found a defect inside round 1's fix; round 3 corrected round 2's reasoning. Harness 90 -> 100 assertions. Convergence shown for the `licence_of` class (AST-enumerated, all 12 absence states executed); explicitly NOT claimed for "a comment claims what the code does not do"
-- [x] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] `bash scripts/catalogue_release-check.sh` green — 111 assertions, 0 FAIL; cases 9k/9l/9m added and each proved to discriminate
+- [x] `uv run python scripts/item_validate.py` green on 23 items
+- [ ] `/code-check` clean on each commit
+- [x] PWF checkboxes match landed work; `/planning-archive` on completion

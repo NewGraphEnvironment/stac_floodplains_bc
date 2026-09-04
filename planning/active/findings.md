@@ -1,334 +1,250 @@
-# Findings — Collection publishes license: proprietary (#47)
+# Findings — Published items are over-mapped (#26)
 
-## Measurements taken before planning (2026-09-03)
+## Measured before planning (2026-09-03/04)
 
-All read from the producers themselves, not from the issue body.
-
-| fact | source |
+| fact | how |
 |---|---|
-| `io-lulc-annual-v02` is `CC-BY-4.0`; licence link `https://creativecommons.org/licenses/by/4.0/`; providers Esri `[licensor]`, Impact Observatory `[processor, producer, licensor]`, Microsoft `[host]`; temporal 2017-01-01 → 2024-01-01 | `GET planetarycomputer.microsoft.com/api/stac/v1/collections/io-lulc-annual-v02` |
-| `mrdem-30` is `OGL-Canada-2.0`; no `providers`, no licence link | `GET datacube.services.geo.ca/stac/api/collections/mrdem-30` |
-| Live collection: `license: proprietary`, `providers: null`, `sci:citation: null`, `version: 1.0.0`, link rels served = `items/parent/root/self/queryables` only | `GET images.a11s.one/collections/stac-floodplains-bc` |
-| Sibling `stac-elevation-bc` serves `providers` **and** `keywords` intact; our own collection serves `version` (an extension field) | `GET images.a11s.one/collections/...` |
+| local build 23 items, live 20, **0 orphans**, 3 new (`thom`/`lnth`/`unth`) | `POST /search` vs `data/stac/*.json` |
+| 21 of 23 carry a non-null `nge:` value | sweep of item properties |
+| exactly `mcgr_ch_ff04` + `pine_bt_ff04` carry **zero** non-null `nge:` values | same sweep |
+| `nge:flooded_version` is `0.5.0` on 21, null on those same 2 | same sweep |
+| all 23 items declare exactly 3 `stac_extensions` | same sweep |
+| no `PARTIAL_STAGE` marker; `data/raw` holds 23 group dirs | `ls` |
 
-## A `rel: license` link survives pgstac — measured, not assumed
+So the corrected rebuild the issue asks for **already exists on disk** — this issue's
+remaining work is the deprecation markers and the release, not a re-stage.
 
-The local build publishes **23** `rel: item` links and the API serves **none** of them,
-which reads at first as "pgstac drops stored collection links". It does not. From
-stac-fastapi-pgstac `stac_fastapi/pgstac/models/links.py`:
+## The version decision was never written down
 
-```python
-INFERRED_LINK_RELS = ["self", "item", "parent", "collection", "root", "items", "child"]
-...
-links += [{**link, "href": self.resolve(link["href"])}
-          for link in extra_links if link["rel"] not in INFERRED_LINK_RELS]
-```
+`v1.1.0` now; `v2.0.0` reserved for the release where *every* area is corrected, and
+`mcgr`/`pine` cannot be (floodplains#76). Decided by airvine 2026-09-04.
 
-`core.py` passes `get_links(extra_links=collection.get("links"))`, so any rel *outside* that
-list is kept and its href resolved through `urljoin(base_url, href)` — which returns an
-absolute `https://` href unchanged. `item` is in the list; `license` and `derived_from` are
-not. So both new links reach the API.
+Searched before asking, and it is worth recording that the search came back empty: #26's
+body, #19 (versioned releases), all 24 issues and their comments, every archived PWF, and
+the `published-assets-stale-vs-main` memory all record the **23-items / floor-21 /
+deprecated-markers** decisions and **none** of them records a version number. The user had
+to recall it. Phase 4 writes it into `NEWS.md`'s header, which is where the next person
+looks.
 
-This is reasoning about source, not a measurement of *this* deployment — which is exactly
-why Phase 4 reads them back from the live API after the release. `rel: license` is the
-least-attested of the three fields we add, because links go through `get_links()`, a
-different code path from the stored `content` blob that carries `license` and `sci:citation`.
+Same class as the issue-body drift `newgraph.md` warns about, one level out: a decision made
+in conversation and never landed in a file is indistinguishable from a decision never made.
 
-## What pystac actually catches — measured, after getting it wrong
+## Why a positive marker, when the two already differ
 
-**The first version of this section was wrong**, and it is worth keeping the error: it said
-the scientific extension's Collection branch has an `anyOf` arm requiring only `summaries`,
-which our collection has, so declaring the extension with zero `sci:` fields would validate
-clean. That came from a schema dump truncated mid-word at `"summ`, reasoned from rather than
-measured. Arm 3 is `{"required": ["summaries"], "properties": {"summaries": {"$ref":
-"#/definitions/require_any_field"}}}` — it requires a `sci:` key **inside** `summaries`, and
-ours carries `scenario`/`species`/`region`/`flood_factor`.
+Neither `mcgr` nor `pine` has an upstream `provenance.json`, so both publish null on all
+twelve `nge:` properties while every rebuilt group carries `nge:flooded_version = "0.5.0"`.
+That separates them in the build — but **the API drops nulls** (#31/#36, measured
+2026-09-02), so a consumer sees only that two items *lack* a field, and absence is not a
+statement.
 
-The restore-the-bug run is what caught it. The case that dropped `sci:citation` while keeping
-the extension fired **pystac's schema error**, not the guard's own message — which is only
-visible because each proof greps for its own message rather than for exit 1.
+`deprecated: true` from the Version Extension is the positive statement. Note the asymmetry
+that makes this sound: the extension defines `deprecated` with `default: false`, so for the
+other 21 items **absence is** a statement, backed by the spec — unlike the `nge:` nulls,
+where it is not.
 
-Measured against the real collection, all five states:
+## The extension cannot enforce the field
 
-| state | pystac | guarded here |
-|---|---|---|
-| extension declared + `sci:citation` present | passes | — |
-| extension declared, `sci:citation` dropped | **rejects** | belt-and-braces |
-| `sci:citation` present, extension not declared | passes | **yes** |
-| neither present | passes | **yes** |
-| extension + `sci:citation` of `"x"` | passes | **yes** |
+`version/v1.2.0`, Item branch: `properties: {"$ref": "#/definitions/fields"}` with **no
+`required`**. `fields` declares `version`, `deprecated`, `experimental`, all optional. So an
+item declaring the extension with no `deprecated` validates clean — the #34/#35 trap again,
+and the reason every assertion in Phase 2 is absolute and hardcoded rather than derived.
 
-So pystac covers exactly one of the four defect states. The schema is selected *by* the
-extension list, so it can never see a field published without its extension; and where it
-does look, `sci:citation` is only `type: string`, so no schema can tell a correct attribution
-from a wrong one. That is what makes the verbatim comparison load-bearing rather than
-belt-and-braces.
+## Code-check round 3 — the same mechanism, one arm over
 
-The proof for the biconditional was retargeted accordingly: the reachable mutation is the
-direction pystac cannot see — keep the field, drop the declaration.
+Round 3's headline finding is round 2's own fix recurring on its mirror. Round 2 taught me that
+an arm naming an id the tree **contains** is subset-safe, and I applied that to
+`marked - EXPECTED_DEPRECATED` and not to `EXPECTED_DEPRECATED - marked`, whose
+`& seen` half is safe by identical reasoning.
 
-## The build tree already holds #26
-
-| | |
-|---|---|
-| local items | 23 |
-| live items | 20 |
-| live-but-not-local (orphans) | **none** |
-| local-but-not-live | `lnth_ch_ff04`, `thom_ch_ff04`, `unth_ch_ff04` |
-| local items carrying a non-null `nge:` value | **21** of 23 |
-| distinct `(landcover_source, landcover_collection, landcover_stac_url)` | 21 × `('io-lulc', 'io-lulc-annual-v02', 'https://planetarycomputer.microsoft.com/api/stac/v1')`, 2 × all-null |
-
-So `PROVENANCE_FLOOR=21`, no `--allow-retract` is needed, and the premise assertion in
-Phase 2 must treat a **null** `nge:landcover_collection` as legal — 2 items legitimately
-carry none, and failing on them would be a guard that fails toward abort.
-
-## Sibling licensing precedent
-
-`stac_dem_bc/LICENSE` and `stac_uav_bc/LICENSE` are both MIT (21 lines,
-`Copyright (c) 2025 Allan Irvine`), while their collections publish `CC-BY-4.0`. So the
-established split is **code MIT, published data CC BY** — the repo `LICENSE` covers the
-scripts, the collection's `license` field covers the products. The issue body asked for
-CC BY 4.0 as the repo `LICENSE`; the user chose the sibling-consistent split instead.
-
-`stac_dem_bc/scripts/collection_patch.py` exists for precisely this reason upstream — its
-docstring says *"providers — CC-BY-4.0 obliges attribution and the collection carried none."*
-It publishes `New Graph Environment` (no `Ltd.`); we publish the legal entity name here per
-the issue, so the two collections on one endpoint will differ until `stac_dem_bc` follows.
-
-## Why the literals are duplicated across item_create.py and item_validate.py
-
-`item_validate.py:68-71` gives two reasons for duplicating `REQUIRED_NGE_PROPERTIES` rather
-than importing. Only one carries here:
-
-- *"importing that module would run the entire build"* — **still true**, and stronger than
-  the comment says: `item_create.py` raises `SystemExit` at module level when nothing is
-  staged, and writes 24 files as an import side effect.
-- *"derived from the data, a value that vanished would take the expectation with it"* —
-  **does not apply**. `license`, `providers` and the citation are literals, not derived.
-
-The decisive reason is a third one: if both sides read one shared constant, the guard
-degenerates to `x == x` — a round-trip through our own assignment, which returns identical
-forever. Duplication only works because the assertions are **full equality**; token
-containment would let the two copies drift arbitrarily far while staying green.
-
-## Plan-agent review (concurrent, pre-baseline)
-
-Eight substantive findings; the load-bearing ones were verified against the tree before
-being folded into the plan. What changed:
-
-| finding | change |
-|---|---|
-| citation guard was token-containment | → full string equality. A bag of words (`"Impact Observatory Esri CC BY 4.0 ..."`) passes containment while attributing nothing |
-| providers guard was a `(name, roles)` projection | → full dict compare + `len() == 6`. The projection is blind to a duplicate entry (a set cannot see a repeat) and to a stripped or wrong `url` |
-| extension/field check was one-directional | → biconditional, matching `check_version_stamp` |
-| placement "after the count check" | → in-loop, before the stamp check. After the count check puts it behind `check_checksums`' 670 MB re-read, which short-circuits it |
-| step-5 API check would be tautological in the harness | → three negative `FAKE_LIVE_*` cases. The curl shim serves the fixture back from disk; the harness names this trap itself at lines 42-44 for the version gate |
-| nothing tied the citation to the data | → the premise assertion on `nge:landcover_collection` |
-| bucket copy unchecked | → mirror the read-back on S3, same argument the file already makes for `version` |
-| my own figure of "20 published item links" | → **23**. Corrected |
-
-Its finding that a hand-edit of `collection.json` proves only the validator (rfp#243,
-"guard the chooser") is why Phase 3 mutates the constant in `item_create.py` and rebuilds.
-
-## Why the release harness needed negative cases, not just a fixture update
-
-`catalogue_release-check.sh` shims `curl` to serve `$STAC_DIR/collection.json` straight back
-from disk. So the new step-5 assertion "the API serves CC-BY-4.0" passes in the harness for
-the same reason case 2's version assertion does — the shim is handing back the file the
-release just stamped. The harness names this trap about itself at lines 42-44:
-
-> Case 2's "live version 9.9.9 verified" is tautological on its own — the curl shim serves
-> the stamped fixture back — which is why cases 8 and 9 exist: they are what prove the
-> compare bites.
-
-Cases 9c-9f are the 8-and-9 for the licence. `force_version()` generalised to
-`force_fields()`, with `FAKE_LIVE_LICENCE` / `FAKE_BUCKET_LICENCE` breaking exactly **one**
-field per case: a case that broke all three could pass on the strength of any one of them
-and would not show the compare bites per field. The three are also lost by different
-mechanisms — `license` and `sci:citation` ride in the stored document, while the link is
-rebuilt by pgstac's `get_links()` — so the link case is the one modelling the real risk.
-
-## Code-check round 3 — the fix was right, my explanation of it was not
-
-Round 3 corrected round 2's *reasoning*, which had also been mine. I claimed the
-`built-has-no-*` arms closed the both-absent hole. They do not. Measured over all 16 absence
-states (served x built, citation x link), removing all three arms changes **no verdict**: what
-refuses every absence, both-absent included, is the `is None` arm on the SERVED side. The
-built-side arms only change which side the message accuses.
-
-They are worth keeping for exactly that — "the build never published it" sends you to
-`collection.json`, "the API dropped it" sends you to pgstac, and a release log naming the wrong
-one costs an investigation in the wrong place — but the comment now says that instead of
-claiming a detection role it does not have.
-
-**The harness had no fixture for the state round 2's fix was about.** Every licence knob mutates
-the *served* side; `$STAC/collection.json` was never touched, so the both-absent case was
-unreachable and nothing pinned those arms. Case 9j mutates the built side. Verified to
-discriminate rather than assumed.
+Reproduced: a subset tree holding `mcgr_ch_ff04` present, rebuilt and unmarked is **CLEAN**
+under `--partial` and refused without it. That is precisely the documented future flow — mcgr is
+rebuilt, someone deletes it from `item_create.py`'s literal and not from `item_validate.py`'s —
+and `--only` is the path an operator would use for a single-item republish. Step 5's read-back
+sits inside `if [ -z "$ONLY" ]`, so nothing downstream would have caught it either.
 
 | finding | verdict | action |
 |---|---|---|
-| `built-has-no-*` comments claim a detection role the arms do not have | **real, measured** | comments corrected to what the arms actually do |
-| no fixture mutates the BUILT side | **real** | case 9j; harness 97 → 100 assertions |
-| `scripts/README.md` step-1 row, `CLAUDE.md`, `NEWS.md` still say the premise checks the collection id only | **real** | all three name `nge:landcover_stac_url` too |
-| the summary line reads as a conjunction; null-tolerance is per property | **real, wording** | reworded to "no item ... contradicts", each independently |
+| `--partial` disabled `EXPECTED_DEPRECATED - marked` entirely | **real, reproduced** | split on `& seen`; only "named in the literal, absent from the tree" is now dropped. Also removed a duplicate message on full releases |
+| three doc surfaces said `--partial` drops "the arms asking about absent ids" — plural, and one of them did not | real | all three say "exactly one arm" and are now true |
+| `served &= built_ids` had **zero** coverage — deleting it left the harness green | real | case **9m**: retract the marked fixture item under `--allow-retract` |
+| the comment justifying that intersection said orphans are "already the id comparison's business" — but that comparison gates its message *and* `fail=1` on `[ -z "$ALLOW_RETRACT" ]` | real | comment now states the cost out loud: a retracted marked item is reported by nothing, so retracting one wants an explicit `item_unregister.sh` |
+| `fv is not None` was a proxy — `nge:flooded_version = "0.4.0"` passes unmarked | real | `_corrected()` compares against `MIN_FLOODED_VERSION = (0, 5, 0)`. Enumerated: `0.4.0`, `0.4.9`, null, `unknown` and `5` all refuse unmarked; `0.5.0`, `0.6.1`, `1.0.0` pass |
+| the `\|` delimiter comment cited a line that validates `$ONLY`, not item ids | real | cites what actually constrains ids |
 
-### On convergence — what is closed and what is not
+Nothing dismissed.
 
-Round 3 was asked to *show* convergence rather than assert it, since this repo's conventions
-record that "this is now terminal" is wrong in the reassuring direction silently.
+### Where the guard now stands, enumerated
 
-**Closed, and shown:** the `licence_of` silent-pass class. The candidate set is the four fields
-the function reads, enumerated from its AST rather than by eye; all 12 absence states plus the
-differs cases were executed; zero pass.
+Seven arms. Six name an id the tree contains and run on any tree; one asks about ids absent from
+the tree and is the only thing `--partial` drops:
 
-**NOT closed:** "a comment or a printed line claims something the code does not do." Four rounds,
-four instances, each one sitting inside the previous round's fix:
+| arm | subset-safe | runs under `--partial` |
+|---|---|---|
+| `deprecated` present and not `true` | yes | yes |
+| extension declared iff `deprecated` present | yes | yes |
+| marked ⇒ not corrected (self-clear) | yes | yes |
+| not marked ⇒ corrected (converse) | yes | yes |
+| `marked - EXPECTED_DEPRECATED` | yes | yes |
+| `(EXPECTED_DEPRECATED & seen) - marked` | yes | yes |
+| `EXPECTED_DEPRECATED - seen` | **no** — asks about absent ids | no |
 
-| round | the false claim |
-|---|---|
-| pre-review | "the scientific extension validates with zero `sci:` fields" (caught by a proof firing the wrong guard) |
-| 1 | step 5 "reads all three back" — it checked presence, not value |
-| 2 | `built-has-no-*` "closes the both-absent hole" — it does not |
-| 3 | three doc surfaces describing the premise guard as checking one property of two |
+That partition is the thing to check when an arm is added, and it is what the previous two
+rounds each got wrong in one direction.
 
-There is no enumeration for that class and it should not be treated as terminal. The cheapest
-mitigation found so far is the one that caught the first instance: make the proof grep for the
-message it expects, so a claim that has drifted from the code shows up as the wrong guard firing.
-
-## Code-check round 2 — a defect inside round 1's fix
-
-Exactly the shape `code-check.md` predicts ("a blocker sitting inside pass 1's blocker fix").
-Round 1 replaced `licence_of`'s presence checks with value comparisons; the new version applied
-`built-has-no-<rel>-link` reasoning to both links and **not** to the citation, so a citation
-absent on *both* sides compared equal and step 5 would print "sci:citation and both links
-served as published" about a field existing nowhere.
-
-Closed with a three-way branch, proved both ways:
-
-| input | result |
-|---|---|
-| citation absent on both sides | `BAD built-has-no-citation` (was `OK`) |
-| citation absent on the served side only | `BAD sci:citation-absent` |
-| unchanged | `OK` |
-
-Splitting `absent` from `differs` also fixed a second thing the reviewer flagged: harness cases
-9d (dropped) and 9g (altered) had been asserting the *same* string, so a release log could not
-tell the two apart. They now assert different ones.
-
-Two documentation corrections came with it — `CLAUDE.md` and `scripts/README.md` still described
-step 5 as checking "all three" by presence, and `item_validate.py`'s summary line named only one
-of the two properties `check_citation_premise` now checks. A summary that overstates or
-understates what ran is the same class of problem as a guard that does.
-
-The reviewer also confirmed, by restoring round 1's presence-only `licence_of` in a scratch copy
-and re-running the harness, that cases **9g/9h/9i go red** while 9c-9f stay green — so the new
-cases genuinely reach the altered mode the delete-only cases could not.
-
-## OPEN — the pgstac link premise is still unmeasured against this deployment
-
-`license` and `derived_from` surviving `get_links()` is read from stac-fastapi-pgstac's source
-(`INFERRED_LINK_RELS`), not measured against `images.a11s.one`. No collection there publishes a
-`rel: license` link today, so there is no positive evidence either way — `providers` and
-`version` do round-trip, which is encouraging but is a different code path.
-
-If the deployed version drops them, **the first full release finds out at step 5 — after the
-sync and after the pgstac load**. The release then reports RELEASE INCOMPLETE with the assets
-already on S3 and the collection already registered. Bucket versioning is Suspended, so that
-state is repaired forward, not rolled back.
-
-Cheap de-risking before the release, if wanted: `--skip-sync` against a throwaway collection id,
-or simply register the collection and `curl` it. Not done here — it touches live
-infrastructure, and Phase 6 is the operator's call.
-
-## Code-check round 1 — the presence-vs-value hole
-
-The reviewer's first finding was the most valuable of the change, and it was a guard failing
-toward pass in the one place the whole feature turns on. `licence_of()` checked the licence
-**link** for `rel` presence and `sci:citation` for non-emptiness, comparing only `license` by
-value. Reproduced before fixing, against the real collection:
-
-| served collection | old `licence_of` |
-|---|---|
-| `rel: license` href rewritten to `images.a11s.one/collections/creativecommons.org/...` | **OK** |
-| `sci:citation` replaced with `"Copyright New Graph. All rights reserved."` | **OK** |
-| `rel: derived_from` link removed entirely | **OK** |
-
-Step 5 exists precisely because publishing a field is not serving it — and href rewriting
-through `urljoin` is the *one* transformation pgstac performs on a link it keeps. The guard
-was blind to it.
-
-Fixed by comparing the served collection to the **published** one field by field. That is not
-a round-trip through our own assignment: the published copy is the pipeline's input, and
-`item_validate.py` already gated it verbatim against its own independently written literal
-before a byte was synced. `license` stays compared to the constant too, since it is the field
-a consumer's rights actually turn on. `built-has-no-<rel>-link` is in there because a link
-absent from *both* sides would otherwise compare equal and go quiet.
-
-The paired fixture gap was real too: cases 9c-9f only ever **deleted** a field, so the harness
-could not reach the altered mode that the bug lived in. Cases 9g-9i cover it — an altered
-citation, a rewritten href, and a dropped `derived_from`.
+## Code-check round 2 — two bugs inside round 1's fixes, and a false claim to consumers
 
 | finding | verdict | action |
 |---|---|---|
-| `licence_of` checks presence, not value | **real, reproduced** | compare served against published, field by field |
-| `rel: derived_from` never read back | **real** | included in the read-back |
-| `check_citation_premise` docstring overclaims ("Esri-hosted variant") | **real** | now checks `nge:landcover_stac_url` too, which is the half a host move would break; docstring corrected |
-| the neither-present state reports "does not match verbatim" | **real** | named separately, with the remedy that actually applies |
-| `EXPECT_LICENSE` has no shape premise | **real** | pinned in the harness as a bare literal, proved to fail when an env fallback is introduced |
-| read failure prints a second, false line | **real, low** | `READFAIL` sentinel with its own case arm |
+| `--partial` dropped `marked - EXPECTED_DEPRECATED` too, though that arm names only ids the tree contains | **real, reproduced** | moved above the early return. A marker on an item outside the literal now fails under `--only` as well — letting it through would upsert a permanent false "stale" claim, the direction with no rollback |
+| NEWS told consumers `file:checksum` distinguishes replaced data — **false for this release** | **real, measured** | replaced with what actually discriminates |
+| thirteen items changed, not twelve; seven unchanged, not eight | **real** | `necr_ch_ff04` moves 396.52 → 396.51. My "corrected" figure still came from a 0.05% tolerance rather than an exact compare |
+| the converse arm's first remedy was the harmful one | real, fragile | message now says explicitly: do not mark it merely to clear this — fix the provenance |
+| the deprecation read-back was `NONE == NONE` in the harness with no reachable negative case | real, fragile | shim echoes `properties.deprecated`, one fixture item marked, cases **9k/9l** added (both directions) |
+| `built_dep` had no `\|\|` guard — a failure aborts mid-verify with no verdict printed | real, fragile | guarded like every other read in step 5 |
+| under `--allow-retract` a dropped marked item stays live and would report RELEASE INCOMPLETE after the sync | real, fragile | served set reconciled against the build's ids; orphans stay the id comparison's business |
+| three doc surfaces described `--partial` as dropping only unreachable arms | real, fragile | all corrected |
+
+Nothing dismissed.
+
+### The checksum claim is the one that mattered
+
+`file:checksum` was published in #22 precisely so a consumer could tell replaced bytes from
+unchanged ones, and the v1.0.0 notes lean on it. Measured across five items — three whose
+geometry is identical and two whose geometry changed — **7 of 7 assets have a new checksum on
+every one of them**. The RAT, tag and COG rewrites (#33/#34/#35) touch every byte, so checksum
+movement says "your bytes are stale", which is what it is for, and cannot say "the geometry
+changed".
+
+The release note now says so, and points at the two things that do answer: the item's own
+`floodplain_ff0*_km2` against the published table, and `nge:flooded_version`.
+
+This is the third factual error caught in this one release note — 18→12→13 items, 5-33%→1.5-33.5%,
+and the checksum discriminator. Every one came from restating a prior document rather than
+measuring: the issue's summary line, then my own corrected-but-still-tolerant comparison, then
+#22's design intent. **A release note is the one document a consumer reads to decide whether
+their cached figures are still good; every number in it wants deriving from the artefact.**
+
+## The deprecation guard's full state space, enumerated
+
+Not reasoned — each row run through `check_deprecated` against a one-item fixture, so the
+claim "no silent pass" is a measurement:
+
+| `deprecated` | `nge:flooded_version` | verdict |
+|---|---|---|
+| absent | `0.5.0` | **pass** — rebuilt and unmarked, the normal case |
+| absent | null | refused (converse arm: over-mapped but unmarked) |
+| `true` | `0.5.0` | refused (self-clear: marked but rebuilt) |
+| `true` | null | **pass** — marked and not rebuilt, the two known items |
+| `false` | either | refused — the extension's default says nothing, and publishing it on some items makes absence ambiguous |
+| `null` | either | refused — the API would drop it, so it reads as absent to every consumer |
+
+Two passing states, both correct. Enumerating the space is what makes "closed" a measurement
+rather than a claim, per `code-check.md` on convergence — the same discipline that closed the
+`licence_of` class on the previous PR.
+
+## Code-check round 1 — three real bugs, one of them in the release note itself
+
+| finding | verdict | action |
+|---|---|---|
+| `check_deprecated`'s whole-catalogue arms ran on every invocation, so `--only` refused any one-group tree | **real, reproduced** | `--partial` flag; the release passes it under `--only`. Default stays strict, so a forgotten flag refuses rather than waves through |
+| the self-clear was one-way (`marked -> not rebuilt`); nothing enforced the converse | **real, reproduced** | both directions. An unmarked over-mapped item adds **zero** to the provenance floor's count, so an exact floor of 21 is satisfied by 21 provenanced items whatever ships beside them — the floor could never have caught it |
+| `NEWS.md`'s **index** held the false "18 items shrink by 5-33%" while the worktree held the correction | **real** | re-staged. A plain commit would have put the false figure in the release note a tag is cut on |
+| the self-clear message's only remedy was "un-deprecate it" | real, fragile | message now names both paths, including "this guard is the wrong one and needs widening, not silencing" |
+| `deprecated` was never read back from the API | real, fragile | step 5 compares the served marked-set against the built one — the field's entire purpose is that a consumer sees it |
+| `props.get("deprecated")` collapsed absent and JSON null; `doc.get("properties", {})` raised on `"properties": null` | real, fragile | `_ABSENT` sentinel and `or {}`. Proved: `deprecated: null` is reported, `properties: null` no longer raises |
+| `scripts/README.md` and `CLAUDE.md` did not mention `check_deprecated` | real, fragile | both updated |
+| NEWS said "replaces all of it" four lines above "Eight items are unchanged" | real | reworded to "every item it can" |
 
 Nothing was dismissed as a false positive.
 
-## Restore-the-bug results — 8 of 8
+### The `--only` bug is the one worth remembering
 
-Each mutation applied to the **source** (`item_create.py`, or `meta.json` for the premise),
-rebuilt, then validated, with the output grepped for **that guard's own message**. The
-mutation is asserted to have taken first — `old not in text`, not `new in text`, since
-`"".count()` is non-zero and the deletion case is the one that most needs the assertion.
+It is a guard whose *scope* was a coincidence. Every arm was written against the full-catalogue
+tree the release normally validates, and three of the five happen to hold on any subset. The
+two that do not — the set compare and the literal's own ids — silently redefined `--only` as
+"works for the two deprecated items only". `catalogue_release-check.sh` could not see it: its
+own header says `uv` is shimmed, so `item_validate.py` never runs there.
+
+Proved both ways rather than reasoned: a one-group `bulk_co_ff04` tree returns 4 problems
+without the flag and CLEAN with it.
+
+### And the converse arm is the one the floor could not cover
+
+`PROVENANCE_FLOOR=21` is exact in both directions, which reads as though it pins the whole
+shape — but an item carrying **no** provenance contributes 0 to the count. Adding a 24th
+over-mapped, unmarked item leaves the floor satisfied at exactly 21 and every other guard
+green. Reproduced with a copied item; now refused.
+
+## A figure in the release notes was wrong
+, and it came from the issue's own summary
+
+The first draft of the v1.1.0 entry said **"18 items shrink by 5-33%"**. Both numbers were
+wrong. Measured 2026-09-03, each item's own `floodplain_ff0*_km2` on the live API against the
+same property in this build:
+
+- **12** items change, not 18. The "18" is the count of upstream *re-runs*, which is a
+  different quantity — six of those were already correct in the live catalogue, so re-running
+  them moved nothing.
+- The shrink range is **1.5% to 33.5%**, not 5-33%. `pcea_bt_ff04` shrinks 1.5% and
+  `tabr_ch_ff04` 33.5%.
+
+The bad figure has a lineage worth recording: it is the issue body's own summary sentence
+("over-mapped by 5-33%"), which was copied into the `published-assets-stale-vs-main` memory,
+and from there into the release notes — three documents agreeing, none of them a measurement.
+That is the "documents that share an ancestor corroborate nothing" trap exactly, and the
+issue's *own per-item table* disagreed with its summary line the whole time.
+
+Caught by re-deriving every claim in the entry from the artefacts before a reviewer saw it. A
+false number in a release note is not cosmetic: it is the one document a consumer reads to
+decide whether their cached figures are still good.
+
+The corrected entry ships the per-item table rather than a range, which is what the issue asked
+for — "record before/after area per item so the change is auditable rather than silent".
+
+## Restore-the-bug results — 7 of 7
+
+Each mutation applied to the **source** (`item_create.py`, `item_validate.py`, or
+`meta.json`), rebuilt where relevant, then validated, with the output grepped for **that
+guard's own message** — never the exit status.
 
 | mutation | message matched |
 |---|---|
-| `COLLECTION_LICENSE` → `"proprietary"` | `collection license is 'proprietary', expected 'CC-BY-4.0'` |
-| a seventh provider duplicating Esri | `collection carries 7 provider(s), expected 6` |
-| Esri's `url` removed | `providers missing or altered: Esri` |
-| the `rel: license` link renamed | `expected exactly 1 rel='license' link, found 0` |
-| one word of `CITATION` changed | `sci:citation does not match the expected attribution verbatim` |
-| `DERIVATION_STATEMENT` dropped from the description | `missing the derivation/modification statement` |
-| `stac_extensions` dropped, `sci:citation` kept | `scientific extension half-applied: extension absent, sci:citation present` |
-| `meta.json` landcover collection → `io-lulc-annual-v03` | `nge:landcover_collection is 'io-lulc-annual-v03'` |
+| `DEPRECATED_ITEMS = set()` | `mcgr_ch_ff04: expected deprecated: true, not marked` |
+| a third id added to the builder's literal | `bulk_co_ff04: marked deprecated but not in the expected set` |
+| a nonexistent id added to `EXPECTED_DEPRECATED` | `gone_xx_ff04: named in EXPECTED_DEPRECATED but absent from the build` |
+| `deprecated` set, `VERSION_EXT` not appended | `version extension half-applied — extension absent, deprecated present` |
+| `VERSION_EXT` appended, `deprecated` not set | `version extension half-applied — extension declared, deprecated absent` |
+| `deprecated = False` published | `deprecated is False — publish true or omit it` |
+| `meta.json` gives MCGR `flooded_version 0.5.0` | `marked deprecated but carries nge:flooded_version '0.5.0'` — **the self-clear** |
 
-Row 7 is the retarget. Its first form — drop the field, keep the extension — came back
-`*** WRONG GUARD`, because pystac rejects that state before the guard runs. See above.
+### The one that came back WRONG GUARD, and why the proof was at fault
 
-## The three hand-typed copies of the citation agree
+Case 3's first form added `gone_xx_ff04` to **`item_create.py`**'s `DEPRECATED_ITEMS` and
+reported `*** WRONG GUARD (rc=0)` — the validator passed outright.
 
-The attribution exists in three places by design — `item_create.py` (published),
-`item_validate.py` (the expectation) and `README.md` (human-readable) — each typed
-independently rather than copied, so that agreement is evidence rather than a duplicate of
-one mistake. All three matched on first comparison:
+Correct behaviour, wrong proof. The "id exists in the build" arm is about the **validator's**
+`EXPECTED_DEPRECATED`. A nonexistent id in the builder's copy marks no item, so `marked` is
+unchanged, the set compare passes, and there is nothing to catch. Retargeted to the literal
+the guard is actually about.
 
-- `item_create.py` vs `item_validate.py`: byte equality, asserted on every build by
-  `check_collection_metadata`. Green on the first validator run.
-- `item_create.py` vs `README.md`: compared once by hand, stripping the blockquote markers,
-  backticks and autolink brackets — identical. **Not guarded**: the README is prose, not
-  published metadata, and a drift guard over rendered markdown would be more machinery than
-  the risk warrants. The collection is the authority, and the README says so.
+**What that leaves genuinely uncovered, stated rather than papered over:** a nonexistent id in
+`DEPRECATED_ITEMS` *alone* is dead config — it publishes nothing and no guard sees it. Every
+drift that reaches the published output is caught:
 
-## The proof harness reverts the file it mutates
+| drift | caught by |
+|---|---|
+| id in builder only, and an item exists | `marked - EXPECTED_DEPRECATED` |
+| id in validator only | `EXPECTED_DEPRECATED - marked` |
+| id in both, no such item | `EXPECTED_DEPRECATED - seen` |
+| id in builder only, no such item | **nothing** — marks nothing, harmless |
 
-`prove.py`'s `restore()` runs `git checkout HEAD -- scripts/item_create.py` after every case,
-so any hand edit to that file made *while the run is in flight* is silently reverted the next
-time a case ends. It happened once here: the corrected comment about what pystac catches was
-written mid-run, and the next `restore()` took it out.
-
-Cost nothing because the sweep for the old wording found it, but it is the "do not edit files
-a long run is reading" rule with a sharper edge — this run does not merely *read* the file, it
-writes a known-good version over it. Edits to a mutated file wait for the run to finish.
+Only the last is uncovered, and it cannot change a published byte. Recorded because "the guard
+does not cover this" is worth writing down when it is a deliberate boundary rather than a gap
+nobody noticed — and because rc=0 on a restored bug is exactly the shape that reads as a pass.
 
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
-| `stat -f '%Sm' -t '%FT%TZ' file` printed filesystem info, not mtime | `stat` on this machine resolves to **GNU coreutils**, not BSD — `-f` is `--file-system` there, and the format string became a filename argument. Use `ls -l --time-style=full-iso`, or `command stat -c`. The BSD form is what macOS documentation shows, so the snippet reads correctly and does the wrong thing |
-| An assertion that the mutation took was vacuous for the deletion case | `path.read_text().count(new) >= 1` with `new = ""` is always true — `"".count()` returns `len+1`. Asserted `old not in text` instead, which is meaningful for every case including the one that most needs it |
+| The proof harness left `data/stac` polluted. `restore()` writes `meta.json` back but does **not** rebuild, so after the last case `mcgr_ch_ff04.json` still carried the mutated `nge:flooded_version 0.5.0`. Surfaced only because the next run's output named it. | Rebuild after the harness, always. The release path was never at risk — `check_deprecated`'s self-clearing arm refuses exactly that state, so a release from the polluted tree would have failed the gate rather than published. But the guard caught it *as a defect* when it was an artefact, which is the confusing direction. A harness that mutates inputs must restore the **outputs** too, or say out loud that it does not. |
+| A restored bug reported `*** WRONG GUARD (rc=0)` — the validator passed | The proof mutated `item_create.py`'s literal where the guard is about `item_validate.py`'s. See above; the guard was right and the proof was wrong. `rc=0` on a restored bug is the shape that reads as a pass, which is why each case greps for its own message. |

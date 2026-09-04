@@ -90,6 +90,22 @@ layer names are deliberately year-free so QGIS `path|layername=` styles survive 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace
 directly to the model.
 
+**Two items publish `deprecated: true`** (#26) — `mcgr_ch_ff04` and `pine_bt_ff04`, which
+could not be re-run after the `flooded` bankfull units fix (blocked by floodplains#76) and so
+remain over-mapped. `DEPRECATED_ITEMS` in `item_create.py` is a literal a human sets, the same
+shape as `PROVENANCE_FLOOR`, duplicated as `EXPECTED_DEPRECATED` in `item_validate.py`. The
+guard runs **both** directions: exactly that set is marked, and every item is marked *iff* its
+`nge:flooded_version` is below 0.5.0 or unreadable — the version, not merely its presence, since
+an item rebuilt on 0.4.0 carries one and is still over-mapped — the converse matters because an unmarked over-mapped item adds
+nothing to the floor's count, so an exact floor of 21 is satisfied by 21 provenanced items
+whatever ships beside them. It also **self-clears**: a marked item carrying a non-null
+`nge:flooded_version` has been rebuilt, and refusing it is what stops the marker outliving the
+defect. Under `--only` the release passes `--partial`, which drops exactly one arm — the one asking
+about ids **absent** from the tree, the normal state of a subset. A marker on an item *outside* the
+literal is still refused there, because that names an id the tree contains: letting it through
+would upsert a permanent false "stale" claim, the one direction with no rollback. Without
+`--partial` at all, #36's single-group path is dead for every group but those two.
+
 **The collection is `CC-BY-4.0`, and the repo is MIT** (#47) — two licences over two different
 things, as in `stac_dem_bc` and `stac_uav_bc`. The products derive from Impact Observatory's
 `io-lulc-annual-v02` (CC BY 4.0, no share-alike, so the derivative may carry our own licence),
