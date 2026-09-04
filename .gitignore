@@ -4,6 +4,9 @@ data/*.geojson
 data/*.tif
 data/*.csv
 data/*.rds
+# ...except the README's render cache: README.Rmd reads it so a routine render needs no
+# network. It must be TRACKED -- `git add` on an ignored path exits 0 and tracks nothing.
+!data/readme_items.rds
 data/*.parquet
 data/raw/
 data/stac/
@@ -13,6 +16,13 @@ data/stac/
 .RData
 .Rproj.user
 README.html
+# knitr/rmarkdown intermediates. A chunk that PRINTS a plot instead of routing through
+# fp_readme_fig() lands its image in README_files/ -- untracked, so it renders on the
+# author's machine and 404s for everyone else.
+README_files/
+index_files/
+*.knit.md
+*.utf8.md
 
 # Python
 __pycache__/
