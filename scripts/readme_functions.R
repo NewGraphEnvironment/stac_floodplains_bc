@@ -273,6 +273,33 @@ fp_readme_props <- function(features) {
   })
 }
 
+#' Every asset of every item: key, href, media type, size
+#'
+#' Read from the API response rather than built from `<base>/<item_id>/<key>.<ext>`. The pattern
+#' holds today, and a constructed sibling path is exactly the shape that returns a 404 reading as
+#' "the file does not exist" when the guess was wrong -- the href is published, so use it.
+fp_readme_assets <- function(features) {
+  purrr::map_dfr(features, \(f) {
+    purrr::imap_dfr(f$assets, \(a, key) {
+      tibble::tibble(
+        id    = f$id,
+        key   = key,
+        href  = a$href %||% NA_character_,
+        type  = a$type %||% NA_character_,
+        bytes = a[["file:size"]] %||% NA_real_
+      )
+    })
+  }) |>
+    dplyr::arrange(.data$id, .data$key)
+}
+
+#' Human bytes, for a download link a reader is deciding whether to click
+fp_readme_bytes <- function(x) {
+  ifelse(is.na(x), "?",
+         ifelse(x >= 1024^2, paste0(round(x / 1024^2, 1), " MB"),
+                paste0(round(x / 1024), " kB")))
+}
+
 #' The item footprints as sf, in BC Albers
 fp_readme_geom <- function(features) {
   geoms <- purrr::map(features, \(f) {
@@ -474,6 +501,36 @@ fp_readme_fig <- function(fp, wsg, props, path = "fig/coverage.png", width = 9, 
   path
 }
 
+#' Download links for one item, grouped by what a reader would do with them
+#'
+#' Every asset, not a chosen one: picking a single GeoPackage decides for the reader which
+#' question they are asking. Sizes are shown because the bundles range from ~140 kB to ~9 MB and
+#' the choice between `floodplain_landcover` and `transition_vector` is mostly a size decision.
+#'
+#' These links are the reason #55 exists. An href is keyed by item id and so keeps resolving
+#' after a republish, but the bucket has versioning Suspended and a republish overwrites in
+#' place -- so a stale page can pair a working link with figures that no longer describe the
+#' bytes behind it.
+fp_readme_links <- function(assets, item_id) {
+  if (is.null(assets)) return("")
+  a <- assets[assets$id == item_id, , drop = FALSE]
+  if (nrow(a) == 0) return("")
+
+  group <- ifelse(grepl("^style_", a$key), "Styles (QGIS)",
+                  ifelse(grepl("geopackage", a$type, fixed = TRUE), "Vectors (GeoPackage)",
+                         "Rasters (COG)"))
+  out <- ""
+  for (g in c("Rasters (COG)", "Vectors (GeoPackage)", "Styles (QGIS)")) {
+    rows <- a[group == g, , drop = FALSE]
+    if (nrow(rows) == 0) next
+    links <- paste0("<a href='", rows$href, "' target='_blank' rel='noopener'>", rows$key,
+                    "</a> <span style='opacity:.6'>", fp_readme_bytes(rows$bytes), "</span>")
+    out <- paste0(out, "<div style='margin-top:4px'><b>", g, "</b><br>",
+                  paste(links, collapse = " &middot; "), "</div>")
+  }
+  paste0("<hr style='margin:6px 0'>", out)
+}
+
 #' The interactive coverage map, for `index.html` only
 #'
 #' Watershed groups rather than floodplains, and the reason is measured rather than aesthetic:
@@ -481,7 +538,7 @@ fp_readme_fig <- function(fp, wsg, props, path = "fig/coverage.png", width = 9, 
 #' GeoJSON -- which a `self_contained: true` page would have to embed. The groups carry the
 #' region colouring and the popups carry every item's published figures; `fig/coverage.png` is
 #' where the floodplain outlines themselves are drawn.
-fp_readme_map <- function(wsg, props) {
+fp_readme_map <- function(wsg, props, assets = NULL) {
 
   fp_readme_check_regions(props)
   # One popup per group, listing every item it publishes -- MORR has two, and a popup that
@@ -491,7 +548,16 @@ fp_readme_map <- function(wsg, props) {
     # arrange is therefore load-bearing, not stylistic: reversed, every km2 lands on the wrong
     # row and the map publishes one group's area under another's name. Caught by reading the
     # rendered popup (LARL showed SLOC's 117 km2), not by reading the code.
-    dplyr::mutate(km2 = fp_readme_km2(props)) |>
+    # Both of these are computed per row BEFORE the glue, and for the same reason: `glue()`
+    # vectorises over its inputs, but `fp_readme_km2()` indexes a frame positionally and
+    # `fp_readme_links()` takes ONE id. Called inside the glue, the latter compares `assets$id`
+    # against the whole id vector with recycling and returns another item's links -- BULK's
+    # popup offered bowr/larl/mork downloads. Third instance of this family in this file; the
+    # rule is that anything not vectorised gets its own mutate above the glue.
+    dplyr::mutate(
+      km2 = fp_readme_km2(props),
+      links = vapply(.data$id, \(i) fp_readme_links(assets, i), character(1))
+    ) |>
     # Sorted, because `index.html` is a committed multi-megabyte artifact and the search has no
     # `sortby` -- unsorted input churns the file between otherwise identical renders.
     dplyr::arrange(.data$wsg, .data$flood_factor, .data$species) |>
@@ -503,7 +569,8 @@ fp_readme_map <- function(wsg, props) {
         "loss {fp_readme_int(gross_loss_ha)} ha &middot; ",
         "gain {fp_readme_int(gross_gain_ha)} ha &middot; ",
         "net {fp_readme_int(net_ha, signed = TRUE)} ha",
-        "{ifelse(deprecated, '<br><i>published deprecated — over-mapped</i>', '')}"
+        "{ifelse(deprecated, '<br><i>published deprecated — over-mapped</i>', '')}",
+        "{links}"
       )
     ) |>
     dplyr::summarise(
@@ -530,6 +597,7 @@ fp_readme_map <- function(wsg, props) {
     mapgl::add_line_layer(id = "wsg-border", source = w, line_color = "#ffffff",
                           line_width = 1) |>
     mapgl::add_navigation_control(position = "top-right") |>
+    mapgl::add_fullscreen_control(position = "top-right") |>
     mapgl::add_scale_control(position = "bottom-left", unit = "metric") |>
     mapgl::add_categorical_legend(
       legend_title = "Region",
