@@ -66,6 +66,27 @@ nothing asked to move, putting their checksums at risk for a version string.
 `01_stage.R` wipes `data/raw` and `data/stac` on every run, so the four are built and
 published one at a time rather than as one tree.
 
+## Phase 0 measurements (2026-09-05)
+
+**Live baseline pinned** to `planning/active/baseline_live.json` at `2026-09-05T21:24:21Z`,
+read one item at a time from the item endpoint so nothing is elided by a fields projection.
+23 items, **10 assets each** (3 classified + transition + 3 GeoPackages + 3 styles). The
+collection serves `version: 1.1.0`.
+
+Three items serve **11** `nge:` keys rather than 12 — `kotl_bt_ff04`, `larl_bt_ff04`,
+`sloc_bt_ff04`, all missing `nge:link_run_uid`. That is a published null, which the API
+omits, not a lost key; `kotl_bt_ff04` is one of the four this issue republishes, so the
+`--only` preflight's per-key comparison sees absent-vs-null and must treat them as equal —
+which it does, by design (#36). Recorded here so the Phase 5 diff does not read it as
+movement. `mcgr_ch_ff04` and `pine_bt_ff04` serve 0, as expected for the two
+`deprecated: true` items.
+
+**`style_drift-check.py` is clean**: the three committed styles are byte-identical to what
+`classes.json` produces from the installed drift 0.13.0 (9 classes). So the class table has
+not moved since `styles/` was committed at #46, and the RAT the four rebuilt COGs will carry
+is the one already published. That is the premise the transition-checksum gate rests on — if
+the table had moved, every rebuilt COG would differ for a reason unrelated to the year span.
+
 ## Errors Encountered
 
 | Error | Resolution |

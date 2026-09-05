@@ -20,9 +20,9 @@ re-registered, so *every other item byte-identical* holds by construction rather
 
 ## Phase 0: Baseline and premises
 
-- [ ] Pin the live baseline for **all 23 items** to `planning/active/baseline_live.json` — per item, every asset key with its `file:checksum` and `file:size`, plus every `nge:` property. Taken before anything is published; this is what Phase 5 measures against.
-- [ ] `uv run python scripts/style_drift-check.py` — proves `data/raw/classes.json` from the installed drift still byte-matches the committed `styles/`, i.e. the RAT the rebuilt COGs will carry is the one already published.
-- [ ] Record the premises in `findings.md`, with the fold reproduction as the headline (this repo's own independent confirmation of floodplains#79's element-wise claim).
+- [x] Pin the live baseline for **all 23 items** to `planning/active/baseline_live.json` — per item, every asset key with its `file:checksum` and `file:size`, plus every `nge:` property. Taken before anything is published; this is what Phase 5 measures against.
+- [x] `uv run python scripts/style_drift-check.py` — proves `data/raw/classes.json` from the installed drift still byte-matches the committed `styles/`, i.e. the RAT the rebuilt COGs will carry is the one already published.
+- [x] Record the premises in `findings.md`, with the fold reproduction as the headline (this repo's own independent confirmation of floodplains#79's element-wise claim).
 
 ## Phase 1: bulk_co_ff04
 

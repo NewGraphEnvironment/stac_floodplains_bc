@@ -1,0 +1,1564 @@
+{
+ "collection_version": "1.1.0",
+ "fetched_utc": "2026-09-05T21:24:21Z",
+ "items": {
+  "bowr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220599b932b18b9f42248b6516235dcb70fdf5d3e487455f25d2d87fa170dde53ef",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified_2017.tif",
+     "size": 710674
+    },
+    "classified_2020": {
+     "checksum": "122066f334fb72121c81b30658bd0b1f7d5e78152d7fbab7366c563f417385ecc8a9",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified_2020.tif",
+     "size": 703106
+    },
+    "classified_2023": {
+     "checksum": "12209f89397710052628fa6578d7ee6c64cb9b9cc84c3afce76b032b45b18e3a2345",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified_2023.tif",
+     "size": 707514
+    },
+    "floodplain": {
+     "checksum": "1220effc59b725d667170c0d7ef251958b94d1c2c3cce64837d76f726d9a1ad4e08e",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/floodplain.gpkg",
+     "size": 4493312
+    },
+    "floodplain_landcover": {
+     "checksum": "1220d1cf56237ee4f52cd7af7ebfcc853c4fb498b8daff828f29c1be4a5fdec3c8f7",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/floodplain_landcover.gpkg",
+     "size": 12025856
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "12206aaf0bcb48a9ce1dfa5f35546b44740e9fb7460e9b7ef6bfb4b8d7980edad27c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/transition_2017_2023.tif",
+     "size": 1307028
+    },
+    "transition_vector": {
+     "checksum": "12207aa6caa309bf8f4c0cbc877562011406f50a0b49c9b6f4361233e3f04ec179bc",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/transition_vector.gpkg",
+     "size": 1355776
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:596af2a023b8f7d85711651f224a9e3afe69bd9c350e6d9818ecd1bab4cb7fd5",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-02T23:02:24Z"
+   }
+  },
+  "bulk_co_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220d741cf2c8244227a38c6a615d698376009150ebc5eeb1517279101c0e5793830",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2017.tif",
+     "size": 1246472
+    },
+    "classified_2020": {
+     "checksum": "1220c1ea7067338a44ded035116bff8a047b587d8a16c461027c50670e65ef1d355e",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2020.tif",
+     "size": 1255708
+    },
+    "classified_2023": {
+     "checksum": "12204fea8c4f885fe918116e0daa867733fed48f272a7958afa67c81b03c105d11a8",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2023.tif",
+     "size": 1241743
+    },
+    "floodplain": {
+     "checksum": "122022a8f830a3e20b1eff2449a46da60e3b1f7e29467e402228ff2cf9156f2fca01",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/floodplain.gpkg",
+     "size": 8613888
+    },
+    "floodplain_landcover": {
+     "checksum": "1220e7f5bb2c0c0599f67ce73141d9a1049f6f7fb8fe00b6be6bc1cfa33473b55e42",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/floodplain_landcover.gpkg",
+     "size": 41672704
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "12208b367b3f320979bcd6c3acc5b2fb0811aaad424bae99135099dad79966eac637",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/transition_2017_2023.tif",
+     "size": 2280635
+    },
+    "transition_vector": {
+     "checksum": "12207daf7c2c23f0a865b9e74e67bc844a40ff4872b6fd65fde50a3278b3422df9b1",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/transition_vector.gpkg",
+     "size": 4935680
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904",
+    "nge:landcover_key": "sha256:66104a0f2320fca89b06e640cd9d3f07a01d72ca6d5b5c687af155f1b8ffcf94",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-02T20:46:08Z"
+   }
+  },
+  "fran_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220c5a10cf44e6f84041747329429346e0ad6a3c4a8314f22f74ce1738441d22eed",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified_2017.tif",
+     "size": 1176054
+    },
+    "classified_2020": {
+     "checksum": "12209b66b16f50b4ff44d52c90fd1912526b4ce24a51a44c1cc9d458cec32f6ddaad",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified_2020.tif",
+     "size": 1214159
+    },
+    "classified_2023": {
+     "checksum": "1220b7a91be6a419a8aeaa086cf20d5563699e2036c9995d1e9ede6b7f78230cf501",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified_2023.tif",
+     "size": 1183595
+    },
+    "floodplain": {
+     "checksum": "1220f0fde2ce22bcd68933a9a3618256ff4055bc36dd201b839d4a0547041b1e71df",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/floodplain.gpkg",
+     "size": 9109504
+    },
+    "floodplain_landcover": {
+     "checksum": "12202c54d7e64d53881a369554838c63030695eaa2f6967d1b2582a7745625bc16d0",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/floodplain_landcover.gpkg",
+     "size": 32378880
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220a37fdd79f6dfb45a9254c871880a0369ba18f8d717ad87a7090c0d7a2224c52c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/transition_2017_2023.tif",
+     "size": 2111725
+    },
+    "transition_vector": {
+     "checksum": "12206d96ac847e4b2ea288260b66f4047f3891e5b1fd45d24e89081cd15da40f5d11",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/transition_vector.gpkg",
+     "size": 4771840
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904",
+    "nge:landcover_key": "sha256:dd5c7f31b57d40eb77b9ab88cdfb65dcbb795353ae49dba102d8679635496e7b",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T00:20:39Z"
+   }
+  },
+  "kisp_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220788c7dc874187fc2c0523dad71f2ce77f6c60e59efc2c75bcb5f3fe860350873",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified_2017.tif",
+     "size": 814890
+    },
+    "classified_2020": {
+     "checksum": "12200247bf0ff8d3c1a4c620d440b5c2aa3642fdf872197ec70db0e53b3a00fbf365",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified_2020.tif",
+     "size": 783796
+    },
+    "classified_2023": {
+     "checksum": "12203bc9f2502c179f0caf164c95e9314330d1161b758f75a2f95d9aa42feb248330",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified_2023.tif",
+     "size": 776972
+    },
+    "floodplain": {
+     "checksum": "1220f3cf12c856e6caa98ac7dfe3bf2b727b3f89bf87e632a00c6a8244f325dcbd53",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/floodplain.gpkg",
+     "size": 5677056
+    },
+    "floodplain_landcover": {
+     "checksum": "122092fd289c5a114e9edcb2b1a795e7860a4218dd3ab00e0051ed8a2a6f7e6164f6",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/floodplain_landcover.gpkg",
+     "size": 16580608
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "122015454a9aac748fd1f8887b59f7025a5c187f99ef607bf42347517eef17843148",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/transition_2017_2023.tif",
+     "size": 1495396
+    },
+    "transition_vector": {
+     "checksum": "12209fce5647b2c5e08c77b51f7756a54acf9ecd3ca11a4b26e158b86af00da37db2",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/transition_vector.gpkg",
+     "size": 2641920
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:61549b5aa3ef871daff6ef1051d3acce96c0eebd3620263f6b2071bee1dc7e24",
+    "nge:landcover_key": "sha256:670412a6e46050b87f33f41cd9e597ce68a6b71accca78d39a817a1eef081e31",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T00:54:39Z"
+   }
+  },
+  "kotl_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "122085ecac9be59134d28c55beb8ba09d4d98aeb53c9f470a6b2aac79efcab57da66",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2017.tif",
+     "size": 1138452
+    },
+    "classified_2020": {
+     "checksum": "1220c67364f2055bff2f4bbaaa636cabd23e5ecc6df475e6085e94d15f1dfd255bef",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2020.tif",
+     "size": 1133182
+    },
+    "classified_2023": {
+     "checksum": "1220d0300edb18c44c82ff7fc6a66ccd71bdb759272420e77fecacb209e9c090680d",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2023.tif",
+     "size": 1140404
+    },
+    "floodplain": {
+     "checksum": "12202aee32a09c058595d296f0c77517e1f98b95269c7a4571eb38da75e817ab400c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/floodplain.gpkg",
+     "size": 4259840
+    },
+    "floodplain_landcover": {
+     "checksum": "1220cd9deed23d4147c9a8effc1389d138a3334fba2233aa151996f181042c75c4d5",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/floodplain_landcover.gpkg",
+     "size": 21311488
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "122089fbd29e9d1a5694e84377d516225286dcc33d61256ac6767ddde9ada10220c0",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/transition_2017_2023.tif",
+     "size": 2269254
+    },
+    "transition_vector": {
+     "checksum": "1220f26c68ae21098bc08016c048e50c7055220994f9da3086af90c189cd5d4fcbe8",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/transition_vector.gpkg",
+     "size": 3624960
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:e6be382d0918abdcb8329ba5227130b71b549a97add37b1e48c3bc53bb54ae1a",
+    "nge:landcover_key": "sha256:a6f3a5f6387b60ab3ae2c269e5e693d43b8329c3250dea340141184ddf4856c8",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:3cfde7bf5579c2628550dda166eb5c441464b3c7e9d77702d882d5e82c0cebec",
+    "nge:link_sha": "322389a36b4f6ff6e282d1b1ea6e4d9b694e119a",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T01:21:33Z"
+   }
+  },
+  "larl_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "122042a73a379570ded284c1e86fd55d888690343f8b60e4bbbd4187bc1fbe88e0a2",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified_2017.tif",
+     "size": 673660
+    },
+    "classified_2020": {
+     "checksum": "122023bddfb5baeaf3c43ab07d9744a2f9595a8b40e4a276753cfc426c24eccc418c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified_2020.tif",
+     "size": 677258
+    },
+    "classified_2023": {
+     "checksum": "1220a30cffa4cb3b80d1771f19f83887a89fcd611147ca4b4bdc48f885b9a793ddf7",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified_2023.tif",
+     "size": 690560
+    },
+    "floodplain": {
+     "checksum": "12207b37b36a1b91f7b5e1e0d30bfbad763a652ca630081f45bfbc0629d5867f59cd",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/floodplain.gpkg",
+     "size": 2727936
+    },
+    "floodplain_landcover": {
+     "checksum": "1220acdb1a10000cec332ef69bf190aa56aa2d7e905230f3a5f8865c96a9f7d8d6b7",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/floodplain_landcover.gpkg",
+     "size": 10493952
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220b925bed338fc6da487fcd253b9a2afc0b276cc82f545fde0fb199b555c41847e",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/transition_2017_2023.tif",
+     "size": 1435379
+    },
+    "transition_vector": {
+     "checksum": "122059a06c9a189fc3752a5e21973f5fbf05d28e0244423c5eb71f7d498c5267f7ec",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/transition_vector.gpkg",
+     "size": 1241088
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:e6be382d0918abdcb8329ba5227130b71b549a97add37b1e48c3bc53bb54ae1a",
+    "nge:landcover_key": "sha256:8bc5161d80c65a8537e8c36d414ccf86b3eb15ba5052908841963c50b94b92c5",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:44e452e99e27179acbd9ec73a9942e9e0e973fb4f71f6b8296312bfcf33093fc",
+    "nge:link_sha": "8c8c29b2d9b02380ca1dd89ecd3f3ef7af6b6714",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T01:36:18Z"
+   }
+  },
+  "lchl_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220f9b235a8f05135eef7d1b5f9054325136639268c1ef2818b7d14baa786bbb835",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified_2017.tif",
+     "size": 689293
+    },
+    "classified_2020": {
+     "checksum": "12205fc165c6940d759718e36f77767da15969c017bad771c9251af782375793ace0",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified_2020.tif",
+     "size": 660401
+    },
+    "classified_2023": {
+     "checksum": "122037d15855af7fdb24223e7360b8076c402323d3b188fd1ba3e3a5e261ab0c17b3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified_2023.tif",
+     "size": 642248
+    },
+    "floodplain": {
+     "checksum": "122018091997eeb540d68665393ebb84e856021023903aa8c9c76a03cec9ad733aad",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/floodplain.gpkg",
+     "size": 5165056
+    },
+    "floodplain_landcover": {
+     "checksum": "1220edaabe94512ab940093144369ceb121df276dc28c1fe09147e4c12d72e8a8d68",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/floodplain_landcover.gpkg",
+     "size": 21110784
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220bbd8b2b747a4d775845db793dffdba3a2891244c22a5afc68122745516e006b9",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/transition_2017_2023.tif",
+     "size": 1150748
+    },
+    "transition_vector": {
+     "checksum": "122096e60f776a9f28729551debebaf7ac6e4c125305d03889d57bc11855c7ec8379",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/transition_vector.gpkg",
+     "size": 4169728
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:eed6322de0e9d8908d48e07371cc6a3c200b109aef7969289936f6c940c8bf74",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T01:52:54Z"
+   }
+  },
+  "lnth_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220f01eb4e676a8644fd7bc9552d46cbb6c3c6e41ebfb926e42373ef5b1761a3a33",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified_2017.tif",
+     "size": 553452
+    },
+    "classified_2020": {
+     "checksum": "1220973b156de9b982f7671539fdd3fa25ef7576652cbf9ba465554f0d379533515c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified_2020.tif",
+     "size": 548463
+    },
+    "classified_2023": {
+     "checksum": "1220b5d6faadcac0bfe0efb265d72ea2a4f97c4c0ccac65aa712972f95610b00355e",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified_2023.tif",
+     "size": 553011
+    },
+    "floodplain": {
+     "checksum": "12208568194b30d7a465424384d313bec705bff90857bcaa3848cec6e195eccad0c5",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/floodplain.gpkg",
+     "size": 3088384
+    },
+    "floodplain_landcover": {
+     "checksum": "1220d29e16b5942b30e3d82b91039392711dad4fb8c65f621fc73d9b80b3f6803723",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/floodplain_landcover.gpkg",
+     "size": 11362304
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220600f3ff6f2d81071b08a6ec7155ce6240dd58ef76b1fa099adef43d829adee6a",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/transition_2017_2023.tif",
+     "size": 931127
+    },
+    "transition_vector": {
+     "checksum": "1220de15e31b297977126149a9f92c3f401b0343dbdd34ea7607730f814930d2c7b3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/transition_vector.gpkg",
+     "size": 2011136
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:a737bbdc6c83ea1c527c797898fca3e178b15ef0c9e477b26abbc4e0a4051642",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260903_173205-67013fc3",
+    "nge:link_sha": "a83e94540932094503ca3b55221a42ab459bce5e",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T19:51:39Z"
+   }
+  },
+  "lsal_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220b2ef4748b6c4357a46aeca6cefd17da0534dcf367e3a2eebf2094aa1472041dd",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified_2017.tif",
+     "size": 469485
+    },
+    "classified_2020": {
+     "checksum": "1220db3662b7fca1c003f707e8c94a9cc259b5eedfc5d685b1d1c8f14bfb2cc381f1",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified_2020.tif",
+     "size": 468380
+    },
+    "classified_2023": {
+     "checksum": "122038f8c756bcc51815e898c21e5634c46b9afacdc4cb861905ac27c96ce07ff664",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified_2023.tif",
+     "size": 454927
+    },
+    "floodplain": {
+     "checksum": "1220a1ae0ba977ea47764ca69b3160c4b6f1c7f02001d87ad5096f51fd8f0f943f81",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/floodplain.gpkg",
+     "size": 3395584
+    },
+    "floodplain_landcover": {
+     "checksum": "1220a686b8154a85c5effb255396aa3837e026bce1f1c621e3334ff6944138a7b4be",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/floodplain_landcover.gpkg",
+     "size": 14708736
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220ae69cdf5fe0ede8b9b88f37e4aa1511994101929a83687c7b0e7adc8e2b47dfa",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/transition_2017_2023.tif",
+     "size": 809009
+    },
+    "transition_vector": {
+     "checksum": "1220fd3473ba5bd3fd036130877d8e2d9cbb6cbc5e43ea65c2e54a20c365f838a0a8",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/transition_vector.gpkg",
+     "size": 2306048
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:32ab7f62d3b0f2c6b31e9dd292af1dbce99f8d6bcc8f65dcdb9fa1e5d1d8f9b1",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T02:02:17Z"
+   }
+  },
+  "mcgr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220a7c5d655575c13bf2b2b1d550cb7de0e3208f0bbbaf4264eebec4e8d8df110e6",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified_2017.tif",
+     "size": 638340
+    },
+    "classified_2020": {
+     "checksum": "1220cb2ddd40db353559aa436ace02e44262319f296d013cbfc858091213fbe1917c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified_2020.tif",
+     "size": 623998
+    },
+    "classified_2023": {
+     "checksum": "12201fbdb6d651b233fedf3fd991eda55626f1e9be2c7bcf277fe565250b26a80d1d",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified_2023.tif",
+     "size": 616280
+    },
+    "floodplain": {
+     "checksum": "122043962687e5c29da86aaa37630dfb9ddb560507882f79832e19313757e91c7469",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/floodplain.gpkg",
+     "size": 2174976
+    },
+    "floodplain_landcover": {
+     "checksum": "1220f2115e19bfbbb962bcc92b5eacb64a47a5931a9dac06a0228744370229a7a4f7",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/floodplain_landcover.gpkg",
+     "size": 13762560
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220b2c42fbe596d61d6b3f4a454b9cdabd254020f4775338e7d1f70ffb229d2b33a",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/transition_2017_2023.tif",
+     "size": 1229639
+    },
+    "transition_vector": {
+     "checksum": "1220189e3c4e8ae12f6eb8147d3294bb53d1e39cffa01d42e9a174e75f1ecff4a4c7",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/transition_vector.gpkg",
+     "size": 2576384
+    }
+   },
+   "deprecated": true,
+   "nge": {}
+  },
+  "mork_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "122006393c979829c6c9161ceb00c4dbbbe3f1c73768cd059408a30d7a9149986c9f",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified_2017.tif",
+     "size": 1239506
+    },
+    "classified_2020": {
+     "checksum": "12203255fe329198918d197a444b86071ae5845d13aac77ae1017c5613f2fef5ae4b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified_2020.tif",
+     "size": 1223515
+    },
+    "classified_2023": {
+     "checksum": "12209cad40dfaf09bc78d717ecec87ce4895156819121b629dcfda73f88c1e4fca17",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified_2023.tif",
+     "size": 1202315
+    },
+    "floodplain": {
+     "checksum": "1220f759d7c2247f64e892f08add0d143b6d3d43a6a5c136db9e7c0ca3c52331608c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/floodplain.gpkg",
+     "size": 9445376
+    },
+    "floodplain_landcover": {
+     "checksum": "1220cd5186e01047f8da8dd9f45a3a46857019b27b0f7379c8f06398d738e26ebbcc",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/floodplain_landcover.gpkg",
+     "size": 26853376
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "12205bcfb90d456c736c9e07d05bfeba05deacb34b6b8f80a939e38eaf70cbcd51d5",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/transition_2017_2023.tif",
+     "size": 2503671
+    },
+    "transition_vector": {
+     "checksum": "122071faaec216387860e00006287bfb2102ba85c98870496211328a05b340188b00",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/transition_vector.gpkg",
+     "size": 3407872
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:750e94d1a3a230b8a0a50090df3694d1d38a1d62ccc48972d42a2ca1e805bfb8",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T03:54:43Z"
+   }
+  },
+  "morr_ch_ff06": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "12201f948df4c3e8492aeec37358fb55e7e0aefacb89e7be2a314a64f86d7422bb47",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified_2017.tif",
+     "size": 730007
+    },
+    "classified_2020": {
+     "checksum": "1220c04543c33338e4704ae9bb0c3f922cfdf22f239acc729eed0851e63b98f97123",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified_2020.tif",
+     "size": 747750
+    },
+    "classified_2023": {
+     "checksum": "12202ddf08f4e6b25e522b62b943c97daeea0eb50c65ae9db760b79acd814cb21ae4",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified_2023.tif",
+     "size": 719145
+    },
+    "floodplain": {
+     "checksum": "1220ee7f3e0dcb527c772d48920b129f14472d4b955fdbc90935e0f070cf728066da",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/floodplain.gpkg",
+     "size": 12378112
+    },
+    "floodplain_landcover": {
+     "checksum": "12204027006d6ce4d57ce0dec6093339acddff54047813da411c3fa2bc6c7897eb86",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/floodplain_landcover.gpkg",
+     "size": 79032320
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220de38b8d897ba471f07757fd0abe3e90f962f5ad140a33177165bc6104af1fd88",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/transition_2017_2023.tif",
+     "size": 1261995
+    },
+    "transition_vector": {
+     "checksum": "122069759c63d019552de98b9b95ab303724684269409009578b8aede2c57c023103",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/transition_vector.gpkg",
+     "size": 1888256
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:34475d15169a8006e87d93927125eec23e378aace85df3fd0cf6b35734cd9f5d",
+    "nge:landcover_key": "sha256:7642b0c5355a7b7d2e59fdb0807e281b5989ae9507fd9c58f09382af2eac1805",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T04:35:14Z"
+   }
+  },
+  "morr_co_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "12206eeba4f5306acd2dcf82a073ccfc768e7c6c61acd1343da0f08964411cd3db1b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified_2017.tif",
+     "size": 723928
+    },
+    "classified_2020": {
+     "checksum": "1220561d7521a0ad5103443ff70a8bc30f7977cddbd603b6bd338a74e5507e5a568c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified_2020.tif",
+     "size": 741278
+    },
+    "classified_2023": {
+     "checksum": "1220180c40b547f109461649fd503e242cd7867b10e108a6403d910a641cf4cd0387",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified_2023.tif",
+     "size": 713010
+    },
+    "floodplain": {
+     "checksum": "1220ee7f3e0dcb527c772d48920b129f14472d4b955fdbc90935e0f070cf728066da",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/floodplain.gpkg",
+     "size": 12378112
+    },
+    "floodplain_landcover": {
+     "checksum": "12204027006d6ce4d57ce0dec6093339acddff54047813da411c3fa2bc6c7897eb86",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/floodplain_landcover.gpkg",
+     "size": 79032320
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220d4838656f36bb0c7b6b2c0ab8a0da7377c963c918f1473c20f1b5e9676474b82",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/transition_2017_2023.tif",
+     "size": 1246930
+    },
+    "transition_vector": {
+     "checksum": "122026e68050ebcd609ec7fae0ffee08407c50bf12d99bf1ea0618bd6841bfd9ba52",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/transition_vector.gpkg",
+     "size": 1789952
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:34475d15169a8006e87d93927125eec23e378aace85df3fd0cf6b35734cd9f5d",
+    "nge:landcover_key": "sha256:90608fc3fc30f5c8312abd5d1afb0cf7492474d6a5aab1aef61c0bce90c5100e",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T04:15:05Z"
+   }
+  },
+  "necr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220e4c33b33f5a9a8984bba2f11a3cd6756b70d6fb7ac640d3ac62643563a930870",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified_2017.tif",
+     "size": 903666
+    },
+    "classified_2020": {
+     "checksum": "12204247a60e9cdf9cbcc70f161ea6bd613e9e80480a7aa6acddc01ef6103cbcb70e",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified_2020.tif",
+     "size": 895601
+    },
+    "classified_2023": {
+     "checksum": "12206e37d56833482b3c275f541a7564e52e2cfd9a5fee3497d22c2265e9e004ba95",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified_2023.tif",
+     "size": 892525
+    },
+    "floodplain": {
+     "checksum": "12205ae74e2b58de4cb1989c76490f3fb8420bedd923468b4e6d2b7a19a0ed1ff7d0",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/floodplain.gpkg",
+     "size": 6967296
+    },
+    "floodplain_landcover": {
+     "checksum": "1220b9f4bc1ab2187c053faa3770486c8e2c902fb79190313aaade9a6efdac4e4f20",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/floodplain_landcover.gpkg",
+     "size": 30801920
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220d5e9f6361adea7b04af85422c4583555731b0acdaf01c50479359a4c3801596c",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/transition_2017_2023.tif",
+     "size": 1501749
+    },
+    "transition_vector": {
+     "checksum": "1220eb82564edebf9b7bd7c7d486597ac0652752024feae52d41b4b0cc43ef62a5fc",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/transition_vector.gpkg",
+     "size": 4493312
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:23678392b27964a3954c410545419aba2da4756bae09f514fb7e9a56aa5ec3c5",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T04:59:26Z"
+   }
+  },
+  "pars_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220c719ade77a360cef8c46706222c9da9eb850be6d55bf3385e5dfacff33759a1d",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified_2017.tif",
+     "size": 1064109
+    },
+    "classified_2020": {
+     "checksum": "12205490d74b5c68810e50ac47920ed9833da5a54e1ffc87ecc74ea0f7368506dcdb",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified_2020.tif",
+     "size": 1041019
+    },
+    "classified_2023": {
+     "checksum": "122047e0f7fa1ec5d1176f2486d4ed31cd7269ee3db8199b93a68b1a6249e8a6f3ce",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified_2023.tif",
+     "size": 1018399
+    },
+    "floodplain": {
+     "checksum": "122085519e97d2801098c71dddb13daa6f5ef8bf63e634827358be969146ed2d176d",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/floodplain.gpkg",
+     "size": 8814592
+    },
+    "floodplain_landcover": {
+     "checksum": "122001de57d65f13875df615126400f45a912f43c6349416ef5a8a2bf654dca242cd",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/floodplain_landcover.gpkg",
+     "size": 28729344
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "122035dd183b223cbe40596a11ce2a7c160f89ce931aac2060f5f658b8cc3c13560f",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/transition_2017_2023.tif",
+     "size": 1926402
+    },
+    "transition_vector": {
+     "checksum": "1220d689c26eebd051d6eb4c22f5546735254c39b12ed8678b618ed46d8acaa150bc",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/transition_vector.gpkg",
+     "size": 5881856
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:3e66dc34586acc7b534e01c62df6f5c3adcfa63411177738f028bf00d755c7bc",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T05:45:17Z"
+   }
+  },
+  "pcea_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "122029a7bcfdeac78fcbb2c9a9f0c12e8eba26a1bc96cce69fe53441ad301a4a8746",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified_2017.tif",
+     "size": 900623
+    },
+    "classified_2020": {
+     "checksum": "12203104e6fe804449aa4a0295b5d3c4d86edc1e6635b5e8ca2b13205fae2f108578",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified_2020.tif",
+     "size": 925943
+    },
+    "classified_2023": {
+     "checksum": "122014858bffaaad65d70c111b275ff51f48d07c250264a72e2721c953e2c7e916ab",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified_2023.tif",
+     "size": 937828
+    },
+    "floodplain": {
+     "checksum": "122078d1e076dac207af1ba446661a169607f13a5ada059ca54a087f047ebe4002c9",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/floodplain.gpkg",
+     "size": 7114752
+    },
+    "floodplain_landcover": {
+     "checksum": "122070a9c6c42f3059efefc4abbe017ee284ac1f8b13a2bd3cd38bea6d2d55d21579",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/floodplain_landcover.gpkg",
+     "size": 12144640
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220341efabc52e55439013538cd4279002adf30407234a411ed8c03d11dd431c6bf",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/transition_2017_2023.tif",
+     "size": 1782427
+    },
+    "transition_vector": {
+     "checksum": "1220c20487b73d561d1a4ddc3f4dc37130e6d4d1f0b21539944efef9e2463518e878",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/transition_vector.gpkg",
+     "size": 913408
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:c7784d2be97581e0c3a56e15688bd75dd054bb496c25cbeef8d18e5bf6e7ba31",
+    "nge:landcover_key": "sha256:28761aee01a5319afa73605482c33918a140d821e6e8ea00da3523cd480a6a54",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T06:25:54Z"
+   }
+  },
+  "pine_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "12200f1ea4cd15e8bfd22f4d511575a989f3a31b9e334d4c372dcf40fadf8c58fbb6",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified_2017.tif",
+     "size": 1226474
+    },
+    "classified_2020": {
+     "checksum": "1220920113015b5173c012baf1bc2e04aa4ab8586003c39d96ade255e08f06bfc331",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified_2020.tif",
+     "size": 1193751
+    },
+    "classified_2023": {
+     "checksum": "122023d1a15e2a9c3d0bbb4bf5c9f7c2427b582d60a9b0bd725f62eebea29ee2f9fc",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified_2023.tif",
+     "size": 1194171
+    },
+    "floodplain": {
+     "checksum": "122044f9d88ae47f18371c9a53af83e99c37ac15583d744930344c108f2510e35213",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/floodplain.gpkg",
+     "size": 4743168
+    },
+    "floodplain_landcover": {
+     "checksum": "1220c1a547bc3a3da440218e9b6280eefdf22c51dd98d4b2ee1e1dbe769b3ad2a1a9",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/floodplain_landcover.gpkg",
+     "size": 25247744
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220d61ee74ad69f6ba8b783d687ba34afcbff140fefaac926d1c43dba4cdc634562",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/transition_2017_2023.tif",
+     "size": 2389265
+    },
+    "transition_vector": {
+     "checksum": "1220884cd0549551a147d63d6e9eb1487e833d2e81d7635f3267ca570c8270ebb525",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/transition_vector.gpkg",
+     "size": 5898240
+    }
+   },
+   "deprecated": true,
+   "nge": {}
+  },
+  "sloc_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "122098da23cc68ef330304f6f01940e42bfd1ee4d2c1ba981cc8d8a5e89da8961e4d",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified_2017.tif",
+     "size": 425905
+    },
+    "classified_2020": {
+     "checksum": "12200ce46ad476b1f691a469aa21f424276ebf52981e7e7a3d5537615aa0a11825a4",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified_2020.tif",
+     "size": 421483
+    },
+    "classified_2023": {
+     "checksum": "12206e10882a6cc1664787ee6d55c0b28e4afcc50c076095fc5b92059249049c7413",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified_2023.tif",
+     "size": 421588
+    },
+    "floodplain": {
+     "checksum": "12206668ee90476a9288e484fcc5cb8e59dff752b2217c7bd8fb5da1283a535719bd",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/floodplain.gpkg",
+     "size": 1880064
+    },
+    "floodplain_landcover": {
+     "checksum": "1220ed143c6e31565a46f7f3cfe115486cac92eda0c68c0ab9d334e132c21fffceeb",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/floodplain_landcover.gpkg",
+     "size": 6250496
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "12202137ad8229d3708a4036d215749fca2169c97da7259edda282d1424f030b330b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/transition_2017_2023.tif",
+     "size": 737583
+    },
+    "transition_vector": {
+     "checksum": "12204f438b81a1cabf331ba8ef11db9f4d714c13fa28f40d7d84157873c0aa8cb556",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/transition_vector.gpkg",
+     "size": 634880
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:e6be382d0918abdcb8329ba5227130b71b549a97add37b1e48c3bc53bb54ae1a",
+    "nge:landcover_key": "sha256:a5939906814eff33404172f9b50a5fb5a5da58826a4e411ed8425776c4965046",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:3cfde7bf5579c2628550dda166eb5c441464b3c7e9d77702d882d5e82c0cebec",
+    "nge:link_sha": "322389a36b4f6ff6e282d1b1ea6e4d9b694e119a",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T06:33:36Z"
+   }
+  },
+  "tabr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "122017ed01ab4d5f3b22dd1cbc341947ca27a5045e00534cf0ef740893066d1e3b36",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified_2017.tif",
+     "size": 480181
+    },
+    "classified_2020": {
+     "checksum": "1220a3fbe46ce4f3799d01c15371c8f1f5e6e9e61205f9c402ae722a540fd0297434",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified_2020.tif",
+     "size": 474461
+    },
+    "classified_2023": {
+     "checksum": "1220c5b72ca0a54c668f4f667e975136603f3b91e9fe9e4d6a1d550df7a67346901d",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified_2023.tif",
+     "size": 481040
+    },
+    "floodplain": {
+     "checksum": "122056d9bd93a6a7c945a64f79ff3f0ccd932f016a6a5fb846a16b9f09fc88d4f95a",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/floodplain.gpkg",
+     "size": 3248128
+    },
+    "floodplain_landcover": {
+     "checksum": "12203eafa50be7f7c534a1af2e8c98f1adc42192594eac840433a620537d6bc9b975",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/floodplain_landcover.gpkg",
+     "size": 11509760
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220a392477117e12e37646b98bce9dc937e632e722f6d8c50f30133a2de2500f9a3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/transition_2017_2023.tif",
+     "size": 817244
+    },
+    "transition_vector": {
+     "checksum": "1220cc5f322b50e86843bdfa2d173e38cd785f06899009a38e24ad53f938eede8ab8",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/transition_vector.gpkg",
+     "size": 1429504
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:42a84d6a623c307a92792947d688ee6833622e32ca433bcd5eff813601177c54",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T06:45:26Z"
+   }
+  },
+  "thom_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "12209fd8f3c61aeb1caef72fadb9afaa8ce01b22cd83c5dea0ffe5745cc5f9a493d5",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified_2017.tif",
+     "size": 305377
+    },
+    "classified_2020": {
+     "checksum": "122097a9559dd26355eac1b963cff4b48fb68d58771f44bf0665ad79eb672495a173",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified_2020.tif",
+     "size": 302115
+    },
+    "classified_2023": {
+     "checksum": "1220309cd008eb515b82fc5e28a9d1b86fd9da77d55632e85ebc5362d890ea846d13",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified_2023.tif",
+     "size": 309120
+    },
+    "floodplain": {
+     "checksum": "1220ac576740b4c7a2914ff7f10612ae9b70055786edd58cc201ce61196de413b038",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/floodplain.gpkg",
+     "size": 1351680
+    },
+    "floodplain_landcover": {
+     "checksum": "1220978f43a8ab57b485c480074f4ccc1ce85577ff05e02f514b2bca2de637aafc4b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/floodplain_landcover.gpkg",
+     "size": 3612672
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220ddad35b4c995e41d9cca99d87290330e551b02b0dfdcb7f43c23caef777a7fbc",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/transition_2017_2023.tif",
+     "size": 616911
+    },
+    "transition_vector": {
+     "checksum": "1220b0182915ba73d4c4119500a9c8c87fd2095420d2b436bc93a269312a74179e05",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/transition_vector.gpkg",
+     "size": 737280
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:120502a9fc9d6a8a7eb4a9fde908acfff2a9ea1ee6937a829ff07b8f300fd731",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260903_173205-67013fc3",
+    "nge:link_sha": "a83e94540932094503ca3b55221a42ab459bce5e",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T19:32:55Z"
+   }
+  },
+  "ufra_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220c69c568dfbc120d06c37006bd36988de0b82e9e23ebea8d3eaef2720e47d958d",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified_2017.tif",
+     "size": 628590
+    },
+    "classified_2020": {
+     "checksum": "122041eb596291d111f6a2794b0c37f608fc58650739aae1fd5a49e19ad34ef52326",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified_2020.tif",
+     "size": 622353
+    },
+    "classified_2023": {
+     "checksum": "1220616eb9d82b4df089a55c8ca967ed41bc30bc0a2862284d8725c6a1b1ece1d32f",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified_2023.tif",
+     "size": 608767
+    },
+    "floodplain": {
+     "checksum": "122019e427d19ddfd6bfa55619d1203bba90d0c937b46e65603edbf6ab5a3b980002",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/floodplain.gpkg",
+     "size": 3497984
+    },
+    "floodplain_landcover": {
+     "checksum": "12204d0050a885b60076d37a8fb414f50c317ae03ec863f545c515fff54b1c66b7f5",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/floodplain_landcover.gpkg",
+     "size": 19062784
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "12201d2d7bbe76420e6a03278d2cc545277b0a771f13d43480c647c4b9a9810f37ac",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/transition_2017_2023.tif",
+     "size": 1196729
+    },
+    "transition_vector": {
+     "checksum": "1220c0c83a695769982d585f1f66aa39d8b0c146c17403a39cf395044ccaff9a2240",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/transition_vector.gpkg",
+     "size": 4190208
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:10c485206fe96e62ca0f977637ddc6cde27dc69703ecfb51d3e8381e973d2172",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T07:16:49Z"
+   }
+  },
+  "unth_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220ce3ebb44ae2827b30b300e6811f37656f01478a73a77f547f4df6d6b32cc48c0",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified_2017.tif",
+     "size": 462832
+    },
+    "classified_2020": {
+     "checksum": "122081cfe3603f0839101850e065939e74a8bd7e4e87733d3106c7e934c2ed80a055",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified_2020.tif",
+     "size": 454782
+    },
+    "classified_2023": {
+     "checksum": "1220184d36d92ff6e5b3f16309a76e3171c5b3e8d79527f79503aaa34fb4a1d65a51",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified_2023.tif",
+     "size": 455539
+    },
+    "floodplain": {
+     "checksum": "1220cbfcd0a577fc6908cf4c8034b22dcef7ceedcefdece8b549ba2ccc5f586037e6",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/floodplain.gpkg",
+     "size": 2502656
+    },
+    "floodplain_landcover": {
+     "checksum": "1220a2a909039f59f09c2e1ecc9ba5bcf162ce540372807444b251e8496fb9a68f04",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/floodplain_landcover.gpkg",
+     "size": 9928704
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "12202ebd99be02bc1158009453c7b0886eadb269cdac650fdba3327f2614307dcac8",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/transition_2017_2023.tif",
+     "size": 960802
+    },
+    "transition_vector": {
+     "checksum": "12201e35ca9971f7a1b3eff7a516b99ad0a0b9ca6b6dd5e70f1c3ff235483ed3c580",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/transition_vector.gpkg",
+     "size": 1814528
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:935af44e18f8da42dc8aa89e5a2f1ae014309fae326d01bdc20319d9ac94c385",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260903_173205-67013fc3",
+    "nge:link_sha": "a83e94540932094503ca3b55221a42ab459bce5e",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T20:16:31Z"
+   }
+  },
+  "will_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "checksum": "1220227556ca403f90b46b87712fb9c56e68b7e626d71b49a809979ce914b36956be",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified_2017.tif",
+     "size": 702414
+    },
+    "classified_2020": {
+     "checksum": "12200a5fc17812706a14d693015c50b363f95d0c0a55fcffa664adc47711682ecbcc",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified_2020.tif",
+     "size": 703192
+    },
+    "classified_2023": {
+     "checksum": "12209ae38d8687b6b8a7c677a87a2f17f866b1c484b94ecb95fb90e6fdb731098af8",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified_2023.tif",
+     "size": 703959
+    },
+    "floodplain": {
+     "checksum": "122070fe40c7663be43a2e3d40a010832cc707126fd96a910644c2f98604b472d855",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/floodplain.gpkg",
+     "size": 5083136
+    },
+    "floodplain_landcover": {
+     "checksum": "1220c2d274a9c4ae22c6ff63d4bde1aaa060d2109dff931374f51e6490db2babc8fd",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/floodplain_landcover.gpkg",
+     "size": 12709888
+    },
+    "style_classified": {
+     "checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified.qml",
+     "size": 17116
+    },
+    "style_floodplain": {
+     "checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/floodplain.qml",
+     "size": 2460
+    },
+    "style_transition": {
+     "checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/transition.qml",
+     "size": 139149
+    },
+    "transition_2017_2023": {
+     "checksum": "1220270dacf549b895b5d5dd9042fc2000afdd83567db9710c64e156bf0e9fc1c1ac",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/transition_2017_2023.tif",
+     "size": 1215379
+    },
+    "transition_vector": {
+     "checksum": "1220df897dfbccb5a3f6149c262bf604c01098fbf6358eaabe0b6f8b5bd2b0dbd253",
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/transition_vector.gpkg",
+     "size": 1503232
+    }
+   },
+   "deprecated": null,
+   "nge": {
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:97095daeb59126fc75e8699e22568bc3de743b10096160a1c87ca535abdc662b",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T07:39:25Z"
+   }
+  }
+ }
+}
