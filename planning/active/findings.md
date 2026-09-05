@@ -212,10 +212,98 @@ exactly the tag reason above.
 `style_drift-check.py` re-run against the freshly staged `classes.json`: 3 styles
 byte-identical, 9 classes.
 
+## The gate caught a real upstream defect — floodplains#83
+
+`necr_ch_ff04` failed the gate on **30 tags per classified COG** that the live published
+assets do not carry, and `kotl_bt_ff04` failed the same way. `bulk` and `lnth` did not. Traced
+to the producer's own rasters, so it is upstream and this repo only carries it through
+`CreateCopy`:
+
+| area | scenario | tags on `classified_2017.tif` | gdalcubes block |
+|---|---|---:|---|
+| `bulk` | `co_ff04` | 1 | no |
+| `necr` | `ch_ff04` | 31 | **yes (30)** |
+| `lnth` | `ch_ff04` | 1 | no |
+| `kotl` | `bt_ff04` | 31 | **yes (30)** |
+
+The `transition.tif` is clean in all four — only the classified series.
+
+Two of the tags **contradict the file they sit on**: `data#type = 'float64'` and
+`data#_FillValue = 'nan'` on a raster whose own header says `uint8` / nodata `255` (confirmed
+again post-publish, reading over `/vsicurl/`: `Byte`, nodata 255). They describe the gdalcubes
+NetCDF cube the raster was cut from. A third, `NC_GLOBAL#process_graph`, embeds a
+producer-machine temp path (`/tmp/RtmpOPwc60/file143d644d5df9.db`). `crs#spatial_ref` is
+correct in both areas (32610 for `necr`, 32611 for `kotl`).
+
+Filed as **NewGraphEnvironment/floodplains#83** rather than worked around, per the
+surface-upstream-defects rule. **Published anyway**, deliberately: pixels, geometry, nodata,
+dtype, block layout and the RAT are all identical, the tags are metadata describing something
+other than the file, and — unlike a geometry loss — they are **fully recoverable by a later
+republish** once #83 lands, so this is not the irreversible class. Withholding two of the four
+would have left the collection half-migrated for no gain in correctness.
+
+The gate was widened **by name** (`NC_GLOBAL#`, `NETCDF_`, `crs#`, `data#`, `time#`, `x#`,
+`y#`), not by relaxing it to ignore tags: an unnamed tag still fails, which is the only reason
+this was caught at all. The allowance is deleted when #83 lands.
+
+## Phases 1–4 complete — all four items live on the seven-year span
+
+Each: build `PASS`, gate `PASS`, `catalogue_release.sh --only` `RC=0`, read-back `OK`. Every
+publish ran from a clean tracked tree at `HEAD=06eafb1` (bulk at `4899223`).
+
+| item | assets | classified years | tag moves on the pre-existing COGs |
+|---|---:|---|---|
+| `bulk_co_ff04` | 10 -> 14 | 2017..2023 | 4 |
+| `necr_ch_ff04` | 10 -> 14 | 2017..2023 | 34 (30 = floodplains#83) |
+| `lnth_ch_ff04` | 10 -> 14 | 2017..2023 | 4 |
+| `kotl_bt_ff04` | 10 -> 14 | 2017..2023 | 34 (30 = floodplains#83) |
+
+For every item the read-back asserts **exactly four properties moved and nothing else** —
+`nge:landcover_key` (matching the offline seven-year fold), `nge:landcover_item_hash`,
+`nge:drift_version` (now `0.13.0`), `nge:produced_datetime`. Unchanged in every case: the three
+floodplain extents, the tree-change figures, the temporal window, `bbox`, geometry, and the
+`floodplain` / `transition_vector` / three style assets on both checksum **and** size.
+
+`kotl_bt_ff04` serves 30 properties rather than 31 — its `nge:link_run_uid` is a published
+null, as it was before. The `--only` preflight read `live 11 / build 11` and was satisfied.
+
+## Phase 5 — whole-catalogue verification
+
+**API.** All 23 items re-read. The **19 untouched items are byte-identical**: every property,
+`bbox`, geometry digest, and every asset's `file:checksum`, `file:size`, `href` and `type`. The
+four republished carry 14 assets and 7 classified years each.
+
+**Bucket.** 258 objects before, 270 after. 12 added, 18 changed, **0 removed**, and every one
+of the 30 belongs to `necr_ch_ff04`, `lnth_ch_ff04` or `kotl_bt_ff04` (`bulk`'s writes predate
+the listing). **210 objects outside the four items: ETag unchanged, none added, none removed.**
+`collection.json` was never written and the served version is still `1.1.0`.
+
+The bucket half is the load-bearing one. `--only` never writes the 19 untouched pgstac rows, so
+an API diff over them re-reads rows nothing touched; S3 is where "byte-identical" is actually
+exposed, and the ETag comparison is what tests it.
+
+**Consumer read (drift#62).** `gdalinfo` (GDAL 3.13.0, the Homebrew CLI — not the uv env's
+rasterio) over `/vsicurl/` on a **newly published** year per item, since 2017/2020/2023 would
+have answered regardless:
+
+```
+bulk_co_ff04 classified_2018   11552x14651 Byte, nodata 255, 5 overviews, RAT 9 rows
+necr_ch_ff04 classified_2019    8945x6288  Byte, nodata 255, 5 overviews, RAT 9 rows
+lnth_ch_ff04 classified_2021    5398x11212 Byte, nodata 255, 5 overviews, RAT 9 rows
+kotl_bt_ff04 classified_2022   15219x13437 Byte, nodata 255, 5 overviews, RAT 9 rows
+kotl_bt_ff04 transition_2017_2023                                        RAT 81 rows
+```
+
+Labels come back (`Water`, `Trees`, `Flooded Vegetation`; `Water (no change)`, `Water -> Trees`),
+so the RAT embedded on the **new** assets, not merely inherited by the old ones.
+
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
+| Gate failed: rebuilt COGs' `file:checksum` all moved | Not a defect. Every COG carries the item's `NGE_*` provenance block; four values move when the year set widens. Gate rewritten to assert pixel/geometry/RAT identity instead. |
+| Gate failed: 30 unexplained tags on `necr`/`kotl` classified COGs | Real, and upstream — filed floodplains#83. Allowed by name so an unnamed tag still fails. |
+| `readback.py` passed vacuously on `bulk` | `baseline_full.json` post-dated `bulk`'s publish, so it compared the item to itself. Added a premise check that refuses a 14-asset baseline; `bulk` verified against the tracked README cache instead. |
 
 ## Issue context
 
