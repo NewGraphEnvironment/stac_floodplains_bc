@@ -47,9 +47,11 @@ republish of the annual areas is #59.
   directions: an unsanctioned span is refused, and a sanctioned span no item uses is reported
   as a literal nobody updated. That second arm is the one `--partial` drops, because it asks
   about items a subset legitimately does not contain (#26).
-- A new arm compares each item's published `classified_*` assets against the COGs actually in
-  its directory. `aws s3 sync` uploads the directory, not the asset list, so a stray COG
-  reaching the public bucket described by nothing was caught by no guard in this repo.
+- A new arm compares each item's **whole directory** against its published assets. The release
+  syncs the directory, not the asset list, so any file sitting beside the assets reaches the
+  public bucket with nothing pointing at it — and no other guard in this repo enumerates an
+  item directory. Deliberately not scoped to the classified COGs: a guard covering one file
+  kind reads, to the next person, as "the directory is guarded".
 - `scripts/stage_years-check.R` and `scripts/year_sets-check.py` are new, and
   `scripts/fp_provenance-check.R` grew 23 assertions, to 72. Each restores a defect and greps for **that
   guard's own message**: a suite with N guards has N ways to exit 1, and only one of them is
@@ -57,10 +59,12 @@ republish of the annual areas is #59.
   lacks; a raster on disk the record does not name — the direction that had no guard at all
   before this change; and a record naming a year nobody built), five at the validator.
 - `test_pipeline.R` now passes `--partial`, for the reason `catalogue_release.sh --only` does
-  (#26). Measured on `main` as well as here: without it the smoke test has been unable to
-  validate **any** watershed group except the two named in `EXPECTED_DEPRECATED` since #26
-  landed, because the deprecation check's last arm asks about ids absent from a one-group
-  tree. Its two hardcoded asset counts are now per item.
+  (#26). Measured on `main` as well as here: since #26 landed the smoke test has been unable
+  to validate **any watershed group at all**. The deprecation check's last arm asks about ids
+  absent from the tree, `EXPECTED_DEPRECATED` names two items, and a one-group tree is always
+  missing at least one of them — including the two groups that *are* in the literal, since
+  each is missing the other. Its two hardcoded asset counts are now per item, and the first
+  compares the asset **set**, because a count passes for the right number of wrong names.
 - `run_pipeline.sh` warns about `ALLOW_DRIFT_SKEW` the way it already warned about
   `ALLOW_SKIPPED`: same persistence-in-an-exported-shell hazard, worse consequence.
 

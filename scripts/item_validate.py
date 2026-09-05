@@ -685,7 +685,6 @@ ALLOWED_YEAR_SETS = (
 # does not have — "every allowed set is used by some item" — must be dropped, because the
 # normal state of a subset is not to use them all.
 CLASSIFIED_KEY_RE = re.compile(r"^classified_(\d{4})$")
-CLASSIFIED_FILE_RE = re.compile(r"^classified_(\d{4})\.tif$")
 
 # The producer writes the vector's `transition` column with an ASCII arrow and the RAT's
 # titles with U+2192. Measured, and deliberate on both sides — so the comparison below has
@@ -1404,6 +1403,29 @@ def check_checksums(base: Path, partial: bool = False) -> tuple[list[str], dict[
         item_id = doc["id"]
         asset_keys[item_id] = set(doc.get("assets", {}))
 
+        # The release syncs the DIRECTORY, not the asset list (`aws s3 sync "$STAC_DIR"`),
+        # so any file sitting beside the assets reaches the public bucket described by
+        # nothing — and no other guard in this repo enumerates an item directory.
+        #
+        # Compared WHOLE, deliberately. Scoping it to the classified COGs would leave a
+        # stray transition COG, GeoPackage or .qml uncovered while reading, to the next
+        # person, as "the directory is guarded" — a guard's scope is usually a coincidence
+        # and it will not announce itself. The other direction (an asset with no file) is
+        # already the per-asset loop's `asset not on disk`, so only strays are reported.
+        #
+        # Names only files this tree HAS, so it survives --partial.
+        item_dir = base / item_id
+        if item_dir.is_dir():
+            on_disk = {p.name for p in item_dir.iterdir() if p.is_file()}
+            published = {PurePosixPath(urlparse(a["href"]).path).name
+                         for a in doc.get("assets", {}).values() if a.get("href")}
+            stray = on_disk - published
+            if stray:
+                problems.append(
+                    f"{item_id}: {len(stray)} file(s) in {item_dir} that no asset describes "
+                    f"({sorted(stray)}) — the release syncs the directory, so these would "
+                    f"reach the public bucket with nothing pointing at them")
+
         for key, asset in sorted(doc.get("assets", {}).items()):
             where = f"{item_id}/{key}"
             checksum = asset.get("file:checksum")
@@ -1488,32 +1510,26 @@ def check_checksums(base: Path, partial: bool = False) -> tuple[list[str], dict[
                 continue
             used[match].append(item_id)
 
-            # Arm (d), and it is about a different defect: the asset keys must match the
-            # COGs actually sitting in the item's directory. `aws s3 sync` uploads every
-            # file under it regardless of whether an asset describes one, so a stray COG
-            # reaching a public bucket is caught by nothing else. Also names only files
-            # the subset contains, so it survives --partial.
-            on_disk = {m.group(0)[: -len(".tif")]
-                       for f in (base / item_id).glob("*.tif")
-                       for m in [CLASSIFIED_FILE_RE.match(f.name)] if m}
-            if on_disk != keys:
-                problems.append(
-                    f"{item_id}: classified assets {sorted(keys)} do not match the "
-                    f"classified COGs in {base / item_id} ({sorted(on_disk) or 'none'}) — "
-                    f"published-but-absent {sorted(keys - on_disk) or 'none'}, "
-                    f"present-but-unpublished {sorted(on_disk - keys) or 'none'}. The sync "
-                    f"uploads the directory, not the asset list")
-
         # Arm (b): every sanctioned set is actually used. Asks about items the tree may
         # legitimately not contain, so it is the one arm --partial drops.
         if not partial:
             for y, ids in sorted(used.items()):
                 if not ids:
+                    # TWO directions, and the remedy has to name both. A set that has
+                    # BECOME unused should be deleted. A set added AHEAD of its data — the
+                    # live state of floodplains#79 — must not be: deleting it would make
+                    # arm (a) refuse the first item that arrives on it, so the remedy would
+                    # walk the operator back through the guard. The likeliest trigger is
+                    # not a stale literal at all but a group that failed to stage.
                     problems.append(
                         "no item publishes the year set "
                         + "/".join(str(v) for v in y)
-                        + " — it is an entry in ALLOWED_YEAR_SETS that nobody updated. "
-                        "Delete it once the rollout that made it obsolete is finished")
+                        + " — an entry in ALLOWED_YEAR_SETS that no item in this build "
+                        "uses. If the rollout that made it obsolete has finished, delete "
+                        "it. If the rollout that will USE it has not reached this build "
+                        "yet, do NOT delete it — check that the groups you expected to "
+                        "supply it actually staged (data/raw/PARTIAL_STAGE names any that "
+                        "did not)")
     return problems, used
 
 

@@ -71,3 +71,21 @@ The reviewer also ran all three suites and measured disk-vs-record across all 23
 targets: 21 match, 2 forward-only, **no target becomes unstageable**. And it confirmed
 empirically that R's `unlink(recursive = TRUE)` removes a symlink rather than its target, which
 is what makes the sandbox safe.
+
+### Review round 2 — 4 findings, all real, all fixed
+
+The validator logic came back clean under mutation testing (neutering an arm turns exactly
+one assertion red, so every case reaches the arm it names). All four findings were in
+**claims**, which is the same mechanism as round 1's:
+
+| finding | fix |
+|---|---|
+| the blast-radius claim was false AND understated it — the smoke test could validate *no* group, not "any but the two" | `EXPECTED_DEPRECATED` names two items, so a one-group tree is always missing at least one, including each of the two themselves. Corrected in `NEWS.md`, the `test_pipeline.R` comment and the PR body |
+| the stray-file arm was described as catching "a stray COG" and only covered `classified_<yyyy>.tif` | **widened** rather than narrowed — the arm now compares the item's whole directory against its published assets, which is what the comment's own `aws s3 sync` reasoning argues for. Three stray shapes proved, plus a control |
+| arm (b)'s remedy covered only the *became-obsolete* direction; for a set added *ahead* of its data, deleting it walks the operator back through arm (a) | both directions named, and the likeliest real cause (a group that failed to stage) pointed at. Pinned as **rendered text**, since an assertion matching only the interpolated year set is blind to the sentence around it |
+| `item_create.py`'s module docstring still declared `classified_2017/2020/2023` | corrected — the same class as round 1's `CLAUDE.md:83`, in a file round 1 was not given |
+
+Two things worth keeping from the round: the `expect_problem` needle discipline caught my own
+rewording of arm (b)'s message the moment the fix landed, which is precisely why the cases
+grep for a message instead of a status. And my own PR body carried a stale assertion count
+twice — the same "restated rather than derived" mechanism, in the document I wrote about it.

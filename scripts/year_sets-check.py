@@ -127,8 +127,18 @@ shutil.rmtree(b)
 b = tree([{"item_id": "aaa_ch_ff04", "years": THREE},
           {"item_id": "bbb_ch_ff04", "years": THREE}])
 problems, _ = check_checksums(b, partial=False)
-expect_problem("a set no item uses is reported as a stale literal", problems,
-               "is an entry in ALLOWED_YEAR_SETS that nobody updated")
+expect_problem("a set no item uses is reported", problems,
+               "an entry in ALLOWED_YEAR_SETS that no item in this build uses")
+# The message makes a CLAIM about what to do, not just a report, and a guard that fires
+# correctly and then points at the wrong fix is its own defect class. This arm has two
+# directions — a set that has become obsolete, and a set added ahead of its data — and
+# deleting the literal is right for the first and walks the operator back through arm (a)
+# for the second. Pinned as rendered text, because an assertion matching only the
+# interpolated year set is structurally blind to the sentence around it.
+msg = next(p for p in problems if "ALLOWED_YEAR_SETS" in p)
+expect_clean("...and its remedy names BOTH directions, not just the obsolete one",
+             [] if ("has finished, delete" in msg and "do NOT delete it" in msg
+                    and "actually staged" in msg) else [msg])
 # The --partial partition, and this is the arm that must come OFF: it asks about a year set
 # ABSENT from the tree, which is the normal state of a subset (#26). Getting this wrong
 # would refuse every single-item release, exactly as #26 did.
@@ -158,14 +168,24 @@ expect_problem("an unsanctioned span is refused even though it is self-consisten
                problems, "are not any sanctioned year set")
 shutil.rmtree(b)
 
-print("arm (d): the published assets against the COGs on disk")
-# `aws s3 sync` uploads the DIRECTORY, not the asset list, so a stray COG reaches a public
-# bucket described by nothing. Caught by no other guard in this repo.
-b = tree([{"item_id": "aaa_ch_ff04", "years": THREE,
-           "extra_files": ("classified_2019.tif",)}])
+print("the stray-file arm: the item directory against the published assets")
+# `aws s3 sync` uploads the DIRECTORY, not the asset list, so anything sitting beside the
+# assets reaches a public bucket described by nothing. Three shapes, because the arm was
+# widened past classified COGs precisely so the other two are not left uncovered — a guard
+# scoped to one file kind reads as "the directory is guarded".
+for stray, label in ((("classified_2019.tif",), "a stray classified COG"),
+                     (("transition_2017_2025.tif",), "a stray transition COG"),
+                     (("scratch.gpkg", "notes.txt"), "a stray GeoPackage and a stray text file")):
+    b = tree([{"item_id": "aaa_ch_ff04", "years": THREE, "extra_files": stray}])
+    problems, _ = check_checksums(b, partial=True)
+    expect_problem(f"{label} is refused", problems,
+                   f"that no asset describes ({sorted(stray)})")
+    shutil.rmtree(b)
+# The control that makes the three above mean something: the arm must NOT fire on the
+# directory it is supposed to bless.
+b = tree([{"item_id": "aaa_ch_ff04", "years": SEVEN}])
 problems, _ = check_checksums(b, partial=True)
-expect_problem("a COG on disk that no asset describes is refused", problems,
-               "present-but-unpublished ['classified_2019']")
+expect_clean("...and a directory holding exactly its own assets is clean", problems)
 shutil.rmtree(b)
 
 print("the fixed half is still compared across items")

@@ -72,10 +72,14 @@ if (system("uv run python scripts/item_create.py") != 0) {
 message("\n=== VALIDATE ===")
 # `--partial`, for the reason catalogue_release.sh passes it under --only (#26): the
 # deprecation check's last arm asks about ids ABSENT from the tree, and a one-group tree
-# not containing mcgr/pine is the normal state of a subset, not a defect. Without it this
-# smoke test could only ever run for those two groups — measured on this branch and on
-# main, where `WSG=ufra` fails identically. Every per-item arm still runs; #61's own
-# unused-year-set arm is dropped here for the same reason.
+# not holding them is the normal state of a subset, not a defect.
+#
+# Without it this smoke test could not run for ANY group — not even mcgr or pine, since
+# EXPECTED_DEPRECATED names two items and a one-group tree is always missing at least one
+# of them. Measured on this branch and on main, where `WSG=ufra` fails identically.
+#
+# Every per-item arm still runs; #61's own unused-year-set arm is dropped for the same
+# reason, and for the same reason it is safe to drop.
 if (system("uv run python scripts/item_validate.py --partial") != 0) {
   stop("item_validate.py failed — the built STAC JSON is invalid")
 }
