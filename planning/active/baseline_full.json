@@ -1,0 +1,4034 @@
+{
+ "bucket_objects": {
+  "bowr_ch_ff04.json": {
+   "etag": "\"dc44a408e0976b47c417010b468ef6ea\"",
+   "modified": "2026-09-04T06:19:11+00:00",
+   "size": 4396192
+  },
+  "bowr_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 17116
+  },
+  "bowr_ch_ff04/classified_2017.tif": {
+   "etag": "\"ce6ed1420da49be6719ce89272dc15cc\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 710674
+  },
+  "bowr_ch_ff04/classified_2020.tif": {
+   "etag": "\"906f2d61a9a0fe99f6a8c877652e31e0\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 703106
+  },
+  "bowr_ch_ff04/classified_2023.tif": {
+   "etag": "\"4c17d4bdf58d0b37026f53b9d1b5f228\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 707514
+  },
+  "bowr_ch_ff04/floodplain.gpkg": {
+   "etag": "\"f30eccb244532be2a7e87c288f0c2422\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 4493312
+  },
+  "bowr_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 2460
+  },
+  "bowr_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"1e45ebfe1cb5141bf4991cd5dfe85ba4-2\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 12025856
+  },
+  "bowr_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 139149
+  },
+  "bowr_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"4a2d85a7f2728f1963d160a0f8e7e11c\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 1307028
+  },
+  "bowr_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"f5968d53acadbd2d9993a6da2be65fca\"",
+   "modified": "2026-09-04T06:17:32+00:00",
+   "size": 1355776
+  },
+  "bulk_co_ff04.json": {
+   "etag": "\"7cb6ffbe0e10dbd6cf1908b4e630a078-2\"",
+   "modified": "2026-09-05T21:29:08+00:00",
+   "size": 8587448
+  },
+  "bulk_co_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 17116
+  },
+  "bulk_co_ff04/classified_2017.tif": {
+   "etag": "\"53a29de5ef8199bb1b3c02482d294469\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 1246472
+  },
+  "bulk_co_ff04/classified_2018.tif": {
+   "etag": "\"74b649a14ac038a6345b7ca7d0ea0f82\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 1225412
+  },
+  "bulk_co_ff04/classified_2019.tif": {
+   "etag": "\"6210601dfe9f959cf6e1daa9df1b426a\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 1240199
+  },
+  "bulk_co_ff04/classified_2020.tif": {
+   "etag": "\"11a8bfc52f94bea5bdfcffd4c198af88\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 1255708
+  },
+  "bulk_co_ff04/classified_2021.tif": {
+   "etag": "\"f470742f9539072a5b5e5ed136199910\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 1242208
+  },
+  "bulk_co_ff04/classified_2022.tif": {
+   "etag": "\"a172eb4dd04c97dd20540e1d57af271e\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 1228959
+  },
+  "bulk_co_ff04/classified_2023.tif": {
+   "etag": "\"759716efb6d9f8efbdbaa3bf96c73a79\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 1241743
+  },
+  "bulk_co_ff04/floodplain.gpkg": {
+   "etag": "\"1f8d87701f35ffc87c67a4fd053a950d-2\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 8613888
+  },
+  "bulk_co_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 2460
+  },
+  "bulk_co_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"d78281946610ef40bdcbfd225cc119d8-7\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 52961280
+  },
+  "bulk_co_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 139149
+  },
+  "bulk_co_ff04/transition_2017_2023.tif": {
+   "etag": "\"a8f66a8cb2ee7ee5dbf3e46d6b161b88\"",
+   "modified": "2026-09-05T21:29:03+00:00",
+   "size": 2280637
+  },
+  "bulk_co_ff04/transition_vector.gpkg": {
+   "etag": "\"b125b1b4a65db178d9aa7253fb600bbe\"",
+   "modified": "2026-09-05T21:29:05+00:00",
+   "size": 4935680
+  },
+  "collection.json": {
+   "etag": "\"8910580cc56b210638e8344cb942284a\"",
+   "modified": "2026-09-04T06:19:11+00:00",
+   "size": 7813
+  },
+  "fran_ch_ff04.json": {
+   "etag": "\"bdda455966bde0b79a5e2386a72b90e4-2\"",
+   "modified": "2026-09-04T06:19:11+00:00",
+   "size": 9044836
+  },
+  "fran_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:17:38+00:00",
+   "size": 17116
+  },
+  "fran_ch_ff04/classified_2017.tif": {
+   "etag": "\"b167ce7b7abf5665861625889a52b1a1\"",
+   "modified": "2026-09-04T06:17:45+00:00",
+   "size": 1176054
+  },
+  "fran_ch_ff04/classified_2020.tif": {
+   "etag": "\"4ce3d5eafecaa52b4fa020ba8a09b3b3\"",
+   "modified": "2026-09-04T06:17:41+00:00",
+   "size": 1214159
+  },
+  "fran_ch_ff04/classified_2023.tif": {
+   "etag": "\"5c8e639f0e60b1ba1cfe694d8aea61a4\"",
+   "modified": "2026-09-04T06:17:44+00:00",
+   "size": 1183595
+  },
+  "fran_ch_ff04/floodplain.gpkg": {
+   "etag": "\"93fe422ad15aac08945acf50b069a2c6-2\"",
+   "modified": "2026-09-04T06:17:38+00:00",
+   "size": 9109504
+  },
+  "fran_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:17:44+00:00",
+   "size": 2460
+  },
+  "fran_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"ba471489f4f4ab9182494eedf006d23e-4\"",
+   "modified": "2026-09-04T06:17:38+00:00",
+   "size": 32378880
+  },
+  "fran_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:17:41+00:00",
+   "size": 139149
+  },
+  "fran_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"1faa2804ce1099dc485feb2603fa7eac\"",
+   "modified": "2026-09-04T06:17:46+00:00",
+   "size": 2111725
+  },
+  "fran_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"70bd0eb4379e8dcd032605f19fea024d\"",
+   "modified": "2026-09-04T06:17:47+00:00",
+   "size": 4771840
+  },
+  "kisp_ch_ff04.json": {
+   "etag": "\"9fd2be940cb178594c8f92d2cbb0f895\"",
+   "modified": "2026-09-04T06:19:11+00:00",
+   "size": 5729308
+  },
+  "kisp_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:17:48+00:00",
+   "size": 17116
+  },
+  "kisp_ch_ff04/classified_2017.tif": {
+   "etag": "\"e0d20c01e537ceb9217bcb314cb71afc\"",
+   "modified": "2026-09-04T06:17:47+00:00",
+   "size": 814890
+  },
+  "kisp_ch_ff04/classified_2020.tif": {
+   "etag": "\"579cb1b00d35b2fda563aba1cbe2f730\"",
+   "modified": "2026-09-04T06:17:47+00:00",
+   "size": 783796
+  },
+  "kisp_ch_ff04/classified_2023.tif": {
+   "etag": "\"334b3aef349234c26ea452fd5e073430\"",
+   "modified": "2026-09-04T06:17:48+00:00",
+   "size": 776972
+  },
+  "kisp_ch_ff04/floodplain.gpkg": {
+   "etag": "\"ae7e5c89cc1decaf2a3753bc6b716c9d\"",
+   "modified": "2026-09-04T06:17:48+00:00",
+   "size": 5677056
+  },
+  "kisp_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:17:48+00:00",
+   "size": 2460
+  },
+  "kisp_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"9683705b51e26ad3b6e27209a6166612-2\"",
+   "modified": "2026-09-04T06:17:48+00:00",
+   "size": 16580608
+  },
+  "kisp_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:17:48+00:00",
+   "size": 139149
+  },
+  "kisp_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"dccfc1117abaf6075f4f3a82b56e4f3e\"",
+   "modified": "2026-09-04T06:17:49+00:00",
+   "size": 1495396
+  },
+  "kisp_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"a0d3a71b3ea77fa4adc96140caafd7f2\"",
+   "modified": "2026-09-04T06:17:48+00:00",
+   "size": 2641920
+  },
+  "kotl_bt_ff04.json": {
+   "etag": "\"36cb9c793a37bc922eaef3778cf5da24\"",
+   "modified": "2026-09-04T06:19:11+00:00",
+   "size": 6568833
+  },
+  "kotl_bt_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:17:49+00:00",
+   "size": 17116
+  },
+  "kotl_bt_ff04/classified_2017.tif": {
+   "etag": "\"9cfcdd23d076751dfa6ace12f38d8c82\"",
+   "modified": "2026-09-04T06:17:49+00:00",
+   "size": 1138452
+  },
+  "kotl_bt_ff04/classified_2020.tif": {
+   "etag": "\"21a85ecf94d59cf1860aa9b5f3683a70\"",
+   "modified": "2026-09-04T06:17:49+00:00",
+   "size": 1133182
+  },
+  "kotl_bt_ff04/classified_2023.tif": {
+   "etag": "\"6ab304cce549857d4a42eca36f2ff967\"",
+   "modified": "2026-09-04T06:17:49+00:00",
+   "size": 1140404
+  },
+  "kotl_bt_ff04/floodplain.gpkg": {
+   "etag": "\"86b5e2803efd73f02c2131680947785f\"",
+   "modified": "2026-09-04T06:17:50+00:00",
+   "size": 4259840
+  },
+  "kotl_bt_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:17:50+00:00",
+   "size": 2460
+  },
+  "kotl_bt_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"695e5e3ab2fb936c8966dc0fd0983a8d-3\"",
+   "modified": "2026-09-04T06:17:50+00:00",
+   "size": 21311488
+  },
+  "kotl_bt_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:17:53+00:00",
+   "size": 139149
+  },
+  "kotl_bt_ff04/transition_2017_2023.tif": {
+   "etag": "\"d5acd817ede7a3e33c025a1a17486572\"",
+   "modified": "2026-09-04T06:17:51+00:00",
+   "size": 2269254
+  },
+  "kotl_bt_ff04/transition_vector.gpkg": {
+   "etag": "\"20b43db19b33327e0f9e6c18b870fba8\"",
+   "modified": "2026-09-04T06:17:53+00:00",
+   "size": 3624960
+  },
+  "larl_bt_ff04.json": {
+   "etag": "\"a0d712c275d635cdaebfe4a3e04dedf7\"",
+   "modified": "2026-09-04T06:19:11+00:00",
+   "size": 4123553
+  },
+  "larl_bt_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:17:54+00:00",
+   "size": 17116
+  },
+  "larl_bt_ff04/classified_2017.tif": {
+   "etag": "\"9bd8587949755dcc9e1ddfad81c8108f\"",
+   "modified": "2026-09-04T06:17:54+00:00",
+   "size": 673660
+  },
+  "larl_bt_ff04/classified_2020.tif": {
+   "etag": "\"1c1695fe69e5170c5c430137510c9230\"",
+   "modified": "2026-09-04T06:17:53+00:00",
+   "size": 677258
+  },
+  "larl_bt_ff04/classified_2023.tif": {
+   "etag": "\"99b6bb2c1c7a8cf2950f4c53ecbb2723\"",
+   "modified": "2026-09-04T06:17:54+00:00",
+   "size": 690560
+  },
+  "larl_bt_ff04/floodplain.gpkg": {
+   "etag": "\"b713a444eafa0d6f811a5e6fe247ef3b\"",
+   "modified": "2026-09-04T06:17:54+00:00",
+   "size": 2727936
+  },
+  "larl_bt_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:17:55+00:00",
+   "size": 2460
+  },
+  "larl_bt_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"7c02c6c80951d4ba21c23d66b9a552cc-2\"",
+   "modified": "2026-09-04T06:17:55+00:00",
+   "size": 10493952
+  },
+  "larl_bt_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:17:57+00:00",
+   "size": 139149
+  },
+  "larl_bt_ff04/transition_2017_2023.tif": {
+   "etag": "\"c5f632b7954067519a295ba1607ddf0e\"",
+   "modified": "2026-09-04T06:17:55+00:00",
+   "size": 1435379
+  },
+  "larl_bt_ff04/transition_vector.gpkg": {
+   "etag": "\"510f557f646db99e3f63e8a7527a47d3\"",
+   "modified": "2026-09-04T06:17:57+00:00",
+   "size": 1241088
+  },
+  "lchl_ch_ff04.json": {
+   "etag": "\"929a724530eec23a912ce18d4b0b59f3\"",
+   "modified": "2026-09-04T06:19:12+00:00",
+   "size": 5098437
+  },
+  "lchl_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:17:57+00:00",
+   "size": 17116
+  },
+  "lchl_ch_ff04/classified_2017.tif": {
+   "etag": "\"5bf939941aa9d240ca72a4c92f6f68f4\"",
+   "modified": "2026-09-04T06:17:58+00:00",
+   "size": 689293
+  },
+  "lchl_ch_ff04/classified_2020.tif": {
+   "etag": "\"bc1203ca214305fae36142a13e7d6e72\"",
+   "modified": "2026-09-04T06:17:58+00:00",
+   "size": 660401
+  },
+  "lchl_ch_ff04/classified_2023.tif": {
+   "etag": "\"12c54176c81275ccd8040ffd8b72cea2\"",
+   "modified": "2026-09-04T06:17:58+00:00",
+   "size": 642248
+  },
+  "lchl_ch_ff04/floodplain.gpkg": {
+   "etag": "\"18660282e47d72cc8c70186979b49dcc\"",
+   "modified": "2026-09-04T06:17:59+00:00",
+   "size": 5165056
+  },
+  "lchl_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:17:59+00:00",
+   "size": 2460
+  },
+  "lchl_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"5de18cf236915ac5e5601c4ffc2cb9c8-3\"",
+   "modified": "2026-09-04T06:17:59+00:00",
+   "size": 21110784
+  },
+  "lchl_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:00+00:00",
+   "size": 139149
+  },
+  "lchl_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"9861c2abd84273a35dcc44c2d36fa556\"",
+   "modified": "2026-09-04T06:18:00+00:00",
+   "size": 1150748
+  },
+  "lchl_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"9c5c6eaa4562a7adfd84b5ab105fcc58\"",
+   "modified": "2026-09-04T06:18:00+00:00",
+   "size": 4169728
+  },
+  "lnth_ch_ff04.json": {
+   "etag": "\"40a897edd5d5951681daa9f488f96ed6\"",
+   "modified": "2026-09-04T06:19:12+00:00",
+   "size": 2753822
+  },
+  "lnth_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:00+00:00",
+   "size": 17116
+  },
+  "lnth_ch_ff04/classified_2017.tif": {
+   "etag": "\"a0cd9810d2e1112bbb5ded58b6fe80d0\"",
+   "modified": "2026-09-04T06:18:01+00:00",
+   "size": 553452
+  },
+  "lnth_ch_ff04/classified_2020.tif": {
+   "etag": "\"997f76b76b9c0159b5d2803c7f27c341\"",
+   "modified": "2026-09-04T06:18:01+00:00",
+   "size": 548463
+  },
+  "lnth_ch_ff04/classified_2023.tif": {
+   "etag": "\"177898be1e2c6d1328c170fc8dd5a340\"",
+   "modified": "2026-09-04T06:18:00+00:00",
+   "size": 553011
+  },
+  "lnth_ch_ff04/floodplain.gpkg": {
+   "etag": "\"0a493ecdaf6e48f0864b027a4bcf5e8f\"",
+   "modified": "2026-09-04T06:18:01+00:00",
+   "size": 3088384
+  },
+  "lnth_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:02+00:00",
+   "size": 2460
+  },
+  "lnth_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"0b5703e76bd00777e9d0638868a05da6-2\"",
+   "modified": "2026-09-04T06:18:02+00:00",
+   "size": 11362304
+  },
+  "lnth_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:04+00:00",
+   "size": 139149
+  },
+  "lnth_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"67d7035391cb23f71c3d579a67eea14e\"",
+   "modified": "2026-09-04T06:18:02+00:00",
+   "size": 931127
+  },
+  "lnth_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"3cfe86fc73a7816a02fa6eec52aba3f3\"",
+   "modified": "2026-09-04T06:18:04+00:00",
+   "size": 2011136
+  },
+  "lsal_ch_ff04.json": {
+   "etag": "\"ddfaabd9ca15448fdafc82048c03dacf\"",
+   "modified": "2026-09-04T06:19:12+00:00",
+   "size": 3322278
+  },
+  "lsal_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:07+00:00",
+   "size": 17116
+  },
+  "lsal_ch_ff04/classified_2017.tif": {
+   "etag": "\"3d0e9f0fa76c17aca15d51a54c8fbfda\"",
+   "modified": "2026-09-04T06:18:07+00:00",
+   "size": 469485
+  },
+  "lsal_ch_ff04/classified_2020.tif": {
+   "etag": "\"c42d7755cfa4901423fb1a90afcf21f3\"",
+   "modified": "2026-09-04T06:18:07+00:00",
+   "size": 468380
+  },
+  "lsal_ch_ff04/classified_2023.tif": {
+   "etag": "\"9c8c5e287f6d1a8163de01df1c8f18fd\"",
+   "modified": "2026-09-04T06:18:04+00:00",
+   "size": 454927
+  },
+  "lsal_ch_ff04/floodplain.gpkg": {
+   "etag": "\"be29f414999230413be0a5528186150d\"",
+   "modified": "2026-09-04T06:18:07+00:00",
+   "size": 3395584
+  },
+  "lsal_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:05+00:00",
+   "size": 2460
+  },
+  "lsal_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"1daa19bf3ca3a848d3a247fabc6bfada-2\"",
+   "modified": "2026-09-04T06:18:05+00:00",
+   "size": 14708736
+  },
+  "lsal_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:05+00:00",
+   "size": 139149
+  },
+  "lsal_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"2481b427671568a4b9014fed4861e092\"",
+   "modified": "2026-09-04T06:18:06+00:00",
+   "size": 809009
+  },
+  "lsal_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"45ae290447aba63d714d604e2401f79d\"",
+   "modified": "2026-09-04T06:18:06+00:00",
+   "size": 2306048
+  },
+  "mcgr_ch_ff04.json": {
+   "etag": "\"2262b9fdfb24c4ef2b4480e9af13da9a\"",
+   "modified": "2026-09-04T06:19:14+00:00",
+   "size": 3357136
+  },
+  "mcgr_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:08+00:00",
+   "size": 17116
+  },
+  "mcgr_ch_ff04/classified_2017.tif": {
+   "etag": "\"8cf4a1ed066769ef9114565802a8c118\"",
+   "modified": "2026-09-04T06:18:09+00:00",
+   "size": 638340
+  },
+  "mcgr_ch_ff04/classified_2020.tif": {
+   "etag": "\"e76cd1b40c60502c711f8c97e73f5af2\"",
+   "modified": "2026-09-04T06:18:09+00:00",
+   "size": 623998
+  },
+  "mcgr_ch_ff04/classified_2023.tif": {
+   "etag": "\"9e5df191578a3719d7ff2362eda68182\"",
+   "modified": "2026-09-04T06:18:08+00:00",
+   "size": 616280
+  },
+  "mcgr_ch_ff04/floodplain.gpkg": {
+   "etag": "\"8d15d4470969b9e401d0d174b6828c85\"",
+   "modified": "2026-09-04T06:18:09+00:00",
+   "size": 2174976
+  },
+  "mcgr_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:08+00:00",
+   "size": 2460
+  },
+  "mcgr_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"f6fffd195a7a10579751191fa4a55abc-2\"",
+   "modified": "2026-09-04T06:18:08+00:00",
+   "size": 13762560
+  },
+  "mcgr_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:08+00:00",
+   "size": 139149
+  },
+  "mcgr_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"1ad02c4e1176474762696f9cd3bb3d87\"",
+   "modified": "2026-09-04T06:18:08+00:00",
+   "size": 1229639
+  },
+  "mcgr_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"a0e802dbe0472882cf24bc471561863b\"",
+   "modified": "2026-09-04T06:18:08+00:00",
+   "size": 2576384
+  },
+  "mork_ch_ff04.json": {
+   "etag": "\"880c60bf224aa6ecf07a98c496eaa71c-2\"",
+   "modified": "2026-09-04T06:19:14+00:00",
+   "size": 9034974
+  },
+  "mork_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:15+00:00",
+   "size": 17116
+  },
+  "mork_ch_ff04/classified_2017.tif": {
+   "etag": "\"4e6e7ad8a563b6b81ee56a256660e2bb\"",
+   "modified": "2026-09-04T06:18:10+00:00",
+   "size": 1239506
+  },
+  "mork_ch_ff04/classified_2020.tif": {
+   "etag": "\"7a45eecd4e7c7e8ba4c3401fb0107ea6\"",
+   "modified": "2026-09-04T06:18:14+00:00",
+   "size": 1223515
+  },
+  "mork_ch_ff04/classified_2023.tif": {
+   "etag": "\"2425a65e488f6cb3c80896370c61c242\"",
+   "modified": "2026-09-04T06:18:15+00:00",
+   "size": 1202315
+  },
+  "mork_ch_ff04/floodplain.gpkg": {
+   "etag": "\"9ddf926610c50c6a5cfe63a32607f702-2\"",
+   "modified": "2026-09-04T06:18:12+00:00",
+   "size": 9445376
+  },
+  "mork_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:10+00:00",
+   "size": 2460
+  },
+  "mork_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"2246e17687d20c42269041abc0c83833-4\"",
+   "modified": "2026-09-04T06:18:11+00:00",
+   "size": 26853376
+  },
+  "mork_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:11+00:00",
+   "size": 139149
+  },
+  "mork_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"94970fb66b6464d5e69d3b23ea44654d\"",
+   "modified": "2026-09-04T06:18:11+00:00",
+   "size": 2503671
+  },
+  "mork_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"48ce59a6ee855c4e700441d74c468a1a\"",
+   "modified": "2026-09-04T06:18:12+00:00",
+   "size": 3407872
+  },
+  "morr_ch_ff06.json": {
+   "etag": "\"68a94bff895d17995bb1c3f01821a7ed\"",
+   "modified": "2026-09-04T06:19:15+00:00",
+   "size": 5022197
+  },
+  "morr_ch_ff06/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:16+00:00",
+   "size": 17116
+  },
+  "morr_ch_ff06/classified_2017.tif": {
+   "etag": "\"92862534cff33c53cebf4b285e02b24d\"",
+   "modified": "2026-09-04T06:18:23+00:00",
+   "size": 730007
+  },
+  "morr_ch_ff06/classified_2020.tif": {
+   "etag": "\"b54f0d30b8072fb831501b2dda0be803\"",
+   "modified": "2026-09-04T06:18:16+00:00",
+   "size": 747750
+  },
+  "morr_ch_ff06/classified_2023.tif": {
+   "etag": "\"b8014b14de68f9c94bc9ef3d350629d4\"",
+   "modified": "2026-09-04T06:18:24+00:00",
+   "size": 719145
+  },
+  "morr_ch_ff06/floodplain.gpkg": {
+   "etag": "\"ea3817409169bb799029a1fdcc475cb1-2\"",
+   "modified": "2026-09-04T06:18:23+00:00",
+   "size": 12378112
+  },
+  "morr_ch_ff06/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:22+00:00",
+   "size": 2460
+  },
+  "morr_ch_ff06/floodplain_landcover.gpkg": {
+   "etag": "\"e4a46f5afbd194a20a7a4c7341388904-10\"",
+   "modified": "2026-09-04T06:18:16+00:00",
+   "size": 79032320
+  },
+  "morr_ch_ff06/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:22+00:00",
+   "size": 139149
+  },
+  "morr_ch_ff06/transition_2017_2023.tif": {
+   "etag": "\"75e9b1187f79a42ae078cc883ee5380c\"",
+   "modified": "2026-09-04T06:18:22+00:00",
+   "size": 1261995
+  },
+  "morr_ch_ff06/transition_vector.gpkg": {
+   "etag": "\"bb30654af8806866aed6a1fe22371ffd\"",
+   "modified": "2026-09-04T06:18:22+00:00",
+   "size": 1888256
+  },
+  "morr_co_ff04.json": {
+   "etag": "\"6e8e9782fec25ae7a3ee32e5c0611bf1\"",
+   "modified": "2026-09-04T06:19:16+00:00",
+   "size": 5094975
+  },
+  "morr_co_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:33+00:00",
+   "size": 17116
+  },
+  "morr_co_ff04/classified_2017.tif": {
+   "etag": "\"3d23ede83588efc692ca30067f064220\"",
+   "modified": "2026-09-04T06:18:32+00:00",
+   "size": 723928
+  },
+  "morr_co_ff04/classified_2020.tif": {
+   "etag": "\"44418277bef24fda17bf931b7124972d\"",
+   "modified": "2026-09-04T06:18:32+00:00",
+   "size": 741278
+  },
+  "morr_co_ff04/classified_2023.tif": {
+   "etag": "\"fe8b0acd3022ccf572862a4e89ddca90\"",
+   "modified": "2026-09-04T06:18:24+00:00",
+   "size": 713010
+  },
+  "morr_co_ff04/floodplain.gpkg": {
+   "etag": "\"ea3817409169bb799029a1fdcc475cb1-2\"",
+   "modified": "2026-09-04T06:18:32+00:00",
+   "size": 12378112
+  },
+  "morr_co_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:24+00:00",
+   "size": 2460
+  },
+  "morr_co_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"e4a46f5afbd194a20a7a4c7341388904-10\"",
+   "modified": "2026-09-04T06:18:25+00:00",
+   "size": 79032320
+  },
+  "morr_co_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:31+00:00",
+   "size": 139149
+  },
+  "morr_co_ff04/transition_2017_2023.tif": {
+   "etag": "\"850346880487486a823e98ac650ebeca\"",
+   "modified": "2026-09-04T06:18:32+00:00",
+   "size": 1246930
+  },
+  "morr_co_ff04/transition_vector.gpkg": {
+   "etag": "\"e02a272165353072391e70b7bc20fe50\"",
+   "modified": "2026-09-04T06:18:32+00:00",
+   "size": 1789952
+  },
+  "necr_ch_ff04.json": {
+   "etag": "\"9a610f056107d691bfdf24ac3331d297\"",
+   "modified": "2026-09-04T06:19:17+00:00",
+   "size": 7060009
+  },
+  "necr_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:40+00:00",
+   "size": 17116
+  },
+  "necr_ch_ff04/classified_2017.tif": {
+   "etag": "\"76bbd0b6bb16cf6576fec341edc17b4d\"",
+   "modified": "2026-09-04T06:18:38+00:00",
+   "size": 903666
+  },
+  "necr_ch_ff04/classified_2020.tif": {
+   "etag": "\"1ee5280364998293ea3767ae35365b6d\"",
+   "modified": "2026-09-04T06:18:38+00:00",
+   "size": 895601
+  },
+  "necr_ch_ff04/classified_2023.tif": {
+   "etag": "\"d423f60fbcef66aa7bc6fb067bca4557\"",
+   "modified": "2026-09-04T06:18:33+00:00",
+   "size": 892525
+  },
+  "necr_ch_ff04/floodplain.gpkg": {
+   "etag": "\"cfd237b62fe9f016ac06a8c8f204d606\"",
+   "modified": "2026-09-04T06:18:39+00:00",
+   "size": 6967296
+  },
+  "necr_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:33+00:00",
+   "size": 2460
+  },
+  "necr_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"a10d1d5f3cb62e609bace6f678663f64-4\"",
+   "modified": "2026-09-04T06:18:33+00:00",
+   "size": 30801920
+  },
+  "necr_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:36+00:00",
+   "size": 139149
+  },
+  "necr_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"ab7394952e8f380b7ac52724a3a70499\"",
+   "modified": "2026-09-04T06:18:37+00:00",
+   "size": 1501749
+  },
+  "necr_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"592f479a8968b276ac13c92af7a5c634\"",
+   "modified": "2026-09-04T06:18:37+00:00",
+   "size": 4493312
+  },
+  "pars_bt_ff04.json": {
+   "etag": "\"44de811a7e4c9c8ee33bf269785432b0\"",
+   "modified": "2026-09-04T06:19:17+00:00",
+   "size": 7987006
+  },
+  "pars_bt_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:42+00:00",
+   "size": 17116
+  },
+  "pars_bt_ff04/classified_2017.tif": {
+   "etag": "\"083503de35e809ef01169ef43e86b5f3\"",
+   "modified": "2026-09-04T06:18:40+00:00",
+   "size": 1064109
+  },
+  "pars_bt_ff04/classified_2020.tif": {
+   "etag": "\"43801c6d6363544e3d4b58b55c02db59\"",
+   "modified": "2026-09-04T06:18:40+00:00",
+   "size": 1041019
+  },
+  "pars_bt_ff04/classified_2023.tif": {
+   "etag": "\"120a412cdc6dd9ebc57c3c222bb359ef\"",
+   "modified": "2026-09-04T06:18:45+00:00",
+   "size": 1018399
+  },
+  "pars_bt_ff04/floodplain.gpkg": {
+   "etag": "\"5d800193840a79680ddff48a4017e66e-2\"",
+   "modified": "2026-09-04T06:18:40+00:00",
+   "size": 8814592
+  },
+  "pars_bt_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:47+00:00",
+   "size": 2460
+  },
+  "pars_bt_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"9937008e75cf9524eec6b5d98810694d-4\"",
+   "modified": "2026-09-04T06:18:42+00:00",
+   "size": 28729344
+  },
+  "pars_bt_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:42+00:00",
+   "size": 139149
+  },
+  "pars_bt_ff04/transition_2017_2023.tif": {
+   "etag": "\"59f354efbbafa934286b90a2ec078db7\"",
+   "modified": "2026-09-04T06:18:42+00:00",
+   "size": 1926402
+  },
+  "pars_bt_ff04/transition_vector.gpkg": {
+   "etag": "\"f114da63b5b542df0dd9a9c73bc71e49\"",
+   "modified": "2026-09-04T06:18:47+00:00",
+   "size": 5881856
+  },
+  "pcea_bt_ff04.json": {
+   "etag": "\"a3ac1949290b815bc97e1757ebd7eb15\"",
+   "modified": "2026-09-04T06:19:17+00:00",
+   "size": 6693724
+  },
+  "pcea_bt_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:51+00:00",
+   "size": 17116
+  },
+  "pcea_bt_ff04/classified_2017.tif": {
+   "etag": "\"a4eecc9dabfc0109c7f881ce1db9e6f2\"",
+   "modified": "2026-09-04T06:18:47+00:00",
+   "size": 900623
+  },
+  "pcea_bt_ff04/classified_2020.tif": {
+   "etag": "\"4f67a922adb5150613f6628bf80344ae\"",
+   "modified": "2026-09-04T06:18:50+00:00",
+   "size": 925943
+  },
+  "pcea_bt_ff04/classified_2023.tif": {
+   "etag": "\"7c7729c1ca6ca8c2745fb98ccefa65f6\"",
+   "modified": "2026-09-04T06:18:50+00:00",
+   "size": 937828
+  },
+  "pcea_bt_ff04/floodplain.gpkg": {
+   "etag": "\"e8a00a1bb5a43e00bd59e58111268b37\"",
+   "modified": "2026-09-04T06:18:50+00:00",
+   "size": 7114752
+  },
+  "pcea_bt_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:48+00:00",
+   "size": 2460
+  },
+  "pcea_bt_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"a95eedcc38863576948f9bd32cb4aafd-2\"",
+   "modified": "2026-09-04T06:18:48+00:00",
+   "size": 12144640
+  },
+  "pcea_bt_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:49+00:00",
+   "size": 139149
+  },
+  "pcea_bt_ff04/transition_2017_2023.tif": {
+   "etag": "\"38b46dc77f44afa4b8deb375c341aada\"",
+   "modified": "2026-09-04T06:18:49+00:00",
+   "size": 1782427
+  },
+  "pcea_bt_ff04/transition_vector.gpkg": {
+   "etag": "\"8c0701fcd54141bb20a102768e3ac281\"",
+   "modified": "2026-09-04T06:18:51+00:00",
+   "size": 913408
+  },
+  "pine_bt_ff04.json": {
+   "etag": "\"b5e305d8891e668492ef931b155b86b0\"",
+   "modified": "2026-09-04T06:19:17+00:00",
+   "size": 7455935
+  },
+  "pine_bt_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:55+00:00",
+   "size": 17116
+  },
+  "pine_bt_ff04/classified_2017.tif": {
+   "etag": "\"da8d8d984ff5cc469523a84e28dac034\"",
+   "modified": "2026-09-04T06:18:54+00:00",
+   "size": 1226474
+  },
+  "pine_bt_ff04/classified_2020.tif": {
+   "etag": "\"c1f5b9c08287076f041d900f3016f4d3\"",
+   "modified": "2026-09-04T06:18:54+00:00",
+   "size": 1193751
+  },
+  "pine_bt_ff04/classified_2023.tif": {
+   "etag": "\"d8518a7c706499566db44818a6be6f61\"",
+   "modified": "2026-09-04T06:18:52+00:00",
+   "size": 1194171
+  },
+  "pine_bt_ff04/floodplain.gpkg": {
+   "etag": "\"0216982fa1400c6e919d8e61bdc82f62\"",
+   "modified": "2026-09-04T06:18:55+00:00",
+   "size": 4743168
+  },
+  "pine_bt_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:52+00:00",
+   "size": 2460
+  },
+  "pine_bt_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"6c4dfce3fffe3a6181b67d85faf7a7f2-4\"",
+   "modified": "2026-09-04T06:18:52+00:00",
+   "size": 25247744
+  },
+  "pine_bt_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:53+00:00",
+   "size": 139149
+  },
+  "pine_bt_ff04/transition_2017_2023.tif": {
+   "etag": "\"6a582c016e12801b7c1f4c603aeedcaf\"",
+   "modified": "2026-09-04T06:18:53+00:00",
+   "size": 2389265
+  },
+  "pine_bt_ff04/transition_vector.gpkg": {
+   "etag": "\"0112b722e7493f545aaf0bbd906bd5fc\"",
+   "modified": "2026-09-04T06:18:54+00:00",
+   "size": 5898240
+  },
+  "sloc_bt_ff04.json": {
+   "etag": "\"de17ce2d4f5265fde89e53c7b6f693a3\"",
+   "modified": "2026-09-04T06:19:20+00:00",
+   "size": 2807431
+  },
+  "sloc_bt_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 17116
+  },
+  "sloc_bt_ff04/classified_2017.tif": {
+   "etag": "\"2fcc2a6d4912cbb35df8ed90ab587f15\"",
+   "modified": "2026-09-04T06:18:55+00:00",
+   "size": 425905
+  },
+  "sloc_bt_ff04/classified_2020.tif": {
+   "etag": "\"e654b334ddb0be74079690af73590807\"",
+   "modified": "2026-09-04T06:18:56+00:00",
+   "size": 421483
+  },
+  "sloc_bt_ff04/classified_2023.tif": {
+   "etag": "\"fa6a37c7e843fc31d786c41e3d41eff1\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 421588
+  },
+  "sloc_bt_ff04/floodplain.gpkg": {
+   "etag": "\"18f32df5027c986a7f7dab4c6482cb30\"",
+   "modified": "2026-09-04T06:18:55+00:00",
+   "size": 1880064
+  },
+  "sloc_bt_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 2460
+  },
+  "sloc_bt_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"8aa7901f8d4411100d4751fdaad73b12\"",
+   "modified": "2026-09-04T06:18:57+00:00",
+   "size": 6250496
+  },
+  "sloc_bt_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:56+00:00",
+   "size": 139149
+  },
+  "sloc_bt_ff04/transition_2017_2023.tif": {
+   "etag": "\"81d698bb26668b12267ff1cf513ce578\"",
+   "modified": "2026-09-04T06:18:56+00:00",
+   "size": 737583
+  },
+  "sloc_bt_ff04/transition_vector.gpkg": {
+   "etag": "\"9e033a6ebcd8e53056f97d130eaaad15\"",
+   "modified": "2026-09-04T06:18:56+00:00",
+   "size": 634880
+  },
+  "tabr_ch_ff04.json": {
+   "etag": "\"f227b5981bfdba2dd42dbe122482a062\"",
+   "modified": "2026-09-04T06:19:22+00:00",
+   "size": 3191926
+  },
+  "tabr_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 17116
+  },
+  "tabr_ch_ff04/classified_2017.tif": {
+   "etag": "\"1f49c9f024099571b03532de791a75cc\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 480181
+  },
+  "tabr_ch_ff04/classified_2020.tif": {
+   "etag": "\"c5cc40d6629166ba0a1a36ea8c45e98b\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 474461
+  },
+  "tabr_ch_ff04/classified_2023.tif": {
+   "etag": "\"053654d6a9ffa05b37030444360374df\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 481040
+  },
+  "tabr_ch_ff04/floodplain.gpkg": {
+   "etag": "\"53e67ed18095448b5c17fca5265b6462\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 3248128
+  },
+  "tabr_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 2460
+  },
+  "tabr_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"35121ea0f86e1412a8e471a6d0ac14bd-2\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 11509760
+  },
+  "tabr_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 139149
+  },
+  "tabr_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"50a36dbfac394c145b481dc62f5c0938\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 817244
+  },
+  "tabr_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"9c98c3c1f58a192f86e7696750cb6f97\"",
+   "modified": "2026-09-04T06:18:59+00:00",
+   "size": 1429504
+  },
+  "thom_ch_ff04.json": {
+   "etag": "\"bf03d17f69a2e8f6485f01694e3c91cf\"",
+   "modified": "2026-09-04T06:19:23+00:00",
+   "size": 1022647
+  },
+  "thom_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 17116
+  },
+  "thom_ch_ff04/classified_2017.tif": {
+   "etag": "\"42add612605d98e2ef30db07b1c6900c\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 305377
+  },
+  "thom_ch_ff04/classified_2020.tif": {
+   "etag": "\"fb4208f643330fe8d0a55e5552f7a7b6\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 302115
+  },
+  "thom_ch_ff04/classified_2023.tif": {
+   "etag": "\"907d2c57ef2ff33a4056308b5c3cac6e\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 309120
+  },
+  "thom_ch_ff04/floodplain.gpkg": {
+   "etag": "\"2095a8b15b8df7140ff8e54d329fe9ea\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 1351680
+  },
+  "thom_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 2460
+  },
+  "thom_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"e219cdf1ef661e9ebcd9303e63b31934\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 3612672
+  },
+  "thom_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 139149
+  },
+  "thom_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"08079e673bd8af4eda669caec25de42d\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 616911
+  },
+  "thom_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"44d72afd3bb1b5620067610cd9afd18f\"",
+   "modified": "2026-09-04T06:19:00+00:00",
+   "size": 737280
+  },
+  "ufra_ch_ff04.json": {
+   "etag": "\"74de028dc8ea838400523d2a28a36d36\"",
+   "modified": "2026-09-04T06:19:23+00:00",
+   "size": 3167239
+  },
+  "ufra_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:19:02+00:00",
+   "size": 17116
+  },
+  "ufra_ch_ff04/classified_2017.tif": {
+   "etag": "\"3405c40dfdda36d300d1550c477c8d9d\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 628590
+  },
+  "ufra_ch_ff04/classified_2020.tif": {
+   "etag": "\"1ab75f8bc1d0a713ac2f3be6bb669f65\"",
+   "modified": "2026-09-04T06:19:02+00:00",
+   "size": 622353
+  },
+  "ufra_ch_ff04/classified_2023.tif": {
+   "etag": "\"6dc304906c901a220b8471a29daef89b\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 608767
+  },
+  "ufra_ch_ff04/floodplain.gpkg": {
+   "etag": "\"c728346211a67bfbfec6aa25ac3acf93\"",
+   "modified": "2026-09-04T06:19:02+00:00",
+   "size": 3497984
+  },
+  "ufra_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 2460
+  },
+  "ufra_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"5aecd997d3b6717b73f7ab1416098980-3\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 19062784
+  },
+  "ufra_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 139149
+  },
+  "ufra_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"39589cd1e5a94d296d7a86a589e0c45e\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 1196729
+  },
+  "ufra_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"51145b0f1a204e187bff581f706fa59a\"",
+   "modified": "2026-09-04T06:19:01+00:00",
+   "size": 4190208
+  },
+  "unth_ch_ff04.json": {
+   "etag": "\"c436850f201fbc5c837a85d5b61bc56d\"",
+   "modified": "2026-09-04T06:19:23+00:00",
+   "size": 2264069
+  },
+  "unth_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:19:04+00:00",
+   "size": 17116
+  },
+  "unth_ch_ff04/classified_2017.tif": {
+   "etag": "\"7052205e20c7112fab36d7e053716d48\"",
+   "modified": "2026-09-04T06:19:03+00:00",
+   "size": 462832
+  },
+  "unth_ch_ff04/classified_2020.tif": {
+   "etag": "\"3416aacd2f7989519695509a56e2cdc8\"",
+   "modified": "2026-09-04T06:19:04+00:00",
+   "size": 454782
+  },
+  "unth_ch_ff04/classified_2023.tif": {
+   "etag": "\"1821007ce66f2bbaf20a47ee02901eeb\"",
+   "modified": "2026-09-04T06:19:02+00:00",
+   "size": 455539
+  },
+  "unth_ch_ff04/floodplain.gpkg": {
+   "etag": "\"5929e89a67b64f725251606ebee956f3\"",
+   "modified": "2026-09-04T06:19:04+00:00",
+   "size": 2502656
+  },
+  "unth_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:19:02+00:00",
+   "size": 2460
+  },
+  "unth_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"ce3a42946e87bb44a0cda4c7cc424799-2\"",
+   "modified": "2026-09-04T06:19:02+00:00",
+   "size": 9928704
+  },
+  "unth_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:19:03+00:00",
+   "size": 139149
+  },
+  "unth_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"87f0a629f229ad0529e07ab8beba91df\"",
+   "modified": "2026-09-04T06:19:03+00:00",
+   "size": 960802
+  },
+  "unth_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"b7f7596fbe51489fab926b4f12587b38\"",
+   "modified": "2026-09-04T06:19:03+00:00",
+   "size": 1814528
+  },
+  "will_ch_ff04.json": {
+   "etag": "\"1eec11f71ef4561df6bc3206aeca255d\"",
+   "modified": "2026-09-04T06:19:24+00:00",
+   "size": 5071780
+  },
+  "will_ch_ff04/classified.qml": {
+   "etag": "\"5ba98a36e4ff07456e28d96eba993720\"",
+   "modified": "2026-09-04T06:19:08+00:00",
+   "size": 17116
+  },
+  "will_ch_ff04/classified_2017.tif": {
+   "etag": "\"327392c33e6b184be173e1eed38bdc90\"",
+   "modified": "2026-09-04T06:19:08+00:00",
+   "size": 702414
+  },
+  "will_ch_ff04/classified_2020.tif": {
+   "etag": "\"5338c49d4e549b2cd1e5a203ecc93a84\"",
+   "modified": "2026-09-04T06:19:08+00:00",
+   "size": 703192
+  },
+  "will_ch_ff04/classified_2023.tif": {
+   "etag": "\"b6dbcc7f812a6c62eb1ad02f23304e34\"",
+   "modified": "2026-09-04T06:19:05+00:00",
+   "size": 703959
+  },
+  "will_ch_ff04/floodplain.gpkg": {
+   "etag": "\"06d2974a7f483958506dfd0f813ab552\"",
+   "modified": "2026-09-04T06:19:08+00:00",
+   "size": 5083136
+  },
+  "will_ch_ff04/floodplain.qml": {
+   "etag": "\"a022cbb7dfb65a812b9d9503a99dad06\"",
+   "modified": "2026-09-04T06:19:05+00:00",
+   "size": 2460
+  },
+  "will_ch_ff04/floodplain_landcover.gpkg": {
+   "etag": "\"da26fb1060f0eca97a953297531658f7-2\"",
+   "modified": "2026-09-04T06:19:05+00:00",
+   "size": 12709888
+  },
+  "will_ch_ff04/transition.qml": {
+   "etag": "\"ef56a5575417194c08e32866c751d4b5\"",
+   "modified": "2026-09-04T06:19:07+00:00",
+   "size": 139149
+  },
+  "will_ch_ff04/transition_2017_2023.tif": {
+   "etag": "\"134051f24eb7a7557268d5d23ab16cb7\"",
+   "modified": "2026-09-04T06:19:07+00:00",
+   "size": 1215379
+  },
+  "will_ch_ff04/transition_vector.gpkg": {
+   "etag": "\"c9baddab4de0b5da2441d5db1b36d584\"",
+   "modified": "2026-09-04T06:19:07+00:00",
+   "size": 1503232
+  }
+ },
+ "fetched_utc": "2026-09-05T21:33:08Z",
+ "items": {
+  "bowr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220599b932b18b9f42248b6516235dcb70fdf5d3e487455f25d2d87fa170dde53ef",
+     "file:size": 710674,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "122066f334fb72121c81b30658bd0b1f7d5e78152d7fbab7366c563f417385ecc8a9",
+     "file:size": 703106,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12209f89397710052628fa6578d7ee6c64cb9b9cc84c3afce76b032b45b18e3a2345",
+     "file:size": 707514,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220effc59b725d667170c0d7ef251958b94d1c2c3cce64837d76f726d9a1ad4e08e",
+     "file:size": 4493312,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220d1cf56237ee4f52cd7af7ebfcc853c4fb498b8daff828f29c1be4a5fdec3c8f7",
+     "file:size": 12025856,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "12206aaf0bcb48a9ce1dfa5f35546b44740e9fb7460e9b7ef6bfb4b8d7980edad27c",
+     "file:size": 1307028,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "12207aa6caa309bf8f4c0cbc877562011406f50a0b49c9b6f4361233e3f04ec179bc",
+     "file:size": 1355776,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bowr_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -122.2024734018,
+    52.955711742,
+    -120.9374193303,
+    54.0769507913
+   ],
+   "geometry_sha256": "0561b652cfbb05b9c976515eb58fd30feb4ec0f47cb5a180f705cdfe5d271054",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 218.79,
+    "floodplain_ff04_km2": 235.75,
+    "floodplain_ff06_km2": 249.87,
+    "gross_gain_ha": 203,
+    "gross_loss_ha": 291.6,
+    "net_ha": -88.6,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:596af2a023b8f7d85711651f224a9e3afe69bd9c350e6d9818ecd1bab4cb7fd5",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-02T23:02:24Z",
+    "proj:bbox": [
+     552278.1424648897,
+     5868509.403353034,
+     637968.1424648897,
+     5992569.403353034
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     12406,
+     8569
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     552278.1424648897,
+     0.0,
+     -10.0,
+     5992569.403353034
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "BOWR ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "BOWR"
+   }
+  },
+  "bulk_co_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "12207a0c4af06d33f6eb512e093cfe7d8d8ae8dcedf6fbd18e2628136d1955ff0f90",
+     "file:size": 1246472,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2018": {
+     "file:checksum": "12209fea872922bf4ddd52c92be78e2a1639ffa04a82d850caca72194e6e3aef537c",
+     "file:size": 1225412,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2018.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2019": {
+     "file:checksum": "12203bf40e51120206c5b166c998567afb91c232c5e73b3efca78ba821ca144452ba",
+     "file:size": 1240199,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2019.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "122090679c410457c54eef45d8c705f65e8c7f46c85c889cf735214f27cf5cf0f6c7",
+     "file:size": 1255708,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2021": {
+     "file:checksum": "1220d6f96dba70cc8492fb5ea3e392e59399b7ed071b6e9f786be7237d7ac59cb58b",
+     "file:size": 1242208,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2021.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2022": {
+     "file:checksum": "1220d442f67ec27296c839d0fdeaaa04eadfa4c804f46e6a0a1b708334389b2a78c3",
+     "file:size": 1228959,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2022.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12209b611d87e471bd3f9680b62923cf8c0e741a4c3fe0d3851b999d5450aac4eb7e",
+     "file:size": 1241743,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122022a8f830a3e20b1eff2449a46da60e3b1f7e29467e402228ff2cf9156f2fca01",
+     "file:size": 8613888,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220f98a9bc98adabe65bf7fc02f7122bfe59ebc0b4b710e46770b93521d54238e85",
+     "file:size": 52961280,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220de584c0695e237f53fe3ca59cfd965513a7f0b5848909856d1035b8e97ba574b",
+     "file:size": 2280637,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "12207daf7c2c23f0a865b9e74e67bc844a40ff4872b6fd65fde50a3278b3422df9b1",
+     "file:size": 4935680,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/bulk_co_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -127.7485152298,
+    54.1233147557,
+    -125.9952117049,
+    55.4597727782
+   ],
+   "geometry_sha256": "e14a5139626294109e895e20276063cc83025b3450086b2fefc3857d69b0bf6a",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 344.72,
+    "floodplain_ff04_km2": 386.53,
+    "floodplain_ff06_km2": 414.58,
+    "gross_gain_ha": 826.8,
+    "gross_loss_ha": 1565.1,
+    "net_ha": -738.2,
+    "nge:drift_version": "0.13.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:338282a6fa41d5cab574a3ce0fc74b5d809d3b4caf36b00c90e18d054a394c92",
+    "nge:landcover_key": "sha256:16cbe101e74c5c1876bd5b890d13e5e491efcf129377fdfccc24971f478f91ef",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-05T19:52:01Z",
+    "proj:bbox": [
+     580822.6482241659,
+     6000880.069166057,
+     696342.6482241659,
+     6147390.069166057
+    ],
+    "proj:epsg": 32609,
+    "proj:shape": [
+     14651,
+     11552
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     580822.6482241659,
+     0.0,
+     -10.0,
+     6147390.069166057
+    ],
+    "region": "skeena",
+    "scenario": "co_ff04",
+    "species": "co",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "BULK co_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "BULK"
+   }
+  },
+  "fran_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220c5a10cf44e6f84041747329429346e0ad6a3c4a8314f22f74ce1738441d22eed",
+     "file:size": 1176054,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12209b66b16f50b4ff44d52c90fd1912526b4ce24a51a44c1cc9d458cec32f6ddaad",
+     "file:size": 1214159,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220b7a91be6a419a8aeaa086cf20d5563699e2036c9995d1e9ede6b7f78230cf501",
+     "file:size": 1183595,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220f0fde2ce22bcd68933a9a3618256ff4055bc36dd201b839d4a0547041b1e71df",
+     "file:size": 9109504,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "12202c54d7e64d53881a369554838c63030695eaa2f6967d1b2582a7745625bc16d0",
+     "file:size": 32378880,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220a37fdd79f6dfb45a9254c871880a0369ba18f8d717ad87a7090c0d7a2224c52c",
+     "file:size": 2111725,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "12206d96ac847e4b2ea288260b66f4047f3891e5b1fd45d24e89081cd15da40f5d11",
+     "file:size": 4771840,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/fran_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -127.2958500968,
+    53.8023926032,
+    -124.574365801,
+    54.3929376302
+   ],
+   "geometry_sha256": "78911ac8ed2bab63f8cf614fe7dfe06d6a967ba2c1e5837c458375380e9974d2",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 758.69,
+    "floodplain_ff04_km2": 782.02,
+    "floodplain_ff06_km2": 803.28,
+    "gross_gain_ha": 589.6,
+    "gross_loss_ha": 5263.9,
+    "net_ha": -4674.3,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904",
+    "nge:landcover_key": "sha256:dd5c7f31b57d40eb77b9ab88cdfb65dcbb795353ae49dba102d8679635496e7b",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T00:20:39Z",
+    "proj:bbox": [
+     217417.7971216865,
+     5964226.019999341,
+     397017.7971216865,
+     6031346.019999341
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     6712,
+     17960
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     217417.7971216865,
+     0.0,
+     -10.0,
+     6031346.019999341
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "FRAN ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "FRAN"
+   }
+  },
+  "kisp_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220788c7dc874187fc2c0523dad71f2ce77f6c60e59efc2c75bcb5f3fe860350873",
+     "file:size": 814890,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12200247bf0ff8d3c1a4c620d440b5c2aa3642fdf872197ec70db0e53b3a00fbf365",
+     "file:size": 783796,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12203bc9f2502c179f0caf164c95e9314330d1161b758f75a2f95d9aa42feb248330",
+     "file:size": 776972,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220f3cf12c856e6caa98ac7dfe3bf2b727b3f89bf87e632a00c6a8244f325dcbd53",
+     "file:size": 5677056,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "122092fd289c5a114e9edcb2b1a795e7860a4218dd3ab00e0051ed8a2a6f7e6164f6",
+     "file:size": 16580608,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "122015454a9aac748fd1f8887b59f7025a5c187f99ef607bf42347517eef17843148",
+     "file:size": 1495396,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "12209fce5647b2c5e08c77b51f7756a54acf9ecd3ca11a4b26e158b86af00da37db2",
+     "file:size": 2641920,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kisp_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -128.7715530727,
+    54.8526019469,
+    -127.2503890489,
+    56.0512903537
+   ],
+   "geometry_sha256": "52db86373cbbfc818cc99c7f6e5c30c1b7f97b1fcd95602d514faf5a68372794",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 176.08,
+    "floodplain_ff04_km2": 190.32,
+    "floodplain_ff06_km2": 202.26,
+    "gross_gain_ha": 693.1,
+    "gross_loss_ha": 198.9,
+    "net_ha": 494.2,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:61549b5aa3ef871daff6ef1051d3acce96c0eebd3620263f6b2071bee1dc7e24",
+    "nge:landcover_key": "sha256:670412a6e46050b87f33f41cd9e597ce68a6b71accca78d39a817a1eef081e31",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T00:54:39Z",
+    "proj:bbox": [
+     514303.42505655705,
+     6079010.747863043,
+     610623.425056557,
+     6211900.747863043
+    ],
+    "proj:epsg": 32609,
+    "proj:shape": [
+     13289,
+     9632
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     514303.42505655705,
+     0.0,
+     -10.0,
+     6211900.747863043
+    ],
+    "region": "skeena",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "KISP ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "KISP"
+   }
+  },
+  "kotl_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "122085ecac9be59134d28c55beb8ba09d4d98aeb53c9f470a6b2aac79efcab57da66",
+     "file:size": 1138452,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220c67364f2055bff2f4bbaaa636cabd23e5ecc6df475e6085e94d15f1dfd255bef",
+     "file:size": 1133182,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220d0300edb18c44c82ff7fc6a66ccd71bdb759272420e77fecacb209e9c090680d",
+     "file:size": 1140404,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "12202aee32a09c058595d296f0c77517e1f98b95269c7a4571eb38da75e817ab400c",
+     "file:size": 4259840,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220cd9deed23d4147c9a8effc1389d138a3334fba2233aa151996f181042c75c4d5",
+     "file:size": 21311488,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "122089fbd29e9d1a5694e84377d516225286dcc33d61256ac6767ddde9ada10220c0",
+     "file:size": 2269254,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220f26c68ae21098bc08016c048e50c7055220994f9da3086af90c189cd5d4fcbe8",
+     "file:size": 3624960,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -117.658455212,
+    48.9907865881,
+    -115.5716336691,
+    50.1997266116
+   ],
+   "geometry_sha256": "2cb14a0de637963be360fce45fdc226fd292deda6bdbc2c1734ff0bb2a4a75c3",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 637.31,
+    "floodplain_ff04_km2": 676.09,
+    "floodplain_ff06_km2": 689.09,
+    "gross_gain_ha": 337.7,
+    "gross_loss_ha": 536.1,
+    "net_ha": -198.4,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:e6be382d0918abdcb8329ba5227130b71b549a97add37b1e48c3bc53bb54ae1a",
+    "nge:landcover_key": "sha256:a6f3a5f6387b60ab3ae2c269e5e693d43b8329c3250dea340141184ddf4856c8",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:3cfde7bf5579c2628550dda166eb5c441464b3c7e9d77702d882d5e82c0cebec",
+    "nge:link_sha": "322389a36b4f6ff6e282d1b1ea6e4d9b694e119a",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T01:21:33Z",
+    "proj:bbox": [
+     452142.40084996156,
+     5426525.847409716,
+     604332.4008499616,
+     5560895.847409716
+    ],
+    "proj:epsg": 32611,
+    "proj:shape": [
+     13437,
+     15219
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     452142.40084996156,
+     0.0,
+     -10.0,
+     5560895.847409716
+    ],
+    "region": "columbia",
+    "scenario": "bt_ff04",
+    "species": "bt",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "KOTL bt_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "KOTL"
+   }
+  },
+  "larl_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "122042a73a379570ded284c1e86fd55d888690343f8b60e4bbbd4187bc1fbe88e0a2",
+     "file:size": 673660,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "122023bddfb5baeaf3c43ab07d9744a2f9595a8b40e4a276753cfc426c24eccc418c",
+     "file:size": 677258,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220a30cffa4cb3b80d1771f19f83887a89fcd611147ca4b4bdc48f885b9a793ddf7",
+     "file:size": 690560,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "12207b37b36a1b91f7b5e1e0d30bfbad763a652ca630081f45bfbc0629d5867f59cd",
+     "file:size": 2727936,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220acdb1a10000cec332ef69bf190aa56aa2d7e905230f3a5f8865c96a9f7d8d6b7",
+     "file:size": 10493952,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220b925bed338fc6da487fcd253b9a2afc0b276cc82f545fde0fb199b555c41847e",
+     "file:size": 1435379,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "122059a06c9a189fc3752a5e21973f5fbf05d28e0244423c5eb71f7d498c5267f7ec",
+     "file:size": 1241088,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/larl_bt_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -118.3663219841,
+    48.9907977385,
+    -116.9333872946,
+    50.2229951571
+   ],
+   "geometry_sha256": "e97d7d61530e4f23232114cca4d380c69f36d44e973fc8ebda48ab173502471d",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 281.71,
+    "floodplain_ff04_km2": 286.16,
+    "floodplain_ff06_km2": 290.5,
+    "gross_gain_ha": 55.9,
+    "gross_loss_ha": 121.6,
+    "net_ha": -65.7,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:e6be382d0918abdcb8329ba5227130b71b549a97add37b1e48c3bc53bb54ae1a",
+    "nge:landcover_key": "sha256:8bc5161d80c65a8537e8c36d414ccf86b3eb15ba5052908841963c50b94b92c5",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:44e452e99e27179acbd9ec73a9942e9e0e973fb4f71f6b8296312bfcf33093fc",
+    "nge:link_sha": "8c8c29b2d9b02380ca1dd89ecd3f3ef7af6b6714",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T01:36:18Z",
+    "proj:bbox": [
+     402255.5109918029,
+     5426497.440333158,
+     504875.5109918029,
+     5563937.440333158
+    ],
+    "proj:epsg": 32611,
+    "proj:shape": [
+     13744,
+     10262
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     402255.5109918029,
+     0.0,
+     -10.0,
+     5563937.440333158
+    ],
+    "region": "columbia",
+    "scenario": "bt_ff04",
+    "species": "bt",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "LARL bt_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "LARL"
+   }
+  },
+  "lchl_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220f9b235a8f05135eef7d1b5f9054325136639268c1ef2818b7d14baa786bbb835",
+     "file:size": 689293,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12205fc165c6940d759718e36f77767da15969c017bad771c9251af782375793ace0",
+     "file:size": 660401,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "122037d15855af7fdb24223e7360b8076c402323d3b188fd1ba3e3a5e261ab0c17b3",
+     "file:size": 642248,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122018091997eeb540d68665393ebb84e856021023903aa8c9c76a03cec9ad733aad",
+     "file:size": 5165056,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220edaabe94512ab940093144369ceb121df276dc28c1fe09147e4c12d72e8a8d68",
+     "file:size": 21110784,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220bbd8b2b747a4d775845db793dffdba3a2891244c22a5afc68122745516e006b9",
+     "file:size": 1150748,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "122096e60f776a9f28729551debebaf7ac6e4c125305d03889d57bc11855c7ec8379",
+     "file:size": 4169728,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lchl_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -123.7661086123,
+    53.3410638726,
+    -122.6996839799,
+    54.0207499067
+   ],
+   "geometry_sha256": "e2109459fc59721e6409d99947533ee70e7c292c47e981d23df76ecb8fea726a",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 211.07,
+    "floodplain_ff04_km2": 232.56,
+    "floodplain_ff06_km2": 251.66,
+    "gross_gain_ha": 1072.7,
+    "gross_loss_ha": 911.8,
+    "net_ha": 161,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:eed6322de0e9d8908d48e07371cc6a3c200b109aef7969289936f6c940c8bf74",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T01:52:54Z",
+    "proj:bbox": [
+     449358.54086660064,
+     5910265.681018205,
+     519728.54086660064,
+     5985865.681018205
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     7560,
+     7037
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     449358.54086660064,
+     0.0,
+     -10.0,
+     5985865.681018205
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "LCHL ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "LCHL"
+   }
+  },
+  "lnth_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220f01eb4e676a8644fd7bc9552d46cbb6c3c6e41ebfb926e42373ef5b1761a3a33",
+     "file:size": 553452,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220973b156de9b982f7671539fdd3fa25ef7576652cbf9ba465554f0d379533515c",
+     "file:size": 548463,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220b5d6faadcac0bfe0efb265d72ea2a4f97c4c0ccac65aa712972f95610b00355e",
+     "file:size": 553011,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "12208568194b30d7a465424384d313bec705bff90857bcaa3848cec6e195eccad0c5",
+     "file:size": 3088384,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220d29e16b5942b30e3d82b91039392711dad4fb8c65f621fc73d9b80b3f6803723",
+     "file:size": 11362304,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220600f3ff6f2d81071b08a6ec7155ce6240dd58ef76b1fa099adef43d829adee6a",
+     "file:size": 931127,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220de15e31b297977126149a9f92c3f401b0343dbdd34ea7607730f814930d2c7b3",
+     "file:size": 2011136,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lnth_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -120.3744669356,
+    50.6783014738,
+    -119.5866019639,
+    51.6865100707
+   ],
+   "geometry_sha256": "14ade249d897088f2a8533f4e84fd2d98a0ab0ec7d756663cdf49afdcac8cf6b",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 136.22,
+    "floodplain_ff04_km2": 151.85,
+    "floodplain_ff06_km2": 172.2,
+    "gross_gain_ha": 64.8,
+    "gross_loss_ha": 272,
+    "net_ha": -207.2,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:a737bbdc6c83ea1c527c797898fca3e178b15ef0c9e477b26abbc4e0a4051642",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260903_173205-67013fc3",
+    "nge:link_sha": "a83e94540932094503ca3b55221a42ab459bce5e",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T19:51:39Z",
+    "proj:bbox": [
+     683893.36039297,
+     5617418.631160481,
+     737873.36039297,
+     5729538.631160481
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     11212,
+     5398
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     683893.36039297,
+     0.0,
+     -10.0,
+     5729538.631160481
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "LNTH ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "LNTH"
+   }
+  },
+  "lsal_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220b2ef4748b6c4357a46aeca6cefd17da0534dcf367e3a2eebf2094aa1472041dd",
+     "file:size": 469485,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220db3662b7fca1c003f707e8c94a9cc259b5eedfc5d685b1d1c8f14bfb2cc381f1",
+     "file:size": 468380,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "122038f8c756bcc51815e898c21e5634c46b9afacdc4cb861905ac27c96ce07ff664",
+     "file:size": 454927,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220a1ae0ba977ea47764ca69b3160c4b6f1c7f02001d87ad5096f51fd8f0f943f81",
+     "file:size": 3395584,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220a686b8154a85c5effb255396aa3837e026bce1f1c621e3334ff6944138a7b4be",
+     "file:size": 14708736,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220ae69cdf5fe0ede8b9b88f37e4aa1511994101929a83687c7b0e7adc8e2b47dfa",
+     "file:size": 809009,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220fd3473ba5bd3fd036130877d8e2d9cbb6cbc5e43ea65c2e54a20c365f838a0a8",
+     "file:size": 2306048,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/lsal_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -123.5519258728,
+    54.0275902184,
+    -122.5464928997,
+    54.5598110527
+   ],
+   "geometry_sha256": "b0c05524ffb16cbbb714befee7accbdd7f73980b943b8502e468ae931172a12a",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 162.83,
+    "floodplain_ff04_km2": 185.89,
+    "floodplain_ff06_km2": 201.57,
+    "gross_gain_ha": 649.5,
+    "gross_loss_ha": 559.6,
+    "net_ha": 89.9,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:32ab7f62d3b0f2c6b31e9dd292af1dbce99f8d6bcc8f65dcdb9fa1e5d1d8f9b1",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T02:02:17Z",
+    "proj:bbox": [
+     464058.88960276206,
+     5986591.54906401,
+     529678.8896027621,
+     6045811.54906401
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     5922,
+     6562
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     464058.88960276206,
+     0.0,
+     -10.0,
+     6045811.54906401
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "LSAL ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "LSAL"
+   }
+  },
+  "mcgr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220a7c5d655575c13bf2b2b1d550cb7de0e3208f0bbbaf4264eebec4e8d8df110e6",
+     "file:size": 638340,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220cb2ddd40db353559aa436ace02e44262319f296d013cbfc858091213fbe1917c",
+     "file:size": 623998,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12201fbdb6d651b233fedf3fd991eda55626f1e9be2c7bcf277fe565250b26a80d1d",
+     "file:size": 616280,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122043962687e5c29da86aaa37630dfb9ddb560507882f79832e19313757e91c7469",
+     "file:size": 2174976,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220f2115e19bfbbb962bcc92b5eacb64a47a5931a9dac06a0228744370229a7a4f7",
+     "file:size": 13762560,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220b2c42fbe596d61d6b3f4a454b9cdabd254020f4775338e7d1f70ffb229d2b33a",
+     "file:size": 1229639,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220189e3c4e8ae12f6eb8147d3294bb53d1e39cffa01d42e9a174e75f1ecff4a4c7",
+     "file:size": 2576384,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mcgr_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -122.2710256953,
+    53.8274895896,
+    -120.1443900576,
+    54.4769805562
+   ],
+   "geometry_sha256": "c16a7b570e2a49bf8b61ee7bb08bfbfdea2a0062d7fc15e17db4dfb331c7a3b9",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "deprecated": true,
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 261.69,
+    "floodplain_ff04_km2": 290.04,
+    "floodplain_ff06_km2": 312.93,
+    "gross_gain_ha": 816.8,
+    "gross_loss_ha": 509.9,
+    "net_ha": 306.9,
+    "proj:bbox": [
+     547267.2625616636,
+     5967421.742012393,
+     687547.2625616636,
+     6036921.742012393
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     6950,
+     14028
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     547267.2625616636,
+     0.0,
+     -10.0,
+     6036921.742012393
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "MCGR ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "MCGR"
+   }
+  },
+  "mork_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "122006393c979829c6c9161ceb00c4dbbbe3f1c73768cd059408a30d7a9149986c9f",
+     "file:size": 1239506,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12203255fe329198918d197a444b86071ae5845d13aac77ae1017c5613f2fef5ae4b",
+     "file:size": 1223515,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12209cad40dfaf09bc78d717ecec87ce4895156819121b629dcfda73f88c1e4fca17",
+     "file:size": 1202315,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220f759d7c2247f64e892f08add0d143b6d3d43a6a5c136db9e7c0ca3c52331608c",
+     "file:size": 9445376,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220cd5186e01047f8da8dd9f45a3a46857019b27b0f7379c8f06398d738e26ebbcc",
+     "file:size": 26853376,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "12205bcfb90d456c736c9e07d05bfeba05deacb34b6b8f80a939e38eaf70cbcd51d5",
+     "file:size": 2503671,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "122071faaec216387860e00006287bfb2102ba85c98870496211328a05b340188b00",
+     "file:size": 3407872,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/mork_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -122.3650306569,
+    53.1792173056,
+    -119.9041744824,
+    54.3811306596
+   ],
+   "geometry_sha256": "b460b7b54fd0439849d4245a2b457de09225585c86179fe6aa690e2788fb375f",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 353.41,
+    "floodplain_ff04_km2": 416.87,
+    "floodplain_ff06_km2": 483.86,
+    "gross_gain_ha": 771.7,
+    "gross_loss_ha": 622.8,
+    "net_ha": 148.9,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:750e94d1a3a230b8a0a50090df3694d1d38a1d62ccc48972d42a2ca1e805bfb8",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T03:54:43Z",
+    "proj:bbox": [
+     541248.1418699047,
+     5895531.807763099,
+     704978.1418699047,
+     6026131.807763099
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     13060,
+     16373
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     541248.1418699047,
+     0.0,
+     -10.0,
+     6026131.807763099
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "MORK ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "MORK"
+   }
+  },
+  "morr_ch_ff06": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "12201f948df4c3e8492aeec37358fb55e7e0aefacb89e7be2a314a64f86d7422bb47",
+     "file:size": 730007,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220c04543c33338e4704ae9bb0c3f922cfdf22f239acc729eed0851e63b98f97123",
+     "file:size": 747750,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12202ddf08f4e6b25e522b62b943c97daeea0eb50c65ae9db760b79acd814cb21ae4",
+     "file:size": 719145,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220ee7f3e0dcb527c772d48920b129f14472d4b955fdbc90935e0f070cf728066da",
+     "file:size": 12378112,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "12204027006d6ce4d57ce0dec6093339acddff54047813da411c3fa2bc6c7897eb86",
+     "file:size": 79032320,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220de38b8d897ba471f07757fd0abe3e90f962f5ad140a33177165bc6104af1fd88",
+     "file:size": 1261995,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "122069759c63d019552de98b9b95ab303724684269409009578b8aede2c57c023103",
+     "file:size": 1888256,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_ch_ff06/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -127.983974151,
+    53.6779204063,
+    -126.6711564364,
+    54.4609995599
+   ],
+   "geometry_sha256": "1e0969de35c8dd069b058b85d8256ce36dae13896400a6e98d0d30616c37da45",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 6,
+    "floodplain_ff02_km2": 341.84,
+    "floodplain_ff04_km2": 357.69,
+    "floodplain_ff06_km2": 371.59,
+    "gross_gain_ha": 606.3,
+    "gross_loss_ha": 342.6,
+    "net_ha": 263.7,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:34475d15169a8006e87d93927125eec23e378aace85df3fd0cf6b35734cd9f5d",
+    "nge:landcover_key": "sha256:7642b0c5355a7b7d2e59fdb0807e281b5989ae9507fd9c58f09382af2eac1805",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T04:35:14Z",
+    "proj:bbox": [
+     566712.1032546852,
+     5948367.504345173,
+     651302.1032546852,
+     6035817.504345173
+    ],
+    "proj:epsg": 32609,
+    "proj:shape": [
+     8745,
+     8459
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     566712.1032546852,
+     0.0,
+     -10.0,
+     6035817.504345173
+    ],
+    "region": "skeena",
+    "scenario": "ch_ff06",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "MORR ch_ff06 floodplain land-cover change 2017-2023",
+    "wsg": "MORR"
+   }
+  },
+  "morr_co_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "12206eeba4f5306acd2dcf82a073ccfc768e7c6c61acd1343da0f08964411cd3db1b",
+     "file:size": 723928,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220561d7521a0ad5103443ff70a8bc30f7977cddbd603b6bd338a74e5507e5a568c",
+     "file:size": 741278,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220180c40b547f109461649fd503e242cd7867b10e108a6403d910a641cf4cd0387",
+     "file:size": 713010,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220ee7f3e0dcb527c772d48920b129f14472d4b955fdbc90935e0f070cf728066da",
+     "file:size": 12378112,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "12204027006d6ce4d57ce0dec6093339acddff54047813da411c3fa2bc6c7897eb86",
+     "file:size": 79032320,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220d4838656f36bb0c7b6b2c0ab8a0da7377c963c918f1473c20f1b5e9676474b82",
+     "file:size": 1246930,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "122026e68050ebcd609ec7fae0ffee08407c50bf12d99bf1ea0618bd6841bfd9ba52",
+     "file:size": 1789952,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/morr_co_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -127.983974151,
+    53.6779204063,
+    -126.6716214167,
+    54.4609995599
+   ],
+   "geometry_sha256": "6353790f70c2c58b856f5e3765f26ab14b6830c0b7f2460afe55ebccb3e7987b",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 341.84,
+    "floodplain_ff04_km2": 357.69,
+    "floodplain_ff06_km2": 371.59,
+    "gross_gain_ha": 576.2,
+    "gross_loss_ha": 308.7,
+    "net_ha": 267.5,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:34475d15169a8006e87d93927125eec23e378aace85df3fd0cf6b35734cd9f5d",
+    "nge:landcover_key": "sha256:90608fc3fc30f5c8312abd5d1afb0cf7492474d6a5aab1aef61c0bce90c5100e",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T04:15:05Z",
+    "proj:bbox": [
+     566712.5074194267,
+     5948367.504345173,
+     651272.5074194267,
+     6035817.504345173
+    ],
+    "proj:epsg": 32609,
+    "proj:shape": [
+     8745,
+     8456
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     566712.5074194267,
+     0.0,
+     -10.0,
+     6035817.504345173
+    ],
+    "region": "skeena",
+    "scenario": "co_ff04",
+    "species": "co",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "MORR co_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "MORR"
+   }
+  },
+  "necr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220e4c33b33f5a9a8984bba2f11a3cd6756b70d6fb7ac640d3ac62643563a930870",
+     "file:size": 903666,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12204247a60e9cdf9cbcc70f161ea6bd613e9e80480a7aa6acddc01ef6103cbcb70e",
+     "file:size": 895601,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12206e37d56833482b3c275f541a7564e52e2cfd9a5fee3497d22c2265e9e004ba95",
+     "file:size": 892525,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "12205ae74e2b58de4cb1989c76490f3fb8420bedd923468b4e6d2b7a19a0ed1ff7d0",
+     "file:size": 6967296,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220b9f4bc1ab2187c053faa3770486c8e2c902fb79190313aaade9a6efdac4e4f20",
+     "file:size": 30801920,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220d5e9f6361adea7b04af85422c4583555731b0acdaf01c50479359a4c3801596c",
+     "file:size": 1501749,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220eb82564edebf9b7bd7c7d486597ac0652752024feae52d41b4b0cc43ef62a5fc",
+     "file:size": 4493312,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/necr_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -124.80079189,
+    53.6621327139,
+    -123.4393271773,
+    54.2197930667
+   ],
+   "geometry_sha256": "524d94b6b52245fbf017fc14a25b5a64936f08687555afe856e478c04d046148",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 354.61,
+    "floodplain_ff04_km2": 396.51,
+    "floodplain_ff06_km2": 432.46,
+    "gross_gain_ha": 914.9,
+    "gross_loss_ha": 1943.2,
+    "net_ha": -1028.3,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:23678392b27964a3954c410545419aba2da4756bae09f514fb7e9a56aa5ec3c5",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T04:59:26Z",
+    "proj:bbox": [
+     381677.13493098493,
+     5946073.561092662,
+     471127.13493098493,
+     6008953.561092662
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     6288,
+     8945
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     381677.13493098493,
+     0.0,
+     -10.0,
+     6008953.561092662
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "NECR ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "NECR"
+   }
+  },
+  "pars_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220c719ade77a360cef8c46706222c9da9eb850be6d55bf3385e5dfacff33759a1d",
+     "file:size": 1064109,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12205490d74b5c68810e50ac47920ed9833da5a54e1ffc87ecc74ea0f7368506dcdb",
+     "file:size": 1041019,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "122047e0f7fa1ec5d1176f2486d4ed31cd7269ee3db8199b93a68b1a6249e8a6f3ce",
+     "file:size": 1018399,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122085519e97d2801098c71dddb13daa6f5ef8bf63e634827358be969146ed2d176d",
+     "file:size": 8814592,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "122001de57d65f13875df615126400f45a912f43c6349416ef5a8a2bf654dca242cd",
+     "file:size": 28729344,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "122035dd183b223cbe40596a11ce2a7c160f89ce931aac2060f5f658b8cc3c13560f",
+     "file:size": 1926402,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220d689c26eebd051d6eb4c22f5546735254c39b12ed8678b618ed46d8acaa150bc",
+     "file:size": 5881856,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pars_bt_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -123.086270936,
+    54.4030804208,
+    -121.4339971852,
+    55.4005429612
+   ],
+   "geometry_sha256": "df06a7aa6cde647bb592e59e97c5cd1e6d2f898a8a87b4d60d8e4e003cb7a00a",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 387.78,
+    "floodplain_ff04_km2": 410.13,
+    "floodplain_ff06_km2": 428.55,
+    "gross_gain_ha": 2696.3,
+    "gross_loss_ha": 1076.1,
+    "net_ha": 1620.2,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:3e66dc34586acc7b534e01c62df6f5c3adcfa63411177738f028bf00d755c7bc",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T05:45:17Z",
+    "proj:bbox": [
+     494503.4416077747,
+     6028941.099469584,
+     601453.4416077747,
+     6139431.099469584
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     11049,
+     10695
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     494503.4416077747,
+     0.0,
+     -10.0,
+     6139431.099469584
+    ],
+    "region": "peace",
+    "scenario": "bt_ff04",
+    "species": "bt",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "PARS bt_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "PARS"
+   }
+  },
+  "pcea_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "122029a7bcfdeac78fcbb2c9a9f0c12e8eba26a1bc96cce69fe53441ad301a4a8746",
+     "file:size": 900623,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12203104e6fe804449aa4a0295b5d3c4d86edc1e6635b5e8ca2b13205fae2f108578",
+     "file:size": 925943,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "122014858bffaaad65d70c111b275ff51f48d07c250264a72e2721c953e2c7e916ab",
+     "file:size": 937828,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122078d1e076dac207af1ba446661a169607f13a5ada059ca54a087f047ebe4002c9",
+     "file:size": 7114752,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "122070a9c6c42f3059efefc4abbe017ee284ac1f8b13a2bd3cd38bea6d2d55d21579",
+     "file:size": 12144640,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220341efabc52e55439013538cd4279002adf30407234a411ed8c03d11dd431c6bf",
+     "file:size": 1782427,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220c20487b73d561d1a4ddc3f4dc37130e6d4d1f0b21539944efef9e2463518e878",
+     "file:size": 913408,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pcea_bt_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -124.1334374874,
+    55.4457691911,
+    -122.1521140507,
+    56.4674301501
+   ],
+   "geometry_sha256": "593475d77079e394cad217dc0a0eedbf825a2d5ba0de1fe8bfa484f5155ee660",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 1047.7,
+    "floodplain_ff04_km2": 1051.96,
+    "floodplain_ff06_km2": 1055.52,
+    "gross_gain_ha": 137.4,
+    "gross_loss_ha": 84.4,
+    "net_ha": 53,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:c7784d2be97581e0c3a56e15688bd75dd054bb496c25cbeef8d18e5bf6e7ba31",
+    "nge:landcover_key": "sha256:28761aee01a5319afa73605482c33918a140d821e6e8ea00da3523cd480a6a54",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T06:25:54Z",
+    "proj:bbox": [
+     429321.62274664687,
+     6144424.744242875,
+     552861.6227466469,
+     6258184.744242875
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     11376,
+     12354
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     429321.62274664687,
+     0.0,
+     -10.0,
+     6258184.744242875
+    ],
+    "region": "peace",
+    "scenario": "bt_ff04",
+    "species": "bt",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "PCEA bt_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "PCEA"
+   }
+  },
+  "pine_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "12200f1ea4cd15e8bfd22f4d511575a989f3a31b9e334d4c372dcf40fadf8c58fbb6",
+     "file:size": 1226474,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220920113015b5173c012baf1bc2e04aa4ab8586003c39d96ade255e08f06bfc331",
+     "file:size": 1193751,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "122023d1a15e2a9c3d0bbb4bf5c9f7c2427b582d60a9b0bd725f62eebea29ee2f9fc",
+     "file:size": 1194171,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122044f9d88ae47f18371c9a53af83e99c37ac15583d744930344c108f2510e35213",
+     "file:size": 4743168,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220c1a547bc3a3da440218e9b6280eefdf22c51dd98d4b2ee1e1dbe769b3ad2a1a9",
+     "file:size": 25247744,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220d61ee74ad69f6ba8b783d687ba34afcbff140fefaac926d1c43dba4cdc634562",
+     "file:size": 2389265,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220884cd0549551a147d63d6e9eb1487e833d2e81d7635f3267ca570c8270ebb525",
+     "file:size": 5898240,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/pine_bt_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -122.9446477113,
+    54.8513382907,
+    -120.6967065679,
+    56.1557956019
+   ],
+   "geometry_sha256": "68ab0016d58e7f1b7f318270364a5bab0b0b489449f12f8d6dc68492d976cc7f",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "deprecated": true,
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 322.61,
+    "floodplain_ff04_km2": 379.74,
+    "floodplain_ff06_km2": 417.94,
+    "gross_gain_ha": 1497,
+    "gross_loss_ha": 763.1,
+    "net_ha": 733.9,
+    "proj:bbox": [
+     503496.80961317784,
+     6078923.704291928,
+     643136.8096131778,
+     6225533.704291928
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     14661,
+     13964
+    ],
+    "proj:transform": [
+     9.999999999999996,
+     0.0,
+     503496.80961317784,
+     0.0,
+     -10.0,
+     6225533.704291928
+    ],
+    "region": "peace",
+    "scenario": "bt_ff04",
+    "species": "bt",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "PINE bt_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "PINE"
+   }
+  },
+  "sloc_bt_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "122098da23cc68ef330304f6f01940e42bfd1ee4d2c1ba981cc8d8a5e89da8961e4d",
+     "file:size": 425905,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12200ce46ad476b1f691a469aa21f424276ebf52981e7e7a3d5537615aa0a11825a4",
+     "file:size": 421483,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12206e10882a6cc1664787ee6d55c0b28e4afcc50c076095fc5b92059249049c7413",
+     "file:size": 421588,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "12206668ee90476a9288e484fcc5cb8e59dff752b2217c7bd8fb5da1283a535719bd",
+     "file:size": 1880064,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220ed143c6e31565a46f7f3cfe115486cac92eda0c68c0ab9d334e132c21fffceeb",
+     "file:size": 6250496,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "12202137ad8229d3708a4036d215749fca2169c97da7259edda282d1424f030b330b",
+     "file:size": 737583,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "12204f438b81a1cabf331ba8ef11db9f4d714c13fa28f40d7d84157873c0aa8cb556",
+     "file:size": 634880,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/sloc_bt_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -117.9647031434,
+    49.4032818448,
+    -117.141354319,
+    50.3333159987
+   ],
+   "geometry_sha256": "d1c13dcc5dd9671a45f25e940e7347cfc4d09b28a6b618bf088effd9546acf41",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 114.54,
+    "floodplain_ff04_km2": 117.49,
+    "floodplain_ff06_km2": 120.55,
+    "gross_gain_ha": 51.6,
+    "gross_loss_ha": 74.3,
+    "net_ha": -22.7,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:e6be382d0918abdcb8329ba5227130b71b549a97add37b1e48c3bc53bb54ae1a",
+    "nge:landcover_key": "sha256:a5939906814eff33404172f9b50a5fb5a5da58826a4e411ed8425776c4965046",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:3cfde7bf5579c2628550dda166eb5c441464b3c7e9d77702d882d5e82c0cebec",
+    "nge:link_sha": "322389a36b4f6ff6e282d1b1ea6e4d9b694e119a",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T06:33:36Z",
+    "proj:bbox": [
+     430452.4053060586,
+     5472488.920455907,
+     489862.4053060586,
+     5575778.920455907
+    ],
+    "proj:epsg": 32611,
+    "proj:shape": [
+     10329,
+     5941
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     430452.4053060586,
+     0.0,
+     -10.0,
+     5575778.920455907
+    ],
+    "region": "columbia",
+    "scenario": "bt_ff04",
+    "species": "bt",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "SLOC bt_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "SLOC"
+   }
+  },
+  "tabr_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "122017ed01ab4d5f3b22dd1cbc341947ca27a5045e00534cf0ef740893066d1e3b36",
+     "file:size": 480181,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "1220a3fbe46ce4f3799d01c15371c8f1f5e6e9e61205f9c402ae722a540fd0297434",
+     "file:size": 474461,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220c5b72ca0a54c668f4f667e975136603f3b91e9fe9e4d6a1d550df7a67346901d",
+     "file:size": 481040,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122056d9bd93a6a7c945a64f79ff3f0ccd932f016a6a5fb846a16b9f09fc88d4f95a",
+     "file:size": 3248128,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "12203eafa50be7f7c534a1af2e8c98f1adc42192594eac840433a620537d6bc9b975",
+     "file:size": 11509760,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220a392477117e12e37646b98bce9dc937e632e722f6d8c50f30133a2de2500f9a3",
+     "file:size": 817244,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220cc5f322b50e86843bdfa2d173e38cd785f06899009a38e24ad53f938eede8ab8",
+     "file:size": 1429504,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/tabr_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -122.9388392272,
+    53.5334224913,
+    -122.1326388579,
+    54.3186267167
+   ],
+   "geometry_sha256": "1214c1479c4c2db5e049fd3eafa98b6ee813c9a64ef617edd63f276cd806850b",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 134.26,
+    "floodplain_ff04_km2": 154.63,
+    "floodplain_ff06_km2": 172.05,
+    "gross_gain_ha": 150.2,
+    "gross_loss_ha": 346.9,
+    "net_ha": -196.6,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:42a84d6a623c307a92792947d688ee6833622e32ca433bcd5eff813601177c54",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T06:45:26Z",
+    "proj:bbox": [
+     504042.295556637,
+     5931616.848241948,
+     556562.295556637,
+     6019086.848241948
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     8747,
+     5252
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     504042.295556637,
+     0.0,
+     -10.0,
+     6019086.848241948
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "TABR ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "TABR"
+   }
+  },
+  "thom_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "12209fd8f3c61aeb1caef72fadb9afaa8ce01b22cd83c5dea0ffe5745cc5f9a493d5",
+     "file:size": 305377,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "122097a9559dd26355eac1b963cff4b48fb68d58771f44bf0665ad79eb672495a173",
+     "file:size": 302115,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220309cd008eb515b82fc5e28a9d1b86fd9da77d55632e85ebc5362d890ea846d13",
+     "file:size": 309120,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220ac576740b4c7a2914ff7f10612ae9b70055786edd58cc201ce61196de413b038",
+     "file:size": 1351680,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220978f43a8ab57b485c480074f4ccc1ce85577ff05e02f514b2bca2de637aafc4b",
+     "file:size": 3612672,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220ddad35b4c995e41d9cca99d87290330e551b02b0dfdcb7f43c23caef777a7fbc",
+     "file:size": 616911,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220b0182915ba73d4c4119500a9c8c87fd2095420d2b436bc93a269312a74179e05",
+     "file:size": 737280,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/thom_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -121.5900856863,
+    50.2268501731,
+    -120.325733584,
+    50.9158884586
+   ],
+   "geometry_sha256": "2c4e1d09452f7922ff6a699dbf80c7c199e311664be3257956494f5a3d732622",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 84.96,
+    "floodplain_ff04_km2": 87.34,
+    "floodplain_ff06_km2": 90.2,
+    "gross_gain_ha": 3.4,
+    "gross_loss_ha": 56,
+    "net_ha": -52.6,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:120502a9fc9d6a8a7eb4a9fde908acfff2a9ea1ee6937a829ff07b8f300fd731",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260903_173205-67013fc3",
+    "nge:link_sha": "a83e94540932094503ca3b55221a42ab459bce5e",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T19:32:55Z",
+    "proj:bbox": [
+     600527.2537384073,
+     5564807.789414708,
+     688927.2537384073,
+     5642947.789414708
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     7814,
+     8840
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     600527.2537384073,
+     0.0,
+     -10.0,
+     5642947.789414708
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "THOM ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "THOM"
+   }
+  },
+  "ufra_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220c69c568dfbc120d06c37006bd36988de0b82e9e23ebea8d3eaef2720e47d958d",
+     "file:size": 628590,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "122041eb596291d111f6a2794b0c37f608fc58650739aae1fd5a49e19ad34ef52326",
+     "file:size": 622353,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220616eb9d82b4df089a55c8ca967ed41bc30bc0a2862284d8725c6a1b1ece1d32f",
+     "file:size": 608767,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122019e427d19ddfd6bfa55619d1203bba90d0c937b46e65603edbf6ab5a3b980002",
+     "file:size": 3497984,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "12204d0050a885b60076d37a8fb414f50c317ae03ec863f545c515fff54b1c66b7f5",
+     "file:size": 19062784,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "12201d2d7bbe76420e6a03278d2cc545277b0a771f13d43480c647c4b9a9810f37ac",
+     "file:size": 1196729,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220c0c83a695769982d585f1f66aa39d8b0c146c17403a39cf395044ccaff9a2240",
+     "file:size": 4190208,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/ufra_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -120.2537542193,
+    52.7112190308,
+    -118.5420697633,
+    53.4851540576
+   ],
+   "geometry_sha256": "f4917f30ff8c56099115f65f240a978333ba7a768831868927a0620655489a3f",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 124.27,
+    "floodplain_ff04_km2": 146.93,
+    "floodplain_ff06_km2": 158.12,
+    "gross_gain_ha": 528.8,
+    "gross_loss_ha": 413.9,
+    "net_ha": 114.9,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:10c485206fe96e62ca0f977637ddc6cde27dc69703ecfb51d3e8381e973d2172",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T07:16:49Z",
+    "proj:bbox": [
+     281591.4858853469,
+     5843675.351533189,
+     396181.4858853469,
+     5930195.351533189
+    ],
+    "proj:epsg": 32611,
+    "proj:shape": [
+     8652,
+     11459
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     281591.4858853469,
+     0.0,
+     -10.0,
+     5930195.351533189
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "UFRA ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "UFRA"
+   }
+  },
+  "unth_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220ce3ebb44ae2827b30b300e6811f37656f01478a73a77f547f4df6d6b32cc48c0",
+     "file:size": 462832,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "122081cfe3603f0839101850e065939e74a8bd7e4e87733d3106c7e934c2ed80a055",
+     "file:size": 454782,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "1220184d36d92ff6e5b3f16309a76e3171c5b3e8d79527f79503aaa34fb4a1d65a51",
+     "file:size": 455539,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "1220cbfcd0a577fc6908cf4c8034b22dcef7ceedcefdece8b549ba2ccc5f586037e6",
+     "file:size": 2502656,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220a2a909039f59f09c2e1ecc9ba5bcf162ce540372807444b251e8496fb9a68f04",
+     "file:size": 9928704,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "12202ebd99be02bc1158009453c7b0886eadb269cdac650fdba3327f2614307dcac8",
+     "file:size": 960802,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "12201e35ca9971f7a1b3eff7a516b99ad0a0b9ca6b6dd5e70f1c3ff235483ed3c580",
+     "file:size": 1814528,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/unth_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -120.076541735,
+    51.5730544338,
+    -119.0611953028,
+    52.6445478164
+   ],
+   "geometry_sha256": "5ce650a2443329bb0fb67b750f2ea20079dba41dbddd53ac706bdb2a9d07effb",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 91.36,
+    "floodplain_ff04_km2": 100.6,
+    "floodplain_ff06_km2": 107.88,
+    "gross_gain_ha": 178.7,
+    "gross_loss_ha": 259.5,
+    "net_ha": -80.9,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:685a280d0e55a9c033d014f2cdaac8d65da061bb1755b4c9b8878aa3bb610d7e",
+    "nge:landcover_key": "sha256:935af44e18f8da42dc8aa89e5a2f1ae014309fae326d01bdc20319d9ac94c385",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260903_173205-67013fc3",
+    "nge:link_sha": "a83e94540932094503ca3b55221a42ab459bce5e",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T20:16:31Z",
+    "proj:bbox": [
+     287095.09436302667,
+     5717250.545633017,
+     358925.09436302667,
+     5836070.545633017
+    ],
+    "proj:epsg": 32611,
+    "proj:shape": [
+     11882,
+     7183
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     287095.09436302667,
+     0.0,
+     -10.0,
+     5836070.545633017
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "UNTH ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "UNTH"
+   }
+  },
+  "will_ch_ff04": {
+   "assets": {
+    "classified_2017": {
+     "file:checksum": "1220227556ca403f90b46b87712fb9c56e68b7e626d71b49a809979ce914b36956be",
+     "file:size": 702414,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified_2017.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2020": {
+     "file:checksum": "12200a5fc17812706a14d693015c50b363f95d0c0a55fcffa664adc47711682ecbcc",
+     "file:size": 703192,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified_2020.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "classified_2023": {
+     "file:checksum": "12209ae38d8687b6b8a7c677a87a2f17f866b1c484b94ecb95fb90e6fdb731098af8",
+     "file:size": 703959,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "floodplain": {
+     "file:checksum": "122070fe40c7663be43a2e3d40a010832cc707126fd96a910644c2f98604b472d855",
+     "file:size": 5083136,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/floodplain.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "floodplain_landcover": {
+     "file:checksum": "1220c2d274a9c4ae22c6ff63d4bde1aaa060d2109dff931374f51e6490db2babc8fd",
+     "file:size": 12709888,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/floodplain_landcover.gpkg",
+     "type": "application/geopackage+sqlite3"
+    },
+    "style_classified": {
+     "file:checksum": "12200f9affd56bb976f83535a778d3460c1d641fa363dcc77a5767cda0135cab6eb3",
+     "file:size": 17116,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/classified.qml",
+     "type": "application/xml"
+    },
+    "style_floodplain": {
+     "file:checksum": "1220552c1351fb16220cd7c32af637a94e17a6ac37e6a8f9ecb37b18718df2689a8b",
+     "file:size": 2460,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/floodplain.qml",
+     "type": "application/xml"
+    },
+    "style_transition": {
+     "file:checksum": "12208b7eef6ce89cf7fab826aadf768746d5565eec382dffb6de28364576e69157db",
+     "file:size": 139149,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/transition.qml",
+     "type": "application/xml"
+    },
+    "transition_2017_2023": {
+     "file:checksum": "1220270dacf549b895b5d5dd9042fc2000afdd83567db9710c64e156bf0e9fc1c1ac",
+     "file:size": 1215379,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/transition_2017_2023.tif",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "transition_vector": {
+     "file:checksum": "1220df897dfbccb5a3f6149c262bf604c01098fbf6358eaabe0b6f8b5bd2b0dbd253",
+     "file:size": 1503232,
+     "href": "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/will_ch_ff04/transition_vector.gpkg",
+     "type": "application/geopackage+sqlite3"
+    }
+   },
+   "bbox": [
+    -122.5232244586,
+    53.0319726829,
+    -121.4934558646,
+    54.1400683719
+   ],
+   "geometry_sha256": "f1c3ca360ff17f6aa47e5149324e7fb8858e890874ad9d86447e9624ef803059",
+   "properties": {
+    "datetime": "2023-12-31T00:00:00Z",
+    "end_datetime": "2023-12-31T00:00:00+00:00",
+    "flood_factor": 4,
+    "floodplain_ff02_km2": 218.36,
+    "floodplain_ff04_km2": 236.09,
+    "floodplain_ff06_km2": 251.21,
+    "gross_gain_ha": 352.4,
+    "gross_loss_ha": 485.6,
+    "net_ha": -133.2,
+    "nge:drift_version": "0.8.0",
+    "nge:flooded_version": "0.5.0",
+    "nge:landcover_collection": "io-lulc-annual-v02",
+    "nge:landcover_item_hash": "sha256:f83e238b1d458a2f75ce75e83b7be1b86c0583e6e34628522af3088183124cb4",
+    "nge:landcover_key": "sha256:97095daeb59126fc75e8699e22568bc3de743b10096160a1c87ca535abdc662b",
+    "nge:landcover_source": "io-lulc",
+    "nge:landcover_stac_url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+    "nge:link_config_sha256": "sha256:19e3a0568842da0e65708356d1c4ab5cd6e9598c0cf2e2fa904881142cfc64da",
+    "nge:link_run_uid": "20260901_234743-6628379d",
+    "nge:link_sha": "689146867a5f00f94ec2e8085ddae36996e64379",
+    "nge:link_version": "0.50.0",
+    "nge:produced_datetime": "2026-09-03T07:39:25Z",
+    "proj:bbox": [
+     531185.0408147265,
+     5876866.751468652,
+     600905.0408147265,
+     5999316.751468652
+    ],
+    "proj:epsg": 32610,
+    "proj:shape": [
+     12245,
+     6972
+    ],
+    "proj:transform": [
+     10.0,
+     0.0,
+     531185.0408147265,
+     0.0,
+     -10.0,
+     5999316.751468652
+    ],
+    "region": "fraser",
+    "scenario": "ch_ff04",
+    "species": "ch",
+    "start_datetime": "2017-01-01T00:00:00+00:00",
+    "title": "WILL ch_ff04 floodplain land-cover change 2017-2023",
+    "wsg": "WILL"
+   }
+  }
+ },
+ "note": "bulk_co_ff04 was already republished when this was taken; its pre-publish state comes from baseline_rds_20260904.json (tracked README cache, fetched 2026-09-04) and from baseline_live.json's asset half."
+}

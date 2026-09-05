@@ -54,7 +54,7 @@ re-registered, so *every other item byte-identical* holds by construction rather
 
 ## Phase 5: three-year control and whole-catalogue verification
 
-- [ ] `ALLOW_DRIFT_SKEW=1 WSG=ufra Rscript scripts/test_pipeline.R` — build and validate only, **never published**; the flag is needed only because `ufra` is a drift 0.8.0 area. Satisfies "green on an untouched three-year item" on real data, not only `year_sets-check.py`'s synthetic trees.
+- [x] `ALLOW_DRIFT_SKEW=1 WSG=ufra Rscript scripts/test_pipeline.R` — **run early**, before the remaining publishes (plan review O1) — build and validate only, **never published**; the flag is needed only because `ufra` is a drift 0.8.0 area. Satisfies "green on an untouched three-year item" on real data, not only `year_sets-check.py`'s synthetic trees.
 - [ ] Re-read all 23 live items and diff against `baseline_live.json`. Assert the **19 untouched items are identical** in asset key set, every `file:checksum`, every `file:size` and every `nge:` property — and that the four moved in exactly the predicted places and nowhere else.
 - [ ] Fetch every published `classified_*` href for the four over HTTP — `gdalinfo /vsicurl/…` on one to confirm the RAT survived, a ranged read on the rest (drift#62's acceptance).
 

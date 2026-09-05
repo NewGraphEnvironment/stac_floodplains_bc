@@ -143,6 +143,75 @@ assertion that is not a round-trip through our own upload. `nge:landcover_item_h
 `floodplain` / `transition_vector` / three style assets carry unchanged checksums. The
 collection stayed at 23 items, version `1.1.0`.
 
+## Plan review (Plan agent, 2026-09-05) — what it found and what was done
+
+Spawned concurrently at the baseline commit and returned after Phase 1. It **independently
+reproduced the checksum finding** (its B1/B2) from the built tree, tracing it to
+`02_raster_tag.py:120-124`/`:267-321` applying the twelve-field `NGE_*` tag block to *every*
+`.tif` in the item, transition included. That is the same defect found here, from the other
+direction, which is what makes the diagnosis trustworthy rather than a single reading.
+
+It added one thing the gate here had underweighted and one it had missed outright.
+
+**`transition_vector.gpkg` is the assertion the acceptance item was reaching for.** It carries
+no `NGE_*` tags and `01_stage.R` writes it with `OGR_CURRENT_DATE` pinned, so byte equality
+there **is** content equality of the transition layer — and it comes back byte-identical for
+every item. The tree-change figures are aggregated from that same layer, so `gross_loss_ha` /
+`gross_gain_ha` / `net_ha` holding is a second, independent read of the same claim. Both are
+now asserted; the checksum criterion the issue names is not, because it cannot be.
+
+**The Phase 0 baseline was thinner than Phase 5's assertion needed (its B3).** It captured
+assets, `nge:` and `deprecated` — not `floodplain_ff0*_km2`, the tree-change figures, the
+temporal window, `bbox` or geometry. For `bulk_co_ff04` that window had already closed. It was
+recovered from **`data/readme_items.rds`**, the git-tracked README render cache fetched
+2026-09-04, which holds all 23 items' properties and 230 asset byte-sizes from before the
+re-run — exported to `planning/active/baseline_rds_20260904.json`. Against it, `bulk_co_ff04`
+comes back clean on all seven property columns and all five untouched assets. The three
+remaining items got a full pre-publish capture (`planning/active/baseline_full.json`: every
+property, `bbox`, a geometry digest, every asset) plus a **bucket-level listing** of all 258
+objects with key/size/ETag/LastModified — its G1, that the exposure `--only` creates is S3,
+and an API diff over 19 rows `--only` never writes adds no evidence.
+
+`readback.py` now **refuses** rather than passing when its baseline post-dates the republish
+(a 14-asset baseline means the item would be compared against itself), which is the shape of
+defect that made B3 worth acting on.
+
+Adopted verbatim: run the three-year control **before** the remaining publishes rather than
+after (O1 — a red control is only actionable while something can still be stopped); re-run
+`style_drift-check.py` against a `classes.json` this session staged rather than one a prior
+session left (O2); put the `/vsicurl/` RAT confirmation on a **new** year, since 2017/2020/2023
+would answer 200 with a RAT regardless (AC1); amend the `#61` paragraph in NEWS's Unreleased
+section, which says *"no published item moves"* and stops being true the moment this lands
+in the same section (G3); record `git rev-parse HEAD` before each irreversible publish (G5).
+
+Two corrections to how results are stated, not to what was done:
+
+- **The `landcover_key` read-back is weaker than first written (A3).** The predicted fold and
+  the published value both derive from the same `provenance.json`, so it verifies the R fold,
+  not the content. The load-bearing, genuinely independent fact is the *other* one: the
+  **three-year** fold reproducing the value each item was serving *before* the re-run.
+- **The one-item `item_validate.py` is weaker than it reads (G4).** `check_checksums` derives
+  `expected_fixed` from the largest set it sees (`item_validate.py:1543`), which on a one-item
+  tree is the item's own — so the fixed-asset cross-compare is vacuous, and a lost
+  `transition_vector` would reach the sync. What actually covers it is `test_pipeline.R`'s
+  absolute `7L + length(meta$years)` count. The phase gate is that script exiting 0.
+
+## Phase 5 (run early) — the three-year control
+
+`ALLOW_DRIFT_SKEW=1 WSG=ufra Rscript scripts/test_pipeline.R` → `PASS`, validator green,
+`classified year sets: 2017/2018/2019/2020/2021/2022/2023 on 0 item(s); 2017/2020/2023 on 1
+item(s)`. So the two-population guards accept an untouched three-year item on real data.
+
+Stated precisely, because the flag matters: this shows a three-year item is green **under a
+deliberate class-table skew**, since `ufra`'s rasters are drift 0.8.0 and `classes.json` comes
+from the installed 0.13.0. It does not show one is green on a matched drift — no such item
+exists, every three-year area upstream is 0.8.0. The tree was built and validated only and
+**never published**; `--only ufra_ch_ff04` would have moved that item's COG checksums for
+exactly the tag reason above.
+
+`style_drift-check.py` re-run against the freshly staged `classes.json`: 3 styles
+byte-identical, 9 classes.
+
 ## Errors Encountered
 
 | Error | Resolution |
