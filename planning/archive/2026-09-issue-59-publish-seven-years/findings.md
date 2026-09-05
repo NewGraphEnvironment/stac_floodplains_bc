@@ -1,0 +1,417 @@
+# Findings — Publish all seven classified years for bulk, necr, lnth, kotl (#59)
+
+## Premises established during plan-mode exploration (2026-09-05, m1)
+
+All measured, none assumed.
+
+| fact | evidence |
+|---|---|
+| Running on **m1**; all four areas hold 7 `classified_<yyyy>.tif` + `transition.tif` under `rasters/<scenario>/`, and a `provenance.json` with `landcover.<scen>.inputs.years = 2017..2023` | `find ../floodplains/data/<a>/rasters` |
+| The four were produced by **drift 0.13.0**, which is what is installed on this machine | `provenance.json` `landcover.<scen>.inputs.drift.version` vs `packageVersion("drift")` |
+| **Every other area is drift 0.8.0** — so these four are the only groups that can be staged without `ALLOW_DRIFT_SKEW=1` | scan of all 22 provenance-carrying areas |
+| The collection document does **not** change: `summaries` carry `scenario`/`species`/`region`/`flood_factor`, nothing year-related | `scripts/item_create.py:616` |
+| `floodplain_landcover.gpkg` now holds 7 `classified_*` layers (`data_type='features'`); `bulk` also carries the inert `patch_watercourse_co_ff04_2017_2023` table (#65, `attributes`), `kotl` does not — confirming #65's note that it is not a property of the annual span | `gpkg_contents` over the two files |
+| `neexdzii` carries provenance upstream but is not in the published roster — which is why 22 provenanced areas reconcile with `PROVENANCE_FLOOR = 21` over 23 live items | live `POST /search` id list vs the provenance scan |
+
+## `nge:landcover_key` reproduces exactly — this repo's own confirmation of floodplains#79
+
+`scripts/fp_provenance.R:71` maps `landcover_key` to `inputs$classified_content_sha256`,
+folded by `fp_fold_year_digests()`: `<year>=<digest>` lines, years ascending, newline-joined,
+then `sha256:` of that text.
+
+Recomputing that fold offline over **today's** producer file, restricted to the
+2017/2020/2023 subset, reproduces the value each item is **currently serving** — 4 of 4:
+
+| item | fold(2017,2020,2023) == live `nge:landcover_key` |
+|---|---|
+| `bulk_co_ff04` | yes |
+| `necr_ch_ff04` | yes |
+| `lnth_ch_ff04` | yes |
+| `kotl_bt_ff04` | yes |
+
+That is independent confirmation, from this repo, of floodplains#79's claim that the three
+original years' `classified_content_sha256` are unchanged **element-wise**. It also means the
+seven-year folds can be predicted before the build runs, which is what Phases 1–4 assert
+against rather than reading the value back and calling it verified:
+
+| item | predicted 7-year `nge:landcover_key` |
+|---|---|
+| `bulk_co_ff04` | `sha256:16cbe101e74c5c1876bd5b890d13e5e491efcf129377fdfccc24971f478f91ef` |
+| `necr_ch_ff04` | `sha256:1635efbfe58ec14ff802480ea07f47a2d6a43ab195d60881160ed32b3d94571a` |
+| `lnth_ch_ff04` | `sha256:a7cd994b621ed5aa3c05c62698013a7bc7a57479bb5471da72bf4c9842403e7c` |
+| `kotl_bt_ff04` | `sha256:3c70e523394efb82632215d1b3cb4661c01e20e2df4676796ba6c7236be44af5` |
+
+## The issue body is wrong about why `landcover_key` moves
+
+Issue #59 says `scripts/fp_provenance.R` "maps it to `inputs$item_hash`, which is built from
+the *requested* years". It does not. Line 71 maps `landcover_key` to
+`inputs$classified_content_sha256`; line 73 maps `landcover_item_hash` to `item_hash`. The
+two were split by #40 precisely so the fingerprint and the identity could not be confused.
+
+So `landcover_key` moves for the four because **the item now publishes seven years and the
+fingerprint covers seven years of content** — not because the key is built from a requested
+year set. `CLAUDE.md`'s description of the key is accurate and needs no correction; the issue
+body does. `landcover_item_hash` moves too, and there the issue's reasoning is right: 7
+resolved STAC item ids where there were 3.
+
+## Why four `--only` runs and no tag
+
+`--only` never publishes `collection.json`, so it cannot stamp a version — the API keeps
+serving `1.1.0`. Decision at the plan gate (airvine, 2026-09-05): publish that way anyway and
+let the next full release fold it in, as `bulk_co_ff04`'s #36 pilot was folded into
+**v1.0.0** (`5c94847` is an ancestor of that tag). Noting the asymmetry, because the precedent
+is weaker than it reads: at pilot time the collection carried no version at all, so nothing
+could be contradicted by it. This is the first time published items have moved ahead of a
+*stamped* version. Caught by code-check round 1 — the wrong claim had reached three documents
+from one ancestor, which is the mechanism `code-check.md` names for exactly this. The alternative — a full rebuild and a tagged release — would need
+`ALLOW_DRIFT_SKEW=1` for the 19 drift-0.8.0 areas and would re-sync and re-register items
+nothing asked to move, putting their checksums at risk for a version string.
+
+`01_stage.R` wipes `data/raw` and `data/stac` on every run, so the four are built and
+published one at a time rather than as one tree.
+
+## Phase 0 measurements (2026-09-05)
+
+**Live baseline pinned** to `planning/active/baseline_live.json` at `2026-09-05T21:24:21Z`,
+read one item at a time from the item endpoint so nothing is elided by a fields projection.
+23 items, **10 assets each** (3 classified + transition + 3 GeoPackages + 3 styles). The
+collection serves `version: 1.1.0`.
+
+Three items serve **11** `nge:` keys rather than 12 — `kotl_bt_ff04`, `larl_bt_ff04`,
+`sloc_bt_ff04`, all missing `nge:link_run_uid`. That is a published null, which the API
+omits, not a lost key; `kotl_bt_ff04` is one of the four this issue republishes, so the
+`--only` preflight's per-key comparison sees absent-vs-null and must treat them as equal —
+which it does, by design (#36). Recorded here so the Phase 5 diff does not read it as
+movement. `mcgr_ch_ff04` and `pine_bt_ff04` serve 0, as expected for the two
+`deprecated: true` items.
+
+**`style_drift-check.py` is clean**: the three committed styles are byte-identical to what
+`classes.json` produces from the installed drift 0.13.0 (9 classes). So the class table has
+not moved since `styles/` was committed at #46, and the RAT the four rebuilt COGs will carry
+is the one already published. That is the premise the transition-checksum gate rests on — if
+the table had moved, every rebuilt COG would differ for a reason unrelated to the year span.
+
+## The issue's transition-checksum criterion is unsatisfiable — and the wrong question
+
+Measured on `bulk_co_ff04`, 2026-09-05. The acceptance list asks for `transition_2017_2023`
+to carry a `file:checksum` **equal to the currently published asset**, "the assertion that
+proves [the transition inputs did not change]". It cannot hold, and it could never have held.
+
+`02_raster_tag.py` stamps the item's whole provenance block into every COG's TIFF tags, so
+widening the year set moves four of them by construction:
+
+| tag | live | rebuilt | why |
+|---|---|---|---|
+| `NGE_LANDCOVER_KEY` | `sha256:66104a0f…` | `sha256:16cbe101…` | fold over seven digests, not three |
+| `NGE_LANDCOVER_ITEM_HASH` | `sha256:c653b16d…` | `sha256:338282a6…` | seven resolved STAC ids, not three |
+| `NGE_DRIFT_VERSION` | `0.8.0` | `0.13.0` | the producer re-ran on a newer drift |
+| `NGE_PRODUCED_DATETIME` | `2026-09-02T20:46:08Z` | `2026-09-05T19:52:01Z` | the #79 re-run |
+
+Every COG therefore moves bytes for reasons that have nothing to do with the raster. That is
+v1.1.0's own warning arriving one release later: *a checksum answers "are my bytes current",
+not "did the values change"* — and here the checksum could not answer the second question
+even in principle, because the provenance the item publishes lives inside the file the
+checksum covers.
+
+**What does answer it is what a consumer reads.** Comparing the rebuilt COGs against the
+bytes S3 was serving at that moment:
+
+```
+transition_2017_2023   pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+classified_2017        pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+classified_2020        pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+classified_2023        pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+```
+
+sha256 over the decoded band, plus CRS, affine transform, shape, dtype, nodata, block shape,
+overview levels, compression, and the RAT read out of TIFF tag 42112 through
+`item_validate.py`'s own `_read_embedded_rat` rather than a second parser. The gate allows
+exactly the four tags above to move and fails on any fifth — so a real difference cannot hide
+behind the sanctioned ones.
+
+Corroborating, and not asserted by the gate: `floodplain.gpkg`, `transition_vector.gpkg` and
+all three `.qml` styles come back **byte-identical**, which is what says the build is
+deterministic and the floodplain geometry is untouched. `floodplain_landcover.gpkg` moves, as
+floodplains#79 predicted and floodplains#45 explains.
+
+The gate is `scripts`-external (a one-off release gate, not a standing gaurd) and lives in the
+session scratchpad; its logic and every result are recorded here, which is the durable copy.
+
+## Phase 1 — bulk_co_ff04 published (2026-09-05)
+
+Build `PASS`, gate `PASS`, release `RC=0`. Live item now serves **14 assets**, classified
+2017..2023, and `nge:landcover_key = sha256:16cbe101e74c5c1876bd5b890d13e5e491efcf129377fdfccc24971f478f91ef`
+— **equal to the fold predicted offline before the build ran**, which is the read-back
+assertion that is not a round-trip through our own upload. `nge:landcover_item_hash` moved,
+`nge:drift_version` is now `0.13.0`, every other `nge:` value is unchanged, and the
+`floodplain` / `transition_vector` / three style assets carry unchanged checksums. The
+collection stayed at 23 items, version `1.1.0`.
+
+## Plan review (Plan agent, 2026-09-05) — what it found and what was done
+
+Spawned concurrently at the baseline commit and returned after Phase 1. It **independently
+reproduced the checksum finding** (its B1/B2) from the built tree, tracing it to
+`02_raster_tag.py:120-124`/`:267-321` applying the twelve-field `NGE_*` tag block to *every*
+`.tif` in the item, transition included. That is the same defect found here, from the other
+direction, which is what makes the diagnosis trustworthy rather than a single reading.
+
+It added one thing the gate here had underweighted and one it had missed outright.
+
+**`transition_vector.gpkg` is the assertion the acceptance item was reaching for.** It carries
+no `NGE_*` tags and `01_stage.R` writes it with `OGR_CURRENT_DATE` pinned, so byte equality
+there **is** content equality of the transition layer — and it comes back byte-identical for
+every item. The tree-change figures are aggregated from that same layer, so `gross_loss_ha` /
+`gross_gain_ha` / `net_ha` holding is a second, independent read of the same claim. Both are
+now asserted; the checksum criterion the issue names is not, because it cannot be.
+
+**The Phase 0 baseline was thinner than Phase 5's assertion needed (its B3).** It captured
+assets, `nge:` and `deprecated` — not `floodplain_ff0*_km2`, the tree-change figures, the
+temporal window, `bbox` or geometry. For `bulk_co_ff04` that window had already closed. It was
+recovered from **`data/readme_items.rds`**, the git-tracked README render cache fetched
+2026-09-04, which holds all 23 items' properties and 230 asset byte-sizes from before the
+re-run — exported to `planning/active/baseline_rds_20260904.json`. Against it, `bulk_co_ff04`
+comes back clean on all seven property columns and all five untouched assets. The three
+remaining items got a full pre-publish capture (`planning/active/baseline_full.json`: every
+property, `bbox`, a geometry digest, every asset) plus a **bucket-level listing** of all 258
+objects with key/size/ETag/LastModified — its G1, that the exposure `--only` creates is S3,
+and an API diff over 19 rows `--only` never writes adds no evidence.
+
+`readback.py` now **refuses** rather than passing when its baseline post-dates the republish
+(a 14-asset baseline means the item would be compared against itself), which is the shape of
+defect that made B3 worth acting on.
+
+Adopted verbatim: run the three-year control **before** the remaining publishes rather than
+after (O1 — a red control is only actionable while something can still be stopped); re-run
+`style_drift-check.py` against a `classes.json` this session staged rather than one a prior
+session left (O2); put the `/vsicurl/` RAT confirmation on a **new** year, since 2017/2020/2023
+would answer 200 with a RAT regardless (AC1); amend the `#61` paragraph in NEWS's Unreleased
+section, which says *"no published item moves"* and stops being true the moment this lands
+in the same section (G3); record `git rev-parse HEAD` before each irreversible publish (G5).
+
+Two corrections to how results are stated, not to what was done:
+
+- **The `landcover_key` read-back is weaker than first written (A3).** The predicted fold and
+  the published value both derive from the same `provenance.json`, so it verifies the R fold,
+  not the content. The load-bearing, genuinely independent fact is the *other* one: the
+  **three-year** fold reproducing the value each item was serving *before* the re-run.
+- **The one-item `item_validate.py` is weaker than it reads (G4).** `check_checksums` derives
+  `expected_fixed` from the largest set it sees (`item_validate.py:1543`), which on a one-item
+  tree is the item's own — so the fixed-asset cross-compare is vacuous, and a lost
+  `transition_vector` would reach the sync. What actually covers it is `test_pipeline.R`'s
+  absolute `7L + length(meta$years)` count. The phase gate is that script exiting 0.
+
+## Phase 5 (run early) — the three-year control
+
+`ALLOW_DRIFT_SKEW=1 WSG=ufra Rscript scripts/test_pipeline.R` → `PASS`, validator green,
+`classified year sets: 2017/2018/2019/2020/2021/2022/2023 on 0 item(s); 2017/2020/2023 on 1
+item(s)`. So the two-population guards accept an untouched three-year item on real data.
+
+Stated precisely, because the flag matters: this shows a three-year item is green **under a
+deliberate class-table skew**, since `ufra`'s rasters are drift 0.8.0 and `classes.json` comes
+from the installed 0.13.0. It does not show one is green on a matched drift — no such item
+exists, every three-year area upstream is 0.8.0. The tree was built and validated only and
+**never published**; `--only ufra_ch_ff04` would have moved that item's COG checksums for
+exactly the tag reason above.
+
+`style_drift-check.py` re-run against the freshly staged `classes.json`: 3 styles
+byte-identical, 9 classes.
+
+## The gate caught a real upstream defect — floodplains#83
+
+`necr_ch_ff04` failed the gate on **30 tags per classified COG** that the live published
+assets do not carry, and `kotl_bt_ff04` failed the same way. `bulk` and `lnth` did not. Traced
+to the producer's own rasters, so it is upstream and this repo only carries it through
+`CreateCopy`:
+
+| area | scenario | tags on `classified_2017.tif` | gdalcubes block |
+|---|---|---:|---|
+| `bulk` | `co_ff04` | 1 | no |
+| `necr` | `ch_ff04` | 31 | **yes (30)** |
+| `lnth` | `ch_ff04` | 1 | no |
+| `kotl` | `bt_ff04` | 31 | **yes (30)** |
+
+The `transition.tif` is clean in all four — only the classified series.
+
+Two of the tags **contradict the file they sit on**: `data#type = 'float64'` and
+`data#_FillValue = 'nan'` on a raster whose own header says `uint8` / nodata `255` (confirmed
+again post-publish, reading over `/vsicurl/`: `Byte`, nodata 255). They describe the gdalcubes
+NetCDF cube the raster was cut from. A third, `NC_GLOBAL#process_graph`, embeds a
+producer-machine temp path (`/tmp/RtmpOPwc60/file143d644d5df9.db`). `crs#spatial_ref` is
+correct in both areas (32610 for `necr`, 32611 for `kotl`).
+
+Filed as **NewGraphEnvironment/floodplains#83** rather than worked around, per the
+surface-upstream-defects rule. **Published anyway**, deliberately: pixels, geometry, nodata,
+dtype, block layout and the RAT are all identical, the tags are metadata describing something
+other than the file, and — unlike a geometry loss — they are **fully recoverable by a later
+republish** once #83 lands, so this is not the irreversible class. Withholding two of the four
+would have left the collection half-migrated for no gain in correctness.
+
+The gate was widened **by name** (`NC_GLOBAL#`, `NETCDF_`, `crs#`, `data#`, `time#`, `x#`,
+`y#`), not by relaxing it to ignore tags: an unnamed tag still fails, which is the only reason
+this was caught at all. The allowance is deleted when #83 lands.
+
+## Phases 1–4 complete — all four items live on the seven-year span
+
+Each: build `PASS`, gate `PASS`, `catalogue_release.sh --only` `RC=0`, read-back `OK`. Every
+publish ran from a clean tracked tree at `HEAD=06eafb1` (bulk at `4899223`).
+
+| item | assets | classified years | tag moves on the pre-existing COGs |
+|---|---:|---|---|
+| `bulk_co_ff04` | 10 -> 14 | 2017..2023 | 4 |
+| `necr_ch_ff04` | 10 -> 14 | 2017..2023 | 34 (30 = floodplains#83) |
+| `lnth_ch_ff04` | 10 -> 14 | 2017..2023 | 4 |
+| `kotl_bt_ff04` | 10 -> 14 | 2017..2023 | 34 (30 = floodplains#83) |
+
+For every item the read-back asserts **exactly four properties moved and nothing else** —
+`nge:landcover_key` (matching the offline seven-year fold), `nge:landcover_item_hash`,
+`nge:drift_version` (now `0.13.0`), `nge:produced_datetime`. Unchanged in every case: the three
+floodplain extents, the tree-change figures, the temporal window, `bbox`, geometry, and the
+`floodplain` / `transition_vector` / three style assets on both checksum **and** size.
+
+`kotl_bt_ff04` serves 30 properties rather than 31 — its `nge:link_run_uid` is a published
+null, as it was before. The `--only` preflight read `live 11 / build 11` and was satisfied.
+
+## Phase 5 — whole-catalogue verification
+
+**API.** All 23 items re-read. The **19 untouched items are byte-identical**: every property,
+`bbox`, geometry digest, and every asset's `file:checksum`, `file:size`, `href` and `type`. The
+four republished carry 14 assets and 7 classified years each.
+
+**Bucket.** 258 objects before, 270 after. 12 added, 18 changed, **0 removed**, and every one
+of the 30 belongs to `necr_ch_ff04`, `lnth_ch_ff04` or `kotl_bt_ff04` (`bulk`'s writes predate
+the listing). **210 objects outside the four items: ETag unchanged, none added, none removed.**
+`collection.json` was never written and the served version is still `1.1.0`.
+
+The bucket half is the load-bearing one. `--only` never writes the 19 untouched pgstac rows, so
+an API diff over them re-reads rows nothing touched; S3 is where "byte-identical" is actually
+exposed, and the ETag comparison is what tests it.
+
+**Consumer read (drift#62).** `gdalinfo` (GDAL 3.13.0, the Homebrew CLI — not the uv env's
+rasterio) over `/vsicurl/` on a **newly published** year per item, since 2017/2020/2023 would
+have answered regardless:
+
+```
+bulk_co_ff04 classified_2018   11552x14651 Byte, nodata 255, 5 overviews, RAT 9 rows
+necr_ch_ff04 classified_2019    8945x6288  Byte, nodata 255, 5 overviews, RAT 9 rows
+lnth_ch_ff04 classified_2021    5398x11212 Byte, nodata 255, 5 overviews, RAT 9 rows
+kotl_bt_ff04 classified_2022   15219x13437 Byte, nodata 255, 5 overviews, RAT 9 rows
+kotl_bt_ff04 transition_2017_2023                                        RAT 81 rows
+```
+
+Labels come back (`Water`, `Trees`, `Flooded Vegetation`; `Water (no change)`, `Water -> Trees`),
+so the RAT embedded on the **new** assets, not merely inherited by the old ones.
+
+## Code-check: three rounds, thirteen findings, none in the data
+
+Every round re-derived the published catalogue as correct. All thirteen findings were false or
+imprecise statements **in the release notes and this planning record** — which is worth saying
+plainly, because the notes are what a consumer reads and nothing downstream re-tests them.
+
+Round 3 named the mechanism rather than hunting a fourteenth instance: **a sentence that
+quantifies or bounds a population the writer had already measured item-by-item, composed from
+the memory of that measurement rather than re-derived from it.** The tell is a universal or
+range word applied to a set — `every`, `each`, `nothing else`, `between X and Y` — where the
+per-member evidence exists but was not walked. Eleven of twelve erred toward the *tidier*
+claim, which is why they survive a careful read. It closed the set by enumeration: all 41
+quantified, bounded or inherited claims in the entry, each with a measured verdict. 38 verified,
+2 false, 1 inconsistent.
+
+The two false ones were both **inside round 2's own fixes**, and both concerned something other
+than this release's artifacts:
+
+- `floodplain_landcover.gpkg` "grows by between a quarter and a double" — beaten by the table
+  three lines below it, where `lnth` is **+105%**. Third round running that a summary sentence
+  outran its own table. Replaced with the measured range, 27% to 105%.
+- A parenthetical claiming the v1.1.0 re-encode "moved every asset's bytes without moving"
+  `nge:produced_datetime`. False — v1.1.0's items were rebuilt *upstream*, so it moved on every
+  item carrying it. It was an unverified claim about a neighbouring release used as the only
+  evidence for a caveat that stands without it, and it pointed a reader at the opposite
+  conclusion. Deleted rather than defended.
+
+The third was a record inconsistency worth keeping as an example: `NEWS.md`, `progress.md` and
+`task_plan.md` recorded **three different populations** (16 / 4 / 28) for the `/vsicurl/`
+read-back — on the bullet whose whole purpose is to say how the new assets were checked. The
+honest fix was to make the largest claim true rather than shrink the sentence, so all **16**
+newly published COGs were read: `Byte`, nodata 255, five overviews, DEFLATE, 9-row RAT, 16 of
+16, with the transition raster as a control returning `Int32` / 81 rows.
+
+That re-run also produced its own small lesson. The first pass reported **16 of 16 failing**,
+which is the tell from `code-check.md` that the probe is broken before the world is — the
+comparison string said `255` where `gdalinfo -json` emits `255.0`. A 100% failure rate on
+assets that had just passed every other check is not a finding.
+
+One limitation, recorded rather than papered over: `bulk_co_ff04`'s pre-publish `nge:`
+properties are not recoverable from anything committed, because the first baseline was too thin
+and its API window closed at the first publish. "Exactly four properties move" is
+committed-record-verifiable for three of the four items; for `bulk` it rests on the session's
+own read plus the tracked README cache, which covers the modelled properties but not the `nge:`
+block.
+
+## Errors Encountered
+
+| Error | Resolution |
+|-------|------------|
+| Gate failed: rebuilt COGs' `file:checksum` all moved | Not a defect. Every COG carries the item's `NGE_*` provenance block; four values move when the year set widens. Gate rewritten to assert pixel/geometry/RAT identity instead. |
+| Gate failed: 30 unexplained tags on `necr`/`kotl` classified COGs | Real, and upstream — filed floodplains#83. Allowed by name so an unnamed tag still fails. |
+| `/vsicurl/` conformance probe reported 16 of 16 failing | The probe, not the data: it compared against `255` where `gdalinfo -json` emits `255.0`. A 100% failure rate on freshly verified assets is the tell. |
+| `readback.py` passed vacuously on `bulk` | `baseline_full.json` post-dated `bulk`'s publish, so it compared the item to itself. Added a premise check that refuses a 14-asset baseline; `bulk` verified against the tracked README cache instead. |
+
+## Issue context
+
+## Context
+
+drift v0.14.0's `dft_rast_break_class()` (drift#9) needs every year of the classified series, not the endpoints and midpoint. Run on BULK with all seven IO LULC years it found that only ~20% of the 2017 -> 2023 change the catalogue publishes is a switch sustained two years each side; 44% never settled. To see whether that holds beyond one group, floodplains is rerunning the areas with the full annual series (NewGraphEnvironment/floodplains#79). **This issue publishes them.**
+
+## Four areas, not five — PINE is out
+
+`bulk_co_ff04`, `necr_ch_ff04`, `lnth_ch_ff04`, `kotl_bt_ff04`.
+
+floodplains#79 dropped PINE: `data/pine/` has no `provenance.json` and its floodplain rasters date to 2026-07-12, before `flooded` 0.5.0 — the bankfull-units vintage that repo's `CLAUDE.md` calls *dead, not merely superseded*. Publishing an annual series over it would ship a seven-year land-cover story on a floodplain already known to be wrong. PINE and MCGR are tracked by NewGraphEnvironment/floodplains#76 and will arrive with `lulc_annual` already on, so neither needs publishing twice.
+
+## Both blockers are now clear — this is ready to start
+
+1. **#61** — CLOSED 2026-09-05 (PR #62). `scripts/01_stage.R` no longer carries
+   `YEARS <- c(2017, 2020, 2023)`: it derives the year set from the staged rasters and reconciles
+   it against the item's provenance (`fp_years_reconcile`), and ships `stage_years-check.R` and
+   `year_sets-check.py`. The #23 two-population decision was made there.
+2. **floodplains#79** — CLOSED 2026-09-05 (floodplains PR #82, merge `2826240`). All four areas
+   re-run step 3 only, so their floodplain geometry and sub-basins are untouched, and each passed
+   the full acceptance set: the 2017/2020/2023 content digests unchanged element-wise,
+   `transition_content_sha256` and `transition_patches` unchanged, seven `classified_*` layers and
+   tifs with no eighth.
+
+**The data lives on m1** (`~/Projects/repo/floodplains/data`, which is what `$FLOODPLAINS_DATA`
+defaults to — `../floodplains/data`). m4 carries only `necr`, `kotl` and `neexdzii`, so the publish
+has to run on m1.
+
+## What floodplains#79 guarantees, so this issue does not have to re-establish it
+
+Per-area, asserted there against a pre-run baseline:
+
+- `transition_2017_2023` is **unchanged** — same content digest, same patch count. The transition is measured endpoint-to-endpoint from `change_interval`, never from the fetched year set.
+- The 2017 / 2020 / 2023 `classified_content_sha256` values are unchanged **element-wise**, and every year was genuinely re-fetched (the baselines were built under drift 0.8.0, whose cache keys predate the 0.10.0 change, so nothing was cache-served).
+- Provenance `years` is `2017..2023` and `inputs_hash` moves; `outputs_hash` does not.
+
+Two consequences that are **not** defects and should not be read as drift:
+
+- `floodplain_landcover.gpkg` **bytes** move for every area even where content does not — rewriting one layer into an existing GeoPackage is not byte-stable (floodplains#45). Byte equality answers "same build?", not "same content?".
+- **`nge:landcover_key` moves** for all four areas with no land-cover change, because `scripts/fp_provenance.R` maps it to `inputs$item_hash`, which is built from the *requested* years. Seven year-lines instead of three, over an item set the widened request did not change. (Counts are per-AOI: necr and kotl each record 7 ids, one per year; the "14" is neexdzii's two-tile figure and does not describe these four.) If that key is documented anywhere as a content pin, this is the moment to correct it.
+
+## Acceptance
+
+- [ ] The four items republished with `classified_2017` … `classified_2023` present
+- [ ] `transition_2017_2023` **checksum equal to the currently published asset** for each — the transition inputs did not change, and this is the assertion that proves it
+- [ ] `item_validate.py` green on all four AND on an untouched three-year item
+- [ ] Every other item byte-identical (provenance and checksums)
+- [ ] `--only` republish naming exactly these four ids (#26: an arm must name an id the subset contains)
+- [ ] README asset table and NEWS updated; release notes derived from the artifacts, not restated from this issue
+- [ ] drift#62 can read the seven COGs per item straight from the published hrefs
+
+## Related
+
+- Year abstraction, blocking: #61
+- Produces the rasters: NewGraphEnvironment/floodplains#79
+- PINE / MCGR: NewGraphEnvironment/floodplains#76
+- Analysis once published: NewGraphEnvironment/drift#62
+
+
