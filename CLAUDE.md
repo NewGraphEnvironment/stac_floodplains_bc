@@ -105,7 +105,11 @@ not on a re-written identical file; `nge:landcover_item_hash` is the **identity 
 read**, a hash over the resolved STAC item ids, which an in-place upstream re-derivation leaves
 unchanged. Until #40 the identity was published under the fingerprint's name. The fold rule lives
 in `scripts/fp_provenance.R`, and `scripts/fp_provenance-check.R` proves the reader offline against
-the producer's own files.
+the producer's own files. Its two siblings for the per-item year set (#61) are
+`scripts/stage_years-check.R`, which restores three defects in a sandboxed upstream tree and runs
+`01_stage.R` over each, and `scripts/year_sets-check.py`, which drives `item_validate.py`'s
+`ALLOWED_YEAR_SETS` arms over synthetic trees. Neither runs from `run_pipeline.sh`: like
+`fp_provenance-check.R` they exercise guards a normal build never trips.
 
 **The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in
 `catalogue_release.sh`, passed to `item_validate.py --expect-provenance` on a full release, is the

@@ -38,7 +38,7 @@ One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<speci
 | `transition_2017_2023` | what each cell changed *from* and *to* between 2017 and 2023 |
 | `floodplain` | the delineated floodplain at three flood factors — `ff02`, `ff04` (functional floodplain), `ff06` (valley bottom) |
 | `floodplain_landcover` | the classified years and the transition patches as polygons |
-| `transition_vector` | the transition patches alone — the change layer without the three dissolved epochs that carry most of the bytes |
+| `transition_vector` | the transition patches alone — the change layer without the dissolved classified epochs, which carry most of the bytes |
 | `style_classified` `style_floodplain` `style_transition` | QGIS layer styles, also embedded in each GeoPackage so the layers open already coloured |
 
 **The classified year set is a property of the item, not of the collection.** Items modelled on the three-year span carry `classified_2017`, `classified_2020` and `classified_2023`; items re-run on an annual span carry one asset per year across the same window. Read the item’s own asset list rather than assuming a count — `transition_2017_2023` covers the same 2017-to-2023 window either way, so a cross-item comparison of the transition is unaffected.

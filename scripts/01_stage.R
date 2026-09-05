@@ -302,7 +302,7 @@ for (wsg in wsgs) {
     )
 
     # The third vector asset is WRITTEN here, not copied (#23): the transition layer alone,
-    # so a consumer can take the change layer without the three dissolved classified epochs
+    # so a consumer can take the change layer without the dissolved classified epochs
     # that carry most of the geometry — measured 0.73 MB against a 6.25 MB bundle for SLOC.
     # That matters against the ~550 MB Mergin finalize ceiling.
     #

@@ -5,8 +5,9 @@ target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06`). Item id is the
 for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
   - geometry  = the item's headline-scenario floodplain footprint (from meta.json)
   - datetime  = 2017 -> 2023 land-cover-change span
-  - assets    = one classified_<yyyy> COG per year in the item's OWN span (#61, read
-                from the producer's record) + the transition_2017_2023 COG, the
+  - assets    = one classified_<yyyy> COG per year in the item's OWN span (#61) --
+                meta["years"], which 01_stage.R discovered ON DISK and the producer's
+                record only checked -- plus the transition_2017_2023 COG, the
                 floodplain_landcover.gpkg vector, the floodplain.gpkg
                 delineations (ff02/ff04/ff06 extents), and transition_vector.gpkg
                 (the transition layer alone, without the classified epochs)
@@ -367,7 +368,7 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )
-    # The transition layer alone, without the three dissolved classified epochs that carry
+    # The transition layer alone, without the dissolved classified epochs that carry
     # most of the bundle's geometry (#23).
     #
     # Key is `transition_vector`, NOT the filename stem: `transition_2017_2023` is already

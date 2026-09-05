@@ -25,7 +25,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from item_validate import ALLOWED_YEAR_SETS, check_checksums  # noqa: E402
+from item_validate import ALLOWED_YEAR_SETS, check_checksums, sync_excludes  # noqa: E402
 
 FAILS = 0
 N = 0
@@ -168,6 +168,14 @@ expect_problem("an unsanctioned span is refused even though it is self-consisten
                problems, "are not any sanctioned year set")
 shutil.rmtree(b)
 
+print("the sync's own excludes, read from the release script")
+# The guard sanctions a file by asking catalogue_release.sh what the release refuses to
+# upload. If that read ever returns something permissive the arm below goes quiet, so the
+# shape is asserted here rather than assumed — a positive control on the input to a guard.
+_ex = sync_excludes()
+expect_clean("the asset syncs' excludes parse to the documented set",
+             [] if set(_ex) == {".*", "*/.*", "*.json", "*.aux.xml"} else [str(_ex)])
+
 print("the stray-file arm: the item directory against the published assets")
 # `aws s3 sync` uploads the DIRECTORY, not the asset list, so anything sitting beside the
 # assets reaches a public bucket described by nothing. Three shapes, because the arm was
@@ -181,11 +189,21 @@ for stray, label in ((("classified_2019.tif",), "a stray classified COG"),
     expect_problem(f"{label} is refused", problems,
                    f"that no asset describes ({sorted(stray)})")
     shutil.rmtree(b)
-# The control that makes the three above mean something: the arm must NOT fire on the
-# directory it is supposed to bless.
+# The controls that make the three above mean something. The first is the bare directory;
+# the second is the one that matters, and the round-2 fixture could not reach it: a release
+# is REFUSED by this arm if it reports a file the sync already excludes, and both of these
+# turn up on their own — macOS writes `.DS_Store` into any folder opened in Finder, and GDAL
+# writes a `.aux.xml` sidecar whenever a read triggers statistics.
 b = tree([{"item_id": "aaa_ch_ff04", "years": SEVEN}])
 problems, _ = check_checksums(b, partial=True)
 expect_clean("...and a directory holding exactly its own assets is clean", problems)
+shutil.rmtree(b)
+
+b = tree([{"item_id": "aaa_ch_ff04", "years": THREE,
+           "extra_files": (".DS_Store", "classified_2017.tif.aux.xml", "scratch.json")}])
+problems, _ = check_checksums(b, partial=True)
+expect_clean("...and files the sync EXCLUDES are not strays — they cannot reach the bucket",
+             problems)
 shutil.rmtree(b)
 
 print("the fixed half is still compared across items")
