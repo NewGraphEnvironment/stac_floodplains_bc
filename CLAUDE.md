@@ -75,12 +75,23 @@ currently restates upstream attribution percentages, which floodplains#77 leaves
 
 Served from the shared `stac` DB at `images.a11s.one` — not a dedicated subdomain.
 
+**The classified year set is a property of the item, read from the producer's record** (#61) —
+not a constant here. Most items carry 2017/2020/2023; `floodplains#79` is re-running areas onto
+an annual span, so the collection carries two populations and `ALLOWED_YEAR_SETS` in
+`item_validate.py` is the literal a human sets that says which are sanctioned (delete the
+three-year tuple when the rollout finishes). The set that gets **published** is the one
+discovered on disk and the record is what checks it, never the reverse: sourcing both from
+provenance would reduce `landcover_key`'s fold to one file's `years` agreeing with the same
+file's `classified_content_sha256`. `TRANSITION_SPAN` stays a literal and is the anchor — the
+year set is data, the span is a contract.
+
 **One item per `(watershed group, species, scenario)` target**, id `<wsg>_<sp>_ff0N` — *not* one per
 group. MORR carries two (`morr_co_ff04` + `morr_ch_ff06`), and the collection mixes flood factors,
 so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
 extents (ff04 = functional floodplain, ff06 = valley bottom).
 
-Assets per item: 3 classified-year COGs + a transition COG, plus **three** GeoPackages —
+Assets per item: **one COG per classified year** + a transition COG, plus **three**
+GeoPackages —
 `floodplain_landcover.gpkg`, `floodplain.gpkg` (ff02/ff04/ff06 delineations), and
 `transition_vector.gpkg` (the transition patches alone, ~14% of the bundle's bytes). Every layer of
 all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by

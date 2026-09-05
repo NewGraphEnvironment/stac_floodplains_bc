@@ -71,6 +71,8 @@ synthetic <- function() {
                     stac_url = "https://planetarycomputer.microsoft.com/api/stac/v1",
                     item_hash = HEX("c"),
                     classified_content_sha256 = list(`2017` = HEX("a"), `2020` = HEX("b"), `2023` = HEX("d")),
+                    years = list(2017L, 2020L, 2023L),
+                    change_interval = list(2017L, 2023L),
                     drift = list(version = "0.8.0")),
       inputs_hash = "x", run = list(datetime_utc = "2026-09-02T19:48:49Z")))
   )
@@ -83,7 +85,11 @@ read_doc <- function(doc, case, area = "bulk") {
   jsonlite::write_json(doc, file.path(d, "provenance.json"), auto_unbox = TRUE, null = "null", na = "null", digits = NA)
   fp_prov_read(d)
 }
-YEARS <- c(2017, 2020, 2023)   # the published span; 01_stage.R passes doubles, folded identically
+# The fixture span. INTEGER, matching what 01_stage.R now derives
+# (`sort(as.integer(...))`): fp_years_reconcile compares with type-strict identical(),
+# so a double constant here would produce a guard that fires on correct input the
+# first time anyone reuses this file's own span in that function.
+YEARS <- c(2017L, 2020L, 2023L)
 item <- function(prov, species = "co", scenario = "co_ff04") fp_prov_item(prov, species, scenario, "check", YEARS)
 
 # --- synthetic cases --------------------------------------------------------------------
@@ -214,6 +220,95 @@ got <- item(base)
 expect_equal("landcover_item_hash is the file's item_hash verbatim", got$landcover_item_hash, HEX("c"))
 expect_true("landcover_key and landcover_item_hash are different values", got$landcover_key != got$landcover_item_hash)
 
+# --- the item's temporal shape (#61) -----------------------------------------------------
+cat("fp_prov_span: the year set is read, not declared\n")
+span_of <- function(mut, case) {
+  d <- synthetic()
+  if (!is.null(mut)) d$landcover$co_ff04$inputs <- mut(d$landcover$co_ff04$inputs)
+  fp_prov_span(read_doc(d, case), "co", "co_ff04", "check")
+}
+expect_equal("reads the recorded years as a sorted integer vector",
+             span_of(NULL, "span_base")$years, c(2017L, 2020L, 2023L))
+expect_equal("...and the change_interval beside them",
+             span_of(NULL, "span_base")$change_interval, c(2017L, 2023L))
+expect_equal("key order in the record does not move the result",
+             span_of(function(i) { i$years <- list(2023L, 2017L, 2020L); i }, "span_unsorted")$years,
+             c(2017L, 2020L, 2023L))
+expect_equal("a seven-year record reads back as seven",
+             span_of(function(i) { i$years <- as.list(2017:2023); i }, "span_seven")$years,
+             2017:2023)
+d <- synthetic(); d$landcover <- list()
+expect_true("no landcover section -> NULL, the forward-only state",
+            is.null(fp_prov_span(read_doc(d, "span_nolc"), "co", "co_ff04", "check")))
+# The three-state discipline: a PRESENT section missing the key must stop, not degrade to
+# NULL. A NULL here would silently route a provenanced item onto the disk-only path — the
+# one path with nothing to check it against.
+expect_stop("a present section with no inputs$years stops",
+            span_of(function(i) { i$years <- NULL; i }, "span_noyears"), "has no inputs$years")
+expect_stop("a present section with no inputs$change_interval stops",
+            span_of(function(i) { i$change_interval <- NULL; i }, "span_noci"),
+            "has no inputs$change_interval")
+# `i["years"] <- list(NULL)` keeps the key with a JSON null. unlist() would DROP it and
+# fold a shorter span that looks entirely valid — the same lesson as the digest map above.
+expect_stop("a null year stops rather than being dropped",
+            span_of(function(i) { i$years <- list(2017L, NULL, 2023L); i }, "span_nullyear"),
+            "are not whole numbers")
+expect_stop("a string year stops rather than being coerced",
+            span_of(function(i) { i$years <- list(2017L, "2020", 2023L); i }, "span_stryear"),
+            "are not whole numbers")
+expect_stop("a repeated year stops",
+            span_of(function(i) { i$years <- list(2017L, 2020L, 2020L); i }, "span_dup"),
+            "repeats year(s) 2020")
+# Not pedantry: jsonlite's auto_unbox writes a length-1 vector as {"years": 2017}, and
+# item_create.py's `for yr in meta["years"]` then raises TypeError on an int. A latent
+# crash three steps downstream, not a refusal.
+expect_stop("a length-1 years stops",
+            span_of(function(i) { i$years <- list(2017L); i }, "span_one"),
+            "has 1 year(s)")
+
+cat("fp_years_reconcile: disk against the record, both known answers\n")
+SPAN3 <- list(years = c(2017L, 2020L, 2023L), change_interval = c(2017L, 2023L))
+SPAN7 <- list(years = 2017:2023, change_interval = c(2017L, 2023L))
+TS <- c(2017L, 2023L)
+# Controls first. A guard that has never passed is as untested as one that has never fired.
+expect_true("a three-year disk set matching its record passes, and reports traced",
+            isTRUE(fp_years_reconcile(c(2017L, 2020L, 2023L), SPAN3, TS, "check")))
+expect_true("a seven-year disk set matching its record passes",
+            isTRUE(fp_years_reconcile(2017:2023, SPAN7, TS, "check")))
+expect_true("no record -> FALSE, not a stop: the forward-only path is checked, not corroborated",
+            identical(fp_years_reconcile(c(2017L, 2020L, 2023L), NULL, TS, "check"), FALSE))
+# Arm (a): the record names a year the rasters do not have. This is the arm the issue's
+# acceptance criterion names, and it must say WHICH year, in which direction.
+expect_stop("a raster the record names but disk lacks stops, naming the direction",
+            fp_years_reconcile(c(2017L, 2023L), SPAN3, TS, "check"),
+            "recorded-but-absent: 2020; present-but-unrecorded: none")
+# Arm (c): the mirror, which had no guard at all before this change — a raster upstream
+# wrote that the record does not describe would have been staged and published.
+expect_stop("a raster on disk the record does not name stops, naming the direction",
+            fp_years_reconcile(c(2017L, 2020L, 2021L, 2023L), SPAN3, TS, "check"),
+            "recorded-but-absent: none; present-but-unrecorded: 2021")
+expect_stop("both directions at once are both reported",
+            fp_years_reconcile(c(2017L, 2021L, 2023L), SPAN3, TS, "check"),
+            "recorded-but-absent: 2020; present-but-unrecorded: 2021")
+expect_stop("a duplicated disk year stops", fp_years_reconcile(c(2017L, 2020L, 2020L, 2023L), SPAN3, TS, "check"),
+            "two staged rasters claim the same classified year (2020)")
+expect_stop("a single classified raster stops", fp_years_reconcile(2017L, SPAN3, TS, "check"),
+            "found 1 classified raster(s)")
+expect_stop("a year set not covering the transition span stops",
+            fp_years_reconcile(c(2018L, 2020L, 2022L), NULL, TS, "check"),
+            "do not cover the transition span 2017-2023 (missing 2017, 2023)")
+expect_stop("a change_interval the repo does not publish stops",
+            fp_years_reconcile(c(2017L, 2020L, 2023L),
+                               list(years = c(2017L, 2020L, 2023L), change_interval = c(2017L, 2020L)),
+                               TS, "check"),
+            "records change_interval 2017-2020")
+# The arms are an ordered dispatch, so their order is load-bearing for WHICH message
+# prints (never for whether it refuses — every arm is unconditionally a failure). Pinned
+# with an input that trips two, so a reordering shows up here rather than in a confusing
+# message during a release.
+expect_stop("an input tripping two arms reports the structural one first",
+            fp_years_reconcile(c(2019L), SPAN3, TS, "check"), "found 1 classified raster(s)")
+
 # --- real files -------------------------------------------------------------------------
 cat("real producer files\n")
 FP <- Sys.getenv("FLOODPLAINS_DATA", unset = file.path("..", "floodplains", "data"))
@@ -224,12 +319,30 @@ real <- function(area) {
   file.copy(src, file.path(d, "provenance.json"), overwrite = TRUE)
   fp_prov_read(d)
 }
+# The real files are a MOVING population: floodplains#79 is converting areas from the
+# three-year span to annual, one at a time (bulk went from 3 to 7 during this session's own
+# work). So the fold's years cannot come from the fixture constant here — that is a witness
+# pinned to a copy, and it goes stale the moment upstream re-runs.
+#
+# This is the one place the fold's two sides share a source, and it is bounded: these cases
+# exist to prove the reader parses PRODUCER BYTES. The disk-against-record reconciliation is
+# proven on synthetic input above (fp_years_reconcile) and at the real call site in
+# stage_years-check.R, neither of which reads its expectation out of the record.
+real_item <- function(prov, species = "co", scenario = "co_ff04") {
+  sp <- fp_prov_span(prov, species, scenario, "check")
+  fp_prov_item(prov, species, scenario, "check", if (is.null(sp)) YEARS else sp$years)
+}
 b <- real("bulk")
 if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else {
-  got <- item(b)
+  got <- real_item(b)
   expect_true("bulk: link_* and flooded_version populated from the v2 file",
               !any(vapply(got[c("link_run_uid", "link_config_sha256", "link_sha", "link_version", "flooded_version")], is_na1, logical(1))))
   expect_equal("bulk: flooded_version is the #26 fix (0.5.0)", got$flooded_version, "0.5.0")
+  # Whichever span this area is on today, both ends of the published transition window must
+  # be classified — the one property of a real year set that does not depend on which
+  # population floodplains#79 has converted it to yet.
+  expect_true("bulk: the recorded span covers the published transition window",
+              all(c(2017L, 2023L) %in% fp_prov_span(b, "co", "co_ff04", "check")$years))
   # Whether bulk's landcover step has been re-run is a fact about the file, not about this
   # script: derive it from the raw JSON and assert the reader agrees in whichever state.
   raw <- jsonlite::read_json(file.path(FP, "bulk", "provenance.json"), simplifyVector = FALSE)
@@ -242,7 +355,7 @@ if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else {
 }
 n <- real("neexdzii")
 if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") else {
-  got <- item(n)
+  got <- real_item(n)
   expect_true("neexdzii: every field non-null", !any(vapply(got, is_na1, logical(1))))
   expect_equal("neexdzii: landcover_source", got$landcover_source, "io-lulc")
   expect_true("neexdzii: landcover_key is a sha256: string",
@@ -250,9 +363,20 @@ if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") el
   expect_equal("neexdzii: landcover_item_hash is the recorded item_hash",
                got$landcover_item_hash, "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904")
   # Pinned from the producer's file on 2026-09-02: a function of its three published
-  # per-year digests and the rule above. Moves only if a digest or the rule changes.
-  expect_equal("neexdzii: landcover_key folds to the pinned value",
-               got$landcover_key, "sha256:27a0c5b649f44ed3f449820ec9c69ac96306aeccbe704ee80467d8a20fb89b04")
+  # per-year digests and the rule above. This is the only assertion here that proves the
+  # RULE rather than the reader, so it is the one worth keeping — but it is a witness
+  # pinned to a copy, and floodplains#79 will re-run neexdzii onto an annual span and move
+  # it. Gated on the file still being the build it was pinned from, and skipped OUT LOUD
+  # otherwise, so a re-run reads as "re-take the pin" and not as "the fold broke".
+  PIN_STAMP <- "2026-09-02T19:48:49Z"
+  if (!identical(got$produced_datetime, PIN_STAMP)) {
+    skip("neexdzii: landcover_key folds to the pinned value",
+         paste0("upstream re-ran (", got$produced_datetime, " != pinned ", PIN_STAMP,
+                ") — re-take the pin from the new file"))
+  } else {
+    expect_equal("neexdzii: landcover_key folds to the pinned value",
+                 got$landcover_key, "sha256:27a0c5b649f44ed3f449820ec9c69ac96306aeccbe704ee80467d8a20fb89b04")
+  }
 }
 
 unlink(WORK, recursive = TRUE)

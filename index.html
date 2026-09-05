@@ -12956,8 +12956,8 @@ find.</p>
 <p>One <strong>item</strong> per
 <code>(watershed group, species, scenario)</code> target, id
 <code>&lt;wsg&gt;_&lt;species&gt;_ff0N</code>. Most groups publish one;
-MORR publishes two. Ten assets each — every one downloadable from its
-group’s popup on the <a href="https://www.newgraphenvironment.com/stac_floodplains_bc/">interactive
+MORR publishes two. Seven assets each, plus one per classified year —
+every one downloadable from its group’s popup on the <a href="https://www.newgraphenvironment.com/stac_floodplains_bc/">interactive
 map</a>:</p>
 <table>
 <colgroup>
@@ -12972,9 +12972,8 @@ map</a>:</p>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>classified_2017</code> <code>classified_2020</code>
-<code>classified_2023</code></td>
-<td>land cover in each year, clipped to the floodplain, as a
+<td><code>classified_&lt;year&gt;</code></td>
+<td>land cover in that year, clipped to the floodplain, as a
 Cloud-Optimized GeoTIFF. Class colours and labels are inside the file,
 so it opens ready to read</td>
 </tr>
@@ -13006,6 +13005,14 @@ open already coloured</td>
 </tr>
 </tbody>
 </table>
+<p><strong>The classified year set is a property of the item, not of the
+collection.</strong> Items modelled on the three-year span carry
+<code>classified_2017</code>, <code>classified_2020</code> and
+<code>classified_2023</code>; items re-run on an annual span carry one
+asset per year across the same window. Read the item’s own asset list
+rather than assuming a count — <code>transition_2017_2023</code> covers
+the same 2017-to-2023 window either way, so a cross-item comparison of
+the transition is unaffected.</p>
 <p>Every asset publishes <code>file:checksum</code> and
 <code>file:size</code>, so you can confirm a download arrived intact and
 pin which build a figure came from. (A checksum answers <em>are my bytes

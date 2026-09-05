@@ -5,7 +5,8 @@ target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06`). Item id is the
 for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
   - geometry  = the item's headline-scenario floodplain footprint (from meta.json)
   - datetime  = 2017 -> 2023 land-cover-change span
-  - assets    = classified_2017/2020/2023 + transition_2017_2023 COGs, the
+  - assets    = one classified_<yyyy> COG per year in the item's OWN span (#61, read
+                from the producer's record) + the transition_2017_2023 COG, the
                 floodplain_landcover.gpkg vector, the floodplain.gpkg
                 delineations (ff02/ff04/ff06 extents), and transition_vector.gpkg
                 (the transition layer alone, without the classified epochs)
@@ -566,7 +567,7 @@ collection = pystac.Collection(
     description=(
         "Floodplain land-cover classification and 2017-2023 transition for British "
         "Columbia watershed groups. One or more items per watershed group (one per "
-        "modelled species/scenario): three classified years, a transition raster, a "
+        "modelled species/scenario): one raster per classified year, a transition raster, a "
         "land-cover GeoPackage, a floodplain delineation GeoPackage (ff02/ff04/ff06 "
         "extents), and the transition layer on its own for consumers that do not need "
         "the classified epochs. Floodplain area per flood-factor and tree loss/gain/net properties "

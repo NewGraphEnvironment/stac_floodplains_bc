@@ -198,6 +198,33 @@ WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
 WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
 ```
 
+## Classified year sets
+
+The per-item span is read from the producer's record and asserted against the rasters staged
+(#61). Two check scripts cover it, one per side, and neither runs from `run_pipeline.sh` — like
+`fp_provenance-check.R`, they exercise guards a normal build never trips, so running them is
+deliberate.
+
+```
+Rscript scripts/stage_years-check.R              # the staging call site, on a real upstream tree
+uv run python scripts/year_sets-check.py         # item_validate.py's ALLOWED_YEAR_SETS arms
+```
+
+`stage_years-check.R` restores three defects in a sandboxed copy of one area and runs
+`01_stage.R` over each: a raster the record names and disk lacks, a raster on disk the record
+does not name, and a record naming a year nobody built. It skips out loud with no upstream tree.
+`year_sets-check.py` drives `check_checksums` over synthetic trees with real bytes, including
+the uniform-loss case a cross-item compare structurally cannot see (#23) and the `--partial`
+partition (#26).
+
+Both grep for **that guard's own message** rather than reading an exit code: a suite with N
+guards has N ways to exit 1, and only one of them is the evidence.
+
+Two values in `stage_years-check.R` are pinned witnesses, each gated so a re-run reads as
+"re-take the pin" rather than "the code broke" — `ufra`'s `produced_datetime` (upstream) and
+the sf/GDAL/PROJ triple (this machine, because the areas and geometry in `meta.json` are
+computed here).
+
 ## Determinism check
 
 `gpkg_determinism-check.R` proves the GeoPackage timestamp pin is doing its job — extract the same

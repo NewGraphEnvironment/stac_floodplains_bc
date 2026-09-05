@@ -656,6 +656,36 @@ EXPECTED_STYLE_ASSETS = {
 }
 EXPECTED_STYLE_CATEGORIES = {"classified": 9, "transition": 73}
 
+# The classified year sets this collection publishes (#61). A LITERAL a human sets, the
+# same shape and the same reason as DEPRECATED_ITEMS and PROVENANCE_FLOOR: the year set is
+# now a property of the item — some areas are three-year, some annual since floodplains#79 —
+# so the cross-item key check sees two populations and cannot be left to guess, and an
+# expectation derived from the items cannot fire when the loss is uniform across all of
+# them (#23).
+#
+# Delete the three-year tuple once every published area is annual, and the guard tightens
+# back to one population on its own. An entry no item uses is a literal nobody updated, so
+# that direction is checked too.
+ALLOWED_YEAR_SETS = (
+    (2017, 2020, 2023),                            # the span every area was built at until #79
+    (2017, 2018, 2019, 2020, 2021, 2022, 2023),    # annual, floodplains#79
+)
+
+# The asset-key PARTITION, written down beside the guard because it is what the next person
+# will get wrong (#26 cost three review rounds on exactly this):
+#
+#   fixed keys    identical across every item — `transition_<y1>_<y2>`, the three
+#                 GeoPackages, the three `style_*`. A dropped one shows up as a difference
+#                 from the other items, which is what the cross-item compare is for.
+#   classified_*  PER ITEM, against ALLOWED_YEAR_SETS above. Comparing these across items
+#                 is exactly the thing that broke once two populations existed.
+#
+# And which arms survive `--partial` (a one-item tree, `catalogue_release.sh --only`):
+# an arm naming keys the subset CONTAINS stays on; an arm asking about members the subset
+# does not have — "every allowed set is used by some item" — must be dropped, because the
+# normal state of a subset is not to use them all.
+CLASSIFIED_KEY_RE = re.compile(r"^classified_(\d{4})$")
+
 # The producer writes the vector's `transition` column with an ASCII arrow and the RAT's
 # titles with U+2192. Measured, and deliberate on both sides — so the comparison below has
 # to translate rather than assume they match.
@@ -1352,15 +1382,19 @@ def check_layer_styles(base: Path) -> list[str]:
     return problems
 
 
-def check_checksums(base: Path) -> list[str]:
+def check_checksums(base: Path, partial: bool = False) -> tuple[list[str], dict[tuple, list[str]]]:
     """Verify every asset's `file:checksum` and `file:size` against the file on disk.
 
     Assets live at `<base>/<item_id>/<name>`, and the S3 href's basename is that
     same name — so the local path is derivable from the href without extra state.
 
-    Returns a list of human-readable problems (empty when everything matches).
+    Returns the problems (empty when everything matches) and, beside them, which items
+    published which sanctioned year set — a number on screen rather than a silence, the
+    same shape as check_provenance's per-section counts. Two populations is a state
+    somebody has to be able to see without reading 23 JSON files.
     """
     problems: list[str] = []
+    used: dict[tuple, list[str]] = {tuple(sorted(y)): [] for y in ALLOWED_YEAR_SETS}
     asset_keys: dict[str, set] = {}
     for path in sorted(base.glob("*.json")):
         doc = json.loads(path.read_text())
@@ -1368,6 +1402,30 @@ def check_checksums(base: Path) -> list[str]:
             continue
         item_id = doc["id"]
         asset_keys[item_id] = set(doc.get("assets", {}))
+
+        # The release syncs the DIRECTORY, not the asset list (`aws s3 sync "$STAC_DIR"`),
+        # so any file sitting beside the assets reaches the public bucket described by
+        # nothing — and no other guard in this repo enumerates an item directory.
+        #
+        # Compared WHOLE, deliberately. Scoping it to the classified COGs would leave a
+        # stray transition COG, GeoPackage or .qml uncovered while reading, to the next
+        # person, as "the directory is guarded" — a guard's scope is usually a coincidence
+        # and it will not announce itself. The other direction (an asset with no file) is
+        # already the per-asset loop's `asset not on disk`, so only strays are reported.
+        #
+        # Names only files this tree HAS, so it survives --partial.
+        item_dir = base / item_id
+        if item_dir.is_dir():
+            on_disk = {p.name for p in item_dir.iterdir() if p.is_file()}
+            published = {PurePosixPath(urlparse(a["href"]).path).name
+                         for a in doc.get("assets", {}).values() if a.get("href")}
+            stray = on_disk - published
+            if stray:
+                problems.append(
+                    f"{item_id}: {len(stray)} file(s) in {item_dir} that no asset describes "
+                    f"({sorted(stray)}) — the release syncs the directory, so these would "
+                    f"reach the public bucket with nothing pointing at them")
+
         for key, asset in sorted(doc.get("assets", {}).items()):
             where = f"{item_id}/{key}"
             checksum = asset.get("file:checksum")
@@ -1415,19 +1473,64 @@ def check_checksums(base: Path) -> list[str]:
 
     # An item that lost an asset would otherwise pass by iterating nothing —
     # "no assets to check" and "all assets checked out" produce identical output.
-    # Every item is built from the same template, so the key sets must be identical;
-    # comparing them catches a dropped asset without hardcoding a count here.
+    # See the ALLOWED_YEAR_SETS block for the partition this implements and why.
     if asset_keys:
-        expected_keys = max(asset_keys.values(), key=len)
-        if not expected_keys:
-            problems.append("no assets on any item — nothing was actually verified")
-        for item_id, keys in sorted(asset_keys.items()):
-            if keys != expected_keys:
+        fixed_keys = {i: {k for k in ks if not CLASSIFIED_KEY_RE.match(k)}
+                      for i, ks in asset_keys.items()}
+        year_keys = {i: {k for k in ks if CLASSIFIED_KEY_RE.match(k)}
+                     for i, ks in asset_keys.items()}
+
+        # Fixed half: every item is built from the same template, so these must be
+        # identical. Derived from the largest set seen, which is blind to a loss that hits
+        # every item — paired with EXPECTED_STYLE_ASSETS above, which is the absolute.
+        expected_fixed = max(fixed_keys.values(), key=len)
+        if not expected_fixed:
+            problems.append("no non-classified assets on any item — nothing was verified")
+        for item_id, keys in sorted(fixed_keys.items()):
+            if keys != expected_fixed:
                 problems.append(
-                    f"{item_id}: asset set differs from the other items — missing "
-                    f"{sorted(expected_keys - keys) or 'none'}, "
-                    f"unexpected {sorted(keys - expected_keys) or 'none'}")
-    return problems
+                    f"{item_id}: non-classified asset set differs from the other items — "
+                    f"missing {sorted(expected_fixed - keys) or 'none'}, "
+                    f"unexpected {sorted(keys - expected_fixed) or 'none'}")
+
+        # Year half, arm (a): per item, against the literal. Names keys the item HAS, so
+        # it runs under --partial too.
+        allowed = {tuple(sorted(y)): {f"classified_{y_}" for y_ in y}
+                   for y in ALLOWED_YEAR_SETS}
+        for item_id, keys in sorted(year_keys.items()):
+            match = next((y for y, exp in allowed.items() if keys == exp), None)
+            if match is None:
+                problems.append(
+                    f"{item_id}: classified asset keys {sorted(keys) or 'none'} are not "
+                    f"any sanctioned year set. ALLOWED_YEAR_SETS names "
+                    + "; ".join("/".join(str(v) for v in y) for y in allowed)
+                    + ". A year set nobody sanctioned is either an upstream span this "
+                    f"collection has not decided to publish, or a lost asset that looks "
+                    f"uniform to the cross-item compare above")
+                continue
+            used[match].append(item_id)
+
+        # Arm (b): every sanctioned set is actually used. Asks about items the tree may
+        # legitimately not contain, so it is the one arm --partial drops.
+        if not partial:
+            for y, ids in sorted(used.items()):
+                if not ids:
+                    # TWO directions, and the remedy has to name both. A set that has
+                    # BECOME unused should be deleted. A set added AHEAD of its data — the
+                    # live state of floodplains#79 — must not be: deleting it would make
+                    # arm (a) refuse the first item that arrives on it, so the remedy would
+                    # walk the operator back through the guard. The likeliest trigger is
+                    # not a stale literal at all but a group that failed to stage.
+                    problems.append(
+                        "no item publishes the year set "
+                        + "/".join(str(v) for v in y)
+                        + " — an entry in ALLOWED_YEAR_SETS that no item in this build "
+                        "uses. If the rollout that made it obsolete has finished, delete "
+                        "it. If the rollout that will USE it has not reached this build "
+                        "yet, do NOT delete it — check that the groups you expected to "
+                        "supply it actually staged (data/raw/PARTIAL_STAGE names any that "
+                        "did not)")
+    return problems, used
 
 
 def main() -> int:
@@ -1568,12 +1671,16 @@ def main() -> int:
     # sha256 with no multihash prefix validates cleanly, and so does a well-formed
     # checksum of the wrong bytes. A guard that only checked the field was present
     # would be decoration on an issue whose entire subject is byte integrity.
-    bad = check_checksums(args.base)
+    bad, year_sets = check_checksums(args.base, partial=args.partial)
     if bad:
         print(f"FAILED: {len(bad)} asset checksum/size problem(s)", file=sys.stderr)
         for msg in bad:
             print(f"  {msg}", file=sys.stderr)
         return 1
+    print("classified year sets: "
+          + "; ".join(f"{'/'.join(str(v) for v in y)} on {len(ids)} item(s)"
+                      for y, ids in sorted(year_sets.items()))
+          + (" (--partial: unused sets not checked)" if args.partial else ""))
 
     # --- run provenance: does every item carry the declared nge: contract? ---
     missing_prov, traced, n_items, per_section = check_provenance(args.base, args.expect_provenance)
