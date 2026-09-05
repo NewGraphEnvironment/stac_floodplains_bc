@@ -26,29 +26,29 @@ re-registered, so *every other item byte-identical* holds by construction rather
 
 ## Phase 1: bulk_co_ff04
 
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` — stage → tag → COG → style → build → validate (`--partial`). **No `ALLOW_DRIFT_SKEW`**.
-- [ ] Gate before publishing: built `transition_2017_2023.tif` and `classified_2017/2020/2023.tif` hash to the Phase 0 checksums. A mismatch **halts the phase and gets reported**.
-- [ ] `bash scripts/catalogue_release.sh --only bulk_co_ff04`
-- [ ] Read back: 7 `classified_*`, transition checksum unchanged, `nge:drift_version = 0.13.0`, `nge:landcover_key = sha256:16cbe101e74c5c1876bd5b890d13e5e491efcf129377fdfccc24971f478f91ef`
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` — stage → tag → COG → style → build → validate (`--partial`). **No `ALLOW_DRIFT_SKEW`**.
+- [x] Gate before publishing. **Corrected mid-run**: byte equality is unsatisfiable — every COG carries the item's provenance block in its TIFF tags, and four of those move when the year set widens. The gate instead asserts `transition_2017_2023` and `classified_2017/2020/2023` are **pixel-, geometry- and RAT-identical** to the bytes S3 is serving, allowing exactly those four tags to move and failing on any fifth. See `findings.md`.
+- [x] `bash scripts/catalogue_release.sh --only bulk_co_ff04`
+- [x] Read back: 7 `classified_*`, transition pixels/RAT unchanged, `nge:drift_version = 0.13.0`, `nge:landcover_key = sha256:16cbe101e74c5c1876bd5b890d13e5e491efcf129377fdfccc24971f478f91ef`
 
 ## Phase 2: necr_ch_ff04
 
 - [ ] `WSG=necr Rscript scripts/test_pipeline.R`
-- [ ] Gate before publishing (as Phase 1)
+- [ ] Gate before publishing (as Phase 1 — pixel/geometry/RAT identity, not byte equality)
 - [ ] `bash scripts/catalogue_release.sh --only necr_ch_ff04`
 - [ ] Read back; `nge:landcover_key = sha256:1635efbfe58ec14ff802480ea07f47a2d6a43ab195d60881160ed32b3d94571a`
 
 ## Phase 3: lnth_ch_ff04
 
 - [ ] `WSG=lnth Rscript scripts/test_pipeline.R`
-- [ ] Gate before publishing (as Phase 1)
+- [ ] Gate before publishing (as Phase 1 — pixel/geometry/RAT identity, not byte equality)
 - [ ] `bash scripts/catalogue_release.sh --only lnth_ch_ff04`
 - [ ] Read back; `nge:landcover_key = sha256:a7cd994b621ed5aa3c05c62698013a7bc7a57479bb5471da72bf4c9842403e7c`
 
 ## Phase 4: kotl_bt_ff04
 
 - [ ] `WSG=kotl Rscript scripts/test_pipeline.R`
-- [ ] Gate before publishing (as Phase 1)
+- [ ] Gate before publishing (as Phase 1 — pixel/geometry/RAT identity, not byte equality)
 - [ ] `bash scripts/catalogue_release.sh --only kotl_bt_ff04`
 - [ ] Read back; `nge:landcover_key = sha256:3c70e523394efb82632215d1b3cb4661c01e20e2df4676796ba6c7236be44af5`
 

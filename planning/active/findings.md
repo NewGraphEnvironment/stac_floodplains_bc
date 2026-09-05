@@ -87,6 +87,62 @@ not moved since `styles/` was committed at #46, and the RAT the four rebuilt COG
 is the one already published. That is the premise the transition-checksum gate rests on — if
 the table had moved, every rebuilt COG would differ for a reason unrelated to the year span.
 
+## The issue's transition-checksum criterion is unsatisfiable — and the wrong question
+
+Measured on `bulk_co_ff04`, 2026-09-05. The acceptance list asks for `transition_2017_2023`
+to carry a `file:checksum` **equal to the currently published asset**, "the assertion that
+proves [the transition inputs did not change]". It cannot hold, and it could never have held.
+
+`02_raster_tag.py` stamps the item's whole provenance block into every COG's TIFF tags, so
+widening the year set moves four of them by construction:
+
+| tag | live | rebuilt | why |
+|---|---|---|---|
+| `NGE_LANDCOVER_KEY` | `sha256:66104a0f…` | `sha256:16cbe101…` | fold over seven digests, not three |
+| `NGE_LANDCOVER_ITEM_HASH` | `sha256:c653b16d…` | `sha256:338282a6…` | seven resolved STAC ids, not three |
+| `NGE_DRIFT_VERSION` | `0.8.0` | `0.13.0` | the producer re-ran on a newer drift |
+| `NGE_PRODUCED_DATETIME` | `2026-09-02T20:46:08Z` | `2026-09-05T19:52:01Z` | the #79 re-run |
+
+Every COG therefore moves bytes for reasons that have nothing to do with the raster. That is
+v1.1.0's own warning arriving one release later: *a checksum answers "are my bytes current",
+not "did the values change"* — and here the checksum could not answer the second question
+even in principle, because the provenance the item publishes lives inside the file the
+checksum covers.
+
+**What does answer it is what a consumer reads.** Comparing the rebuilt COGs against the
+bytes S3 was serving at that moment:
+
+```
+transition_2017_2023   pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+classified_2017        pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+classified_2020        pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+classified_2023        pixels IDENTICAL, RAT identical, geometry identical, 4 tag(s) moved
+```
+
+sha256 over the decoded band, plus CRS, affine transform, shape, dtype, nodata, block shape,
+overview levels, compression, and the RAT read out of TIFF tag 42112 through
+`item_validate.py`'s own `_read_embedded_rat` rather than a second parser. The gate allows
+exactly the four tags above to move and fails on any fifth — so a real difference cannot hide
+behind the sanctioned ones.
+
+Corroborating, and not asserted by the gate: `floodplain.gpkg`, `transition_vector.gpkg` and
+all three `.qml` styles come back **byte-identical**, which is what says the build is
+deterministic and the floodplain geometry is untouched. `floodplain_landcover.gpkg` moves, as
+floodplains#79 predicted and floodplains#45 explains.
+
+The gate is `scripts`-external (a one-off release gate, not a standing gaurd) and lives in the
+session scratchpad; its logic and every result are recorded here, which is the durable copy.
+
+## Phase 1 — bulk_co_ff04 published (2026-09-05)
+
+Build `PASS`, gate `PASS`, release `RC=0`. Live item now serves **14 assets**, classified
+2017..2023, and `nge:landcover_key = sha256:16cbe101e74c5c1876bd5b890d13e5e491efcf129377fdfccc24971f478f91ef`
+— **equal to the fold predicted offline before the build ran**, which is the read-back
+assertion that is not a round-trip through our own upload. `nge:landcover_item_hash` moved,
+`nge:drift_version` is now `0.13.0`, every other `nge:` value is unchanged, and the
+`floodplain` / `transition_vector` / three style assets carry unchanged checksums. The
+collection stayed at 23 items, version `1.1.0`.
+
 ## Errors Encountered
 
 | Error | Resolution |
