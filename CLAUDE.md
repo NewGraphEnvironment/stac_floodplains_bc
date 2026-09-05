@@ -249,10 +249,39 @@ marker, and no references to private sibling collections or infrastructure detai
 
 # Code Check — Shell
 
-Tool-level traps in bash, sed, git and `gh`. These load everywhere because they
-are about the shell the agent runs commands in, not about `.sh` files in the repo.
+Tool-level traps in bash, sed, git and `gh`, and in the host toolchain those commands
+depend on. These load everywhere because they are about the shell the agent runs
+commands in, not about `.sh` files in the repo.
 The general mechanisms — a guard that fails toward pass, a fixture that cannot
 reach the failure mode — live in `code-check.md`; this file is the quirks.
+
+### `git diff a..b` compares TIPS; a change on `a` shows up as the branch's
+
+Two-dot is the difference between two commits. Three-dot (`a...b`) is the difference from
+their **merge base** — what the branch actually did, and what GitHub shows in a PR.
+
+So anything that landed on the base since the branch forked appears **inverted** in a
+two-dot diff: a file `main` *deleted* reads as a file the branch *added*.
+
+Measured 2026-09-04 in rtj. A branch touched four files. `git diff --stat main..branch`
+listed five, the extra being a one-line addition to a CSV. `main` had removed that line in a
+merged PR; the branch had never touched the file at all:
+
+```
+two-dot   : CLAUDE.md docs/… env/prod/main.tf progress.md manifest.csv
+three-dot : CLAUDE.md docs/… env/prod/main.tf progress.md
+```
+
+It cost a wrong merge-order rationale written into a PR description ("merge #279 first,
+both touch this file"), caught by the PR reviewer reading the diff GitHub renders. The
+failure is quiet because the two-dot output is *correct* — it answers a question nobody
+asked.
+
+- Use `a...b` for "what does this branch change", which is nearly always the question.
+- `git log a..b` is the opposite convention and two-dot is right there — it lists commits
+  reachable from `b` and not `a`. The asymmetry between `log` and `diff` is the trap.
+- Confirm against the branch's own commits when it matters:
+  `git log --oneline a...b -- <path>` shows *which* side touched a file.
 
 ### git pathspec excludes: use the long form
 - `:!path` is short-form magic, and git keeps parsing magic characters after the
@@ -544,6 +573,37 @@ silent direction is the dangerous one.
   git push -u origin "$BRANCH" || { echo "push failed"; exit 1; }
   ```
 - **Before `gh pr merge`, verify the branch is fully pushed.** `gh pr merge` merges the REMOTE branch — commits made locally but never pushed are silently excluded, so the PR merges "successfully" while `main` is missing work you know you committed. Check `git status -sb` shows no `ahead N` before merging (or that `git rev-list --count @{u}..HEAD` is 0). Worse: if you then delete the local branch (`--delete-branch`, or a follow-up `git branch -D`), the unpushed commits become **dangling** — recoverable via `git reflog` / `git fsck --lost-found` then `git cherry-pick`, but only if you notice they're missing. Caught twice 2026-07 in `floodplains`: PR #6 merged 1 of 3 branch commits (the drift#34 `changes_only` fix + a CLAUDE.md update were unpushed → stranded as danglers → recovered and re-merged via a follow-up PR); a second branch sat 4-ahead-unpushed at compact time. The same check belongs in the `gh-pr-merge` skill's pre-merge step.
+
+### On a fork, `main` may track upstream by design — comparing it answers nothing
+
+`gh api repos/ORG/REPO/compare/upstream:main...ORG:main` returning
+`ahead: 0, behind: 0, status: identical` reads as *"this fork has no local work"*. On a
+fork whose workflow keeps `main` synced to upstream and puts the org's own commits on a
+**named branch**, it means the opposite of nothing: it is the branch model working, and
+every local commit is somewhere the comparison never looked.
+
+Measured 2026-09-05 on `NewGraphEnvironment/db_newgraph`, a fork of `smnorris/db_newgraph`:
+`main` was byte-identical to upstream while `newgraph` was **12 commits ahead**, plus five
+other branches and a merged PR history against `newgraph` as the base. The identical result
+was reported to the user as "a pristine fork, no local commits at all", and the work being
+asked about was on an unmerged branch off `newgraph`.
+
+Enumerate the branches before comparing anything:
+
+```bash
+gh api repos/ORG/REPO/branches --jq '.[] | "\(.name)  \(.commit.sha[0:8])"'
+gh pr list --repo ORG/REPO --state all --limit 20 \
+  --json number,state,headRefName,baseRefName \
+  --jq '.[] | "#\(.number) \(.state) \(.headRefName) -> \(.baseRefName)"'
+```
+
+**The PR list is the tell** — a `baseRefName` that is not `main` names the branch the fork
+actually develops on. It is also the cheapest way to find the convention, because a fork's
+own `CLAUDE.md` documenting the pattern is itself on that branch and invisible from `main`.
+
+Same family as "The probe is broken before the world is" in `code-check.md`: the comparison
+ran correctly and answered a question nobody asked. The tell is a result that is *too clean*
+for a repo someone just told you has commits in it.
 
 ### A destructive setup and its undo must not share one timeout-able command
 
@@ -844,6 +904,66 @@ And **not-ignored is not tracked.** The predicate that matters for anything a re
 `git ls-files --error-unmatch <path>` — see "A link to a repo-hosted artifact must be *tracked*"
 in `code-check.md`.
 
+### `sips -Z` scales up as well as down
+
+`sips -Z N` resamples so the longest side is N — in **either** direction. Run over a mixed set to
+"shrink images for the web", it enlarges everything already smaller than N, and the batch can come
+back barely smaller than it started.
+
+Measured 2026-09-04 over 104 images: `-Z 1400` took a 934x700 PNG **up** to 1400x1049, and the set
+went 60 MB → 51 MB where the intent was a quarter of that. Guard on the source dimension:
+
+```bash
+mx=$(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixel/{if($2>m)m=$2}END{print m+0}')
+if [ "$mx" -gt 1200 ]; then sips -Z 1200 "$f" --out "$o"; else sips "$f" --out "$o"; fi
+```
+
+The tell is a resize pass whose total barely moves. `-resampleHeightWidthMax` behaves the same way;
+ImageMagick's `convert -resize '1200x1200>'` is the form that only shrinks.
+
+### Assert capabilities, not versions — a tool upgrade can remove one silently
+
+A tool upgrade across the fleet can remove a capability without reporting failure.
+Version numbers do not predict the loss, exit codes stay zero, and the break surfaces
+later somewhere unrelated. Four instances on one host in one session (2026-08-20):
+
+- **GDAL silently lost its Parquet driver.** `brew upgrade` moved `apache-arrow` out
+  from under a compiled link in libgdal. `ogr2ogr --version` still answered; `Parquet`
+  simply stopped appearing in `--formats`. Exit 0 throughout.
+- **GDAL 3.13.3 turned a GeoPackage-extension warning into a hard error.** Identical
+  source: 0 failures on 3.13.0, 10 on 3.13.3. Package CI was green, so the repository
+  alone could not surface it (rfp#149).
+- **A checkout sat 93 commits behind** while `git status` reported in-sync, because it
+  had not fetched; a package installed from it was reported as "latest".
+- **Uncommitted work sat 15 days on one machine**, staged and never committed,
+  invisible to every other host.
+
+Two of these were mis-reported in-session before being caught — including an A/B test
+"proving" a regression whose comparison keg was itself broken (a missing dylib meant
+`ogr2ogr` never ran, producing a coincidentally identical failure count). The common
+shape is real state with no signal.
+
+- **Probe the operation, not the version.** `ogr2ogr --version` says nothing about
+  whether Parquet works; `ogr2ogr -f Parquet` round-tripping two features does. Every
+  check that matters performs the thing the fleet depends on: Parquet write and
+  read-back with field types preserved, the PostgreSQL vector driver present, COG
+  creation, `mergin push` incrementing the server version, a package's exported
+  functions callable, QGIS at or above what the report templates target.
+- **Probe, upgrade, re-probe, diff.** Never a bare `brew upgrade` (or `pak::pak`, or
+  `uv tool upgrade`) on a working host. A capability that flips pass→fail becomes a
+  loud failure with a named rollback instead of a silent one. Same reasoning as "A
+  wrapper's exit is not the work" in `code-check.md` — a package manager is another
+  wrapper that reports success while the work did not survive.
+- **Declare what a repo needs.** Repos that shell out to external tools state the set
+  (GDAL with COG support, `aws`, `jq`, `python3` for the STAC repos) so "can this host
+  run this?" is answerable before a long job starts rather than halfway through.
+- The probe also flags checkouts behind origin and uncommitted work older than N days —
+  neither is visible from any single machine's routine output.
+
+The honest failure mode is that this rots because nobody runs it: run the probe at
+session start beside the CI scan, schedule it unattended, and commit the results per
+host so any machine can see what the others measured. Implementation is kdot#37 (soul#69).
+
 
 # Code Check Conventions
 
@@ -902,8 +1022,14 @@ fire and one that must not. A guard nobody has seen fail is decoration.
 | 2026-08-31 | link | **A job that writes into its own tracked output directory poisons every dirty-check** — a provenance `dirty` flag set on all 21 dispatcher rows, every one false; the flag then carries no information and readers ignore the column; match the predicate to the subject — `git status --porcelain --untracked-files=no -- . ':(exclude)path/to/logs'`, long-form exclude because an aborted status reads as clean, `--untracked-files=no` decided deliberately since it also hides a new source file — and read provenance back against independently measured ground truth |
 | 2026-08-31 | fly#42 | **A `case` allowlist matches a substring, not a token** — `case " $allowed " in *" $item "*)` passes an item whose name spans two entries; use an explicit equality loop (`for a in $allowed; do [ "$a" = "$1" ] && return 0; done`), and strip only the suffix that actually matched — `${b%.html}` then `${b%.md}` reduces `index.md.html` to `index` |
 | 2026-08 | cyclops#10 | **`cmd > file` truncates before `cmd` runs — a failed command leaves a poisoned empty file** — a timed-out `op read` would have left a zero-byte credential that `[ -f ]` then blessed forever; guard on `-s`, write atomically |
+| 2026-09-04 | stewardship_upper_wedzin_kwa | **A run that selects nothing must not overwrite the artifact a run that selected something produced** — a `--since` filter excluded every visit, the fetch loop iterated zero times, and the resulting empty frame was written over a 238-row manifest that had cost 238 live HTTP requests; the run reported success because nothing failed. Merge rather than replace, and skip the write entirely when the new set is empty |
 | 2026-09-03 | rtj#259/#260 | **A completion check that enumerates the known-bad states passes for a state nobody enumerated** — a driver's post-condition filtered for its own four actionable outcomes, a copy of the todo filter written twice. A fifth outcome was later added (a form blocked from its rebuild) and landed in neither list, so a run that left the form stale printed `Done.` with the push command under it, on a project with no rollback. Its sibling path returned `Nothing to do.` and exited 0 *before* the check ran. **Invert to the complement**: assert every row is a deliberate resting place — `ok`, or one of the two report reasons that are deliberately final — so an outcome nobody has thought of defaults to **stop** rather than to pass. That does not prevent the next drift; it makes the next drift loud. Three review rounds had each fixed an instance of the same class; the complement is what stopped it being re-fixed |
 | 2026-09-03 | stac_floodplains_bc#46 | **`if not parsed: continue` turns "I could not read it" into "it is fine"** — a style validator skipped every content check when its category parse came back empty, so a `nullSymbol` renderer (a real one that draws nothing) and a `singleSymbol` one both sailed through; every classified layer in every item could have shipped drawing nothing, green. An empty parse is a THIRD state beside pass and fail — name the expected shape and assert it, rather than treating unreadable as exempt. **And check which direction the mirror runs**: the same review found the paired defect, a guard asserting a *data* property ("this watershed lost trees") where it meant an *artifact* property ("this style draws what it categorizes"), which would have refused a correct release on a correct dataset — measured margin 3 across 48 layers. Ask of every assertion whether it is about the thing you built or about the data that happened to flow through it |
+| 2026-09-04 | rtj#265 | **A coercion that truncates rather than refusing defeats a guard watching for NA** — `as.integer()` does not reject a fractional value, it silently truncates: measured `"2.5"`→`2`, `"0.9"`→`0`, `"-3.7"`→`-3`, no warning and no `NA`. A cast guard written as "report the values that became `NA`" therefore fires on `""` and `"5+"` (benign, or at least loud) and misses **every** instance of the thing it exists for — a column that is not an integer at all. `"0.9"`→`0` is the sharp case: a real measurement becomes zero with nothing said. Compare against `round()` with a tolerance instead of watching for `NA`, and split the two failures by what they cost — a parseable-but-fractional value should **abort** (truncation corrupts a real value; there is no correct silent behaviour), while unparseable→`NA` warns by value with empties separated out. Verify by restoring the old guard and running both over the same inputs: they should catch **disjoint** sets, which is what proves it is a gap closed rather than one guard swapped for another |
+| 2026-09-04 | rtj#265 | **A rule stated in a comment is not an enforced rule, and the safe-looking default is usually the dangerous value** — a driver's header said `--themes` must NEVER be `"all"`, citing the incident that produced the rule, while the call site read `themes %||% "all"` and a dry run reported the plan and passed. Three artifacts disagreed — header, PR description, code — and the dry run printed the dangerous value as if it were information. Where a comment says "never X", grep the file for X before believing it; where a default exists because a value is required, make omission an **error** rather than a fallback, and put that check ahead of any dry-run return so a plan-only run refuses rather than reporting a plan it would not have been safe to run. Both this and the row above were found by a PR reviewer on a check reporting green — the review's *conclusion* was SUCCESS both times, and the finding was in the comment body |
+| 2026-09-03 | link#278 | **A driver default that selects a methodology, a data scope or a deployment target answers a question nobody asked** — distinct from an ordinary default: `verbose = FALSE` is a preference, `config = "bcfishpass"` picks which of two biological methodologies you shipped, and the tell is that the alternative would also have run cleanly and produced different, equally plausible numbers. Fifteen drivers in one package defaulted to a parity config while the operator expected the package's own, so six watershed groups were modelled on the wrong methodology into a product line already seventeen deep, caught by an offhand question afterwards. Worse when the default is *named* like the safe one (`bcfishpass` vs a config literally called `default`). The remedy is not a policy fixing each answer; it is **removing defaults that silently answer for you**: make the argument required, and where a default must stay, print the resolved decision at start-up with the alternative named. Review question for any driver diff: does this fallback choose a method, a scope or a target? A fleet sweep of the shape is soul#178 |
+| 2026-09-04 | floodplains#77 | **Widening a guard is how it starts refusing correct content, and case-insensitivity is the cheapest way in** — a catalogue-fact grep was widened after missing 5 of 12 restatements, and the new latitude pattern `\b\d{1,3}\.\d+\s*[NS]\b` ran under `re.IGNORECASE`, so `[NS]` also matched a lowercase **s**: `0.39 s`, a timing figure from the repo's own notes, was refused as a collection extent. Compile flags **per pattern**, not per sweep. Two habits that caught it: keep a **negative control set** of sentences the repo legitimately writes and assert they still pass, and check *what the guard reads* — this was the one arm of three not stripping `<script>`, so an embedded bootstrap payload with 30 CSS durations (`.15s`) sat one leading digit from failing a page that was fine |
+| 2026-09-05 | stac_floodplains_bc#61 | **A currency gate read from the artifact the assertion pins downgrades FAIL to SKIP** — a byte-identity assertion pinned a built `meta.json`'s digest and gated itself on that same file's `produced_datetime`, so it would skip whenever upstream had re-run. Any regression that moved or nulled that field — a broken provenance read, a lost section, a rename — therefore made the gate skip **under a message blaming upstream**, on the one arm that exists to notice the code moving the artifact. Read a currency gate from the independent source it is really about (the producer's own file), never from the subject. A pin needs one gate per **independent input** to the digest, too: the same assertion's second gate covers the local sf/GDAL/PROJ triple, because the areas and geometry inside that file are computed on the machine that runs it, and an ungated toolchain difference FAILS rather than skipping |
 | — | — | **Silent Failures** — `\|\| true` hides real errors; an empty variable before `rm`/`destroy` needs `[ -n "$VAR" ] \|\| exit 1`; `grep` returning empty feeds downstream silently |
 
 ### A fixture that cannot reach the failure mode
@@ -988,6 +1114,7 @@ write that your own code never reads back, name what does read it.
 | 2026-08-26 | rfp#186 | **A value nothing reads is wrong silently — get it from the consumer, not from reasoning** — QGIS `<alias index=>` off by one because OGR excludes the integer primary key too; QGIS resolves by name so nothing broke; settled by comparing 99/99 against aliases QGIS itself wrote |
 | 2026-09-02 | floodplains#65 | **A guard suite that validates shape can be complete and still never read a value** — eight published values mutated one at a time, PASS on all eight; one had shipped 42x wrong; re-derive each value from the artefact it names |
 | 2026-09-01 | stac_floodplains_bc#33 | **A check's detect step and its explain step must use the same predicate** — exact compare to detect, tolerant compare to explain; `'-738.20'` vs `-738.2` entered the block and produced an empty message |
+| 2026-09-05 | floodplains#79 | **A cache keyed on fewer inputs than the comparison varies makes an A/B assert a file equals itself** — the plan was to prove a widened request left the shared results unchanged by running it both ways and diffing. `drift`'s `stac_cache_key()` hashes the AOI and request parameters but **not `years`**, and cache files are `<year>_<key>.nc` — so the narrow run's outputs are re-read off disk by the wide one, byte-for-byte, and the assertion is green against any regression whatever. The sibling half is worse because it looks like evidence: the upstream query range was `min(years)..max(years)`, identical for both, so the two runs issued *the same request* and a committed log already showed 14 items returned for a 3-year ask. **Before building an A/B, name the input you are varying and check it reaches the cache key and the wire request** — if it reaches neither, the comparison is a tautology and the honest move is to say the property holds by construction. Distinct from the under-keyed-cache row under "Written data outlives the fix": there the wrong data ships, here the *check* cannot fail |
 
 ### A guard's scope, escape hatches, and remedies
 
@@ -1022,8 +1149,11 @@ not by a reviewer saying you have converged: the class recurs one axis over, and
 | 2026-09-01 | stac_floodplains_bc#22 | **A new feature can silently invalidate an unrelated flag's stated rationale** — `--skip-sync` justified as "every href resolves"; adding `file:checksum` made that insufficient; grep the bypasses when you add a guarantee |
 | 2026-09-02 | ngr#7/#36 | **A fix that reaches one enforcement surface reads as complete on all of them** — five in one issue, each correct in its own dimension and silent in an adjacent one: `^CLAUDE\.md$` in `.Rbuildignore` while pkgdown published `CLAUDE.html` to the public web; a publish gate tested against both answers except under `nullglob`, where the loop runs zero times over an empty site; a CI flag sparing five runners a live API while `R CMD check` then failed on the same vignettes; one property enforced by mechanisms that do not read each other's config, and the fix is *evidence to everyone afterwards that it was handled*; name every mechanism enforcing the property, verify against the artifact each one produces with a positive control, and when two requirements conflict outright find the third option — the R surfaces and their remedies are under `R CMD build` in `code-check-r.md` |
 | 2026-09-01 | stac_floodplains_bc#34/#35 | **A literal reasoned from a producer's behaviour, when the artifact answers directly** — three review rounds on one guard, each fix resting on a new reasoned premise: `OVERVIEW_LEVEL=0` selects an overview (GDAL only *warns* on an unknown open option, so a typo opens full resolution and the guard compared a band to itself); width is the dimension that shrinks (a 1×1024 raster's first overview is 1×512, so a 400×4000 raster with overviews stripped returned CLEAN); 512 is the driver's threshold (it is the *default* `BLOCKSIZE`, which the writing script may override, and a correct 600×600 COG at `BLOCKSIZE=1024` blocked the release); the same file already parsed the TIFF tag by hand rather than asking GDAL, and that discipline was not applied to the premises; enumerated, the file's literals were contracts (row counts, property sets), format constants (multihash prefix, tag number) and one third-party default — read that one from `ds.block_shapes`, which has no level above it to be derived from |
+| 2026-09-04 | floodplains#77 | **A guard and the ignore rule that blinds it can land in the same commit** — a render check asserted `git status --porcelain` gained nothing, to catch a chunk that plots inline and leaves `README_files/` behind. `.gitignore` listed that exact path five lines away, added by the same change, so porcelain reported **OK** with the directory sitting on disk. Check a named-artifact property **by name**, and pair it with `--ignored` as the complement for whatever nobody thought to name — measured, the two arms catch different things: shortening the name list left arm 2 green while `--ignored` still failed. The escape hatch here was not inherited; it was written by the same author, in the same hour, for a good reason |
 | 2026-09-01 | fly#37 | **A guard's error message must not recommend a remedy that walks back through it** — the guard refused non-POINT and suggested `st_cast(x, "POINT")`, which reproduces the original 20→100 row bug; run the remedy for every input a clause can receive |
 | 2026-09-01 | stac_dem_bc#34 | **A guard that fires correctly and then points at the wrong fix** — four on one branch: an id-mismatch guard telling the operator to repoint `STAC_BUCKET_URL` at a bucket they already had (the bucket had not moved, only the collection); a deterministic both-keys failure reported as "transient, RE-RUN" when every re-run raises the identical error; a message promising "the run still publishes what it completed" on the path where the exit code discards it. Ask what someone would *do* on reading it, not whether the guard fired |
+| 2026-09-05 | stac_floodplains_bc#61 | **A guard that says "this would reach X" must read X's own exclusions, not enumerate the source** — a new arm compared each published item's whole directory against its assets and reported every extra file as one that "would reach the public bucket". The release syncs with `--exclude '.*' --exclude '*/.*' --exclude '*.json' --exclude '*.aux.xml'`, and its own comment records why: macOS drops `.DS_Store` into item directories and GDAL writes PAM sidecars when a read triggers statistics. So the guard would have **refused a release** over a file that provably cannot ship — opening the folder in Finder was enough — while telling the operator to delete something the transport already ignores. The fix is not a hardcoded skip-list but reading the patterns out of the shipper (here `catalogue_release.sh`), the same way a timestamp pin is read from the one file that defines it: a second copy is one fact derived twice and the two part company at the first edit. Assert the parse rather than trusting it — an empty pattern set fails toward refusal (loud), but one containing a bare `*` blesses everything, so reject that by name. **And check what already covers the thing you just sanctioned**: a `.aux.xml` here is still refused, by the guard that names the real defect (the RAT is not embedded) rather than claiming a bucket leak |
+| 2026-09-01 | flooded#47 | **Deriving a guard's key is not the fix for hardcoding it — when the key is a judgement, deriving it inverts the guard** — the contract-vs-third-party sentence above, read as "never hardcode", produces the opposite defect, and the wrong version looks careful. A **set** (which layers exist, which columns a schema declares) has a source of truth to derive from; a **judgement** (which column means drainage area, which basemap is opaque) has none, and keying it to whatever a formal or default holds today couples the guard to a value free to move for unrelated reasons. A guard keyed to `formals(fl_stream_rasterize)$field` — commented *"derived from the formal rather than hardcoded, so the two cannot drift"* — inverted completely when only that formal was corrected: false alarm on the right input, silence on the actual defect, a self-contradicting message. The two that must not drift are the guard and *the wrong column*, so key it to the literal `"channel_width"`. And the test does not save you — its premise line reddens, but reads as "the default changed, update the expected name", and that repair leaves the suite green with the guard pointing the wrong way: a failure toward the **wrong fix**, not toward pass (soul PR #136) |
 
 ### A fix lands in one of two callers that share a harness
 
@@ -1078,10 +1208,19 @@ else. And running a generator is not committing what it generated: a build in a 
 dir leaves the repo's artifact stale while the author truthfully reports having
 verified it.
 
-One worktree per session (`-b <new-branch>`, chained with `&&`). Assert the branch
+One worktree per session (`-b <new-branch>`, chained with `&&`). **The tag and release
+step needs a worktree too.** Every example here is an edit, so a reader who follows the
+rule still runs `git checkout main && git tag` in the shared checkout — which was on
+another session's branch with 281 lines of its uncommitted work when it happened
+(soul#141, 2026-09-01; nothing broke, by luck). Release from a throwaway tree detached
+at `origin/main`, push `HEAD:main` and the tag from there, and leave the shared
+checkout's `main` alone; `gh-pr-merge` step 5 carries the form. Assert the branch
 before any commit or flip. Stage by path. Generate from the committed tree, never the
 checkout — a mid-edit source is internally inconsistent, which is worse than stale.
-Verify the artifact after a push, not the push output.
+Verify the artifact after a push, not the push output. **And a dirty peer repo you are
+only passing through is someone's in-flight work, not leftovers** — `git pull` reporting
+"Already up to date" says nothing about the working tree, and staged edits are invisible
+to it. Do not tidy, commit, `git checkout .` or `git add -A` in a repo you came to read.
 
 Recovery, when it has already happened: back up the touched files, confirm the other
 branch's changes do not overlap yours, and `git checkout <your-branch>` carries
@@ -1101,6 +1240,7 @@ worktree rather than force-pushing into someone else's PR.
 | 2026-08-28 | floodplains#44 | **Config round-trips discard everything that is not data** — a "load, change a key, write back" update (`yaml::write_yaml`, `json.dump`, `toml.dump`, some `yq -i`) round-trips the data and silently drops comments, key order, blank lines and equivalent spellings (`null` vs `~`); the file still parses with the right values, so nothing fails, and what is lost is the only record of why a setting is what it is; the first working fix for a runner destroying hand-maintained config then deleted 8 lines of rationale in one `area.yml` and an open question in another — a fix for silent data loss is itself a prime candidate for it; edit only the lines you own (locate the key, rewrite that line keeping its trailing comment, append new keys past the block they must not land inside, refuse rather than mangle a nested block), reserve the full serialize for the create path, and assert it — count comment lines before and after and check `all(before_lines %in% after_lines)`; the region run went from 50 deletions to 2 insertions |
 | 2026-09-04 | stac_floodplains_bc#53 | **A committed generated artifact churns on every render unless every id and timestamp generator is pinned — and a `self_contained` renderer may reach the network to make one** — a 5.8 MB `index.html` rewrote itself identically on each build from three sources: `htmlwidgets` container ids, `mapgl`'s `paste0("legend-", as.hexmode(sample(...)))` legend id, and — the one that mattered on its own — pandoc's `--embed-resources` **fetching the shields.io badges at render time**, putting a network call inside a render documented as needing none and varying the output with whatever came back. `htmlwidgets::setWidgetIdSeed()` and `set.seed()` pin the first two; the third is fixed by keeping remote images off the self-contained target. Same class the repo pins `OGR_CURRENT_DATE` and uuid5 for, one toolchain over. **Assert it rather than assuming: render twice and compare digests** — the byte-compare is what found all three, and what will find the fourth |
 | 2026-09-01 | — | **The two safe ways to edit a CSV each break the other's case** — `csv.writer` re-quotes every field by its own rules, so editing 2 rows of a 6-row file rewrote all 6 and buried the real change ("A writer that rewrites a whole file changes more than the rows you added" covers the terminator half, not the quoting half); the obvious fix, plain-text replacement inside the field, then put a comma into an unquoted field, every data row gained a column, and `read.csv` silently consumed column 1 as row names; the rule is conditional — plain-text only when the field is already quoted or the inserted text carries no delimiter, `csv.writer` (with `lineterminator='\n'`) only when every data row is being edited anyway; afterwards assert field count per row and the reader's column names, because a column shift produces data that parses |
+| 2026-08-26 | fly | **Dirty files in a peer repo are another session's work, and tidying them destroys it** — `soul/conventions/` went dirty and clean three times inside ten minutes while another session authored convention text; a well-meant `git add -A` or `git checkout .` from a session that only came to read would have committed or discarded a half-written rule. The worktree rule above covers two sessions *editing* one repo; this is the cheaper read-only case, named in the paragraph above only since this row — leave the tree alone, and if you must know whether it is yours, `git status` and `git diff --cached` before touching anything (soul#116) |
 
 ### A wrapper's exit is not the work
 
@@ -1149,6 +1289,7 @@ result. Build commands as arrays and add an assignment only when there is a valu
 | 2026-08-28 | rfp#213 | **A zero-length value in a comparison makes every branch false and silently picks the fallback** — two exported writers documented `group = NULL` as "root" and "registry default"; both created an unnamed group at the end of the tree where everything draws under the basemaps |
 | 2026-07-31 | rfp#93 | **Empty is not unset — `VAR=` passes a presence check that `unset` fails** — `PROJ_LIB=` made rasterio call `set_proj_data_search_path("")` and fail with "Cannot find proj.db"; read as a missing dependency; and never write `[ -n "$X" ] && arr=(…)` as a bare top-level list — under `set -e` a false test aborts the script; use an explicit `if` |
 | 2026-08 | gq | **`expect_setequal()` refuses NULL, and `names(character(0))` is NULL** — the "every exemption still needed" assertion errors at the exact moment the list is correctly emptied |
+| 2026-09-05 | floodplains#79 | **`is.null()` cannot tell a key that is absent from a key that is present and empty, and both skip the guard** — a config flag guarded by `if (!is.null(cfg$x) && <malformed>) stop(...)`. `x:` with no value, `x: ~` and `x: null` all parse to `NULL`, so the guard short-circuits and `isTRUE(NULL)` is FALSE: the area ran the default while its committed config *read* as opted-in, silently. Measured on all three spellings. The three states are absent / present-empty / present-valued, and the predicate collapsed the first two — the same shape as "Empty is not unset" above, one layer up in the config parser. `"x" %in% names(cfg)` discriminates (TRUE for present-empty), which keeps an explicit `x: false` legal. The tell: a guard written to catch a *wrong* value, on a key whose *absence* is also meaningful — ask what the parser returns for the empty spelling before trusting the null check |
 
 ### The probe is broken before the world is
 
@@ -1175,6 +1316,13 @@ every widening broke and every narrowing held.
 | 2026-08-27 | rtj#221 | **Do not build an exact-match edit from a formatted display** — `sed 's/^/  /'` padded the read; the replace matched nothing; two failed rounds before `repr()` showed two spaces where the display implied four |
 | 2026-09-01 | flooded#52 | **A claim flagged as under-evidenced gets repaired by widening, and widening is what breaks** — six review rounds, 36 findings; every fix added a quantifier over a ragged dataset×resolution×lineage grid; terminated by reproducing the old behaviour to the digit and measuring every row |
 | 2026-09-03 | rtj#243 | **A defect rate is a claim about the population filter first, and the subject second** — a photo-reference audit reported 142 of 290 references (49%) dangling on the server, which flipped a design conclusion and was one command from being written into another repo's issue as fact. The filter for the *reference* side was right; the filter for the *server* side required the path to contain a `photos/` directory, so every image stored elsewhere was invisible and counted as missing. Re-run on all image extensions, case-insensitive: **6 of 290, 2%** — and those six reconciled exactly to an already-filed issue about bare filenames. A 49% failure rate in a shipped project was the tell, and the reconciliation that catches it is cheap: **count both sides of a ratio with independently-justified filters, and re-run the denominator's filter one notch looser before believing a rate**. Sibling of the positive control above — here the control is a *second, more lenient* population, not a known-good item |
+| 2026-09-05 | rfp#275 | **A differential baseline stops being one the moment the parent moves** — a branch suite was compared against a baseline measured earlier the same session, at a commit that had since stopped being the branch point: another session shipped a release into `main` in between. The comparison still *ran*, still produced two numbers, and would have attributed six failures on a parent that no longer existed. Re-run at the real branch point the counts moved 4409 → 4711 on the baseline side alone. **A baseline is only valid against `git merge-base HEAD origin/main`**, so in a shared checkout re-derive it at push time rather than reusing the one taken at branch time — and note the failure direction: the stale baseline was *lower*, which flatters the branch. Sibling of "a measurement carries the time it was taken", where what expired is the reference rather than the reading |
+| 2026-09-04 | rtj#282/#283/#284 | **And the filter can be right while the *predicate* is wrong** — the refinement of the row above, met three times in one session on one number. A photo manifest reported 142 of 290 present; the count then moved to 35, to 11, to **0 genuinely lost**, and no step was an arithmetic error. First the resolver named three directories photos were known to live in and the project also had a fourth. Then the denominator included **form-template placeholders** — six dummy filenames on a worked-example record, which is why three different projects reported *exactly six* missing, a tell sitting in my own summary table unexamined. Then the predicate itself: `exists in the project directory` was standing in for *is this photo safe*, while photos are **deliberately moved off** to control project size — so the check penalised the housekeeping it should encourage, on the gate that precedes destroying a generation. **Ask what the predicate is a proxy for before trusting the rate**, and when several independent subjects report an identical count, that equality is the finding. Each correction came from workflow knowledge no amount of re-measuring would have supplied — so when a rate survives one correction, ask who else knows what the number means |
+| 2026-09-05 | rfp#268/#271 | **When you cannot list, read the PRODUCER — "unlistable" is not "unknowable"** — a bucket answered `403 AccessDenied` to a list (correct for a `s3:GetObject`-only policy), so the artifact was reported as unconfirmable and a shipped feature was documented as blocked on it, with a follow-up issue filed saying so. The job that writes the object recorded the exact key in its own source; one `HEAD` on it returned **200, 66,635,819 bytes, staged the previous day**. The reasoning was "guessing a key is the construct-the-sibling-path antipattern" — true of a key *derived from a pattern*, and the opposite of true for one *read from the code that writes it*, which is that rule's own remedy. **Before concluding an artifact's presence is unknowable, grep the producer for the path it writes**; and treat a self-filed "blocked on X" as a claim to check rather than a conclusion, since nothing downstream will ever re-test it |
+| 2026-09-04 | rfp | **An error naming its own remedy, mapped onto a remembered failure instead of read** — a memory note said `op read` "times out on authorization"; the actual error was `couldn't connect to the 1Password desktop app… update to the latest version and restart the app`, and the app was running with `--just-updated --should-restart`. Not a timeout, not an authorization problem, and the fix was in the text. Cost: the *preferred* documented route was abandoned for the last-rank fallback, the user was escalated to, and then the credential's **name** was doubted — it had been right all along. Two tells, both cheap: the error prescribed an action nobody took, and the remembered failure mode had a different **shape** (a hang) than the one observed (an immediate error). **Read the error's own words before matching it to a prior**, and when a convention ranks routes, confirm the preferred route's prerequisite is genuinely absent rather than merely erroring once |
+| 2026-09-03 | drift#48 | **A sibling guard that passes is only a control if it was pinned before the event** — two frozen cache-key goldens, one red and one green, and the green one was read as evidence that the shared inputs were fine. It was not: it had been **re-pinned after** the environment moved, so it could only ever agree. Recomputing its *contemporaneous* predecessor showed that value had moved too, which flipped the diagnosis from "one key's inputs changed" to "the hash function changed under all of them" and changed the fix entirely. The filed issue had reasoned from the green tick and named the wrong cause. **Before treating a passing sibling as a control, date its pin against the event** — a guard re-pinned afterwards is a photograph of the new world, not a witness to the old one. Same family as the vendored-witness rule below, arriving through a re-pin rather than a stale copy |
+| 2026-09-04 | knowledge#4 | **A per-project config file can shadow the user-level one entirely, so the value you read is not the value that loads** — a repo-root `.Renviron` holding one line made R skip `~/.Renviron` completely, and every `PG_*`, `AWS_*` and `GITHUB_PAT` came back empty for any R process started in that repo. The symptom accused the world: `invalid integer value "NA" for connection option "port"`, which reads as a broken database config. `grep` on `~/.Renviron` showed the variable set, so the file was believed and the code doubted. **The positive control is the same command from a different working directory** — `PGPORT` was `5432` from `~` and empty from the repo, which localises it in one step. R, direnv, npm, git and ssh all resolve config by a search order in which a nearer file wins, and several stop at the first hit rather than merging. Ask *which* file actually loaded before trusting any variable's absence, and note the redundant-shadow shape: the offending file duplicated a value already set in `.Rprofile`, so it added nothing and hid everything |
+| 2026-09 | rfp | **Write the numbers last, against the final tree** — a figure written into prose mid-change is measured against a tree that no longer exists by the time the prose ships, and the second actor is usually *you*, one commit later: *"I had even reordered the phases to write prose against the final state — and then changed the state again."* The time-stamping rule in `karpathy.md` §7 warns about measurements staled by an earlier session; this is one staled by your own later work inside a session. When a fix lands after the prose, re-measure rather than assuming the prose still holds (soul#176) |
 
 ### Written data outlives the fix
 
@@ -1258,6 +1406,7 @@ request treated as evidence, and assert it at a size larger than any plausible d
 | — / 2026-07-30 | — / mdb-export | **Counting lines: `wc -l` and `grep -c` fail in opposite directions** — `grep -c` returned 1 for 102,460 single-line JSON records; `wc -l` reported 556 lines for 517 records with embedded newlines, and the number reached a README; use a `count_lines()` helper (`grep -c ''` with `\|\| n=0`) checked against all four inputs — empty, unterminated, terminated, missing — and parse records inside a structured file rather than counting lines |
 | 2026-08-30 / 08-31 | stac_dem_bc; STAC catalogue | **A paginated API's default page size silently truncates a lookup used as a check** · **A paged API's default `limit` reads as absence** — `POST /search` with 600 ids returned 10; `limit=200` reported two of sixteen surveys absent; paging returned 230 with every one present |
 | 2026-09-03 | rtj#259/#260 | **The set you compare against, derived from the artifact under test** — an acceptance script asserted a GeoPackage held only its form's own tables, and built "its own tables" from `st_layers()` on the *deployed* file. That listing includes the foreign table the check was hunting, so `setdiff()` came back empty and it passed on exactly the file it existed to flag; a fixture carrying `layer_styles` reported 0 failures until the set came from the *shipped* artifact instead. Not caught by four review rounds — found by running the check against a deliberately-bad fixture. **For a guard of the form "X contains only the expected set", the expected set must come from a producer the subject cannot influence**, and the same iteration must then walk the expected set rather than the subject's, or a *missing* member is invisible too |
+| 2026-09-04 | floodplains#77 | **A fix that derives one literal introduces another whose other half lives in a file the code never opens** — the mechanism behind four review rounds (7, 4, 7, 9 findings). Each round replaced a hardcoded value with one read from an artifact, added a new literal beside it, and wrote a *comment asserting the agreement* instead of a line checking it. Three of those comments were measurably false: `BYPRODUCTS` claimed to be `.gitignore`'s list and was missing two entries; a figure caption claimed to describe `config/disturbance.yml` while the cause list stayed hardcoded; and `nzchar()` claimed to filter empty cells it could not reach. **Terminate by partitioning every literal**, not by another round: a **contract this repo chose** must be hardcoded or the guard can never fail, and a **fact about another artifact** must be read from it or `stop()` on divergence — the two genuinely unavoidable ones carry a source-and-date stamp naming the file that makes them true. And enumerate *mechanically*: a curated list of 22 missed 7, all on one axis — literals inside strings that get **printed** (titles, captions, `fig.alt`) rather than inside values that get used, which is where a wrong caption hides because nothing consumes it |
 
 ## Rules that stand alone
 
@@ -1656,6 +1805,52 @@ For non-trivial issue-driven work, follow this checklist. Each step exists for a
 6. **Atomic commits** — each commit bundles code change + checkbox flip in `task_plan.md`. The diff and the progress live in the same commit; `git log -- planning/` tells the full story.
 7. **`/planning-archive` when complete** — moves PWF to `archive/YYYY-MM-issue-N-slug/`, creates a fresh `active/`. Then `/gh-pr-push` opens the PR; `/gh-pr-merge` handles the release bookkeeping.
 
+## Where the checkpoints are not
+
+Step 1's plan approval is the authorization for every step after it. Run steps 2–7
+through to the **open PR** without stopping to report between phases — the merge in
+step 7 is outside the mandate unless the instruction includes it; put the decisions that
+genuinely change what gets built at the plan gate, batched, with a recommendation
+first; report once when the PR is open. The rule, its boundary (before a plan
+exists, a question wants an answer) and its exceptions are `karpathy.md` §8.
+
+## Re-read origin before you open the PR, not just before you cut the branch
+
+Verifying local is current with origin (`code-check-shell.md`, "Before you *cut* a
+branch") protects the branch point. It
+says nothing about the build window, which is where a parallel session lands: measured
+once, a second session filed, built and merged the same feature in 18 minutes, entirely
+inside the first session's planning phase, and merged 15 seconds before its first
+commit. Both sessions' pre-flight checks passed and both were correct when they ran; the
+duplicate surfaced hours later as a version-bump conflict across eight files.
+
+Before opening a PR, and again before merging:
+
+```bash
+git fetch -q origin
+git log --oneline HEAD..origin/main          # what landed while you worked
+git diff origin/main -- DESCRIPTION NEWS.md  # a version you did not bump
+```
+
+**A version bump you did not make is the tell**, and usually the only one — the tree is
+clean, the branch is healthy, and nothing in git hints that someone solved your problem
+an hour ago.
+
+On a collision, do not resolve conflicts file by file. The merge conflict hides the
+useful question, which is *which body of work survives*. Ask, then re-land the delta on
+top of what shipped; two independent attempts at one problem are usually complementary
+rather than redundant, and a mechanical resolution keeps whichever half git preferred.
+
+## The version lives in one place
+
+Do not restate the current version in `README.md` or `CLAUDE.md` prose. A version
+string typed into prose drifts from the moment it is written — the release step
+maintains `DESCRIPTION` and `NEWS.md`, and one report repo's
+`CLAUDE.md` was found eight minor versions behind, its `README.md` one behind, with both
+canonical files correct. Link to `NEWS.md` instead. Where a claim genuinely must stay in
+prose, `/gh-pr-merge` step 7 greps for the previous version string outside the two
+canonical files and updates the prose restatements it finds, reporting each.
+
 ## When to Skip
 
 For one-line typo fixes, version-bump-only PRs, or trivial documentation edits, the full workflow is overhead. Use judgment. The threshold is roughly: **multi-step issue, multi-file change, or anything that requires scoping** → use the workflow.
@@ -1978,6 +2173,18 @@ code instead of a plan.
 found" for an agent that was alive and later replied. Check the output file's
 mtime before claiming progress, and say what you checked.
 
+**And never record a review as "Clean" on the strength of an idle notification.**
+From the parent's side an idle ping is indistinguishable from an agent that had
+nothing to say, so a lost review reads as a pass — a whole `/code-check` pass was once
+reported as finding nothing while three reviews were stranded, one of which had found
+a data-loss bug (measured 2026-08-25; the numbers are in `planning.md`, "Spawn review
+agents UNNAMED"). Passing `name` turns a spawn into a persistent teammate that idles
+instead of completing; pass it only for a collaborator you will keep messaging, and
+shut it down when done. The rule that survives either spawn shape:
+the reviewer **writes its findings to a file and reports only the path**, and a
+missing or empty file means the round produced nothing and is re-run — never
+"Clean". `planning.md` carries the mechanics; `code-check/SKILL.md` applies them.
+
 ### Verify claims, in both directions
 
 Subagent output is evidence, not verdict. Both failure modes are real:
@@ -1994,6 +2201,29 @@ Subagent output is evidence, not verdict. Both failure modes are real:
 The rule that separates them: **cheap probe first, then act.** Reproduce the
 claim before you fix it, and before you dismiss it. A finding you cannot
 reproduce is a finding you do not yet understand.
+
+### Fan out inside one process
+
+A workflow that shells out **once per item** costs one permission prompt per item,
+unless the command happens to be allowlisted. The same work done **inside one
+process** costs one prompt total, and nothing says so until the run is already
+going. Measured 2026-09-04 (knowledge#4): a harvest script issuing two `curl` calls
+per report inside each subagent meant hundreds of approvals across a run — the user
+had flagged it as *"a big time suck last time"* without knowing the cause — while a
+sibling script doing the same fetch-download-upload work with Python `urllib` in a
+single process cost **one** prompt for the entire run. Same task, same volume, three
+orders of magnitude apart in interruptions.
+
+It breaks **Always Away** directly: an unattended run that stops for approval on item
+3 of 200 has not failed loudly, it has gone idle, and the wrapper reports nothing.
+
+- **Prefer one process doing N items over N processes doing one.** Loop inside the
+  language runtime; shell out once, for the batch.
+- Where a per-item subprocess is genuinely required, allowlist its command **before**
+  the run, not one refusal at a time during it — the allowlist fixes the commands you
+  predicted, and the one that blocks is the one you did not.
+- Diagnostic: if a run keeps stopping for approval, look at whether the loop sits
+  inside or outside the process boundary before adding allowlist entries.
 
 
 ## 7. Evidence, Not Impressions
@@ -2076,6 +2306,15 @@ Two habits, both cheap:
 - **For any sentence of the form "you can tell X by looking at Y", check that Y actually
   separates X from not-X.** A discriminator that fires on everything discriminates nothing,
   and it reads as helpful right up until someone relies on it.
+- **A carve-out is a number too, and reasoning one from the shape of a literal understates
+  it.** A release note recording someone else's regression said a broken smoke test "could
+  validate any group except the two named in `EXPECTED_DEPRECATED`" — reasoned from the
+  literal being the thing the check consults. Driven over one-group trees it could validate
+  **none**: the literal names two items, so a one-group tree is always missing at least one,
+  including each of those two, which are missing each other. Wrong in the direction that
+  understates the reach of a defect, in the document a reader uses to decide whether to
+  backport. Run the check over the population before writing the exception
+  (stac_floodplains_bc#61, 2026-09-05).
 
 Measured 2026-09-02 in link. `CLAUDE.md`, `research/study_area_run.md` and
 `research/recompute_parallel_2026_09_01.md` all stated that a post-consolidate
@@ -2195,12 +2434,32 @@ packages for the verb**. One command, and it is the difference between adding a 
 and adding a second copy of one.
 
 ```bash
-for p in ngr rfp fpr spacehakr; do
+# Enumerate the org's installed packages rather than listing them: a hardcoded list
+# named four packages; thirteen other org packages were installed on the machine this
+# was measured on (2026-09-05), and the gap will grow again. Match
+# on any URL-ish field, case-insensitively: RemoteUsername is set only by GitHub
+# installs (a package installed from a local checkout has none) and the org name is
+# not always cased the same. Forks of upstream packages come along; that is fine.
+# `collapse` matters: paste() over fields that are all NULL is character(0), and
+# `if` on a zero-length grepl() aborts the whole enumeration (measured, soul#171).
+for p in $(Rscript -e 'for (p in rownames(installed.packages())) {
+  d <- packageDescription(p)
+  u <- paste(c(d$URL, d$BugReports, d$RemoteUrl, d$RemoteUsername), collapse = " ")
+  if (grepl("newgraphenvironment", u, ignore.case = TRUE)) cat(p, "\n") }'); do
   echo "== $p"; grep -E "^export" "$(Rscript -e "cat(system.file(package='$p'))")/NAMESPACE" \
-    | grep -iE "source|fetch|harvest|backup|manifest|download"
+    | grep -iE "source|fetch|harvest|backup|manifest|download|ingest|store|snapshot|read|write|conform"
 done
 ls ~/Projects/repo/rtj/scripts/gis/     # operational drivers live here, not in a package
 ```
+
+**Then read the README ownership table and the above-marker `CLAUDE.md` of any package
+plausibly adjacent — exports understate remit.** `trap`'s README states it exists "so a
+report does not have to harvest its own copy", with a manifest pinning per-snapshot
+sources, schema, md5 and row count; no export says that. The old hardcoded list would
+not have searched it at all; the grep finds functions; the README is the load-bearing
+artifact. Measured 2026-09-04: a harvest-and-manifest layer was
+proposed across three issues before `trap/README.md` was opened, with `trap` checked out
+and current on the machine (soul#183).
 
 The failure is not carelessness — it is that **a decision is invisible from where the work
 is happening**. The tool exists, is correct, and is three repos away in a directory you had
@@ -2235,6 +2494,224 @@ Sibling of *"An inventory is only complete relative to a boundary"* in `code-che
 step earlier: that one is about a search that was complete for the wrong scope, this is
 about never having searched the scope where the answer lived.
 
+#### The storage version: one store is not the world
+
+The same error with buckets instead of packages, and it produced three wrong answers in
+one session (2026-09-04). Each was a single negative check reported as a fact:
+
+| claim made | what was checked | where it actually was |
+|---|---|---|
+| "not an `aws` layer" | `rfp_source_aws.txt`, 11 entries | `db_newgraph/jobs/` — that list is what rfp *pulls*, not an inventory of what is staged |
+| "not staged anywhere" | one Postgres host, one S3 prefix | a **different bucket**, written by a job that drops its temp table afterwards |
+| "the imagery is not backed up" | `aws s3 ls` on two AWS buckets | **DigitalOcean Spaces** — 228 GB, reachable only via `s3cmd` |
+
+The third is the most general: **`aws s3` and `s3cmd` address different clouds and are
+invisible to each other.** A repo whose backup script uses `s3cmd` has stores that no
+`aws s3 ls` will ever list, so "I checked S3" is not a statement about where the data is.
+
+Two habits, each one command:
+
+- **Enumerate the stores before searching them.** `s3cmd ls` and `aws s3 ls` with no
+  argument each list only their own provider's buckets; the backup script names the rest.
+- **Prefer the definition to the artifact.** The job that stages data says what exists; a
+  bucket only shows what some past run happened to leave. Checking artifacts returned
+  nothing three times here; reading the job answered it immediately.
+
+A negative result is only ever as wide as the store you looked in. Stating it without that
+qualifier is how a gap in your own search becomes a fact in an issue body — which is where
+all three of these ended up before they were corrected.
+
+And the same shape once more for **checkouts**: a `grep` across `~/Projects/repo` searches
+the repos this machine happens to have, not the ecosystem. Repos are cloned per-machine and
+the set differs between them — `stewardship_upper_wedzin_kwa` was absent on m4 while holding
+the answer to two separate questions on 2026-09-04, so a local grep returned clean twice and
+was reported as absence twice. Use `gh api -X GET search/code -f q="org:NewGraphEnvironment <term>"`,
+and note it indexes **default branches only**, so a file on a feature branch is invisible to it
+and needs `gh api repos/<owner>/<repo>/contents/<path>?ref=<branch>`.
+
+## 8. Decisions Up Front, Then Run
+
+**Ask at the plan gate. After approval, run to the PR. Before a plan exists, a question wants an answer.**
+
+The first three subsections are one rule on one axis — *when* to come back to the
+user — and they are only correct as a set; each was learned separately in a different
+repo and re-derived, usually by getting one of them wrong first. The rest are
+handover rules that belong beside them because they decide what the user is handed
+when you do come back.
+
+### After plan approval, run every phase to the PR
+
+Plan approval is the authorization for every mechanical step after it. Run every
+phase, commit atomically per phase, archive the PWF, push, open the PR, and report
+**once**, at the end. Do not stop between phases to report progress: the decisions
+that needed the user were taken at the gate, and a check-in that only reports
+spends attention already committed. Under **Always Away** the cautious answer is the
+wrong one — the work stalls on a question the user answered by approving the plan.
+
+The instruction arrives as one short message covering many commits, reviews and
+repos: *"Go all phases to PR"* (airvine, flooded#49, 2026-08-31; flooded#47 and
+floodplains#33, 2026-09-01; trap, 2026-09-01; soul#169, 2026-09-04). One of those
+runs carried four phases, a plan review, four code-check rounds, two issue-body
+reconciliations and two cross-repo PRs with no further input. The merge is a separate
+instruction: on soul#188 the user typed `/gh-pr-merge` once the PR was open, and asked
+directly (2026-09-05) confirmed that *"to PR"* ends there.
+
+Two things are inside the mandate; these are not:
+
+- **Correcting the plan is inside it.** A review that disproves an approved design
+  decision gets fixed mid-run and reported in the summary; that is the run working,
+  not a reason to stop — unless the correction is itself a fork of the kind below (a
+  key, an identifier, a schema), which goes back to the user. Blockers that cannot be resolved are filed as issues and
+  named in the final report rather than held open.
+- **Our own repos are inside it.** Filing issues, opening PRs and editing bodies in
+  NGE repos is normal work; one run produced a follow-up issue and two cross-repo PRs
+  without asking, and that was right.
+- **Outward-facing actions are not** — see "Never post outside our own repos" below.
+  Neither is anything a convention names as its own gate: **the merge** — *to the PR*
+  ends at the open PR; `/gh-pr-merge` runs when the user invokes it or the instruction
+  says so (airvine, 2026-09-05; `gh-pr-push/SKILL.md`, "Ask user before merging") — a change to the machine
+  (`newgraph.md`, "State the plan before changing the machine"), or a push into an
+  artifact a human is testing on (`code-check.md`). A push to the feature branch is
+  inside the mandate.
+
+### Before a plan exists, a question wants an answer
+
+The same terseness that means "go" after approval means "answer me" before it. A
+turn that ends in a question mark, with no approved plan, gets an answer and a
+one-line offer of the work — not the first commit toward it. Twice in one day
+(floodplains, 2026-09-02) a question was read as approval and editing started — once
+after *"why not fix before publish?"*, and once after a gap had been explained, stopped
+with *"do not take on 70. i want to understand"*. When the ask is to understand something, keep it short and concrete; a
+worked example beats a taxonomy. *"small answers here"*, *"keep it short"* (airvine).
+
+This is the boundary condition on the rule above, which is why they are one section:
+a standing mandate to run autonomously, stated alone, is exactly what reads every
+terse message as "go". **The mandate starts at plan approval.**
+
+### What still interrupts, and where it goes
+
+A decision that permanently shapes stored data — a key, an identifier, a schema
+choice, a deprecation shim versus a hard rename — is the user's, and it goes to the
+**plan gate**, batched, as two or three concrete options with the recommended one
+first and the consequence stated. Two such forks put at one gate (flooded#47) were
+both load-bearing and neither was derivable from the issue: the rename would also
+have broken a production driver in another repo, which only the sweep surfaced.
+Asked at the gate a fork costs one round-trip and buys the whole run; discovered
+mid-execution it costs a stall with nobody there to answer it. Found mid-run, it is
+still not the agent's to decide: ask it the same way — options, recommendation first,
+phone-answerable — commit, and continue on the phases that do not depend on it while
+the answer is outstanding (`planning.md`, "When Something Keeps Failing" — escalating
+is not stopping).
+
+During plan-mode exploration, keep a list of "this changes what I build" forks and
+ask them together before `ExitPlanMode`. Questions are welcome; status updates are
+not. Mechanism — whether to spawn reviewers, which regex, how to build a fixture — is
+never a question (§6, "Spawning is your call"), and anything with a conventional
+default is not one either: pick it, say so, move on.
+
+### Never post outside our own repos without approval
+
+Never post to a venue outside NGE's own repositories without the user's explicit
+approval for that specific post — upstream GitHub issues and PR comments, mailing
+lists, forums, third-party trackers. **Drafting is welcome and expected**: write the
+comment, show it, wait. It is the sending that needs the word. *"Never post things
+upstream without my explicit approval"* (airvine, 2026-09-02, after an offer to draft
+comments on two of a vendor's upstream issues).
+
+**Why:** an upstream comment is published under the organisation's name to a venue we
+do not control, is indexed immediately, and cannot be unpublished. It is a
+communications act, not an engineering one, and the judgement about tone, timing and
+what we are willing to say in public is the user's.
+
+- Our own repos are unaffected; filing and editing issues there is the standing
+  disposition and needs no asking.
+- **Reading upstream is unrestricted and worth doing.** Checking issue state before
+  filing ours has caught a wrong citation in our own roxygen and found an upstream
+  issue already proposing the feature we were about to request.
+- Offer the draft in the reply, not as a fait accompli, and say plainly that nothing
+  has been posted when the work obviously produced something postable.
+
+### Hand the user bare commands
+
+When the user must run a command themselves — an interactive login, a
+sudo-needs-TTY operation, anything the Bash tool is blocked from running — give the
+**bare command**, in a fenced block, ready to paste. Never prefix it with `!`.
+*"Give me the cmd without the ! - that never works btw"* (airvine, 2026-08-21);
+*"stop giving me the ! at the start. that doesn't work. i need the raw cmd"* (`cd`, 2026-08).
+
+**Why, twice over.** Default session guidance proposes the `!` prefix as a way to run
+a command in-session, so this recurs in every repo unless written down. On this
+operator's terminals it either does not run at all, or — where it does — **it ran from
+`$HOME` rather than the session's working directory** (one measurement, 2026-09-02): a
+handed-over `! mkdir -p pursuits/x && cp … pursuits/x/` created `~/pursuits/x` and the
+file had to be found and moved. Absolute paths are right whichever directory it
+resolves against. So:
+
+- Emit the command plain. Applies to fenced blocks and inline commands alike.
+- **Absolute paths** in any handed-over command that touches files
+  (`~/Projects/repo/<repo>/…`), whichever form the user ends up running it in.
+- Keep it paste-safe: prefer `grep`/`awk` over a nested `python3 -c "…"` inside a
+  single-quoted remote command, so the quoting survives the trip.
+
+**A file under `~/Downloads` is unreadable by the agent process, and no retry helps.**
+`Read`, `cp` and `pdftotext` on `~/Downloads/*` all fail with `Operation not permitted`
+(measured 2026-09-02). It is macOS folder protection (TCC) on the process, not a
+Claude Code permission mode, so `/permissions` does not change it; Desktop and
+Documents behave the same. Do not retry variants — ask for **one** copy into the repo,
+with absolute source and destination paths, then continue from the copy. (Granting
+the terminal app Full Disk Access removes it on one machine; the fallback stays for
+the next machine.)
+
+### Link every issue and PR you name to the user
+
+When a message to the user names an issue or a PR, make the number a link the user can
+click: `[soul#191](https://github.com/NewGraphEnvironment/soul/issues/191)`,
+`[soul PR #192](https://github.com/NewGraphEnvironment/soul/pull/192)`. Terminal output
+renders markdown, so a bare `#191` costs the user a browser, a repo, and a click through
+several pages to learn what it was — for every number in a report that may carry a
+dozen. *"want to be able to follow up without opening new browser and clicking through
+mult pages to find"* (airvine, 2026-09-05).
+
+- **Issues under `/issues/N`, pull requests under `/pull/N`.** They are different paths,
+  and the type is not always obvious from a number. When unsure, ask `gh` rather than
+  guess — it returns the canonical URL for either:
+  ```bash
+  gh issue view 192 --repo NewGraphEnvironment/soul --json url -q .url \
+    || gh pr view 192 --repo NewGraphEnvironment/soul --json url -q .url
+  ```
+- **Cross-repo references carry the repo**: `rfp#268`, never a bare `#268` from inside
+  soul.
+- **Spot-check a subset, not every link.** Before sending a report with many numbers,
+  resolve two or three through `gh` — the ones you typed from memory or whose type you
+  inferred — and let the rest ride. Checking all of them would slow every message; checking
+  none is how a wrong repo or an issue-path link to a PR ships. Measured 2026-09-05: three
+  constructed links checked against `gh`, two matched, one was a PR filed under the issue
+  path.
+- **Scope is messages to the user** — terminal replies, the compact-prep report, PR and
+  issue bodies where a reader lands from outside the repo. Commit messages and issue bodies
+  read *on* GitHub autolink `#N` already; do not bloat those.
+
+### Surface upstream defects; do not work around them
+
+When a dependency or an external API misbehaves, surface it and ask rather than
+coding around it. *"dont' do workarounds for things like zotero api problems. surface
+and ask as there may be simple solution"* (airvine, 2026-09-03).
+
+**Why:** a workaround hides the defect from whoever could fix it properly, and the user
+often has upstream context or a simple fix the session lacks. Most of the dependencies
+in question are **first-party** — an upstream bug is usually ours — so a local patch
+is strictly worse than an issue: it leaves the bug in place for every other consumer
+while making this repo look fine. Same instinct as `newgraph.md`'s "install missing
+packages, don't workaround", applied to a *broken* dependency rather than a *missing*
+one.
+
+**How to apply:** reproduce it minimally, file an issue in the owning repo with the
+repro and the exact lines, report it, and carry on if it is not blocking. The rule is
+*do not hide it*, not *do not continue*: the day it was recorded, a search function
+failed on a list column and broke a documented pipeline step; the local guard would
+have taken minutes and hidden a bug affecting every consumer, so it was filed with a
+three-line repro and the pipeline continued, since its data path did not use search.
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
 
@@ -2260,7 +2737,7 @@ Skip planning for single-file edits, quick fixes, or tasks with obvious next ste
    - `progress.md` — Session log with timestamps and commit refs
 3. **Plan-review with the Plan agent — concurrently, not as a gate** — Once `task_plan.md` is scaffolded, spawn the Plan subagent (`Agent({subagent_type: "Plan", prompt: "..."}`) and ask it to critically review the task_plan against the issue body + actual codebase. Categorize findings as Blocker / Gap / Ordering / Assumption / Scope / Acceptance. The agent reads files fresh — it catches what you miss when you've been thinking about the design too long. Real example: caught 21 issues including hardcoded literals across 4 files not listed in the plan, untested DB column mismatches, and a baseline-cache-shadow that would have produced a 6-second no-op run.
 
-   **Do not wait for it.** Spawn, then start the lowest-risk phase. Background agents have repeatedly returned late — in one case after the entire issue had shipped — so treating the review as a precondition stalls the work for as long as the agent takes (see `karpathy.md` §6). Fold findings in whenever they land: pre-baseline they edit the plan; mid-implementation they become follow-up commits. A review that arrives after the code is written is not wasted — the reviewer reads real code instead of a plan, which is how one late review still contributed three fixes that no earlier reading had found. If you genuinely cannot proceed without the result, run it with `run_in_background: false` so the blocking is explicit.
+   **Do not wait for it.** Spawn, then start the lowest-risk phase. Background agents have repeatedly returned late — in one case after the entire issue had shipped — so treating the review as a precondition stalls the work for as long as the agent takes (see `karpathy.md` §6). Fold findings in whenever they land: pre-baseline they edit the plan; mid-implementation they become follow-up commits — unless the finding is a stored-data fork of the kind `karpathy.md` §8 reserves for the user. A review that arrives after the code is written is not wasted — the reviewer reads real code instead of a plan, which is how one late review still contributed three fixes that no earlier reading had found. If you genuinely cannot proceed without the result, run it with `run_in_background: false` so the blocking is explicit.
 
    Verify before acting, in both directions. Findings have been confidently wrong (a "BLOCKER" disproved by a 30-second probe) and confidently right about things nobody suspected. Reproduce the claim first.
 
@@ -2295,6 +2772,16 @@ Skip planning for single-file edits, quick fixes, or tasks with obvious next ste
    Asking for a file the agent cannot produce costs a round-trip, and — worse — sets you up to read an absent file as an absent review. Check the agent type's tools before writing the instruction.
 
    **Review the fixes, not just the code.** The second pass is where the value concentrates, because a fix written under a wrong assumption reproduces the same defect. Measured on gq#52: pass 1 found 13 defects, pass 2 found 7 more — including a blocker sitting *inside the fix* for pass 1's blocker, the same class twice (`lty`, then `fill_alpha`) because completeness was reasoned about rather than computed. Pass 3, scoped narrowly to the file edited most, found no new instances; **convergence is the signal to stop, not a fixed number of rounds.**
+
+   Convergence is measured, not felt — a quiet round and an exhausted reviewer look
+   identical. The rule that terminated trap#28 (five rounds; each of the first four
+   found its best defect *inside the previous round's fix*) was to **enumerate the
+   candidate set mechanically and show nothing sits above its source of truth**: parse
+   the files and walk every `cli_abort`/`warning`/`stop` rather than recalling them, so
+   "all of them are pinned" is a count. `code-check.md` states it under "A guard's
+   scope, escape hatches, and remedies" — terminate by enumeration, not by a reviewer
+   saying you have converged. `/code-check` treats three rounds as the floor and keeps
+   going while a round finds a defect inside the previous fix.
 
    Ask for the **mechanism**, not more instances. Pass 3's best finding was that an invariant was enforced by two lists happening to agree — which is what had produced instances two and three.
 
@@ -2551,6 +3038,53 @@ Three tools, different purposes. Use the right one.
 **BBT citation key storage:** As of Feb 2025+, BBT stores citation keys as a `citationKey` field directly in `zotero.sqlite` (via Zotero's item data system), not in a separate BBT database. The old `better-bibtex.sqlite` and `better-bibtex.migrated` files are stale and no longer updated. Query citation keys with: `SELECT idv.value FROM items i JOIN itemData id ON i.itemID = id.itemID JOIN itemDataValues idv ON id.valueID = idv.valueID JOIN fields f ON id.fieldID = f.fieldID WHERE f.fieldName = 'citationKey'`.
 
 **BBT citekey format is locally patched to strip `&`:** the `citekeyFormat` pref (`extensions.zotero.translators.better-bibtex.citekeyFormat` in `~/Library/Application Support/Zotero/Profiles/*/prefs.js`) has a `.replace(find = "&", replace = "")` segment added by hand. Without it, institutional authors containing `&` (e.g. "BC Species & Ecosystem Explorer", "WA Dept of Fish & Wildlife") leak `&` into the citekey, and pandoc's `@key` parser stops at `&` — so cites render broken in any bookdown/quarto build even though biblatex accepts the key. Reapply via Zotero → Tools → Run JavaScript: `Zotero.Prefs.set("translators.better-bibtex.citekeyFormat", val)` (also patch `citekeyFormatEditing` to match). Survives Zotero/BBT auto-updates; reverts only on a profile reset or a manual edit via the BBT preferences UI. Detect drift: `grep citekeyFormat ~/Library/Application\ Support/Zotero/Profiles/*/prefs.js` should show the `.replace(find = "&", ...)` chain. Teammates on Skeena/Fraser/restoration machines that hit the same `@key`-breaks-at-`&` drift should run the same `Zotero.Prefs.set`.
+
+## Which routes are live by default
+
+Measured 2026-09-04 on a freshly provisioned machine. Four of the six routes below were
+dead, and each dead end costs a session time it has no reason to expect:
+
+| route | state on a default setup |
+|---|---|
+| **Web API** | **works** — the route to use for writes; targets a collection directly via `"collections": [...]` and needs Zotero neither open nor restarted for the write itself |
+| **read-only SQLite** | works, and remains the best route for *searching* (`/zotero-lookup`) |
+| MCP `zotero_*` | unavailable until an API key is configured — the install script registers the server but never configures a key |
+| Local API | `403 Local API is not enabled`, with and without the `Zotero-Allowed-Request` header |
+| Connector `saveItems` | HTTP 500 on a minimal item with exactly the documented headers — a defect, not a permission; reads on the same port (`ping`, `getSelectedCollection`) are fine, and `getSelectedCollection` returns the whole collection tree in one call |
+| JS runner (`zotero_run_js.sh`) | `osascript is not allowed assistive access` until the terminal has Accessibility |
+
+**Zotero's server takes about 30 s after launch to respond.** An early failure does not
+mean it is not running, which is exactly the wrong conclusion to draw at that moment —
+wait and retry once before diagnosing.
+
+The key's location, the password-manager item that holds it and the local port are
+infrastructure identity and stay in machine-local memory, not here (soul#177).
+
+## Citation keys are BBT-auto-derived
+
+**Never set `Citation Key:` in the `extra` field.** BBT honours it as a manual override,
+and that breaks the convention that every key follows one formula: stable, reproducible,
+the same key for the same paper on every collaborator's machine. Leave `extra` empty, or
+use it only for other Zotero-supported fields (`Original Date:`, `tex.shorttitle:`).
+Ten items created with hand-set keys in one lit review (cd#58, 2026-05-05) had to be
+PATCHed clean after the user caught it.
+
+- **Web API-created items get no key until Zotero restarts.** Sync alone does not trigger
+  BBT. On macOS:
+  ```bash
+  osascript -e 'tell application "Zotero" to quit'; sleep 3; open -a Zotero; sleep 30
+  ```
+  Thirty seconds covered seven fresh items (cd#61); scale the wait with the batch.
+- **Corporate-author guard.** CrossRef sometimes returns no individual authors (a paper
+  bylined to a working group), so the POST lands with empty `creators` and BBT falls back
+  to a `<title-prefix><year>` key. PATCH the individual authors from the paper's roster
+  into `creators` before triggering the restart.
+- **BBT and Zotero version lines are paired** — BBT 8.x for Zotero 7, 9.x for Zotero 8/9.
+  If Zotero auto-disables BBT after an update, keys silently stop generating for new
+  items; reinstall the matching line via Plugin Manager → gear → "Install Plugin From
+  File…" from the BBT releases page.
+
+`/lit-search` and `/zotero-api` point here; this is the authority (soul#43).
 
 ## Adding References Workflow
 
