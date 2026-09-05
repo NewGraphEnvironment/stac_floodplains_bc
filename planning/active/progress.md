@@ -25,3 +25,30 @@
   is a cross-check rather than the only route.
 - `WSG_ONLY=lnth` stages seven classified years and a 2017-2023 transition, with
   `landcover_key` refolded over seven digests.
+
+### Phase 2 — offline proof and restore-the-bug (done)
+
+- `fp_years_reconcile()` extracted out of the staging loop into `fp_provenance.R`: a guard
+  buried in a loop over watershed groups cannot be fired against both known answers.
+- `scripts/fp_provenance-check.R` grew 25 cases (72 assertions, 0 failed) covering
+  `fp_prov_span` and `fp_years_reconcile`, controls first.
+- `scripts/stage_years-check.R` is new: it restores each defect in a real upstream tree and
+  runs `01_stage.R` over it, in a sandbox whose upstream area is symlinks and whose `data/`
+  is its own. 13 assertions, 0 failed. Each arm greps its own message.
+- Two fixtures rotted mid-session because floodplains#79 converted `bulk` while the work was
+  in flight; both are now gated on the area's own `produced_datetime`.
+
+### Phases 3-5 (done)
+
+- `ALLOWED_YEAR_SETS` + the split key check in `item_validate.py`, partition and `--partial`
+  reasoning written down beside the guard. `scripts/year_sets-check.py` proves all five arms,
+  each greping its own message; one call-site proof by mutating the live built tree.
+- `test_pipeline.R`: `--partial` (a pre-existing #26 break, reproduced on `main`), both
+  hardcoded asset counts per item. `item_create.py` description, `run_pipeline.sh` banner.
+- Determinism: `04_gpkg_style.py` is a true no-op on the third pass over a seven-year
+  GeoPackage, and both determinism checks pass with `ITEM=lnth_ch_ff04` — the fixture axis
+  they could not previously reach.
+- `README.Rmd` asset table per item; both targets re-rendered with `update_query = FALSE`, so
+  the coverage figure and table still describe the published catalogue this PR does not
+  change. `index.html` moved 17 lines out of 5.8 MB and is byte-identical across two renders.
+- `NEWS.md` gets an Unreleased entry; every figure in it derived from the artifact.

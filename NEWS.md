@@ -17,6 +17,57 @@ Recorded here because it is a decision (airvine, 2026-09-03) that previously exi
 in conversation — it was in neither #26, #19, any archived planning file, nor the project
 memory, and had to be recalled rather than read.
 
+## Unreleased
+
+**The classified year set is now a property of the item, read from the producer's record —
+not a three-year constant in this repo** (#61). `floodplains#79` is re-running areas onto an
+annual span, so the collection will carry two populations; the code no longer has an opinion
+about which. This release changes **code, not data**: no published item moves, and the
+republish of the annual areas is #59.
+
+- `01_stage.R` no longer declares `YEARS`. Each item's span is discovered from the
+  `classified_<yyyy>.tif` actually staged, and the producer's `landcover.<scenario>.inputs.years`
+  is what checks it — that direction, not the reverse. Sourcing both from the record would
+  reduce `landcover_key`'s fold to one file's `years` agreeing with the same file's
+  `classified_content_sha256`, written by one upstream step moments apart.
+- Three absolutes replace the refusal the constant used to give: both ends of the published
+  transition span must be classified, the record's own `change_interval` must match it, and a
+  year set must be distinct and at least two long. The last one is a latent crash rather than
+  a refusal — `jsonlite`'s `auto_unbox` writes a length-1 vector as `{"years": 2017}` and
+  `item_create.py`'s `for yr in meta["years"]` then raises `TypeError` three steps downstream.
+- `item_validate.py` splits its cross-item asset-key check in two, with the partition written
+  down beside it: the non-classified keys are still compared across items, and the
+  `classified_*` keys are checked per item against `ALLOWED_YEAR_SETS` — a literal a human
+  sets, the same shape as `DEPRECATED_ITEMS` and `PROVENANCE_FLOOR`, because an expectation
+  derived from the items cannot fire when the loss is uniform across all of them (#23). Both
+  directions: an unsanctioned span is refused, and a sanctioned span no item uses is reported
+  as a literal nobody updated. That second arm is the one `--partial` drops, because it asks
+  about items a subset legitimately does not contain (#26).
+- A new arm compares each item's published `classified_*` assets against the COGs actually in
+  its directory. `aws s3 sync` uploads the directory, not the asset list, so a stray COG
+  reaching the public bucket described by nothing was caught by no guard in this repo.
+- `scripts/stage_years-check.R` and `scripts/year_sets-check.py` are new, and
+  `scripts/fp_provenance-check.R` grew 25 cases. Each restores a defect and greps for **that
+  guard's own message**: a suite with N guards has N ways to exit 1, and only one of them is
+  the evidence. Three arms at the staging call site (a raster the record names and disk
+  lacks; a raster on disk the record does not name — the direction that had no guard at all
+  before this change; and a record naming a year nobody built), five at the validator.
+- `test_pipeline.R` now passes `--partial`, for the reason `catalogue_release.sh --only` does
+  (#26). Measured on `main` as well as here: without it the smoke test has been unable to
+  validate **any** watershed group except the two named in `EXPECTED_DEPRECATED` since #26
+  landed, because the deprecation check's last arm asks about ids absent from a one-group
+  tree. Its two hardcoded asset counts are now per item.
+- `run_pipeline.sh` warns about `ALLOW_DRIFT_SKEW` the way it already warned about
+  `ALLOW_SKIPPED`: same persistence-in-an-exported-shell hazard, worse consequence.
+
+Measured, not restated: `ufra_ch_ff04` restages `meta.json` byte-identical to its pre-change
+build (`sha256:22c2460f…`), and that comparison is now a standing assertion rather than a
+one-off — pinned, and gated on `ufra`'s own `produced_datetime` so a `floodplains#79` re-run
+reads as "re-take the pin" rather than "the code moved the data". `lnth_ch_ff04`, the first
+seven-year item, round-trips stage → tag → COG → style → build → validate with 14 assets and
+13 embedded style rows, and both determinism checks pass on it — the styles needed no change
+at all, because `04_gpkg_style.py` maps by layer prefix rather than by year.
+
 ## v1.1.0 (2026-09-03)
 
 **The published floodplain geometry was wrong, and this release replaces every item it can.** Every

@@ -566,7 +566,7 @@ collection = pystac.Collection(
     description=(
         "Floodplain land-cover classification and 2017-2023 transition for British "
         "Columbia watershed groups. One or more items per watershed group (one per "
-        "modelled species/scenario): three classified years, a transition raster, a "
+        "modelled species/scenario): one raster per classified year, a transition raster, a "
         "land-cover GeoPackage, a floodplain delineation GeoPackage (ff02/ff04/ff06 "
         "extents), and the transition layer on its own for consumers that do not need "
         "the classified epochs. Floodplain area per flood-factor and tree loss/gain/net properties "

@@ -22,6 +22,14 @@ if [ -n "${WSG_ONLY:-}" ]; then
   exit 1
 fi
 
+if [ -n "${ALLOW_DRIFT_SKEW:-}" ]; then
+  echo "!!! ALLOW_DRIFT_SKEW='${ALLOW_DRIFT_SKEW}' — the class-table interlock is DISABLED." >&2
+  echo "!!! Rasters classified by a DIFFERENT drift than the one writing classes.json will" >&2
+  echo "!!! publish labels that may not describe their pixels, and every downstream check" >&2
+  echo "!!! compares the labels to each other rather than to the model. It persists in an" >&2
+  echo "!!! exported shell, exactly like ALLOW_SKIPPED below." >&2
+fi
+
 if [ -n "${ALLOW_SKIPPED:-}" ]; then
   echo "!!! ALLOW_SKIPPED='${ALLOW_SKIPPED}' — the partial-stage interlock is DISABLED." >&2
   echo "!!! A rostered group with missing upstream data will be dropped silently and" >&2

@@ -70,7 +70,13 @@ if (system("uv run python scripts/item_create.py") != 0) {
 # than a separate code path. --expect defaults to the staged meta.json count, which
 # is 1 here (2 for MORR), so a partially-built group still fails.
 message("\n=== VALIDATE ===")
-if (system("uv run python scripts/item_validate.py") != 0) {
+# `--partial`, for the reason catalogue_release.sh passes it under --only (#26): the
+# deprecation check's last arm asks about ids ABSENT from the tree, and a one-group tree
+# not containing mcgr/pine is the normal state of a subset, not a defect. Without it this
+# smoke test could only ever run for those two groups — measured on this branch and on
+# main, where `WSG=ufra` fails identically. Every per-item arm still runs; #61's own
+# unused-year-set arm is dropped here for the same reason.
+if (system("uv run python scripts/item_validate.py --partial") != 0) {
   stop("item_validate.py failed — the built STAC JSON is invalid")
 }
 
@@ -100,7 +106,12 @@ for (mp in meta_paths) {
   item_json <- file.path("data", "stac", paste0(meta$item_id, ".json"))
   stopifnot(
     "staging not item-id-keyed (raw dir != item_id)" = basename(dirname(mp)) == meta$item_id,
-    "expected 4 COGs (3 classified + transition)" = length(cogs) == 4L,
+    # Per item since #61: the classified span is a property of the item, not a constant.
+    # A count alone would pass for the right number of wrong names, so the SET is compared.
+    "COGs do not match the item's own year set + transition" =
+      setequal(cogs, c(sprintf("classified_%d.tif", unlist(meta$years)),
+                       sprintf("transition_%d_%d.tif", meta$transition_span[[1]],
+                               meta$transition_span[[2]]))),
     "expected 3 gpkgs (delineation + landcover + transition)" = length(gpkgs) == 3L,
     "floodplain.gpkg not staged" = "floodplain.gpkg" %in% gpkgs,
     "floodplain_landcover.gpkg not staged" = "floodplain_landcover.gpkg" %in% gpkgs,
@@ -217,10 +228,18 @@ for (mp in meta_paths) {
   # another. Size is checked against disk here; item_validate.py re-hashes the bytes
   # (this test asserts the fields ship at all, which is the cheap half).
   item_assets <- jsonlite::read_json(item_json)$assets
-  # 7 data assets + 3 layer styles (#46). Absolute, not derived: a count taken from the
-  # item would agree with itself however many assets went missing.
-  if (length(item_assets) != 10L) {
-    stop("expected 10 assets in ", basename(item_json), ", found ", length(item_assets))
+  # 4 fixed data assets (transition + three GeoPackages) + 3 layer styles (#46) + one per
+  # classified year. Since #61 the last term is per item — three-year and seven-year items
+  # both exist — so the count is anchored on `meta$years`, which came from the staged
+  # rasters and was reconciled against the producer's record before anything was written.
+  #
+  # Still not derived from the ITEM: `item_assets` is what is under test, and a count taken
+  # from it would agree with itself however many assets went missing. `meta.json` is a
+  # different artifact, written by a different script than the one that built this JSON.
+  n_expected <- 7L + length(unlist(meta$years))
+  if (length(item_assets) != n_expected) {
+    stop("expected ", n_expected, " assets in ", basename(item_json), " (7 fixed + ",
+         length(unlist(meta$years)), " classified years), found ", length(item_assets))
   }
   # The three styles must be present under their own keys and carry roles: ["style"].
   # `floodplain` and `transition_vector` are already asset keys, so a stem-keyed style

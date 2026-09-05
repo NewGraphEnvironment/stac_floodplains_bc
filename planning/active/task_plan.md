@@ -97,85 +97,85 @@ literal instead, on #34/#35 grounds; recorded rather than silently dropped.
 
 ## Phase 2 — Offline proof, including restore-the-bug
 
-- [ ] `scripts/fp_provenance-check.R`: add `years` to `synthetic()`; keep the file's own
+- [x] `scripts/fp_provenance-check.R`: add `years` to `synthetic()`; keep the file's own
       `YEARS` fixture constant (the fold stays caller-supplied)
-- [ ] New cases: NULL on absent section; stop on present-section-no-`years`; stop on
+- [x] New cases: NULL on absent section; stop on present-section-no-`years`; stop on
       non-distinct / non-integer / length-1 years; a seven-year fold; and the one nothing else
       in the file can reach — **`inputs.years` disagreeing with `classified_content_sha256`'s
       keys**
-- [ ] Restore-the-bug, **three arms, three distinct messages**, each proved by grepping for
+- [x] Restore-the-bug, **three arms, three distinct messages**, each proved by grepping for
       *that guard's* message (a suite with N guards has N ways to exit 1):
       (a) a `classified_*.tif` deleted from a copied source tree;
       (b) `provenance.json` `years` naming a year with no raster;
       (c) a raster on disk the record does not name — the direction with no guard today
-- [ ] Assert each mutation took before trusting the refusal, and say which copy of each
+- [x] Assert each mutation took before trusting the refusal, and say which copy of each
       deliberately-duplicated literal the guard reads (#26's mirror: a proof that mutates the
       wrong copy exits 0 and reads as a pass)
 
 ## Phase 3 — The #23 two-population decision
 
-- [ ] `scripts/item_validate.py`: add `ALLOWED_YEAR_SETS` as a human-set literal, with the
+- [x] `scripts/item_validate.py`: add `ALLOWED_YEAR_SETS` as a human-set literal, with the
       **partition written down beside it** — fixed keys identical across all items;
       `classified_*` keys per item against the literal
-- [ ] Split `check_checksums`'s `expected_keys = max(asset_keys.values(), key=len)` accordingly
-- [ ] Exact in both directions, like `EXPECTED_DEPRECATED`: arm (a) every item's classified key
+- [x] Split `check_checksums`'s `expected_keys = max(asset_keys.values(), key=len)` accordingly
+- [x] Exact in both directions, like `EXPECTED_DEPRECATED`: arm (a) every item's classified key
       set equals some member; arm (b) every member is used by >=1 item (an unused entry is a
       literal nobody updated)
-- [ ] **`--partial` partition** (#26): arm (a) names keys the subset *contains* -> stays on;
+- [x] **`--partial` partition** (#26): arm (a) names keys the subset *contains* -> stays on;
       arm (b) asks about items *absent* from the subset -> dropped. This matters more than it
       looks: `catalogue_release.sh:405` passes `--partial` under `--only`, and on a one-item
       tree the cross-item arm is vacuous, so the literal is the *only* thing checking `lnth`
-- [ ] Add the independent arm the literal cannot give: each item's `classified_*` asset keys
+- [x] Add the independent arm the literal cannot give: each item's `classified_*` asset keys
       must equal the `classified_<yyyy>.tif` **files in `data/stac/<item_id>/`**, both
       directions. `aws s3 sync` uploads every file in that directory regardless of whether an
       asset describes it, so a stray COG reaching a public bucket is caught by nothing today
-- [ ] Print per-set item counts, as `check_provenance` already prints per-section counts
-- [ ] Do **not** derive the expectation from `data/raw/<id>/meta.json["years"]` —
+- [x] Print per-set item counts, as `check_provenance` already prints per-section counts
+- [x] Do **not** derive the expectation from `data/raw/<id>/meta.json["years"]` —
       `item_create.py:327` builds the asset keys from that list
 
 ## Phase 4 — The downstream literals
 
-- [ ] `scripts/test_pipeline.R:103` `length(cogs) == 4L` -> `length(meta$years) + 1`, with a
+- [x] `scripts/test_pipeline.R:103` `length(cogs) == 4L` -> `length(meta$years) + 1`, with a
       set comparison against the expected names
-- [ ] `scripts/test_pipeline.R:222` `length(item_assets) != 10L` -> per item. **Second literal,
+- [x] `scripts/test_pipeline.R:222` `length(item_assets) != 10L` -> per item. **Second literal,
       same file** — `WSG=lnth` fails here (14 assets) the moment `:103` is fixed
-- [ ] `scripts/item_create.py:569` collection description: "three classified years" -> per-item
+- [x] `scripts/item_create.py:569` collection description: "three classified years" -> per-item
       wording. Unguarded prose in both directions (`EXPECTED_DERIVATION_STATEMENT` is a
       containment check; `attribution_drift-check.py` parses only `CITATION`), so no second copy
-- [ ] `scripts/run_pipeline.sh:25-29`: `ALLOW_DRIFT_SKEW` has the same persistence hazard as
+- [x] `scripts/run_pipeline.sh:25-29`: `ALLOW_DRIFT_SKEW` has the same persistence hazard as
       the `ALLOW_SKIPPED` the banner already warns about, and a worse consequence. One line
 
 ## Phase 5 — Acceptance against the live catalogue, then the docs
 
-- [ ] **The local A/B in the issue's last acceptance box cannot run as written.** Installed
+- [x] **The local A/B in the issue's last acceptance box cannot run as written.** Installed
       `drift` is **0.13.0**; 21 of 22 sections record `0.8.0`, so `01_stage.R:378` stops at
       *bowr* — there is no "before" build. Instead compare each rebuilt
       `data/stac/<id>.json` against the **live item from the API**, assets and properties
       wholesale, reusing the comparator that already exists at
       `catalogue_release.sh:576-594` (`--only`'s `live_state` block). Ground truth at the
       consumer, not one of our own builds against another
-- [ ] Name in advance exactly what is expected to move, rather than "excluding lnth" —
+- [x] Name in advance exactly what is expected to move, rather than "excluding lnth" —
       excluding the one item you changed hides a regression inside it. Expected: `lnth_ch_ff04`
       only, and within it `nge:landcover_key`, `nge:landcover_item_hash`,
       `nge:produced_datetime`, `nge:drift_version`, four new `classified_*` assets, and the
       area/loss/gain/net figures if upstream's re-run moved them
-- [ ] Run `ITEM=lnth_ch_ff04` through `gpkg_determinism-check.R` and
+- [x] Run `ITEM=lnth_ch_ff04` through `gpkg_determinism-check.R` and
       `style_determinism-check.py` once. Both default to `sloc_bt_ff04`, a three-year item;
       `lnth` has 8 styled feature layers instead of 4. Neither check is year-dependent, so
       this is varying the fixture along the axis it cannot reach — not a code change
-- [ ] Write down (no code change): `lnth`'s `floodplain_landcover.gpkg` carries an extra table
+- [x] Write down (no code change): `lnth`'s `floodplain_landcover.gpkg` carries an extra table
       `patch_watercourse_ch_ff04_2017_2023`, registered `data_type='attributes'`. All three
       surfaces that walk layers filter on `features`, so it is inert — **verified, not
       reasoned** — but it ships inside a published asset that nothing here describes, and it is
       one upstream `data_type` value away from stopping a release
-- [ ] `README.Rmd:129` asset table + the "Ten assets each" line -> per item. **Its own commit**,
+- [x] `README.Rmd:129` asset table + the "Ten assets each" line -> per item. **Its own commit**,
       `update_query` off: both targets must render byte-identically from an unchanged cache
-- [ ] `NEWS.md`: new entry only. The `v1.1.0` "Seven assets per item" line is history
+- [x] `NEWS.md`: new entry only. The `v1.1.0` "Seven assets per item" line is history
 
 ## Validation
 
-- [ ] `Rscript scripts/fp_provenance-check.R` green, including the three restore-the-bug arms
-- [ ] `WSG=lnth Rscript scripts/test_pipeline.R` and `WSG=ufra ...` both green — one item from
+- [x] `Rscript scripts/fp_provenance-check.R` green, including the three restore-the-bug arms
+- [x] `WSG=lnth Rscript scripts/test_pipeline.R` and `WSG=ufra ...` both green — one item from
       each population, end to end through the same gate a release uses
-- [ ] `/code-check` clean on each commit
+- [ ] `/code-check` clean on the substantive commits
 - [ ] PWF checkboxes match landed work; `/planning-archive` on completion

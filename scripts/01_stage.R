@@ -241,53 +241,15 @@ for (wsg in wsgs) {
     years <- sort(as.integer(sub("^classified_([0-9]{4})\\.tif$", "\\1",
                                  classified_files)))
 
-    # Absolutes, applied whether or not there is a record — these are what replaces the
-    # refusal the old YEARS constant used to give. Without them, an upstream that dropped a
-    # year from BOTH its rasters and its record would publish a shorter item, green.
-    if (anyDuplicated(years)) {
-      stop(item_id, ": two staged rasters claim the same classified year (",
-           paste(unique(years[duplicated(years)]), collapse = ", "), ") in ", src_rasters)
-    }
-    if (length(years) < 2L) {
-      stop(item_id, ": found ", length(years), " classified raster(s) in ", src_rasters,
-           " — a published item needs at least two classified years, and the transition ",
-           "asset needs both ends of ", paste(TRANSITION_SPAN, collapse = "-"), ".")
-    }
-    if (!all(TRANSITION_SPAN %in% years)) {
-      stop(item_id, ": classified year(s) ", paste(years, collapse = ", "),
-           " do not cover the transition span ", paste(TRANSITION_SPAN, collapse = "-"),
-           " (missing ", paste(setdiff(TRANSITION_SPAN, years), collapse = ", "),
-           "). The transition asset would describe a span the item does not carry.")
-    }
-
-    if (is.null(span_rec)) {
-      # The forward-only state: no landcover section, so nothing to check the disk against.
-      # Only mcgr_ch_ff04 and pine_bt_ff04 are still in it, and both publish
-      # `deprecated: true` already. Counted below rather than passed over in silence.
+    # The guard lives in fp_provenance.R so it can be fired against both known answers
+    # without staging an area. Returns FALSE for the forward-only state (no landcover
+    # section, nothing to check the disk against) — only mcgr_ch_ff04 and pine_bt_ff04 are
+    # still in it, and both already publish `deprecated: true`.
+    if (!fp_years_reconcile(years, span_rec, TRANSITION_SPAN, item_id)) {
       message(item_id, ": no landcover provenance — year set taken from the ", length(years),
               " staged raster(s) (", paste(years, collapse = ", "),
               "). No record to assert it against.")
       year_untraced <- c(year_untraced, item_id)
-    } else {
-      if (!identical(span_rec$years, years)) {
-        # Not `%||%`: paste() over a zero-length vector returns "", not NULL, so the
-        # side with no disagreement would print as an empty gap rather than say so.
-        or_none <- function(x) if (length(x)) paste(x, collapse = ", ") else "none"
-        stop(item_id, ": provenance records classified year(s) ",
-             paste(span_rec$years, collapse = ", "), " but ", src_rasters, " holds ",
-             paste(years, collapse = ", "), " — recorded-but-absent: ",
-             or_none(setdiff(span_rec$years, years)), "; present-but-unrecorded: ",
-             or_none(setdiff(years, span_rec$years)),
-             ". Publishing either set would describe rasters the other does not.")
-      }
-      # A second key, written by upstream for a different purpose, about the same span.
-      if (!identical(span_rec$change_interval, TRANSITION_SPAN)) {
-        stop(item_id, ": provenance records change_interval ",
-             paste(span_rec$change_interval, collapse = "-"),
-             " but this repo publishes the transition asset as ",
-             paste(TRANSITION_SPAN, collapse = "-"),
-             ". The asset name and the cross-tabulation would disagree.")
-      }
     }
 
     # Rasters newer than the record that describes them stop the stage (#40): the item

@@ -395,6 +395,61 @@ fp_prov_span <- function(prov, species, scenario, where = "") {
 }
 
 
+# --- Reconcile the discovered year set with the record ----------------------------------
+# The guard that replaces the refusal the old YEARS constant gave, in one named place so it
+# can be driven against both known answers without staging an area (fp_provenance-check.R)
+# and against the real call site once (stage_years-check.R). A guard nobody has seen fire
+# is decoration, and an inline block in a loop over watershed groups is hard to fire.
+#
+# `span_rec` NULL is the forward-only state: no landcover section, so nothing to check the
+# disk against. The three absolutes below still apply — they are properties of a publishable
+# item, not of the record — so that path is checked, just not corroborated.
+#
+# Each arm carries its own message. A suite with N guards has N ways to exit 1, so a proof
+# that only reads the status cannot tell which one fired.
+fp_years_reconcile <- function(years_disk, span_rec, transition_span, where) {
+  if (anyDuplicated(years_disk)) {
+    stop(where, ": two staged rasters claim the same classified year (",
+         paste(unique(years_disk[duplicated(years_disk)]), collapse = ", "), ").",
+         call. = FALSE)
+  }
+  if (length(years_disk) < 2L) {
+    stop(where, ": found ", length(years_disk), " classified raster(s) — a published item ",
+         "needs at least two classified years, and the transition asset needs both ends of ",
+         paste(transition_span, collapse = "-"), ".", call. = FALSE)
+  }
+  if (!all(transition_span %in% years_disk)) {
+    stop(where, ": classified year(s) ", paste(years_disk, collapse = ", "),
+         " do not cover the transition span ", paste(transition_span, collapse = "-"),
+         " (missing ", paste(setdiff(transition_span, years_disk), collapse = ", "),
+         "). The transition asset would describe a span the item does not carry.",
+         call. = FALSE)
+  }
+  if (is.null(span_rec)) return(invisible(FALSE))
+
+  # Not `%||%`: paste() over a zero-length vector returns "", not NULL, so the side with no
+  # disagreement would print as an empty gap rather than say so.
+  or_none <- function(x) if (length(x)) paste(x, collapse = ", ") else "none"
+  if (!identical(span_rec$years, years_disk)) {
+    stop(where, ": provenance records classified year(s) ",
+         paste(span_rec$years, collapse = ", "), " but the staged rasters hold ",
+         paste(years_disk, collapse = ", "), " — recorded-but-absent: ",
+         or_none(setdiff(span_rec$years, years_disk)), "; present-but-unrecorded: ",
+         or_none(setdiff(years_disk, span_rec$years)),
+         ". Publishing either set would describe rasters the other does not.", call. = FALSE)
+  }
+  # A second key, written by upstream for a different purpose, about the same span.
+  if (!identical(span_rec$change_interval, transition_span)) {
+    stop(where, ": provenance records change_interval ",
+         paste(span_rec$change_interval, collapse = "-"),
+         " but this repo publishes the transition asset as ",
+         paste(transition_span, collapse = "-"),
+         ". The asset name and the cross-tabulation would disagree.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
 # --- Are the staged rasters the ones the record describes? -----------------------------
 # Upstream's step 3 writes its rasters first and stamps its landcover section last, so a
 # raster NEWER than that stamp means a step in flight, or one that crashed between the two
