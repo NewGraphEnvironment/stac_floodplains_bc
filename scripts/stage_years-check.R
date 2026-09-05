@@ -18,6 +18,7 @@
 suppressPackageStartupMessages(library(jsonlite))
 suppressPackageStartupMessages(library(digest))
 suppressPackageStartupMessages(library(yaml))
+suppressPackageStartupMessages(library(sf))
 
 FAILS <- 0L; N <- 0L; SKIPPED <- 0L
 pass <- function(d) { N <<- N + 1L; cat("  ok    ", d, "\n", sep = "") }
@@ -27,6 +28,19 @@ skip <- function(d, why) { SKIPPED <<- SKIPPED + 1L; cat("  skip  ", d, " (", wh
 expect_true <- function(d, cond) if (isTRUE(cond)) pass(d) else fail(d, "condition false")
 
 REPO <- normalizePath(".")
+
+# The repo's own build tree, fingerprinted. 01_stage.R unlinks `data/raw` and `data/stac`
+# unconditionally and before anything else (:80-81), so a sandbox that silently resolved to
+# the repo's cwd would take a ~GB unstaged build with it — and `dir.exists(<sandbox>/data)`
+# cannot see that, because the sandbox would exist either way. Observed directly instead.
+repo_data_fingerprint <- function() {
+  d <- file.path(REPO, "data")
+  if (!dir.exists(d)) return("<absent>")
+  f <- sort(list.files(d, recursive = TRUE, all.files = TRUE, no.. = TRUE))
+  if (!length(f)) return("<empty>")
+  paste0(length(f), ":", digest::digest(
+    paste(f, file.size(file.path(d, f)), collapse = "\n"), algo = "sha256"))
+}
 FP <- Sys.getenv("FLOODPLAINS_DATA", unset = file.path("..", "floodplains", "data"))
 AREA <- "ufra"; SCEN <- "ch_ff04"
 
@@ -99,6 +113,7 @@ raster_path <- function(sbx, yr) {
 # The control is not decoration. A guard that has never passed is as untested as one that
 # has never fired, and every arm below is only evidence if the same tree stages clean.
 cat("control\n")
+repo_data_before <- repo_data_fingerprint()
 sbx <- sandbox("control")
 out <- run_in(sbx, drift_skew = TRUE)
 expect_true("the unmutated tree stages the item", grepl("STAGED ufra_ch_ff04", out, fixed = TRUE))
@@ -116,24 +131,39 @@ expect_true("...and trips none of the year-set arms",
 # landcover stamp: floodplains#79 is converting areas to an annual span one at a time, and
 # when it reaches ufra this pin stops describing anything. Skipped OUT LOUD then, so a
 # re-run reads as "re-take the pin", never as "the code moved the data".
+# TWO gates, because the digest has two independent sources. `produced_datetime` covers
+# upstream. The other is this machine: meta.json carries `epsg`, three
+# `floodplain_ff0N_km2` areas, a bbox and a full GeoJSON geometry, every one of them
+# computed here by sf/GDAL/PROJ — so a different toolchain moves the digest for a reason
+# that has nothing to do with the code, and an ungated pin would FAIL under a description
+# pointing the reader straight at "the change moved the data".
 PIN_META_SHA256 <- "22c2460f77b6b7f0da3a2c23cf0290cddf81429e657a692fc3e7b2eaac0e68e3"
 PIN_STAMP <- "2026-09-03T07:16:49Z"
+PIN_TOOLCHAIN <- "GEOS 3.13.0, GDAL 3.8.5, PROJ 9.5.1"
+# `[["PROJ"]]`, not `[["proj.4"]]`: sf reports BOTH, and the lowercase one is the legacy
+# name. Named explicitly rather than by position, so a reordering cannot silently pin the
+# wrong number.
+sfv <- sf::sf_extSoftVersion()
+toolchain <- paste0("GEOS ", sfv[["GEOS"]], ", GDAL ", sfv[["GDAL"]], ", PROJ ", sfv[["PROJ"]])
+DESC <- "a three-year item's meta.json is byte-identical to the pre-change build"
 built <- file.path(sbx, "data", "raw", "ufra_ch_ff04", "meta.json")
 if (!file.exists(built)) {
-  fail("a three-year item's meta.json is byte-identical to the pre-change build",
-       "no meta.json staged")
+  fail(DESC, "no meta.json staged")
 } else {
   stamp <- jsonlite::read_json(built)$produced_datetime
   if (!identical(stamp, PIN_STAMP)) {
-    skip("a three-year item's meta.json is byte-identical to the pre-change build",
-         paste0("upstream re-ran ufra (", stamp, " != pinned ", PIN_STAMP,
-                ") — re-take the pin from the new build"))
+    skip(DESC, paste0("upstream re-ran ufra (", stamp, " != pinned ", PIN_STAMP,
+                      ") — re-take the pin from the new build"))
+  } else if (!identical(toolchain, PIN_TOOLCHAIN)) {
+    skip(DESC, paste0("this machine is ", toolchain, ", the pin was taken on ",
+                      PIN_TOOLCHAIN, " — the areas and geometry in meta.json are computed ",
+                      "here, so the digest moves with the toolchain. Re-take the pin"))
   } else {
-    expect_true("a three-year item's meta.json is byte-identical to the pre-change build",
-                identical(digest::digest(built, algo = "sha256", file = TRUE), PIN_META_SHA256))
+    expect_true(DESC, identical(digest::digest(built, algo = "sha256", file = TRUE),
+                                PIN_META_SHA256))
   }
 }
-expect_true("the sandbox holds the build, and the repo's tree was not written",
+expect_true("the sandbox holds the build",
             dir.exists(file.path(sbx, "data", "stac", "ufra_ch_ff04")))
 
 # --- Arm (a): the record names a year the rasters do not have -----------------------------
@@ -180,6 +210,21 @@ out <- run_in(sbx)
 expect_true("the stage refuses, reporting both directions",
             grepl("recorded-but-absent: 2019; present-but-unrecorded: 2020", out, fixed = TRUE))
 expect_true("...and nothing was staged", !grepl("STAGED ufra_ch_ff04", out, fixed = TRUE))
+
+# Last, after every run_in(): the four stages above ran 01_stage.R four times, and if any
+# of them had resolved its cwd or its data/ to the repo the first one would have unlinked
+# this tree. Size-and-path fingerprint rather than mtimes, which a read can move.
+# The premise first, and it is not a formality: "<absent>" == "<absent>" passes, and an
+# absent data/ is exactly what a run that escaped its sandbox would LEAVE BEHIND. Without
+# this the assertion is loudest when it is least meaningful.
+if (repo_data_before %in% c("<absent>", "<empty>")) {
+  skip("the repo's own data/ tree is untouched by all four runs",
+       paste0("nothing in ", file.path(REPO, "data"), " to protect (", repo_data_before,
+              ") — stage something first for this to mean anything"))
+} else {
+  expect_true("the repo's own data/ tree is untouched by all four runs",
+              identical(repo_data_fingerprint(), repo_data_before))
+}
 
 for (case in c("control", "missing", "extra", "record")) {
   unlink(file.path(tempdir(), paste0("stage_years_", case)), recursive = TRUE)

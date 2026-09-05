@@ -52,3 +52,22 @@
   the coverage figure and table still describe the published catalogue this PR does not
   change. `index.html` moved 17 lines out of 5.8 MB and is byte-identical across two renders.
 - `NEWS.md` gets an Unreleased entry; every figure in it derived from the artifact.
+
+### Review round 1 — 7 findings, all real, all fixed
+
+Confirmed against the tree before acting, in both directions:
+
+| finding | fix |
+|---|---|
+| `stage_years-check.R`'s isolation assertion claimed more than it tested | fingerprint `REPO/data` before the first run and after the last — plus a premise guard, because `"<absent>" == "<absent>"` passes and an absent `data/` is what an escaped run would leave behind |
+| the byte-identity pin was gated on upstream but not the local toolchain | second gate on the sf/GDAL/PROJ triple; `meta.json`'s areas, bbox and geometry are computed here, so a different GDAL would have FAILED under a message reading "the code moved the data" |
+| neither new check script was reachable from anything | documented in `scripts/README.md` beside its five siblings |
+| `NEWS.md` said "grew 25 cases" | 23, measured: 52 → 75 `expect_*` calls, script prints 72 assertions |
+| `NEWS.md` listed `change_interval` among the absolutes | it is record-dependent and does not run for the two forward-only items; reworded in `NEWS.md` and in the PR body |
+| `CLAUDE.md:83` still said "3 classified-year COGs" | the sentence this issue falsifies, in the document the next session reads first |
+| `fp_provenance-check.R`'s `YEARS` was a double under a false comment | integer, next to a type-strict `identical()` that would have fired on correct input the first time anyone reused it |
+
+The reviewer also ran all three suites and measured disk-vs-record across all 23 rostered
+targets: 21 match, 2 forward-only, **no target becomes unstageable**. And it confirmed
+empirically that R's `unlink(recursive = TRUE)` removes a symlink rather than its target, which
+is what makes the sandbox safe.

@@ -85,7 +85,11 @@ read_doc <- function(doc, case, area = "bulk") {
   jsonlite::write_json(doc, file.path(d, "provenance.json"), auto_unbox = TRUE, null = "null", na = "null", digits = NA)
   fp_prov_read(d)
 }
-YEARS <- c(2017, 2020, 2023)   # the published span; 01_stage.R passes doubles, folded identically
+# The fixture span. INTEGER, matching what 01_stage.R now derives
+# (`sort(as.integer(...))`): fp_years_reconcile compares with type-strict identical(),
+# so a double constant here would produce a guard that fires on correct input the
+# first time anyone reuses this file's own span in that function.
+YEARS <- c(2017L, 2020L, 2023L)
 item <- function(prov, species = "co", scenario = "co_ff04") fp_prov_item(prov, species, scenario, "check", YEARS)
 
 # --- synthetic cases --------------------------------------------------------------------

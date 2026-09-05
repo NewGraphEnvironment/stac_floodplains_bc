@@ -30,11 +30,15 @@ republish of the annual areas is #59.
   is what checks it — that direction, not the reverse. Sourcing both from the record would
   reduce `landcover_key`'s fold to one file's `years` agreeing with the same file's
   `classified_content_sha256`, written by one upstream step moments apart.
-- Three absolutes replace the refusal the constant used to give: both ends of the published
-  transition span must be classified, the record's own `change_interval` must match it, and a
-  year set must be distinct and at least two long. The last one is a latent crash rather than
-  a refusal — `jsonlite`'s `auto_unbox` writes a length-1 vector as `{"years": 2017}` and
-  `item_create.py`'s `for yr in meta["years"]` then raises `TypeError` three steps downstream.
+- Three absolutes replace the refusal the constant used to give, and they hold for **every**
+  item, record or no record: a year set must have no duplicates, must be at least two long,
+  and must cover both ends of the published transition span. The length floor is a latent
+  crash rather than a refusal — `jsonlite`'s `auto_unbox` writes a length-1 vector as
+  `{"years": 2017}` and `item_create.py`'s `for yr in meta["years"]` then raises `TypeError`
+  three steps downstream. A fourth check, that the record's own `change_interval` matches the
+  span this repo publishes, is **record-dependent** by construction: the two forward-only
+  items (`mcgr_ch_ff04`, `pine_bt_ff04`, both published `deprecated: true`) have no landcover
+  section, so it does not run for them.
 - `item_validate.py` splits its cross-item asset-key check in two, with the partition written
   down beside it: the non-classified keys are still compared across items, and the
   `classified_*` keys are checked per item against `ALLOWED_YEAR_SETS` — a literal a human
@@ -47,7 +51,7 @@ republish of the annual areas is #59.
   its directory. `aws s3 sync` uploads the directory, not the asset list, so a stray COG
   reaching the public bucket described by nothing was caught by no guard in this repo.
 - `scripts/stage_years-check.R` and `scripts/year_sets-check.py` are new, and
-  `scripts/fp_provenance-check.R` grew 25 cases. Each restores a defect and greps for **that
+  `scripts/fp_provenance-check.R` grew 23 assertions, to 72. Each restores a defect and greps for **that
   guard's own message**: a suite with N guards has N ways to exit 1, and only one of them is
   the evidence. Three arms at the staging call site (a raster the record names and disk
   lacks; a raster on disk the record does not name — the direction that had no guard at all
