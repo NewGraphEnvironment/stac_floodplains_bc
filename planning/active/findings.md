@@ -58,8 +58,12 @@ resolved STAC item ids where there were 3.
 
 `--only` never publishes `collection.json`, so it cannot stamp a version — the API keeps
 serving `1.1.0`. Decision at the plan gate (airvine, 2026-09-05): publish that way anyway and
-let the next full release fold it in, exactly as `bulk_co_ff04`'s #36 pilot was folded into
-v1.1.0's notes. The alternative — a full rebuild and a tagged release — would need
+let the next full release fold it in, as `bulk_co_ff04`'s #36 pilot was folded into
+**v1.0.0** (`5c94847` is an ancestor of that tag). Noting the asymmetry, because the precedent
+is weaker than it reads: at pilot time the collection carried no version at all, so nothing
+could be contradicted by it. This is the first time published items have moved ahead of a
+*stamped* version. Caught by code-check round 1 — the wrong claim had reached three documents
+from one ancestor, which is the mechanism `code-check.md` names for exactly this. The alternative — a full rebuild and a tagged release — would need
 `ALLOW_DRIFT_SKEW=1` for the 19 drift-0.8.0 areas and would re-sync and re-register items
 nothing asked to move, putting their checksums at risk for a version string.
 
@@ -297,12 +301,59 @@ kotl_bt_ff04 transition_2017_2023                                        RAT 81 
 Labels come back (`Water`, `Trees`, `Flooded Vegetation`; `Water (no change)`, `Water -> Trees`),
 so the RAT embedded on the **new** assets, not merely inherited by the old ones.
 
+## Code-check: three rounds, thirteen findings, none in the data
+
+Every round re-derived the published catalogue as correct. All thirteen findings were false or
+imprecise statements **in the release notes and this planning record** — which is worth saying
+plainly, because the notes are what a consumer reads and nothing downstream re-tests them.
+
+Round 3 named the mechanism rather than hunting a fourteenth instance: **a sentence that
+quantifies or bounds a population the writer had already measured item-by-item, composed from
+the memory of that measurement rather than re-derived from it.** The tell is a universal or
+range word applied to a set — `every`, `each`, `nothing else`, `between X and Y` — where the
+per-member evidence exists but was not walked. Eleven of twelve erred toward the *tidier*
+claim, which is why they survive a careful read. It closed the set by enumeration: all 41
+quantified, bounded or inherited claims in the entry, each with a measured verdict. 38 verified,
+2 false, 1 inconsistent.
+
+The two false ones were both **inside round 2's own fixes**, and both concerned something other
+than this release's artifacts:
+
+- `floodplain_landcover.gpkg` "grows by between a quarter and a double" — beaten by the table
+  three lines below it, where `lnth` is **+105%**. Third round running that a summary sentence
+  outran its own table. Replaced with the measured range, 27% to 105%.
+- A parenthetical claiming the v1.1.0 re-encode "moved every asset's bytes without moving"
+  `nge:produced_datetime`. False — v1.1.0's items were rebuilt *upstream*, so it moved on every
+  item carrying it. It was an unverified claim about a neighbouring release used as the only
+  evidence for a caveat that stands without it, and it pointed a reader at the opposite
+  conclusion. Deleted rather than defended.
+
+The third was a record inconsistency worth keeping as an example: `NEWS.md`, `progress.md` and
+`task_plan.md` recorded **three different populations** (16 / 4 / 28) for the `/vsicurl/`
+read-back — on the bullet whose whole purpose is to say how the new assets were checked. The
+honest fix was to make the largest claim true rather than shrink the sentence, so all **16**
+newly published COGs were read: `Byte`, nodata 255, five overviews, DEFLATE, 9-row RAT, 16 of
+16, with the transition raster as a control returning `Int32` / 81 rows.
+
+That re-run also produced its own small lesson. The first pass reported **16 of 16 failing**,
+which is the tell from `code-check.md` that the probe is broken before the world is — the
+comparison string said `255` where `gdalinfo -json` emits `255.0`. A 100% failure rate on
+assets that had just passed every other check is not a finding.
+
+One limitation, recorded rather than papered over: `bulk_co_ff04`'s pre-publish `nge:`
+properties are not recoverable from anything committed, because the first baseline was too thin
+and its API window closed at the first publish. "Exactly four properties move" is
+committed-record-verifiable for three of the four items; for `bulk` it rests on the session's
+own read plus the tracked README cache, which covers the modelled properties but not the `nge:`
+block.
+
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
 | Gate failed: rebuilt COGs' `file:checksum` all moved | Not a defect. Every COG carries the item's `NGE_*` provenance block; four values move when the year set widens. Gate rewritten to assert pixel/geometry/RAT identity instead. |
 | Gate failed: 30 unexplained tags on `necr`/`kotl` classified COGs | Real, and upstream — filed floodplains#83. Allowed by name so an unnamed tag still fails. |
+| `/vsicurl/` conformance probe reported 16 of 16 failing | The probe, not the data: it compared against `255` where `gdalinfo -json` emits `255.0`. A 100% failure rate on freshly verified assets is the tell. |
 | `readback.py` passed vacuously on `bulk` | `baseline_full.json` post-dated `bulk`'s publish, so it compared the item to itself. Added a premise check that refuses a 14-asset baseline; `bulk` verified against the tracked README cache instead. |
 
 ## Issue context

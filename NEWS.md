@@ -19,11 +19,101 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
-**The classified year set is now a property of the item, read from the producer's record —
-not a three-year constant in this repo** (#61). `floodplains#79` is re-running areas onto an
-annual span, so the collection will carry two populations; the code no longer has an opinion
-about which. This release changes **code, not data**: no published item moves, and the
-republish of the annual areas is #59.
+**Four areas now publish land cover for every year from 2017 to 2023** (#59), on top of the
+code change that made that expressible (#61). The collection carries two populations from here
+on: `bulk_co_ff04`, `necr_ch_ff04`, `lnth_ch_ff04` and `kotl_bt_ff04` serve seven
+`classified_<year>` assets; the other nineteen still serve three. Read the item's own asset
+list rather than assuming a count.
+
+Why: `drift`'s `dft_rast_break_class()` needs the whole series, not the endpoints and
+midpoint — a single-year 2017-vs-2023 difference cannot tell a sustained change from a
+one-year excursion. The measurement that motivated it belongs to `drift` and is not restated
+here; these four areas are what lets it be checked beyond one group (drift#62).
+
+Each item goes from **10 assets to 14** — `classified_2018`, `_2019`, `_2021` and `_2022` are
+new — and **`floodplain_landcover.gpkg` grows by 27% to 105%**, because it now carries a
+polygon layer per year instead of three. It is the largest file in the bundle, so
+plan the download. The spread is not proportional to the layer count and nothing here predicts
+it: a GeoPackage rewritten layer-by-layer is not byte-stable (floodplains#45), and how much a
+year's polygons cost depends on how fragmented that year's land cover is.
+
+| item | `floodplain_landcover.gpkg` | classified layers |
+|---|---|---|
+| `bulk_co_ff04` | 41.7 MB → 53.0 MB (+27%) | 3 → 7 |
+| `necr_ch_ff04` | 30.8 MB → 49.6 MB (+61%) | 3 → 7 |
+| `lnth_ch_ff04` | 11.4 MB → 23.3 MB (+105%) | 3 → 7 |
+| `kotl_bt_ff04` | 21.3 MB → 42.5 MB (+100%) | 3 → 7 |
+
+No *modelled value* about the four changed, and that is measured rather than assumed: the
+three floodplain extents, the tree-change figures, the temporal window, the `bbox` and the
+geometry are unchanged, and the `floodplain`, `transition_vector` and three `style_*` assets
+are unchanged on both checksum and size. Every COG's bytes did move, for the tag reason below,
+and `necr` and `kotl` also picked up stray upstream metadata — both are their own bullets. Exactly four properties move — `nge:landcover_key`,
+`nge:landcover_item_hash`, `nge:drift_version` (now `0.13.0`) and `nge:produced_datetime`.
+
+**The other nineteen items did not move at all.** The four were published one at a time with
+`catalogue_release.sh --only`, which writes only the named item's prefix and its own JSON — so
+the bucket carries 210 objects outside those four with unchanged ETags, none added and none
+removed, and `collection.json` was never written.
+
+**The served collection version is still `1.1.0`, and this entry is why.** `--only` never
+publishes `collection.json`, so it cannot stamp a version. The next full release folds this in,
+as `bulk_co_ff04`'s `--only` pilot (#36) was folded into v1.0.0.
+
+That precedent is weaker than it looks and the difference is worth naming: the #36 pilot ran
+*before* v1.0.0, when the collection carried **no version at all**, so nothing could be
+contradicted by it. **This is the first time published items have moved ahead of a stamped
+version.** A consumer reading `1.1.0` off the API is holding a string that predates four items'
+current contents. `nge:produced_datetime` happens to separate them today — the four read
+`2026-09-05T19:14Z` … `19:52Z`, every other item `2026-09-03T20:16Z` or earlier — but do not
+lean on that as a rule. It is the landcover step's *upstream* run time, not a publish
+time — so it says when the land cover was produced, never when this repo last wrote the
+object, and a republish of an item upstream had not re-run would leave it untouched. The two
+`deprecated: true` items serve no `nge:` properties whatsoever. Until the next full release, this entry is the record.
+
+- **`nge:landcover_key` moved on all four, and it does not mean the land cover changed.** It is
+  a fold over the producer's per-year content digests, so covering seven years instead of three
+  gives a different scalar over identical inputs. Measured, and this is the load-bearing check
+  in the whole release: folding **only** 2017/2020/2023 out of today's producer file reproduces
+  the value each item was serving *before* the re-run, exactly, for all four. That is
+  independent confirmation from this repo that the three original years' content is untouched.
+  `nge:landcover_item_hash` moved for the reason its name implies — seven resolved STAC item
+  ids where there were three.
+- **Do not expect the `transition_2017_2023` checksum to prove the transition is unchanged.** It
+  moved on every item, and it always would have: `02_raster_tag.py` stamps the item's whole
+  provenance block into *every* COG's TIFF tags, so the four properties above move the bytes of
+  files whose pixels nobody touched. This is v1.1.0's warning arriving one release later — a
+  checksum answers *are my bytes current*, not *did the values change*, and here it could not
+  answer the second question even in principle. What does answer it, and holds for all four:
+  **`transition_vector.gpkg` is byte-identical** on all four — measured, checksum and size.
+  Unlike the COGs it carries no per-item provenance stamp for the year set to move, its layer
+  and file names are deliberately year-free, and both of its writers pin their timestamps
+  (`OGR_CURRENT_DATE` for the OGR write in `01_stage.R`, `GPKG_EPOCH` for the `sqlite3` style
+  write in `04_gpkg_style.py`) — so there is nothing in it that a widened span *could* move
+  except the transition patches themselves. `gross_loss_ha` / `gross_gain_ha` / `net_ha` are aggregated from that same
+  layer and are unchanged too. Separately, the four COGs per item that **already existed**
+  (`transition_2017_2023` and `classified_2017/2020/2023`) were compared against the bytes S3
+  was serving, before publishing: decoded pixels, CRS, transform, shape, dtype, nodata, block
+  shape, overviews, compression and the embedded RAT all identical. The four *new* years per item had no prior
+  bytes to compare against, so they were checked by reading them back over `/vsicurl/` after
+  publish: **all 16** return `Byte`, nodata 255, five overview levels, DEFLATE and the 9-row
+  class-label RAT.
+- **`necr` and `kotl` now ship 30 stray gdalcubes/NetCDF metadata tags per classified COG**
+  (floodplains#83). They arrived with the upstream re-run, are absent from `bulk` and `lnth`
+  and from every transition raster, and two of them contradict the file they sit on:
+  `data#type = 'float64'` and `data#_FillValue = 'nan'` on a raster whose header says `uint8`
+  / nodata `255`. The pixels, geometry and RAT are correct — this is metadata describing the
+  NetCDF cube the raster was cut from. Published rather than held, because it is recoverable:
+  the tags go away on the next republish once #83 lands. Filed upstream rather than stripped
+  here.
+- `PROVENANCE_FLOOR` is unchanged at **21**. All four already carried provenance, so a full
+  release still counts 21 of 23, and `--only` skips `--expect-provenance` entirely.
+
+`floodplains#79` closed 2026-09-05 having re-run step 3 only, so floodplain geometry and
+sub-basins were never touched. PINE and MCGR are not here: both are blocked by floodplains#76
+and remain `deprecated: true`.
+
+The code change this rests on (#61) moved no data on its own:
 
 - `01_stage.R` no longer declares `YEARS`. Each item's span is discovered from the
   `classified_<yyyy>.tif` actually staged, and the producer's `landcover.<scenario>.inputs.years`

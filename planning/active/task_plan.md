@@ -14,8 +14,9 @@ here**: this is a publish plus the documentation that goes with it.
 
 **Decision taken at the plan gate (airvine, 2026-09-05):** publish with **four `--only` runs,
 no tag**. `--only` never publishes `collection.json` so it cannot stamp a version; the served
-version stays `1.1.0` until the next full release folds this in, exactly as `bulk_co_ff04`'s
-#36 pilot was folded into v1.1.0. The 19 untouched items are never re-synced or
+version stays `1.1.0` until the next full release folds this in, as `bulk_co_ff04`'s #36
+pilot was folded into **v1.0.0** — though that pilot ran when the collection carried no
+version at all, so this is the first time items have moved ahead of a *stamped* one. The 19 untouched items are never re-synced or
 re-registered, so *every other item byte-identical* holds by construction rather than by luck.
 
 ## Phase 0: Baseline and premises
@@ -60,10 +61,10 @@ re-registered, so *every other item byte-identical* holds by construction rather
 
 ## Phase 6: documentation
 
-- [ ] **Correct issue #59's body** (edit, do not append) — the `landcover_key` / `item_hash` mapping, and that `CLAUDE.md` therefore needs no correction.
-- [ ] `NEWS.md` **Unreleased**: a data entry for the four republishes, every number derived from the artifacts.
-- [ ] Regenerate `README.md` and `index.html` from `README.Rmd` with `update_query: true`. **No hardcoded list of which items are annual.**
-- [ ] Confirm `fig/coverage.png` did not move and both render targets are byte-stable on a second render.
+- [x] **Correct issue #59's body** (edit, do not append) — the `landcover_key` / `item_hash` mapping, and that `CLAUDE.md` therefore needs no correction.
+- [x] `NEWS.md` **Unreleased**: a data entry for the four republishes, every number derived from the artifacts.
+- [x] Regenerate `README.md` and `index.html` from `README.Rmd` with `update_query: true`. **No hardcoded list of which items are annual.**
+- [x] Confirm `fig/coverage.png` did not move and both render targets are byte-stable on a second render.
 
 ## Phase 7: close out
 
@@ -72,10 +73,10 @@ re-registered, so *every other item byte-identical* holds by construction rather
 
 ## Validation
 
-- [ ] Every gate in Phases 1–4 passed *before* its publish, not after
-- [ ] `item_validate.py` green on all four annual items and on `ufra_ch_ff04`
-- [ ] The 19 untouched items diff clean against the Phase 0 baseline
-- [ ] The four items' seven COGs readable over `/vsicurl/` from the published hrefs
+- [x] Every gate in Phases 1–4 passed *before* its publish, not after
+- [x] `item_validate.py` green on all four annual items and on `ufra_ch_ff04`
+- [x] The 19 untouched items diff clean against the Phase 0 baseline
+- [x] The four items' seven COGs readable over `/vsicurl/` from the published hrefs — all 16 newly published COGs read back: `Byte`, nodata 255, 5 overviews, DEFLATE, 9-row RAT
 - [ ] `/code-check` clean on each commit; PWF checkboxes match landed work
-- [ ] `PROVENANCE_FLOOR` still `21` and untouched
+- [x] `PROVENANCE_FLOOR` still `21` and untouched (verified: `--only` skips `--expect-provenance`, and all four already carried provenance)
 - [ ] `/planning-archive` on completion
