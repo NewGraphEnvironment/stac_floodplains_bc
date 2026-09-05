@@ -38,8 +38,13 @@ repo_data_fingerprint <- function() {
   if (!dir.exists(d)) return("<absent>")
   f <- sort(list.files(d, recursive = TRUE, all.files = TRUE, no.. = TRUE))
   if (!length(f)) return("<empty>")
+  # Paths, sizes AND mtimes. Sizes alone are identical across a destroy-and-rebuild, which
+  # is exactly what an escaped CONTROL run would produce — it stages the same target from
+  # the same inputs, so it would wipe this tree and re-create it byte for byte. mtime is
+  # the field that moves on a rewrite; a read moves atime, not mtime, so there is no cost.
   paste0(length(f), ":", digest::digest(
-    paste(f, file.size(file.path(d, f)), collapse = "\n"), algo = "sha256"))
+    paste(f, file.size(file.path(d, f)), file.mtime(file.path(d, f)), collapse = "\n"),
+    algo = "sha256"))
 }
 FP <- Sys.getenv("FLOODPLAINS_DATA", unset = file.path("..", "floodplains", "data"))
 AREA <- "ufra"; SCEN <- "ch_ff04"
@@ -150,7 +155,14 @@ built <- file.path(sbx, "data", "raw", "ufra_ch_ff04", "meta.json")
 if (!file.exists(built)) {
   fail(DESC, "no meta.json staged")
 } else {
-  stamp <- jsonlite::read_json(built)$produced_datetime
+  # From the PRODUCER's file, not from the built meta.json. `produced_datetime` is a
+  # published field of the very artifact this assertion pins, so reading it there means a
+  # regression that moves or nulls it — a broken provenance read, a lost landcover section,
+  # a rename in fp_prov_item — downgrades the assertion from FAIL to SKIP, under a message
+  # blaming upstream. A guard failing toward skip, on the one arm that exists to notice the
+  # code moving meta.json. The two carry the same value; only one of them is independent.
+  stamp <- jsonlite::read_json(file.path(FP, AREA, "provenance.json"),
+                               simplifyVector = FALSE)$landcover[[SCEN]]$run$datetime_utc
   if (!identical(stamp, PIN_STAMP)) {
     skip(DESC, paste0("upstream re-ran ufra (", stamp, " != pinned ", PIN_STAMP,
                       ") — re-take the pin from the new build"))
@@ -213,7 +225,7 @@ expect_true("...and nothing was staged", !grepl("STAGED ufra_ch_ff04", out, fixe
 
 # Last, after every run_in(): the four stages above ran 01_stage.R four times, and if any
 # of them had resolved its cwd or its data/ to the repo the first one would have unlinked
-# this tree. Size-and-path fingerprint rather than mtimes, which a read can move.
+# this tree.
 # The premise first, and it is not a formality: "<absent>" == "<absent>" passes, and an
 # absent data/ is exactly what a run that escaped its sandbox would LEAVE BEHIND. Without
 # this the assertion is loudest when it is least meaningful.

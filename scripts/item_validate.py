@@ -33,6 +33,7 @@ import struct
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
+from fnmatch import fnmatch
 from urllib.parse import urlparse
 
 import pystac
@@ -685,6 +686,46 @@ ALLOWED_YEAR_SETS = (
 # does not have — "every allowed set is used by some item" — must be dropped, because the
 # normal state of a subset is not to use them all.
 CLASSIFIED_KEY_RE = re.compile(r"^classified_(\d{4})$")
+
+# What the release's ASSET syncs refuse to upload, READ from the release script rather than
+# restated here — the same reason `04_gpkg_style.py` reads `GPKG_EPOCH` out of `fp_gpkg.R`.
+# `catalogue_release.sh` is where this repo decides what ships; a second copy would be one
+# fact derived twice, and the two would part company the first time anyone changed either.
+#
+# It matters because macOS drops `.DS_Store` into item directories and GDAL writes `.aux.xml`
+# sidecars whenever a read triggers statistics — both are ordinary, both are excluded, and a
+# guard that did not know it would refuse a release for opening a folder in Finder.
+RELEASE_SH = Path(__file__).resolve().parent / "catalogue_release.sh"
+_EXCLUDE_RE = re.compile(r"--exclude\s+'([^']*)'")
+
+
+def sync_excludes(release_sh: Path = RELEASE_SH) -> tuple[str, ...]:
+    """The exclude patterns both asset syncs carry, asserted identical.
+
+    Selected by containing `*.aux.xml`, which is what distinguishes the two ASSET syncs
+    (full tree and `--only`) from the JSON sync, whose shape is an allowlist. Raises on
+    anything unexpected: an empty or unparseable result would leave every file
+    unsanctioned, which is loud — but a pattern set containing a bare `*` would bless the
+    whole directory, which is not, so that one is rejected by name.
+    """
+    sets = []
+    for line in release_sh.read_text().splitlines():
+        pats = _EXCLUDE_RE.findall(line)
+        if "*.aux.xml" in pats:
+            sets.append(tuple(pats))
+    if not sets:
+        raise SystemExit(
+            f"could not read the asset syncs' --exclude patterns from {release_sh} — the "
+            f"stray-file guard cannot tell what the release refuses to upload")
+    if len(set(sets)) != 1:
+        raise SystemExit(
+            f"{release_sh}: the asset syncs carry DIFFERENT --exclude patterns {sets} — a "
+            f"file could ship under one and not the other, and this guard cannot say which")
+    if "*" in sets[0]:
+        raise SystemExit(
+            f"{release_sh}: an asset sync excludes '*', which would make the stray-file "
+            f"guard sanction every file in an item directory")
+    return sets[0]
 
 # The producer writes the vector's `transition` column with an ASCII arrow and the RAT's
 # titles with U+2192. Measured, and deliberate on both sides — so the comparison below has
@@ -1404,7 +1445,7 @@ def check_checksums(base: Path, partial: bool = False) -> tuple[list[str], dict[
         asset_keys[item_id] = set(doc.get("assets", {}))
 
         # The release syncs the DIRECTORY, not the asset list (`aws s3 sync "$STAC_DIR"`),
-        # so any file sitting beside the assets reaches the public bucket described by
+        # so a file sitting beside the assets reaches the public bucket described by
         # nothing — and no other guard in this repo enumerates an item directory.
         #
         # Compared WHOLE, deliberately. Scoping it to the classified COGs would leave a
@@ -1413,10 +1454,25 @@ def check_checksums(base: Path, partial: bool = False) -> tuple[list[str], dict[
         # and it will not announce itself. The other direction (an asset with no file) is
         # already the per-asset loop's `asset not on disk`, so only strays are reported.
         #
+        # A file the sync EXCLUDES is not a stray: it cannot reach the bucket, so reporting
+        # it would refuse a release for something that provably cannot ship — and tell the
+        # operator to delete a file the release already ignores. The patterns come from the
+        # release script itself (see sync_excludes above).
+        #
+        # Matched in BOTH relative forms, because the two asset syncs root differently: the
+        # full sync uploads `$STAC_DIR` so a file's key is `<item_id>/<name>`, while `--only`
+        # uploads `$STAC_DIR/$ONLY` so it is `<name>`. A file excluded under one form and
+        # not the other would still ship in one mode, so it stays a stray.
+        #
         # Names only files this tree HAS, so it survives --partial.
         item_dir = base / item_id
         if item_dir.is_dir():
-            on_disk = {p.name for p in item_dir.iterdir() if p.is_file()}
+            excludes = sync_excludes()
+            def _shipped(name: str) -> bool:
+                return not all(
+                    any(fnmatch(rel, pat) for pat in excludes)
+                    for rel in (f"{item_id}/{name}", name))
+            on_disk = {p.name for p in item_dir.iterdir() if p.is_file() and _shipped(p.name)}
             published = {PurePosixPath(urlparse(a["href"]).path).name
                          for a in doc.get("assets", {}).values() if a.get("href")}
             stray = on_disk - published
@@ -1424,7 +1480,8 @@ def check_checksums(base: Path, partial: bool = False) -> tuple[list[str], dict[
                 problems.append(
                     f"{item_id}: {len(stray)} file(s) in {item_dir} that no asset describes "
                     f"({sorted(stray)}) — the release syncs the directory, so these would "
-                    f"reach the public bucket with nothing pointing at them")
+                    f"reach the public bucket with nothing pointing at them. The sync's own "
+                    f"excludes ({', '.join(excludes)}) are already accounted for")
 
         for key, asset in sorted(doc.get("assets", {}).items()):
             where = f"{item_id}/{key}"

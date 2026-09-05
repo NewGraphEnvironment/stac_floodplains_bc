@@ -37,8 +37,9 @@ republish of the annual areas is #59.
   `{"years": 2017}` and `item_create.py`'s `for yr in meta["years"]` then raises `TypeError`
   three steps downstream. A fourth check, that the record's own `change_interval` matches the
   span this repo publishes, is **record-dependent** by construction: the two forward-only
-  items (`mcgr_ch_ff04`, `pine_bt_ff04`, both published `deprecated: true`) have no landcover
-  section, so it does not run for them.
+  items (`mcgr_ch_ff04`, `pine_bt_ff04`, both published `deprecated: true`) have no
+  `provenance.json` at all — measured, not merely no landcover section — so it does not run
+  for them.
 - `item_validate.py` splits its cross-item asset-key check in two, with the partition written
   down beside it: the non-classified keys are still compared across items, and the
   `classified_*` keys are checked per item against `ALLOWED_YEAR_SETS` — a literal a human
@@ -47,7 +48,14 @@ republish of the annual areas is #59.
   directions: an unsanctioned span is refused, and a sanctioned span no item uses is reported
   as a literal nobody updated. That second arm is the one `--partial` drops, because it asks
   about items a subset legitimately does not contain (#26).
-- A new arm compares each item's **whole directory** against its published assets. The release
+- A new arm compares each item's **whole directory** against its published assets, minus what
+  the release's own syncs exclude — `.*`, `*/.*`, `*.json`, `*.aux.xml`, **read from
+  `catalogue_release.sh`** rather than restated, so the guard cannot drift from the sync it
+  describes. Those exclusions are not hypothetical: macOS drops `.DS_Store` into item
+  directories and GDAL writes PAM sidecars when a read triggers statistics, and reporting
+  either would refuse a release for a file that provably cannot ship. (A sidecar beside a
+  published COG is still refused — by `check_cog_rat`, which names the real defect: the RAT is
+  not embedded.) The release
   syncs the directory, not the asset list, so any file sitting beside the assets reaches the
   public bucket with nothing pointing at it — and no other guard in this repo enumerates an
   item directory. Deliberately not scoped to the classified COGs: a guard covering one file

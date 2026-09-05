@@ -89,3 +89,50 @@ Two things worth keeping from the round: the `expect_problem` needle discipline 
 rewording of arm (b)'s message the moment the fix landed, which is precisely why the cases
 grep for a message instead of a status. And my own PR body carried a stale assertion count
 twice — the same "restated rather than derived" mechanism, in the document I wrote about it.
+
+### Review round 3 — 8 findings, including a release-blocking bug INSIDE round 2's fix
+
+Round 3 landed after #62 merged, so these are on `main` and fixed in a follow-up.
+
+**The bug.** The whole-directory stray-file arm did not model the sync's own excludes.
+`catalogue_release.sh` excludes `.*`, `*/.*`, `*.json` and `*.aux.xml` from **both** asset
+syncs, and its own comment records why: macOS drops `.DS_Store` into item directories, and
+GDAL writes PAM sidecars when a read triggers statistics. So the arm would have **refused a
+release** for a file that provably cannot ship — opening `data/stac/<item>` in Finder is
+enough — and told the operator to delete something the sync already ignores. The control
+fixture added in the same edit could not reach it: it wrote no dotfile and no sidecar, so the
+fixture and the defect were structurally disjoint.
+
+Fixed by **reading** the exclude patterns out of `catalogue_release.sh` rather than restating
+them, the same idiom `04_gpkg_style.py` uses for `GPKG_EPOCH`. Both asset syncs are asserted
+to carry identical patterns, and a set containing a bare `*` is rejected by name — that is the
+one parse failure that would fail toward pass. Restore-the-bug: deleting the filter turns
+exactly the new case red.
+
+Worth knowing, and it makes the sanctioning safe rather than merely convenient: a `.aux.xml`
+beside a published COG is **still refused**, by `check_cog_rat` (#34/#35), with the message
+that names the actual defect — *"a PAM sidecar sits beside the published COG, so the RAT is
+not embedded"*. Measured. The stray arm is about leaking to the bucket; that guard is about
+the labels being embedded. Two questions, two guards, and only one of them was ever this
+arm's.
+
+**The other seven, all claim-vs-predicate:**
+
+| finding | fix |
+|---|---|
+| the pin's currency gate read `produced_datetime` out of the artifact under test, so a regression that nulls it downgrades FAIL to SKIP | read from `$FLOODPLAINS_DATA/ufra/provenance.json` — the independent source the pin is actually gated on. Round-1 finding 2 one axis over |
+| "mtimes, which a read can move" is false (a read moves atime), and the rejected alternative closes the residual hole — paths+sizes are identical across a destroy-and-rebuild | mtimes added to the fingerprint, comment corrected |
+| `NEWS.md` said `mcgr`/`pine` have "no landcover section" | they have no `provenance.json` at all. Conclusion held, stated cause did not |
+| `item_create.py`'s docstring said the span is "read from the producer's record" | it reads `meta["years"]`, discovered on **disk**. Inverted the branch's central design decision, on the one surface that did not self-correct in the next sentence |
+| "the three dissolved epochs" survived in the very table the branch rewrote, two lines above the new paragraph telling readers not to assume a count | four copies, all reworded |
+| `CLAUDE.md` names six check scripts and not the two new ones | round 1's reachability fix reached `scripts/README.md` only |
+| PR #62's assertion count | stale twice over; corrected |
+
+**The mechanism, which is what ends the review** (round 3's own framing): *a statement's scope
+is set by what it reads, and it drifts as soon as the statement is written from something
+other than the thing it describes.* In code that is an assertion description wider than its
+predicate; in prose a figure copied from a sibling document rather than re-derived. Both are
+the same failure — the source of the claim is not the subject of the claim, so nothing in the
+artifact can contradict it. Five of round 3's eight findings are still that shape and two sit
+inside earlier fixes, which is why the terminating move was the enumeration in
+`review-round3.md` rather than another sampling pass.
