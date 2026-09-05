@@ -75,23 +75,24 @@ literal instead, on #34/#35 grounds; recorded rather than silently dropped.
 
 ## Phase 1 — Read the year set per item, assert it against disk
 
-- [ ] Add `fp_prov_years(prov, species, scenario, where)` to `scripts/fp_provenance.R`:
-      returns a sorted integer vector from `landcover.<scenario>.inputs.years`, or NULL when
-      the landcover section is absent. Section present but `years` absent or wrong-shape ->
+- [x] Add `fp_prov_span(prov, species, scenario, where)` to `scripts/fp_provenance.R` —
+      named for what it returns, which is BOTH `years` and `change_interval` from one
+      `fp_prov_sections()` call rather than two. Sorted integer vectors, or NULL when the
+      landcover section is absent. Section present but the key absent or wrong-shape ->
       `stop()`, matching `fp_prov_leaf`'s three-state discipline
-- [ ] Add the shape absolutes there too: distinct, integer-valued, `length >= 2`
-- [ ] `scripts/01_stage.R`: delete `YEARS`; discover `years_disk` with an **anchored** pattern
+- [x] Add the shape absolutes there too: distinct, integer-valued, `length >= 2`
+- [x] `scripts/01_stage.R`: delete `YEARS`; discover `years_disk` with an **anchored** pattern
       `"^classified_[0-9]{4}\\.tif$"` (`list.files(pattern=)` is unanchored, and every source
       dir carries `classified_<yyyy>.tif.aux.xml` sidecars), asserting the file count equals
       the year count
-- [ ] Assert `setequal(years_disk, years_record)` both directions when the record exists;
+- [x] Assert `setequal(years_disk, years_record)` both directions when the record exists;
       assert `TRANSITION_SPAN` subset of `years` and `change_interval == TRANSITION_SPAN`
-- [ ] Reorder the call site: read prov -> `fp_prov_years` -> discover -> assert ->
+- [x] Reorder the call site: read prov -> `fp_prov_years` -> discover -> assert ->
       `fp_prov_rasters_current(<discovered paths>)` -> copy -> `fp_prov_item(..., years_disk)`.
       Passing the *discovered* paths is a free widening — today the function filters
       `raster_paths[file.exists(...)]`, so a raster upstream wrote that the record does not
       name has never been mtime-checked. Add `transition.tif` to that list while it is open
-- [ ] Note in a comment that `fp_prov_sections()` now runs three times per target (it only
+- [x] Note in a comment that `fp_prov_sections()` now runs three times per target (it only
       stops earlier on a schema break), so the next reader does not wonder
 
 ## Phase 2 — Offline proof, including restore-the-bug

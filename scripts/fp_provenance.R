@@ -80,10 +80,17 @@ FP_PROV_MAP <- list(
 # can recompute the published value, and the value cannot be mistaken for a single year's
 # digest by anyone who reads this.
 #
-# The years are asserted against the ITEM's published span (01_stage.R's YEARS), not
-# against whatever the map happens to hold: a map missing or adding a year would fold to
-# a value describing a different set of rasters than the item claims, silently. That is a
-# schema break, so it stops. Every value must already be a `sha256:<64 hex>` digest.
+# The years are asserted against the ITEM's published span, not against whatever the map
+# happens to hold: a map missing or adding a year would fold to a value describing a
+# different set of rasters than the item claims, silently. That is a schema break, so it
+# stops. Every value must already be a `sha256:<64 hex>` digest.
+#
+# That span is supplied BY THE CALLER and must stay that way (#61). 01_stage.R passes the
+# set it discovered on disk, so the two sides of this comparison have two different
+# producers. Reading `inputs$years` here instead — the obvious-looking simplification once
+# fp_prov_span() exists — would compare one file's `years` against the same file's
+# `classified_content_sha256`, written by one upstream step moments apart, and the guard
+# would stop being about the rasters this item ships.
 fp_fold_year_digests <- function(x, where, years) {
   if (length(years) == 0L) {
     stop("provenance.json ", where, ": the fold was given no published years — a caller ",
@@ -319,6 +326,75 @@ fp_prov_leaf <- function(section, path, where, fold = NULL, years = NULL) {
 }
 
 
+# --- The item's temporal shape ----------------------------------------------------------
+# The classified year set is a fact about the PRODUCER's run, not a contract this repo
+# chose, so it is READ rather than declared (#61). Returns NULL when this target has no
+# landcover section — the normal forward-only state — or a list of two integer vectors:
+#
+#   years           the classified span the producer says it built
+#   change_interval the two-year window it cross-tabulated into the transition raster
+#
+# Same three-state discipline as fp_prov_leaf, and for a sharper reason here: a NULL that
+# degraded from a schema break would silently route a PROVENANCED item onto the
+# disk-discovery path, which has nothing to assert against — losing the one check this
+# function exists to enable. So a present section with an absent or misshapen `years` stops.
+#
+# What this function must NOT become: the source of the year set 01_stage.R publishes.
+# `landcover_key` is a fold over `classified_content_sha256`, asserted against the item's
+# published years — if both sides came from here, that assertion would compare two adjacent
+# keys of one file, written by one upstream step, against each other. 01_stage.R publishes
+# the set discovered ON DISK and uses this one to check it, keeping two different producers
+# on the two sides of the fold.
+fp_prov_span <- function(prov, species, scenario, where = "") {
+  lc <- fp_prov_sections(prov, species, scenario, where)[["landcover"]]
+  if (is.null(lc)) return(NULL)
+  inp <- lc[["inputs"]]
+
+  # One reader for both fields: they are the same kind of thing (an integer year vector
+  # upstream writes as a JSON array) and they fail the same ways.
+  int_vec <- function(key, n_min) {
+    if (!is.list(inp) || !(key %in% names(inp))) {
+      stop("provenance.json ", where, ": the landcover section is present but has no ",
+           "inputs$", key, ". This is a schema break, not an absence — degrading it to ",
+           "NULL would take an unchecked year set for an item that has a record. Update ",
+           "scripts/fp_provenance.R.", call. = FALSE)
+    }
+    v <- inp[[key]]
+    # read_json(simplifyVector = FALSE) gives a LIST of scalars. Never unlist() it blind:
+    # a JSON null reads as NULL and unlist DROPS it, so a record carrying a null year
+    # would fold to a shorter span that looks entirely valid.
+    if (!(is.list(v) || is.numeric(v))) {
+      stop("provenance.json ", where, ": inputs$", key, " is ", class(v)[1],
+           ", expected an array of years.", call. = FALSE)
+    }
+    ok <- vapply(v, function(e) is.numeric(e) && length(e) == 1L && !is.na(e) &&
+                   e == round(e), logical(1), USE.NAMES = FALSE)
+    if (!all(ok)) {
+      stop("provenance.json ", where, ": inputs$", key, " member(s) ",
+           paste(which(!ok), collapse = ", "), " are not whole numbers. A null or a ",
+           "string year would otherwise be dropped or coerced silently.", call. = FALSE)
+    }
+    out <- sort(as.integer(unlist(v)))
+    if (anyDuplicated(out)) {
+      stop("provenance.json ", where, ": inputs$", key, " repeats year(s) ",
+           paste(unique(out[duplicated(out)]), collapse = ", "), ".", call. = FALSE)
+    }
+    # The length floor is an absolute, and it replaces part of the refusal the old YEARS
+    # constant used to give. A length-1 `years` is a latent CRASH rather than a refusal:
+    # jsonlite's auto_unbox writes it as `{"years": 2017}`, and item_create.py's
+    # `for yr in meta["years"]` then raises TypeError on an int, three steps downstream.
+    if (length(out) < n_min) {
+      stop("provenance.json ", where, ": inputs$", key, " has ", length(out),
+           " year(s) (", paste(out, collapse = ", "), "), fewer than the ", n_min,
+           " a published item needs.", call. = FALSE)
+    }
+    out
+  }
+
+  list(years = int_vec("years", 2L), change_interval = int_vec("change_interval", 2L))
+}
+
+
 # --- Are the staged rasters the ones the record describes? -----------------------------
 # Upstream's step 3 writes its rasters first and stamps its landcover section last, so a
 # raster NEWER than that stamp means a step in flight, or one that crashed between the two
@@ -366,7 +442,8 @@ fp_prov_rasters_current <- function(src_wsg, raster_paths, prov, species, scenar
 # `[[<-` or modifyList: both DROP a NULL member, which would turn an intended null into an
 # absent key — and absence is the one thing #17 forbids.
 #
-# `years` is the item's published span (01_stage.R's YEARS); only folds read it.
+# `years` is the item's published span — the set 01_stage.R discovered on disk, never one
+# read back out of `prov` (see the fold's comment above); only folds read it.
 fp_prov_item <- function(prov, species, scenario, where, years) {
   sec <- fp_prov_sections(prov, species, scenario, where)
   out <- lapply(PROV_FIELDS, function(f) {

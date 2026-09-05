@@ -26,8 +26,15 @@ gpkg_pin_date()
 
 FLOODPLAINS_DATA <- Sys.getenv("FLOODPLAINS_DATA", unset = "../floodplains/data")
 CONFIG_DIR <- file.path(dirname(FLOODPLAINS_DATA), "config")
-YEARS <- c(2017, 2020, 2023)
-TRANSITION_SPAN <- c(2017, 2023)
+# The classified year set is NOT a constant (#61). It is a fact about the producer's run —
+# some areas are three-year, some annual since floodplains#79 — so it is read per item, from
+# the rasters on disk, and checked against the record. See the block in the target loop.
+#
+# TRANSITION_SPAN stays a literal, and the split is the point: the year set is data, the
+# span is a contract this repo chose. It is what the derived year set is anchored against
+# (both endpoints must be classified), and what the record's own `change_interval` is
+# compared to. Removing it too would leave nothing hardcoded at stage at all.
+TRANSITION_SPAN <- c(2017L, 2023L)
 
 raw_dir <- file.path("data", "raw")
 stac_dir <- file.path("data", "stac")
@@ -178,6 +185,7 @@ staged <- character(0)
 skipped <- character(0)
 traced <- character(0)   # items carrying at least one non-null provenance field
 drift_untraced <- character(0)  # items whose producer drift version is unknown (#34)
+year_untraced <- character(0)   # items whose year set had no record to check against (#61)
 
 for (wsg in wsgs) {
   area_yml <- file.path(CONFIG_DIR, wsg, "area.yml")
@@ -212,9 +220,85 @@ for (wsg in wsgs) {
       skipped <- c(skipped, item_id)
       next
     }
+    # --- The item's classified year set (#61) ------------------------------------------
+    # Two independent sources, and the assertion between them is the whole point.
+    # `years_disk` is what is actually there; `span_rec` is what upstream says it built.
+    # The DISK set is what gets published and what the landcover_key fold is handed, so
+    # that fold keeps two different producers on its two sides — sourcing both from
+    # provenance would reduce it to one file's `years` agreeing with the same file's
+    # `classified_content_sha256`.
+    #
+    # fp_prov_sections() now runs three times per target (here, in
+    # fp_prov_rasters_current, and in fp_prov_item). It is a pure read whose only side
+    # effect is stopping earlier on a schema break, so the repetition is harmless.
+    span_rec <- fp_prov_span(wsg_prov, species, scenario, item_id)
+
+    # ANCHORED. list.files(pattern = ) is an unanchored regex and every source raster dir
+    # carries a `classified_<yyyy>.tif.aux.xml` sidecar beside each `.tif`, so an
+    # unanchored `classified_[0-9]{4}\\.tif` would match both and stage the sidecar's year
+    # twice.
+    classified_files <- list.files(src_rasters, pattern = "^classified_[0-9]{4}\\.tif$")
+    years <- sort(as.integer(sub("^classified_([0-9]{4})\\.tif$", "\\1",
+                                 classified_files)))
+
+    # Absolutes, applied whether or not there is a record — these are what replaces the
+    # refusal the old YEARS constant used to give. Without them, an upstream that dropped a
+    # year from BOTH its rasters and its record would publish a shorter item, green.
+    if (anyDuplicated(years)) {
+      stop(item_id, ": two staged rasters claim the same classified year (",
+           paste(unique(years[duplicated(years)]), collapse = ", "), ") in ", src_rasters)
+    }
+    if (length(years) < 2L) {
+      stop(item_id, ": found ", length(years), " classified raster(s) in ", src_rasters,
+           " — a published item needs at least two classified years, and the transition ",
+           "asset needs both ends of ", paste(TRANSITION_SPAN, collapse = "-"), ".")
+    }
+    if (!all(TRANSITION_SPAN %in% years)) {
+      stop(item_id, ": classified year(s) ", paste(years, collapse = ", "),
+           " do not cover the transition span ", paste(TRANSITION_SPAN, collapse = "-"),
+           " (missing ", paste(setdiff(TRANSITION_SPAN, years), collapse = ", "),
+           "). The transition asset would describe a span the item does not carry.")
+    }
+
+    if (is.null(span_rec)) {
+      # The forward-only state: no landcover section, so nothing to check the disk against.
+      # Only mcgr_ch_ff04 and pine_bt_ff04 are still in it, and both publish
+      # `deprecated: true` already. Counted below rather than passed over in silence.
+      message(item_id, ": no landcover provenance — year set taken from the ", length(years),
+              " staged raster(s) (", paste(years, collapse = ", "),
+              "). No record to assert it against.")
+      year_untraced <- c(year_untraced, item_id)
+    } else {
+      if (!identical(span_rec$years, years)) {
+        # Not `%||%`: paste() over a zero-length vector returns "", not NULL, so the
+        # side with no disagreement would print as an empty gap rather than say so.
+        or_none <- function(x) if (length(x)) paste(x, collapse = ", ") else "none"
+        stop(item_id, ": provenance records classified year(s) ",
+             paste(span_rec$years, collapse = ", "), " but ", src_rasters, " holds ",
+             paste(years, collapse = ", "), " — recorded-but-absent: ",
+             or_none(setdiff(span_rec$years, years)), "; present-but-unrecorded: ",
+             or_none(setdiff(years, span_rec$years)),
+             ". Publishing either set would describe rasters the other does not.")
+      }
+      # A second key, written by upstream for a different purpose, about the same span.
+      if (!identical(span_rec$change_interval, TRANSITION_SPAN)) {
+        stop(item_id, ": provenance records change_interval ",
+             paste(span_rec$change_interval, collapse = "-"),
+             " but this repo publishes the transition asset as ",
+             paste(TRANSITION_SPAN, collapse = "-"),
+             ". The asset name and the cross-tabulation would disagree.")
+      }
+    }
+
     # Rasters newer than the record that describes them stop the stage (#40): the item
     # would otherwise publish landcover_key as a fingerprint of bytes it does not ship.
-    fp_prov_rasters_current(src_wsg, file.path(src_rasters, sprintf("classified_%d.tif", YEARS)),
+    # The DISCOVERED paths are passed, plus the transition: the function filters to files
+    # that exist, so anything upstream wrote that the old constant did not name was never
+    # mtime-checked at all.
+    fp_prov_rasters_current(src_wsg,
+                            file.path(src_rasters,
+                                      c(sprintf("classified_%d.tif", years),
+                                        "transition.tif")),
                             wsg_prov, species, scenario, item_id)
 
     # Staging dirs + assets are item-id-keyed so multiple items per WSG never collide.
@@ -225,7 +309,7 @@ for (wsg in wsgs) {
 
     # Rasters → data/raw/<item_id>/ with self-describing published basenames.
     raster_map <- c(
-      setNames(sprintf("classified_%d.tif", YEARS), sprintf("classified_%d.tif", YEARS)),
+      setNames(sprintf("classified_%d.tif", years), sprintf("classified_%d.tif", years)),
       setNames("transition.tif",
                sprintf("transition_%d_%d.tif", TRANSITION_SPAN[1], TRANSITION_SPAN[2]))
     )
@@ -334,7 +418,7 @@ for (wsg in wsgs) {
       scenario = scenario,
       region = wsg_region[[wsg]],
       item_id = item_id,
-      years = YEARS,
+      years = years,
       transition_span = TRANSITION_SPAN,
       epsg = epsg,
       floodplain_ff02_km2 = floodplain_ff02_km2,
@@ -354,7 +438,7 @@ for (wsg in wsgs) {
     # declares `species: co` at the top level and then two targets, co and ch. Reading the
     # area-level value would give MORR's chinook item coho's network provenance —
     # silently, since both are valid strings.
-    meta <- c(meta, fp_prov_item(wsg_prov, species, scenario, item_id, YEARS))
+    meta <- c(meta, fp_prov_item(wsg_prov, species, scenario, item_id, years))
 
     # The class table above comes from THIS machine's drift, while the rasters were built
     # by the producer's. A drift that renamed a class between the two would publish labels
@@ -414,6 +498,14 @@ if (length(skipped)) message("Skipped: ", paste(toupper(skipped), collapse = ", 
 # floodplains#33 lands and areas are re-modelled, and it climbs from there — so this line
 # is the progress signal as well as the alarm.
 message(length(traced), " of ", length(staged), " staged item(s) carry run provenance")
+if (length(year_untraced)) {
+  # A number on screen rather than a silence, the same shape as the two counts above. These
+  # items took their year set from the rasters with no record to check it against, so
+  # "the item publishes the years it was built from" is unverified for them, not verified.
+  message(length(year_untraced), " of ", length(staged),
+          " staged item(s) took their classified year set from disk, unchecked: ",
+          paste(year_untraced, collapse = ", "))
+}
 if (length(drift_untraced)) {
   # A number on screen rather than a silence, same as the provenance count above: until the
   # producer records drift_version, "the labels match the pixels" is unverified, not verified.
