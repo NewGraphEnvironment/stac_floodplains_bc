@@ -97,6 +97,16 @@ GeoPackages —
 all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by
 attribute.
 
+**`floodplain_landcover.gpkg` also ships a table this repo does not describe.** 18 of 23 areas
+carry a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` table the producer writes, registered
+`data_type='attributes'` rather than `features` — measured 2026-09-05, and it is **already
+published**, since that GeoPackage is synced whole. It is not a property of the annual span:
+`ufra` (three-year) has one and `kotl` (annual) does not. Everything here that walks layers
+filters on `features` — `04_gpkg_style.py`, `item_validate.check_layer_styles`,
+`test_pipeline.R` — so it is inert on all three surfaces, verified rather than reasoned. But a
+consumer opening the file sees it, nothing here documents it, and one upstream `data_type`
+value is all that stands between it and a refused release (#65).
+
 Two of the eleven-plus-one `nge:` provenance properties describe the landcover input (#40):
 `nge:landcover_key` is a **fingerprint of what was produced** — the producer's per-year content
 digests over cell values plus geometry (floodplains#64), folded to one scalar as `sha256:` of the

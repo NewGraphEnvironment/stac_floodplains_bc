@@ -81,6 +81,18 @@ review ended on `review-round3.md`'s enumeration rather than another sampling pa
 including each of those two, which are missing each other. Reproduced on `main`. Fixed with
 `--partial`, because this issue's own acceptance criterion is not testable without it.
 
+## Corrected after the fact
+
+The review's note that `lnth`'s `floodplain_landcover.gpkg` carries an extra
+`patch_watercourse_*` table was **narrower than the truth**, and the framing mattered: it read
+as an artifact of the annual span. Measured across all 23 areas while archiving —
+**18 carry one**, `ufra` (three-year) included, and `kotl` (annual) does not. So it varies
+independently of the year set, it is already published, and it is not something
+`floodplains#79` introduces. Filed as #65; the fact is now in `CLAUDE.md`'s collection model.
+
+A finding measured on one item is a claim about one item. This one was written down as though
+it were about a population, and the population disagreed.
+
 ## Evidence
 
 - `task_plan.md` — the approved phases; `findings.md` — what was measured before the baseline
