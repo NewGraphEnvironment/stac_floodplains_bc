@@ -76,10 +76,10 @@ currently restates upstream attribution percentages, which floodplains#77 leaves
 Served from the shared `stac` DB at `images.a11s.one` — not a dedicated subdomain.
 
 **The classified year set is a property of the item, read from the producer's record** (#61) —
-not a constant here. Most items carry 2017/2020/2023; `floodplains#79` is re-running areas onto
-an annual span, so the collection carries two populations and `ALLOWED_YEAR_SETS` in
-`item_validate.py` is the literal a human sets that says which are sanctioned (delete the
-three-year tuple when the rollout finishes). The set that gets **published** is the one
+not a constant here. Most items carry 2017/2020/2023; `floodplains#79` (closed) re-ran four areas
+onto an annual span (#59; `NEWS.md` names them), so the collection carries two populations and
+`ALLOWED_YEAR_SETS` in `item_validate.py` is the literal a human sets that says which are
+sanctioned (delete the three-year tuple once every area is on the annual span). The set that gets **published** is the one
 discovered on disk and the record is what checks it, never the reverse: sourcing both from
 provenance would reduce `landcover_key`'s fold to one file's `years` agreeing with the same
 file's `classified_content_sha256`. `TRANSITION_SPAN` stays a literal and is the anchor — the
@@ -253,6 +253,31 @@ missing any live item.
 
 **Public** (`.claude/visibility` = public). Keep it that way: no internal-only conventions below the
 marker, and no references to private sibling collections or infrastructure detail in tracked files.
+
+## Working Conventions
+
+### Derive the `stac_*_bc` family's Python-env state; never write a survey of it down
+
+Which sibling runs conda and which runs uv is a live question for `stac_dem_bc#16`, and this
+repo is the pilot. Answer it from the checkouts each time rather than from a table.
+
+**Why:** a written per-repo table rotted, and worse, was appended to rather than corrected — it
+asserted "uv is roadmap only" three paragraphs above "floodplains migrated to uv", and kept
+calling a sibling R-only after it grew Python scripts.
+
+**How to apply:** one command, re-run whenever the question comes up:
+
+```bash
+for r in ~/Projects/repo/stac_*_bc; do
+  printf '%-22s %s %s %s\n' "$(basename "$r")" \
+    "$([ -f "$r/pyproject.toml" ] && echo pyproject || echo -)" \
+    "$(find "$r" -maxdepth 1 -name 'environment.y*ml' -exec basename {} \; | head -1)" \
+    "py:$(find "$r/scripts" -name '*.py' 2>/dev/null | wc -l | tr -d ' ')"
+done
+```
+
+A repo showing neither `pyproject.toml` nor `environment.yml` can still depend on a conda env —
+grep its scripts for `conda run -n` before calling it env-free.
 
 <!-- BEGIN SOUL CONVENTIONS — DO NOT EDIT BELOW THIS LINE -->
 
