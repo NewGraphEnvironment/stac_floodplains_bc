@@ -24,8 +24,8 @@ The collection carries `license: CC-BY-4.0`, six `providers`, a `rel: license` l
 > the `bcfishpass` modelling approach.
 
 Items carry no `license` of their own, deliberately: STAC inherits it from the collection, and
-the per-item source attribution is the `nge:landcover_*` provenance block, which the release's
-provenance floor (#32) is what keeps non-null.
+the per-item source attribution is the `landcover:*` provenance block, which the release's
+per-field census (#74) is what keeps present.
 
 ## Why CC BY 4.0 outbound
 

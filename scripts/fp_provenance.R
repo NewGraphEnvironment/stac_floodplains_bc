@@ -1,9 +1,11 @@
 # fp_provenance.R — read the producer's run-provenance record (#17).
 #
 # The ONLY place in this repo that knows the shape of `floodplains`' provenance.json
-# (NewGraphEnvironment/floodplains#33). Everything downstream — meta.json's field names,
-# the `nge:` STAC properties, the NGE_ GDAL tags, the validators — uses this repo's own
-# names, so an upstream rename lands here and nowhere else.
+# (NewGraphEnvironment/floodplains#33). Everything downstream — meta.json's field names, the
+# NGE_ GDAL tags, the validators — uses this repo's own staged names, so an upstream rename
+# lands here and nowhere else. The names PUBLISHED on an item are a third thing again since
+# #74 (`processing:*`, `link:*`, `landcover:*`), mapped from the staged ones in
+# item_create.py.
 #
 # Sourced by 01_stage.R alongside fp_gpkg.R.
 #

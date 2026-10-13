@@ -122,10 +122,10 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 
 ## Phase 6: what a reader sees
 
-- [ ] `NEWS.md` under `## Unreleased`: the mapping table, that a saved filter on an old name
+- [x] `NEWS.md` under `## Unreleased`: the mapping table, that a saved filter on an old name
       stops matching, that the `link` entry is split on the **last** `+`, that no COG and no
       checksum moved, and that `processing:datetime` is the land-cover run time.
-- [ ] `ATTRIBUTION.md` (the `nge:landcover_*` sentence, and "keeps non-null" which omission
+- [x] `ATTRIBUTION.md` (the `nge:landcover_*` sentence, and "keeps non-null" which omission
       falsifies), `scripts/README.md`, `CLAUDE.md`, and the stale premises in `01_stage.R`,
       `02_raster_tag.py`, `fp_provenance.R`, `catalogue_release-check.sh`'s header.
 - [ ] Edit issue #74's body: the mapping as shipped, the crate dependency removed, the COG-tag

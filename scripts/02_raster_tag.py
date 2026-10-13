@@ -72,15 +72,22 @@ SHARED_FIELDS = [
     "gross_loss_ha", "gross_gain_ha", "net_ha",
 ]
 
-# Run provenance (#17), mirrored so a downloaded COG is self-describing. Same field
-# names as 01_stage.R's PROV_FIELDS; the tag key is NGE_<FIELD>, built from the
-# unprefixed name.
+# Run provenance (#17), mirrored so a downloaded COG is self-describing. Same field names as
+# 01_stage.R's PROV_FIELDS; the tag key is NGE_<FIELD>, built from the staged name.
 #
-# The key must NOT carry the `nge:` STAC prefix. Measured: a colon in a GDAL tag key is
-# parsed as a namespace separator, so `update_tags(**{"NGE:LINK_RUN_UID": "abc"})`
-# round-trips as key `NGE` with value `LINK_RUN_UID=abc`. Eleven prefixed fields would
-# collapse into ONE `NGE` tag holding whichever was written last — a uniform, silent
-# loss on every COG.
+# These tag names deliberately did NOT move in #74, which renamed the published properties
+# off the `nge:` prefix. They are inside the raster, so renaming them rewrites every COG's
+# bytes and so every published `file:checksum`, on a bucket with versioning Suspended — and
+# the same call was made for the family in stac_airphoto_bc#47. item_validate.py bridges the
+# two naming schemes through item_create.py's map, which is where the correspondence lives;
+# the `link` pair is compared by reassembling `NGE_LINK_VERSION + "+" + NGE_LINK_SHA` against
+# the one `processing:software` entry those two fields became.
+#
+# A tag key must never carry a STAC prefix of any kind. Measured: a colon in a GDAL tag key
+# is parsed as a namespace separator, so `update_tags(**{"NGE:LINK_RUN_UID": "abc"})`
+# round-trips as key `NGE` with value `LINK_RUN_UID=abc`. Twelve prefixed fields would
+# collapse into ONE tag holding whichever was written last — a uniform, silent loss on every
+# COG.
 PROV_FIELDS = [
     "link_run_uid", "link_config_sha256", "link_sha", "link_version",
     "flooded_version", "drift_version", "produced_datetime",
@@ -88,8 +95,10 @@ PROV_FIELDS = [
     "landcover_item_hash",
 ]
 # One companion tag naming what was looked for and not found, so a COG carries the
-# same "we looked and there was none" signal the STAC item does. Without it a
-# provenance-less COG is indistinguishable from one this pipeline never touched.
+# "we looked and there was none" signal. Since #74 the published item does NOT carry it —
+# an absent value omits its key there — so this tag is now the ONLY positive statement of
+# absence this catalogue publishes anywhere, which is why item_validate.py derives its
+# expected value as declared-minus-present and asserts it on every COG.
 PROV_NULL_TAG = "NGE_PROVENANCE_NULL"
 
 

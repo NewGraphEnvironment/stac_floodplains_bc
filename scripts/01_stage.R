@@ -40,9 +40,12 @@ raw_dir <- file.path("data", "raw")
 stac_dir <- file.path("data", "stac")
 
 # --- Run provenance (#17) -------------------------------------------------
-# Ferried from the producer, never derived here. The names are the STAC property names
-# minus the `nge:` prefix, so item_create.py maps them mechanically and this vector
-# is the single place the set is declared.
+# Ferried from the producer, never derived here. These are the STAGED names, and since #74
+# they are NOT the published property names: item_create.py carries the map from each of
+# these to `processing:datetime`, a `processing:software` entry, `link:*` or `landcover:*`.
+# They are still the names 02_raster_tag.py writes into every COG as NGE_<FIELD>, which is
+# why renaming the published properties moved no raster bytes. This vector is the single
+# place the staged set is declared.
 #
 # `link_config_sha256` is link's OWN stored `config_hash` — a hash over 17 config files
 # plus the config name and species list, not a SHA of config.yaml. Recomputing one here
