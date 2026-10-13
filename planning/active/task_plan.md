@@ -59,9 +59,9 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 
 ## Phase 2: the guards
 
-- [ ] The declared contract in `scripts/item_validate.py`, in published names, hardcoded and
+- [x] The declared contract in `scripts/item_validate.py`, in published names, hardcoded and
       duplicated rather than imported (the reason is already written at `:429-438`).
-- [ ] `check_provenance` rewritten. **Not** per-section all-or-nothing: measured on the live
+- [x] `check_provenance` rewritten. **Not** per-section all-or-nothing: measured on the live
       catalogue, `link_run_uid` is absent on 3 of 23 items while the rest of its section has
       values, so that arm would refuse three live items. Replacement:
       - every published `processing:`/`link:`/`landcover:` key must be in the declared set, and
@@ -73,20 +73,20 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
         uniform-loss detection, and it closes the older hole that the per-section counts were
         printed and never asserted;
       - the item-level floor exact in both directions, and `seen == 0` still a failure.
-- [ ] `check_processing_stamp`: the extension declared **iff** at least one `processing:` field
+- [x] `check_processing_stamp`: the extension declared **iff** at least one `processing:` field
       — the iff-pairing `check_version_stamp` and `check_scientific` already use, because the
       schema that would check the field is selected BY the extension list.
-- [ ] `processing:software` shape: a non-empty object, every value a string, declared entry
+- [x] `processing:software` shape: a non-empty object, every value a string, declared entry
       names only. An empty object is schema-valid and satisfies `require_any_field`, so it
       would read as "provenance present".
-- [ ] `processing:datetime` shape asserted here with a message naming the cause: the schema
+- [x] `processing:datetime` shape asserted here with a message naming the cause: the schema
       pins a `Z`/`+00:00` suffix on a value passed through verbatim from upstream.
-- [ ] `check_cog_tags` bridged through the map rather than deriving `NGE_<FIELD>` from the
+- [x] `check_cog_tags` bridged through the map rather than deriving `NGE_<FIELD>` from the
       property name: three entry kinds (1:1; one software entry → 1 tag; the `link` entry → 2
       tags, reassembled as `NGE_LINK_VERSION + "+" + NGE_LINK_SHA`, never split).
       `NGE_PROVENANCE_NULL` becomes *declared minus present* — a mechanical port of the old
       `v is None` derivation would make it always empty.
-- [ ] `check_citation_premise`'s claims, `check_deprecated`'s version key (now a
+- [x] `check_citation_premise`'s claims, `check_deprecated`'s version key (now a
       `processing:software` entry), and the `DERIVATION_STATEMENT` copy.
 
 ## Phase 3: prove the new arms fire
