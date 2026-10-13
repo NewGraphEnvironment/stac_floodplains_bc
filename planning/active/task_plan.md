@@ -104,13 +104,13 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 
 ## Phase 4: the release path
 
-- [ ] `scripts/catalogue_release.sh` `--only` preflight, two arms: canonicalise both sides into
+- [x] `scripts/catalogue_release.sh` `--only` preflight, two arms: canonicalise both sides into
       the staged field names (a legacy `nge:` reader and the new map) and keep the per-key
       value→absent refusal; plus a **shape** arm refusing `--only` whenever the live item's
       provenance key shape differs from the build's. Without the second arm the first renamed
       build passes `--only` on the two all-null items, because the API serves them no
       provenance keys at all.
-- [ ] `scripts/catalogue_release-check.sh`: fixtures re-expressed in real declared names, the
+- [x] `scripts/catalogue_release-check.sh`: fixtures re-expressed in real declared names, the
       hard-coded property count, and the assertion strings.
 
 ## Phase 5: the staging cross-check
