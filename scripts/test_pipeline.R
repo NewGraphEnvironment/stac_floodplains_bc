@@ -190,10 +190,13 @@ for (mp in meta_paths) {
   staged_prov <- setdiff(names(meta), meta_core)
   if (!setequal(staged_prov, prov_fields)) {
     stop("meta.json and this test disagree on the staged provenance field set — staged but ",
-         "not declared here (and so published nowhere): ",
-         paste(setdiff(staged_prov, prov_fields), collapse = ", "),
+         "not declared here: ", paste(setdiff(staged_prov, prov_fields), collapse = ", "),
          "; declared here but not staged: ",
-         paste(setdiff(prov_fields, staged_prov), collapse = ", "))
+         paste(setdiff(prov_fields, staged_prov), collapse = ", "),
+         ". `meta_core` is the hardcoded complement, so the first list catches BOTH a new ",
+         "provenance field (add it to the map in item_create.py, item_validate.py, this ",
+         "list and 02_raster_tag.py) and a new NON-provenance meta.json field, which is ",
+         "published already and belongs in meta_core above.")
   }
   staged_present <- Filter(function(f) !is.null(meta[[f]]), prov_fields)
 

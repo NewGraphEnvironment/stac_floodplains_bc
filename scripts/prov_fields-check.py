@@ -24,6 +24,7 @@ import ast
 import hashlib
 import json
 import pathlib
+import re
 import shutil
 import sys
 import tempfile
@@ -34,9 +35,9 @@ import rasterio
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from item_validate import (  # noqa: E402
-    PROV_CENSUS, PROV_FIELDS, PROV_PROPERTIES, PROV_SOFTWARE, SOFTWARE_PROPERTY,
-    SHARED_TAG_PROPERTIES, check_cog_tags, check_field_prefixes, check_processing_stamp,
-    check_provenance,
+    PROV_CENSUS, PROV_FIELDS, PROV_PREFIXES, PROV_PROPERTIES, PROV_SOFTWARE,
+    SOFTWARE_PROPERTY, SHARED_TAG_PROPERTIES, check_cog_tags, check_field_prefixes,
+    check_processing_stamp, check_provenance,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -222,6 +223,49 @@ def literal(path: pathlib.Path, name: str):
 # value it checks is x == x), so something has to join them. test_pipeline.R joins staging to
 # the item; this joins the publish map to the writer and to the COG tags. A field dropped from
 # BOTH sides of a pair is invisible to every runtime arm.
+def release_preflight_program() -> str:
+    """The text of the `--only` preflight program, sliced out of the shell script."""
+    text = (ROOT / "scripts" / "catalogue_release.sh").read_text()
+    marker = 'python3 -c "'
+    try:
+        start = text.index(marker, text.index("only_prov=$(curl")) + len(marker)
+        end = text.index('")', start)
+    except ValueError:
+        # The slice failing must not read as "nothing to compare": it means the preflight was
+        # rewritten (a heredoc, a separate file), and then this arm is checking nothing.
+        raise SystemExit("could not find the --only preflight program in "
+                         "catalogue_release.sh — if it moved out of the inline `python3 -c`, "
+                         "point this at its new home rather than leaving the map unpinned")
+    body = text[start:end]
+    if "def canon" not in body:
+        raise SystemExit("could not slice the --only preflight program out of "
+                         "catalogue_release.sh — the markers moved, and an unparsed "
+                         "program must not read as a pass")
+    return body
+
+
+def release_preflight_literals() -> dict:
+    """The publish map copied into `catalogue_release.sh`'s `--only` preflight.
+
+    That preflight is an inline `python3 -c` program inside a double-quoted bash string, so it
+    cannot import from this repo and its copy of the map was pinned by nothing — a thirteenth
+    field added everywhere else would leave its VALUE arm blind to that field being lost,
+    which fails toward publishing on a bucket with no rollback. Sliced out of the shell script
+    and parsed, which is the only way to reach it without running a release.
+    """
+    body = release_preflight_program()
+    out = {}
+    for node in ast.parse(body).body:
+        if isinstance(node, ast.Assign):
+            name = getattr(node.targets[0], "id", None)
+            if name in ("NEW", "SOFTWARE", "PREFIXES"):
+                out[name] = ast.literal_eval(node.value)
+    if set(out) != {"NEW", "SOFTWARE", "PREFIXES"}:
+        raise SystemExit(f"the preflight program parsed but declares {sorted(out)} — "
+                         f"refusing to pass on a partial read")
+    return out
+
+
 _create_props = literal(ROOT / "scripts" / "item_create.py", "PROV_PROPERTIES")
 _create_software = literal(ROOT / "scripts" / "item_create.py", "PROV_SOFTWARE")
 _tag_fields = literal(ROOT / "scripts" / "02_raster_tag.py", "PROV_FIELDS")
@@ -233,6 +277,42 @@ expect_clean("02_raster_tag.py tags exactly the fields the map publishes",
              [] if set(_tag_fields) == set(PROV_FIELDS)
              else [f"02_raster_tag.py tags {sorted(set(_tag_fields) ^ set(PROV_FIELDS))} "
                    f"differently"])
+
+# The fifth copy: catalogue_release.sh's --only preflight, which canonicalises a live item and
+# a build into staged field names. Its map is the INVERSE of item_create.py's, plus the
+# retired `nge:` prefix, which it alone still reads — that is what lets it compare a renamed
+# build against an item published before the rename.
+# Before comparing what the program SAYS, check that bash leaves it alone. The program is the
+# argument of a double-quoted `python3 -c`, so bash expands it first, and two different
+# characters have already broken it: a backtick span ran as a command on every preflight, and
+# a double quote in the comment that recorded THAT truncated the program and broke 28
+# assertions in catalogue_release-check.sh. Enumerated rather than remembered — every
+# character bash still expands inside double quotes is listed here, and every `$` must be one
+# of the three interpolations the program is written to receive.
+_body = release_preflight_program()
+_hazards = []
+for ch, what in (("`", "a backtick span runs as a command substitution"),
+                 ('"', "a double quote ends the python3 -c argument"),
+                 ("\\", "a backslash is consumed by bash before python sees it")):
+    if ch in _body:
+        _hazards.append(f"{ch!r} ({what})")
+_interp = set(re.findall(r"\$\{?([A-Za-z_][A-Za-z_0-9]*)", _body))
+_expected = {"STAC_DIR", "ONLY", "only_bucket"}
+if _interp - _expected:
+    _hazards.append(f"unexpected shell interpolation(s): {sorted(_interp - _expected)}")
+expect_clean("the preflight program survives bash: no backtick, quote or stray $",
+             _hazards)
+
+_pre = release_preflight_literals()
+expect_clean("the --only preflight canonicalises through the same map, inverted",
+             [] if _pre["NEW"] == {v: k for k, v in PROV_PROPERTIES.items()}
+             else [f"the preflight maps {_pre['NEW']}"])
+expect_clean("...and the same software entries",
+             [] if {k: tuple(v) for k, v in _pre["SOFTWARE"].items()} == PROV_SOFTWARE
+             else [f"the preflight maps {_pre['SOFTWARE']}"])
+expect_clean("...over the published prefixes plus the retired one",
+             [] if set(_pre["PREFIXES"]) == {f"{p}:" for p in PROV_PREFIXES} | {"nge:"}
+             else [f"the preflight scans {sorted(_pre['PREFIXES'])}"])
 
 # --- controls --------------------------------------------------------------------------
 

@@ -106,11 +106,12 @@ plus `NGE_PROVENANCE_NULL = link_run_uid`.
 The skew override is still required (`drift` 0.20.0 installed against 0.8.0 in the record) —
 re-measured here rather than taken from the note, and it changed no bytes for this group.
 
-## Mutation table (2026-10-13)
+## Mutation table (re-measured 2026-10-13 after round 2)
 
-`scripts/prov_fields-check.py` is 38 assertions, 0 failed. Each guard was then removed in a
-**copy** of `scripts/` and the driver re-run, so the measurement is of the guard and not of
-the working tree:
+`scripts/prov_fields-check.py` is **43 assertions, 0 failed**. Each guard was then removed in a
+**copy** of `scripts/` and the driver re-run, so the measurement is of the guard rather than of
+the working tree. (It was 38 assertions when first measured; round 1 added two `tags_drop` arms
+and round 2 three static ones, and the table below is the re-run, not the original.)
 
 | defect restored | assertions red |
 |---|---|
@@ -125,17 +126,27 @@ the working tree:
 | the `<version>+<sha>` pair arm | 1 |
 | the `processing:datetime` shape arm | 1 |
 | the COG-tag reassembly | 2 |
-| `NGE_PROVENANCE_NULL` as declared-minus-present (ported mechanically instead) | 1 |
+| `NGE_PROVENANCE_NULL` as declared-minus-present (ported mechanically instead) | 2 |
 | holding the bridged tags out of the generic diff | 1 |
 | **the writer's refusal of a half-present software entry** | **0** |
 
-The last row is the honest gap. The driver mirrors `item_create.py`'s writer rather than
+And the five copies of the field map, mutated one at a time (round 2 added the preflight's,
+which nothing had pinned):
+
+| copy mutated | assertions red |
+|---|---|
+| `item_create.py`'s `PROV_PROPERTIES` | 1 |
+| `02_raster_tag.py`'s `PROV_FIELDS` | 1 |
+| `catalogue_release.sh`'s preflight `NEW` | 1 |
+| …its `SOFTWARE` entries | 1 |
+| …its `PREFIXES` tuple, including the retired `nge:` it alone reads | 1 |
+| the preflight moved out of its inline `python3 -c` entirely | refused outright, naming the cause |
+
+The one `0 red` row is the honest gap. The driver mirrors `item_create.py`'s writer rather than
 importing it — importing runs the whole build — so mutating the writer cannot turn the driver
 red. What *is* proven is the backstop that decides whether such a tree can be published: the
 validator's `<version>+<sha>` arm, which refuses a half-present entry whatever wrote it. The
-writer's own `raise` is a fail-fast convenience in front of that, and the two literal maps are
-pinned to each other statically by the first three assertions, which parse
-`item_create.py` and `02_raster_tag.py` instead of trusting the mirror.
+writer's own `raise` is a fail-fast convenience in front of that.
 
 ## Review round 1 — 7 findings, all fixed
 
@@ -161,12 +172,66 @@ hazards in the inline python), case 16's shim rewrite, and the R primitives.
 It independently re-ran `prov_fields-check.py` (38/0 at the time), `catalogue_release-check.sh`
 (ALL PASS) and pystac against the real item, confirming all three schema claims.
 
+## Review round 2 — 6 findings, all fixed
+
+Reviewer notes in `review-round2.md`. One real bug, inside this branch's own shell:
+
+| # | finding | verified how | fix |
+|---|---|---|---|
+| 1 | **bug** — a markdown code span inside the `--only` preflight's `python3 -c "…"` argument is a **command substitution**: bash ran `nge:` on every preflight and printed `nge:: command not found` into the operator's output. Benign only because that span named nothing executable; `link` and `drift`, the two words the paragraph is about, both are | reproduced: a backtick span inside a double-quoted `python3 -c` prints `nge:: command not found` and the program still returns 1 | backticks removed from the inline program, with a NO BACKTICKS note and the measurement beside it |
+| 2 | the case-12 assertion matched `live: 2 \| built: 2`, a line the release prints BEFORE the `--only` branch — so it also matches in cases 15 and 16, where both arms refuse. It could not fail on the property its label named | read the release script's print order | replaced with a count of both shape messages being zero |
+| 3 | two comments claimed the publish map is "the one place the old names survive"; `canon()` in `catalogue_release.sh` reads the retired prefix too, deliberately, and a reader trusting the comment would delete the branch that lets `--only` work across the rename | grep for `nge:` in the scripts | both corrected (`item_create.py`, `CLAUDE.md`) to name `canon()` as the second reader and why |
+| 4 | `PROV_FIELDS`'s comment said "derived from the map"; it is a hand-written literal, which is why the `assert` below it exists | read it | comment says it is written out for its ORDER, which a set has none of |
+| 5 | the restored ADD-direction message named one remedy, but the set also catches a new NON-provenance `meta.json` field, for which "published nowhere" is false and the real fix (`meta_core`) was unnamed | traced `meta_core` as the hardcoded complement | the message now names both cases and both remedies |
+| 6 | the preflight's copy of the map was a **fifth** copy pinned by nothing, while the docs called the static comparison "the only thing joining those three" — a thirteenth field would leave the value arm blind to its loss | counted the copies | `prov_fields-check.py` now slices the inline program out of the shell script and compares `NEW`, `SOFTWARE` and `PREFIXES`; three new assertions, each proven to fire, and a failed slice refuses rather than passing |
+
+Round 2 verified clean: the asymmetric shape arm cannot be slipped by a rename presenting as
+gain-only (a rename never retains a published key, and a renamed *entry* is caught by the value
+arm); the `bridged` subtraction and reassembly fire in the tags-present/entry-absent direction;
+`02_raster_tag.py` writes `NGE_PROVENANCE_NULL` in the same `sorted()` order the validator
+derives; `_corrected()` is type-safe against a non-string entry; `PROV_FIELDS`' order matches
+`01_stage.R`; `PROVENANCE_FLOOR` agrees with `PROV_CENSUS`; the `seen == 0` early return carries
+the census; the R set algebra holds (`setequal(character(0), NULL)` is TRUE, a JSON null keeps
+its name); the real collection's only namespaced field is `sci:citation`, with its extension
+declared; one `trap … EXIT`; and the `IFS='|'` field positions including the trailing empty.
+
+Noted without action: the printed `census:` line is `field N` pairs, readable but not pasteable
+into the `"field": N,` literal. The comment says so rather than implying otherwise.
+
+## A defect inside round 2's fix, and the enumeration that closes the class
+
+Round 2's finding 1 was a backtick span inside the `--only` preflight's `python3 -c "…"`
+argument, which bash ran as a command. The fix removed the backticks and added a comment
+recording the measurement — and that comment contained a **quoted phrase**, which ended the
+`python3 -c` argument early and broke 28 assertions in `catalogue_release-check.sh`. Same
+mechanism, one character over: prose written inside a double-quoted shell argument.
+
+Recalling the hazards was what produced the second one, so the class is closed by enumeration
+instead. `prov_fields-check.py` now slices the program out of the shell script and refuses on
+every character bash still expands inside double quotes, plus any `$` that is not one of the
+three interpolations the program is written to receive. Each member injected into the program
+in a copy of `scripts/`:
+
+| injected | caught |
+|---|---|
+| a backtick span | yes |
+| a double quote | yes |
+| a backslash | yes |
+| an unexpected `$VAR` | yes |
+| an unexpected `${VAR}` | yes |
+
+That is the whole set for a double-quoted bash string: `` ` ``, `"`, `\`, `$`. The guard is
+over the characters rather than over the phrasings, so there is nothing left for a future
+comment to get wrong, and `catalogue_release-check.sh` is the second instrument — it is what
+caught the quote within the hour, by exercising the preflight rather than reading it.
+
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
 | `catalogue_release-check.sh` case 16 asserted a key list that did not exist in the fixture | read the actual message rather than predicting it — the fixture carries two provenance keys, not three |
 | a "nothing was said" assertion written as a `grep -c` inside `expect_out` | `expect_out` only matches positively; the negative form is `expect_eq "$(grep -c … || true)" 0` |
+| a backtick span in a comment inside `python3 -c "…"` | bash expands it before python sees it — keep backticks out of any inline program, and prefer a heredoc when prose must carry them |
 | the bucket read used `curl -o`, which the check harness shim ignores (it prints to stdout), leaving an empty file the comparison then read as nothing | redirect instead: `curl -sf "$url" > "$file"` |
 
 ## Issue context

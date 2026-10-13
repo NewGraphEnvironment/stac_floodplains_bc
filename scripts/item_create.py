@@ -171,10 +171,11 @@ _MULTIHASH_SHA256 = "1220"
 # 02_raster_tag.py writes into every COG, and renaming those would rewrite every COG's bytes
 # and so every published `file:checksum`, on a bucket with versioning Suspended.
 #
-# So this map IS the publish boundary, and the only place the staged names and the published
-# ones meet. It replaces the mechanical `f"nge:{f}"` the two were joined by until #74, which
-# is why the `nge:` prefix is now absent from the whole repo except where the COG tags and
-# this map name it. Three kinds of destination:
+# So this map IS the publish boundary, and the only place a BUILD translates between the two
+# naming schemes. It replaces the mechanical `f"nge:{f}"` the two were joined by until #74.
+# One other reader still knows the retired prefix on purpose: `canon()` in
+# catalogue_release.sh reads both shapes, which is what lets the `--only` preflight compare a
+# renamed build against an item published before the rename. Three kinds of destination:
 #
 #   * a plain property — one staged field, one published key;
 #   * one `processing:software` entry — one staged field, one entry;
@@ -208,9 +209,9 @@ PROV_SOFTWARE = {
     "flooded": ("flooded_version",),
     "drift": ("drift_version",),
 }
-# The twelve staged fields, in 01_stage.R's order. Derived from the map rather than written
-# twice: this is the one list that must not drift from the map, because every lookup below
-# is keyed on it.
+# The twelve staged fields, in 01_stage.R's order. Written out rather than derived from the
+# map, because the ORDER is what NGE_PROVENANCE_NULL and every printed list read in, and a
+# set has none — the assert below is what keeps the two from drifting.
 PROV_FIELDS = [
     "link_run_uid", "link_config_sha256", "link_sha", "link_version",
     "flooded_version", "drift_version", "produced_datetime",

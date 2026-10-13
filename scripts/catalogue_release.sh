@@ -309,10 +309,18 @@ PREFIXES = ('nge:', 'processing:', 'link:', 'landcover:')
 
 def canon(props):
     # Published property -> staged field name, reading BOTH shapes: anything under the
-    # retired `nge:` prefix is the staged name already, and the rest goes through the map
+    # retired nge: prefix is the staged name already, and the rest goes through the map
     # item_create.py publishes by. A software entry marks every field it was built from,
     # whose value is the entry string — nothing here splits <version>+<sha>, because only
     # the last + separates the two and the comparison does not need the halves.
+    #
+    # NO BACKTICKS and NO DOUBLE QUOTES anywhere in this program. It is the argument of a
+    # double-quoted python3 -c, so bash gets to it first: it expands a backtick span as a
+    # command substitution, and a double quote ENDS the argument. Both measured on this
+    # script within one hour of each other — a markdown span of nge: in this comment ran as
+    # a command on every --only preflight (a span naming a real executable would have been
+    # RUN), and a quoted phrase in the comment that recorded it truncated the program and
+    # broke 28 assertions in catalogue_release-check.sh. Single quotes only, prose unquoted.
     out = {}
     for k, v in props.items():
         if v is None:
@@ -349,8 +357,8 @@ gained = [k for k in kk if k not in bk]
 print('|'.join([str(len(lv)), str(len(bv)), ','.join(lost), ','.join(dropped), ','.join(gained)]))") \
     || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
   # IFS='|', so an empty field stays in its own position: with whitespace splitting, an empty
-  # `lost` beside a non-empty `shape` would hand the shape difference to the wrong variable
-  # and the wrong message would be printed for it.
+  # `lost` beside a non-empty `dropped` would hand the dropped keys to the wrong variable and
+  # the wrong message would be printed for them.
   IFS='|' read -r only_live_prov only_built_prov only_lost_prov only_dropped_prov only_gained_prov <<EOF
 $only_prov
 EOF

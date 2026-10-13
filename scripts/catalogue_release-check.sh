@@ -607,7 +607,11 @@ expect_eq "premise: the validator was invoked once" "$(n_uv)" 1
 expect_eq "the validator was NOT given a provenance floor (flag absent, not merely empty)" "$(n_floor_flag)" 0
 expect_eq "the validator WAS given --partial (#26: without it a one-group tree is refused)" "$(n_partial_flag)" 1
 expect_out "preflight compared the item's live provenance (the control: nothing lost)" "provenance under --only: live item carries 1 value(s), this build carries 1."
-expect_out "...and the bucket copy agreed on the key shape (no refusal printed)" "live: 2 | built: 2"
+# NOT a positive match on the preflight's own count line: `live: N | built: N` is printed by
+# the release BEFORE the --only branch, so it appears in cases 15 and 16 too, where both arms
+# refuse. The property this case is about is that NEITHER shape message was printed.
+expect_eq "...and the bucket copy agreed on the key shape (neither shape message printed)" \
+  "$(( $(grep -c 'FULL-release change' "$OUT" || true) + $(grep -c 'provenance gained since' "$OUT" || true) ))" 0
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
 expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 3 properties"
 expect_out "the version gate was skipped out loud" "version gate: skipped under --only"
