@@ -115,10 +115,10 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 
 ## Phase 5: the staging cross-check
 
-- [ ] `scripts/test_pipeline.R`: the `meta.json` ↔ published reconciliation inverts the map
+- [x] `scripts/test_pipeline.R`: the `meta.json` ↔ published reconciliation inverts the map
       (12 staged fields ↔ 9 published keys, including the 2→1 `link` collapse) instead of
       differing by a prefix.
-- [ ] Run one group end to end and read the item JSON.
+- [x] Run one group end to end and read the item JSON.
 
 ## Phase 6: what a reader sees
 

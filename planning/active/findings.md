@@ -87,6 +87,25 @@ Findings folded into `task_plan.md` before the baseline. The ones that changed t
 | stale premises outside the listed files | `01_stage.R:44`, `02_raster_tag.py:75-82`, `fp_provenance.R:5`, `catalogue_release-check.sh` header, seven `CLAUDE.md` facts |
 | `index.html` / `README.Rmd` / `readme_functions.R` are clean | every `nge:` hit there is a minified-JS `change:` substring; no time spent |
 
+## The rename moves no bytes — measured, not reasoned (2026-10-13)
+
+`WSG=larl ALLOW_DRIFT_SKEW=1 Rscript scripts/test_pipeline.R` passes end to end in ~21 s, and
+the item it builds was compared asset by asset against what the API serves for
+`larl_bt_ff04`:
+
+```
+identical file:checksum : 10 of 10 assets
+moved                   : 0
+```
+
+So the claim that this is an item-JSON-only change is a measurement. `larl` is also one of the
+three items in the 11-of-12 population, so the run exercised the omitted-key path: it published
+8 provenance keys (no `link:run_uid`), and its COGs still carry all eleven `NGE_` value tags
+plus `NGE_PROVENANCE_NULL = link_run_uid`.
+
+The skew override is still required (`drift` 0.20.0 installed against 0.8.0 in the record) —
+re-measured here rather than taken from the note, and it changed no bytes for this group.
+
 ## Mutation table (2026-10-13)
 
 `scripts/prov_fields-check.py` is 38 assertions, 0 failed. Each guard was then removed in a

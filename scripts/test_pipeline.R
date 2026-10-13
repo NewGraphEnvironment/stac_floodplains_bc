@@ -150,26 +150,75 @@ for (mp in meta_paths) {
          " but scenario '", meta$scenario, "' implies ", ff_expected)
   }
 
-  # Run-provenance contract (#17). Tested on NAMES, never on values: `read_json` maps a
-  # JSON null to a NULL list element, so `props[["nge:x"]]` is NULL for a null value AND
-  # for an absent key — the one distinction this assertion exists to make. Measured.
-  #
-  # A null value is expected and correct today (floodplains#33 is forward-only, so an
-  # area modelled before it lands carries no provenance). Only an absent KEY fails.
-  # Upgrade to non-null once #33 has landed and areas have been re-modelled.
-  prov_keys <- paste0("nge:", c(
-    "link_run_uid", "link_config_sha256", "link_sha", "link_version",
-    "flooded_version", "drift_version", "produced_datetime",
-    "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
-    "landcover_item_hash"))
-  # Two-sided: a field added to the pipeline but not to this list must fail too, or the
-  # list could stay at eleven forever while everything else moved on (#40 review).
-  item_nge <- grep("^nge:", names(props), value = TRUE)
-  if (!setequal(prov_keys, item_nge)) {
-    stop("item JSON and this test disagree on the provenance property set — missing from ",
-         "the item: ", paste(setdiff(prov_keys, item_nge), collapse = ", "),
-         "; on the item but not in this list: ", paste(setdiff(item_nge, prov_keys), collapse = ", "))
+  # Run-provenance contract (#17), under the names #74 moved it to. The publish map is
+  # declared here as well — the fourth copy, and the duplication is deliberate, since a guard
+  # that imports the value it checks returns identical forever. `prov_fields-check.py` pins
+  # the copies in item_create.py, item_validate.py and 02_raster_tag.py to each other
+  # statically; what THIS one joins is the two halves of the ferry: 01_stage.R's staged field
+  # names, and what item_create.py published from them. Until #74 the two differed by a
+  # prefix and this was a `sub()`; the published shape is now nine keys from twelve fields.
+  `%||%` <- function(a, b) if (is.null(a)) b else a
+  prov_map <- c(
+    link_run_uid         = "link:run_uid",
+    link_config_sha256   = "link:config_sha256",
+    produced_datetime    = "processing:datetime",
+    landcover_source     = "landcover:source",
+    landcover_collection = "landcover:collection",
+    landcover_stac_url   = "landcover:stac_url",
+    landcover_key        = "landcover:key",
+    landcover_item_hash  = "landcover:item_hash")
+  prov_software <- list(link = c("link_version", "link_sha"),
+                        flooded = "flooded_version",
+                        drift = "drift_version")
+  prov_fields <- c(names(prov_map), unlist(prov_software, use.names = FALSE))
+
+  # meta.json carries every field on every item, null where the producer had none —
+  # 01_stage.R writes NA, which jsonlite renders as null and reads back as a NULL element
+  # whose NAME survives. So a field never staged and a field staged with no value are
+  # distinguishable here, and the first is a staging bug rather than an absence.
+  meta_prov_missing <- setdiff(prov_fields, names(meta))
+  if (length(meta_prov_missing)) {
+    stop("meta.json is missing provenance field(s): ",
+         paste(meta_prov_missing, collapse = ", "))
   }
+  staged_present <- Filter(function(f) !is.null(meta[[f]]), prov_fields)
+
+  # Since #74 an absent value OMITS its key, so the expected published key set is a function
+  # of what was staged. That is what keeps this two-sided without a table of counts: a field
+  # staged with a value and published nowhere fails, and a key published for a field the
+  # producer had nothing for fails too. (item_validate.py's census is the other half — it
+  # asks how many items carry each field, which one group cannot answer.)
+  want_keys <- c(
+    unname(prov_map[intersect(names(prov_map), staged_present)]),
+    if (any(unlist(prov_software, use.names = FALSE) %in% staged_present)) "processing:software")
+  item_keys <- grep("^(processing|link|landcover):", names(props), value = TRUE)
+  if (!setequal(want_keys, item_keys)) {
+    stop("meta.json and the published item disagree on the provenance keys — staged but not ",
+         "published: ", paste(setdiff(want_keys, item_keys), collapse = ", "),
+         "; published but not staged: ",
+         paste(setdiff(item_keys, want_keys), collapse = ", "))
+  }
+  # The software entries are where four of the twelve fields went, so the key check above
+  # cannot see them: `processing:software` is one key whether it holds three entries or one.
+  want_entries <- names(Filter(function(fs) any(fs %in% staged_present), prov_software))
+  item_entries <- names(props[["processing:software"]] %||% list())
+  if (!setequal(want_entries, item_entries)) {
+    stop("meta.json and the published item disagree on the processing:software entries — ",
+         "staged but not published: ", paste(setdiff(want_entries, item_entries), collapse = ", "),
+         "; published but not staged: ",
+         paste(setdiff(item_entries, want_entries), collapse = ", "))
+  }
+  # The extension is declared iff a processing: field is published — forced by the schema,
+  # whose Item branch requires at least one such field, so an item carrying none would be
+  # REFUSED rather than merely over-declared.
+  item_exts <- unlist(jsonlite::read_json(item_json)$stac_extensions)
+  has_proc_ext <- "https://stac-extensions.github.io/processing/v1.2.0/schema.json" %in% item_exts
+  has_proc_field <- any(grepl("^processing:", item_keys))
+  if (!identical(has_proc_ext, has_proc_field)) {
+    stop(basename(item_json), " declares the processing extension = ", has_proc_ext,
+         " but publishes a processing: field = ", has_proc_field, " — half-applied")
+  }
+
   # Values, not just keys (#17 deferred this "once they land"; #32 lands it). Per TARGET, read
   # from the producer's raw JSON independently of the reader: one scalar from each upstream
   # section, compared with `identical()`. An absent file, an absent section (a MORR file with
@@ -177,54 +226,37 @@ for (mp in meta_paths) {
   # sides, so this is two-sided per section by construction — a reader that silently found
   # nothing in a record that exists fails on the section it lost, and a value invented
   # where the producer has none fails too. `[[` throughout: `$` partial-matches on a list.
-  `%||%` <- function(a, b) if (is.null(a)) b else a
   prov_file <- file.path(fp_data, wsg, "provenance.json")
   prov <- if (file.exists(prov_file) && file.size(prov_file) > 0)
     jsonlite::read_json(prov_file, simplifyVector = FALSE) else NULL
   net <- Filter(function(s) identical(as.character(s[["inputs"]][["species"]]), meta$species),
                 prov[["network"]] %||% list())
+  lv <- if (length(net)) net[[1]][["inputs"]][["link"]][["version"]]
+  ls <- if (length(net)) net[[1]][["link_log"]][["link_sha"]]
+  # The `link` entry is REASSEMBLED from the producer's two leaves rather than split out of
+  # the published string: a version may itself carry build metadata, so only the last `+`
+  # separates the two and a split is ambiguous where the join is not. Both halves NULL means
+  # the entry is absent, which is the state three published items are in.
   want <- list(
-    "nge:link_version"     = if (length(net)) net[[1]][["inputs"]][["link"]][["version"]],
-    "nge:flooded_version"  = prov[["floodplain"]][[meta$scenario]][["inputs"]][["flooded"]][["version"]],
-    "nge:produced_datetime" = prov[["landcover"]][[meta$scenario]][["run"]][["datetime_utc"]])
+    "processing:software$link"    = if (!is.null(lv) && !is.null(ls)) paste0(lv, "+", ls),
+    "processing:software$flooded" =
+      prov[["floodplain"]][[meta$scenario]][["inputs"]][["flooded"]][["version"]],
+    "processing:datetime"        = prov[["landcover"]][[meta$scenario]][["run"]][["datetime_utc"]])
+  got <- list(
+    "processing:software$link"    = props[["processing:software"]][["link"]],
+    "processing:software$flooded" = props[["processing:software"]][["flooded"]],
+    "processing:datetime"        = props[["processing:datetime"]])
   message("  provenance.json ", if (is.null(prov)) "absent" else "present", " upstream for ",
           toupper(wsg), "; per-section expectation for ", meta$item_id, ": ",
-          paste(sub("^nge:", "", names(want)), "=",
+          paste(names(want), "=",
                 vapply(want, function(v) if (is.null(v)) "null" else as.character(v), ""),
                 collapse = ", "))
   for (k in names(want)) {
-    if (!identical(props[[k]], want[[k]])) {
-      stop(basename(item_json), " publishes ", k, " = ", deparse(props[[k]]),
+    if (!identical(got[[k]], want[[k]])) {
+      stop(basename(item_json), " publishes ", k, " = ", deparse(got[[k]]),
            " but the producer's record says ", deparse(want[[k]]),
            " — the reader and the record disagree for this target")
     }
-  }
-  # Also assert meta.json carries the unprefixed half, so a break between the two halves
-  # of the ferry is attributed to the right script rather than surfacing only as a
-  # missing STAC property.
-  meta_prov_missing <- setdiff(sub("^nge:", "", prov_keys), names(meta))
-  if (length(meta_prov_missing)) {
-    stop("meta.json is missing provenance field(s): ",
-         paste(meta_prov_missing, collapse = ", "))
-  }
-  # Tie the two halves to EACH OTHER, not just each to this file's literal. Six copies of
-  # the field set exist across the repo; every other pair is guarded, but 01_stage.R's
-  # PROV_FIELDS and item_create.py's were joined only through this list — so a twelfth
-  # field added to 01 (and to fp_provenance.R, which its stopifnot forces) would be staged
-  # into meta.json, published nowhere, and leave every guard green.
-  #
-  # Derived from the data on both sides, so it cannot drift from what actually shipped.
-  meta_core <- c("wsg", "wsg_lower", "species", "scenario", "region", "item_id", "years",
-                 "transition_span", "epsg", "floodplain_ff02_km2", "floodplain_ff04_km2",
-                 "floodplain_ff06_km2", "gross_loss_ha", "gross_gain_ha", "net_ha",
-                 "bbox_wgs84", "geometry")
-  staged_prov <- setdiff(names(meta), meta_core)
-  item_prov <- sub("^nge:", "", grep("^nge:", names(props), value = TRUE))
-  if (!setequal(staged_prov, item_prov)) {
-    stop("meta.json and the published item disagree on the provenance field set — ",
-         "staged but not published: ",
-         paste(setdiff(staged_prov, item_prov), collapse = ", ") , "; published but not ",
-         "staged: ", paste(setdiff(item_prov, staged_prov), collapse = ", "))
   }
 
   # File-extension contract (#22): every asset carries file:checksum + file:size, so a
