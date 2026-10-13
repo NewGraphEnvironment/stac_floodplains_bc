@@ -282,14 +282,19 @@ if [ -n "$head" ]; then
 elif [ "$rel" = collection.json ] && { [ -n "${FAKE_BUCKET_VERSION:-}" ] || [ -n "${FAKE_BUCKET_LICENCE:-}" ]; }; then
   force_fields "$f" "${FAKE_BUCKET_VERSION:-}" "${FAKE_BUCKET_LICENCE:-}"
 elif [ -n "${FAKE_BUCKET_ITEM_SHAPE:-}" ] && [ "$rel" != collection.json ] && [ "${rel%.json}" != "$rel" ]; then
-  # The bucket copy as a PRE-#74 release left it: the same values under the retired `nge:`
-  # names. Only the item JSON, never an asset — step 5 probes asset bytes through this same
-  # branch and a rewritten payload would fail the checksum instead of the shape arm.
+  # The bucket copy as some OTHER release left it. `nge` is a pre-#74 copy: the same values
+  # under the retired names. `drop` removes one key, which is the shape an upstream re-run
+  # produces — the build gains a field the published copy never had.
+  # Only the item JSON, never an asset — step 5 probes asset bytes through this same branch
+  # and a rewritten payload would fail the checksum instead of the shape arm.
   python3 -c 'import json,sys
 d = json.load(open(sys.argv[1]))
-d["properties"] = {("nge:" + k.split(":", 1)[1] if ":" in k and not k.startswith("datetime") else k): v
-                   for k, v in d["properties"].items()}
-print(json.dumps(d))' "$f"
+if sys.argv[2] == "drop":
+    d["properties"].pop("link:run_uid", None)
+else:
+    d["properties"] = {("nge:" + k.split(":", 1)[1] if ":" in k else k): v
+                       for k, v in d["properties"].items()}
+print(json.dumps(d))' "$f" "${FAKE_BUCKET_ITEM_SHAPE}"
 else
   cat "$f"
 fi
@@ -637,8 +642,19 @@ echo "case 16: a bucket copy on a different provenance contract refuses --only"
 BUCKETSHAPE=nge
 run_release --only aaaa_ch_ff04;                    refused "a renamed provenance contract is refused under --only"
 expect_out "names it as a full-release change" "A renamed or re-shaped provenance contract is a FULL-release change"
-expect_out "names both directions of the difference" "- lost from the bucket copy, + new in this build"
-expect_out "names the keys" "-nge:run_uid"
+expect_out "names the keys the bucket has and the build does not" "publishes provenance key(s) this build does not: nge:key,nge:run_uid"
+BUCKETSHAPE=""
+
+# --- case 17: the other direction is a GAIN, which --only exists to publish --------------
+echo "case 17: a provenance key the bucket copy lacks is a gain, not a refusal"
+# An area re-run upstream that now carries a field it did not before — the normal
+# forward-only state, and the shape that will arrive when kotl/larl/sloc get a link run uid.
+# Refusing it would break #36's single-group path for exactly the items it was built for.
+BUCKETSHAPE=drop
+run_release --only aaaa_ch_ff04
+expect_eq "exit 0" "$RC" 0
+expect_out "the gain is reported, not refused" "provenance gained since the bucket copy: link:run_uid"
+expect_eq "and nothing is said about a renamed contract" "$(grep -c 'FULL-release change' "$OUT" || true)" 0
 BUCKETSHAPE=""
 
 # --- case 3: refusals ------------------------------------------------------------------

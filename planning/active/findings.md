@@ -137,10 +137,37 @@ writer's own `raise` is a fail-fast convenience in front of that, and the two li
 pinned to each other statically by the first three assertions, which parse
 `item_create.py` and `02_raster_tag.py` instead of trusting the mirror.
 
+## Review round 1 — 7 findings, all fixed
+
+Reviewer notes are in `review-round1.md`. Each was reproduced before it was fixed:
+
+| # | finding | verified how | fix |
+|---|---|---|---|
+| 1 | `test_pipeline.R` lost the ADD direction of the staging join: only `prov_fields ⊆ names(meta)` remained, so a thirteenth staged field would be staged, published nowhere, and seen by nothing | read the file — the data-derived `setdiff(names(meta), meta_core)` was gone | restored, as set equality against the declared list, with the comment saying why nothing else can see it |
+| 2 | the `--only` shape arm refused a provenance **gain**, calling it a renamed contract — the exact shape a re-run `kotl`/`larl`/`sloc` will produce, and #36's path is what it would block | traced the reachable case | made asymmetric: a key the bucket has and the build lacks refuses; a key the build gains is reported and allowed. New case 17 pins it |
+| 3 | `01_stage.R` still asserted the pre-#74 null contract eight lines below an edited block | read it | corrected, and it now says where the positive statement survives |
+| 4 | `prov_fields-check.py` was documented nowhere, while all four siblings are in both `CLAUDE.md` and `scripts/README.md` | grep, 0 hits | added to both |
+| 5 | the "a tag missing from the COG" fixture passed `None`, which **writes the literal string `"None"`** — so it re-tested the value-differs path and the missing-tag direction was uncovered; the inline comment stated the false fact | re-measured: `update_tags(A='x', B=None, C='')` reads back `A='x'`, `B='None'`, `C` absent | fixtures gained a `tags_drop` that pops the key; two arms now cover the direction, including `NGE_PROVENANCE_NULL` dropped on an all-absent item |
+| 6 | `PROV_CENSUS`'s comment said to read the numbers off what `01_stage.R` and `item_create.py` print; neither prints a per-field count | read both | the validator now prints a `census:` line on every run, asserted or not, and the comment points at it |
+| 7 | `check_deprecated` ran before `check_processing_stamp`, so a malformed `processing:software` reported 21 items as unmarked-and-not-rebuilt instead of one shape message | traced `_software`'s `{}` fallback | the field-name and processing arms are hoisted above it |
+
+Round 1 also verified clean, so round 2 need not re-derive it: the COG-tag bridge and
+reassembly, the declared-minus-present null derivation, `PROV_SECTIONS` still discriminating,
+every census/floor/declared-key arm reachable with a unique needle, `publish()` not being
+verification-reads-its-own-output (the `ast` comparisons can fail and were shown to),
+the `--only` shell details (`IFS='|'` positions, the heredoc, one `trap … EXIT`, no quoting
+hazards in the inline python), case 16's shim rewrite, and the R primitives.
+
+It independently re-ran `prov_fields-check.py` (38/0 at the time), `catalogue_release-check.sh`
+(ALL PASS) and pystac against the real item, confirming all three schema claims.
+
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
+| `catalogue_release-check.sh` case 16 asserted a key list that did not exist in the fixture | read the actual message rather than predicting it — the fixture carries two provenance keys, not three |
+| a "nothing was said" assertion written as a `grep -c` inside `expect_out` | `expect_out` only matches positively; the negative form is `expect_eq "$(grep -c … || true)" 0` |
+| the bucket read used `curl -o`, which the check harness shim ignores (it prints to stdout), leaving an empty file the comparison then read as nothing | redirect instead: `curl -sf "$url" > "$file"` |
 
 ## Issue context
 

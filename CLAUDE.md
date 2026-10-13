@@ -136,8 +136,13 @@ in `scripts/fp_provenance.R`, and `scripts/fp_provenance-check.R` proves the rea
 the producer's own files. Its two siblings for the per-item year set (#61) are
 `scripts/stage_years-check.R`, which restores three defects in a sandboxed upstream tree and runs
 `01_stage.R` over each, and `scripts/year_sets-check.py`, which drives `item_validate.py`'s
-`ALLOWED_YEAR_SETS` arms over synthetic trees. Neither runs from `run_pipeline.sh`: like
-`fp_provenance-check.R` they exercise guards a normal build never trips.
+`ALLOWED_YEAR_SETS` arms over synthetic trees. A third, `scripts/prov_fields-check.py` (#74),
+drives the renamed provenance arms — the declared-key arm, `PROV_CENSUS`, the processing
+biconditional, the prefix table and the COG-tag bridge — over synthetic trees carrying all
+three live populations, and statically compares the publish map in `item_create.py` and the
+field list in `02_raster_tag.py` against the validator's copies, which is the only thing
+joining those three. None of them runs from `run_pipeline.sh`: like `fp_provenance-check.R`
+they exercise guards a normal build never trips.
 
 **The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in
 `catalogue_release.sh`, passed to `item_validate.py --expect-provenance` on a full release, is the

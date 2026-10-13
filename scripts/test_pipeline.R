@@ -176,10 +176,24 @@ for (mp in meta_paths) {
   # 01_stage.R writes NA, which jsonlite renders as null and reads back as a NULL element
   # whose NAME survives. So a field never staged and a field staged with no value are
   # distinguishable here, and the first is a staging bug rather than an absence.
-  meta_prov_missing <- setdiff(prov_fields, names(meta))
-  if (length(meta_prov_missing)) {
-    stop("meta.json is missing provenance field(s): ",
-         paste(meta_prov_missing, collapse = ", "))
+  #
+  # BOTH directions, and the second one is the point: the staged set is derived from the DATA
+  # (every meta.json name that is not one of the core fields below), so a thirteenth field
+  # added to 01_stage.R and to nothing else fails here. Nothing else in the repo can see that
+  # — `prov_fields-check.py` joins the three publish-side copies, and fp_provenance.R's
+  # stopifnot joins two staging-side ones, so this is the only guard that reads 01_stage.R's
+  # output against what gets published. A subset check alone would have silently dropped it.
+  meta_core <- c("wsg", "wsg_lower", "species", "scenario", "region", "item_id", "years",
+                 "transition_span", "epsg", "floodplain_ff02_km2", "floodplain_ff04_km2",
+                 "floodplain_ff06_km2", "gross_loss_ha", "gross_gain_ha", "net_ha",
+                 "bbox_wgs84", "geometry")
+  staged_prov <- setdiff(names(meta), meta_core)
+  if (!setequal(staged_prov, prov_fields)) {
+    stop("meta.json and this test disagree on the staged provenance field set — staged but ",
+         "not declared here (and so published nowhere): ",
+         paste(setdiff(staged_prov, prov_fields), collapse = ", "),
+         "; declared here but not staged: ",
+         paste(setdiff(prov_fields, staged_prov), collapse = ", "))
   }
   staged_present <- Filter(function(f) !is.null(meta[[f]]), prov_fields)
 

@@ -127,7 +127,7 @@ def publish(staged: dict) -> dict:
 
 def write_item(base: pathlib.Path, item_id: str, staged: dict | None = None, *,
                props_extra: dict = (), asset_extra: dict = (), cog: bool = False,
-               tags_override: dict = (), exts: list | None = None,
+               tags_override: dict = (), tags_drop: tuple = (), exts: list | None = None,
                shared: bool = True) -> None:
     """One item, optionally with a real tagged GeoTIFF beside it."""
     staged = STAGED if staged is None else staged
@@ -152,6 +152,12 @@ def write_item(base: pathlib.Path, item_id: str, staged: dict | None = None, *,
         if shared:
             tags.update({k.upper(): str(v) for k, v in SHARED.items()})
         tags.update(dict(tags_override))
+        # Removal is by POPPING the key, never by writing None: measured 2026-10-13,
+        # `update_tags(X=None)` writes the literal string "None", so a None override tests
+        # the value-differs path and leaves the missing-tag direction uncovered. Only `""`
+        # is dropped on write, which is the absence encoding 02_raster_tag.py relies on.
+        for key in tags_drop:
+            tags.pop(key, None)
         with rasterio.open(d / name, "w", driver="GTiff",
                            width=1, height=1, count=1, dtype="uint8") as ds:
             ds.write(np.zeros((1, 1), dtype="uint8"), 1)
@@ -232,13 +238,17 @@ expect_clean("02_raster_tag.py tags exactly the fields the map publishes",
 
 print("controls (a guard that has never passed is as untested as one that never fired)")
 b = tree(catalogue())
-problems, traced, seen, per_section = check_provenance(b, floor=21)
+problems, traced, seen, per_section, census = check_provenance(b, floor=21)
 expect_clean("the three live populations pass the census and the floor", problems)
 expect_clean("...with 21 of 23 carrying provenance",
              [] if (traced, seen) == (21, 23) else [f"traced={traced} seen={seen}"])
 expect_clean("...and every section counted",
              [] if per_section == {"network": 21, "floodplain": 21, "landcover": 21}
              else [str(per_section)])
+# The per-field counts come back whether or not they were asserted: they are what the next
+# release reads PROV_CENSUS from, so a release that cannot see them cannot set it.
+expect_clean("...and the per-field census is returned for the operator to read",
+             [] if census == PROV_CENSUS else [str(census)])
 expect_clean("...no undeclared prefixes", check_field_prefixes(b))
 expect_clean("...and the processing extension paired on every item", check_processing_stamp(b))
 shutil.rmtree(b)
@@ -295,7 +305,7 @@ shutil.rmtree(b)
 items = catalogue()
 items[0] = {"item_id": "full00_ch_ff04", "staged": without("landcover_key")}
 b = tree(items)
-problems, traced, _, _ = check_provenance(b, floor=21)
+problems, traced, *_ = check_provenance(b, floor=21)
 expect_problem("one field lost on ONE item is refused", problems, "PROV_CENSUS says 21")
 expect_clean("...which the item-level floor cannot see on its own",
              [] if traced == 21 else [f"traced={traced}"])
@@ -399,11 +409,19 @@ expect_problem("a plain tag perturbed is caught by the diff", check_cog_tags(b),
 shutil.rmtree(b)
 
 b = tree([{"item_id": "aaaa_ch_ff04", "cog": True,
-           "tags_override": {"NGE_LANDCOVER_KEY": None}}])
-# None drops the tag on write, so this is the "tag went missing" direction, which only the
-# union with the COG's own keys can see in one direction and `want` in the other.
+           "tags_drop": ("NGE_LANDCOVER_KEY",)}])
+# The "tag went missing" direction: the item publishes the property, the COG carries no tag.
+# `want` holds it and `got` does not, so the diff reports it against a tag of None.
 expect_problem("a tag missing from the COG is caught", check_cog_tags(b),
                "GDAL tags disagree")
+shutil.rmtree(b)
+
+b = tree([{"item_id": "none_ch_ff04", "staged": NONE_STAGED, "cog": True,
+           "tags_drop": ("NGE_PROVENANCE_NULL",)}])
+# And the other direction on the one tag the all-absent items carry: dropped entirely rather
+# than overwritten, which is what a 02 that stopped writing it would produce.
+expect_problem("NGE_PROVENANCE_NULL missing from an all-absent item is caught",
+               check_cog_tags(b), "NGE_PROVENANCE_NULL")
 shutil.rmtree(b)
 
 # The arm that a mechanical port of the old `v is None` derivation silences: with no null

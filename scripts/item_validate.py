@@ -530,10 +530,12 @@ FIELD_PREFIXES = {
 # false on three published items. Per field is the only shape that tolerates that hole and
 # still sees a uniform loss of any single field.
 #
-# Set from the numbers 01_stage.R and item_create.py print for the build being released, in
-# the same commit as its NEWS entry, so every release records the shape rather than printing
-# it. EXACT in both directions: below is a reader that lost a field, above is a census nobody
-# updated.
+# Set from the per-field counts the validator itself prints for the build being released — the
+# `census:` line in main(), which is why it prints on a rebuild as well, when nothing is being
+# asserted. 01_stage.R and item_create.py print only the ITEM-level count, which is the floor,
+# so neither of them answers this. A release sets it in the same commit as its NEWS entry, so
+# every release records the shape rather than printing it. EXACT in both directions: below is a
+# reader that lost a field, above is a census nobody updated.
 PROV_CENSUS = {
     "link_run_uid": 18,
     "link_config_sha256": 21,
@@ -612,8 +614,12 @@ def prov_present(props: dict) -> dict[str, object]:
 
 
 def check_provenance(base: Path, floor: int | None = None
-                     ) -> tuple[list[str], int, int, dict[str, int]]:
+                     ) -> tuple[list[str], int, int, dict[str, int], dict[str, int]]:
     """Verify the published provenance contract, and — when `floor` is given — its census.
+
+    Returns (problems, items carrying provenance, items seen, per-section counts, per-field
+    counts). The per-field counts come back whether or not they were asserted, because they
+    are what the next release sets PROV_CENSUS from.
 
     Absolute, not comparative. The asset check below compares items against each other, which
     is structurally blind to a defect that hits all of them uniformly — the exact hole #23 fell
@@ -682,7 +688,7 @@ def check_provenance(base: Path, floor: int | None = None
         problems.append(
             f"no items found under {base}/*.json — the provenance contract was not "
             f"actually checked against anything")
-        return problems, traced, seen, per_section
+        return problems, traced, seen, per_section, census
 
     # Both the census and the floor are release-time: a rebuild has no business asserting how
     # many areas the producer has re-modelled, and `floor is None` is how the release says
@@ -710,7 +716,7 @@ def check_provenance(base: Path, floor: int | None = None
                 f"{floor} — the floor is behind the build. Set PROVENANCE_FLOOR to {traced} in "
                 f"catalogue_release.sh, in the same commit as this release's NEWS entry, so the "
                 f"count is recorded rather than printed.")
-    return problems, traced, seen, per_section
+    return problems, traced, seen, per_section, census
 
 
 def check_processing_stamp(base: Path) -> list[str]:
@@ -2026,6 +2032,29 @@ def main() -> int:
             print(f"  {msg}", file=sys.stderr)
         return 1
 
+    # --- field names: does every namespaced field have a declared home? (#74) ---
+    #
+    # Before the provenance arms, because it is the cheap one and because a stray prefix makes
+    # every count below describe a shape nobody declared. Also before check_deprecated, which
+    # reads the flooded version out of `processing:software` and takes a malformed one as
+    # absent — so without this first, a software map of the wrong TYPE reports 21 items as
+    # unmarked-and-not-rebuilt instead of the one shape message that names the cause.
+    bad_prefixes = check_field_prefixes(args.base)
+    if bad_prefixes:
+        print(f"FAILED: {len(bad_prefixes)} field-name problem(s)", file=sys.stderr)
+        for msg in bad_prefixes:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    bad_proc = check_processing_stamp(args.base)
+    if bad_proc:
+        print(f"FAILED: {len(bad_proc)} processing-extension problem(s)", file=sys.stderr)
+        for msg in bad_proc:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"field names: every namespaced field sits under one of "
+          f"{', '.join(sorted(FIELD_PREFIXES))}, each declaring its schema where it has one; "
+          f"processing extension declared iff the item carries a processing: field")
+
     # --- deprecation: are the over-mapped items marked, and only them? (#26) ---
     # Here rather than after check_checksums, for the same reason as the premise check above:
     # behind the 670 MB re-read, any asset drift short-circuits it and a restore-the-bug proof
@@ -2070,28 +2099,9 @@ def main() -> int:
                       for y, ids in sorted(year_sets.items()))
           + (" (--partial: unused sets not checked)" if args.partial else ""))
 
-    # --- field names: does every namespaced field have a declared home? (#74) ---
-    #
-    # Before the provenance arms, because it is the cheap one and because a stray prefix makes
-    # every count below describe a shape nobody declared.
-    bad_prefixes = check_field_prefixes(args.base)
-    if bad_prefixes:
-        print(f"FAILED: {len(bad_prefixes)} field-name problem(s)", file=sys.stderr)
-        for msg in bad_prefixes:
-            print(f"  {msg}", file=sys.stderr)
-        return 1
-    bad_proc = check_processing_stamp(args.base)
-    if bad_proc:
-        print(f"FAILED: {len(bad_proc)} processing-extension problem(s)", file=sys.stderr)
-        for msg in bad_proc:
-            print(f"  {msg}", file=sys.stderr)
-        return 1
-    print(f"field names: every namespaced field sits under one of "
-          f"{', '.join(sorted(FIELD_PREFIXES))}, each declaring its schema where it has one; "
-          f"processing extension declared iff the item carries a processing: field")
-
     # --- run provenance: does every item carry the declared contract? ---
-    missing_prov, traced, n_items, per_section = check_provenance(args.base, args.expect_provenance)
+    missing_prov, traced, n_items, per_section, census = check_provenance(
+        args.base, args.expect_provenance)
     if missing_prov:
         print(f"FAILED: {len(missing_prov)} provenance contract problem(s)",
               file=sys.stderr)
@@ -2104,6 +2114,9 @@ def main() -> int:
         for msg in bad_tags:
             print(f"  {msg}", file=sys.stderr)
         return 1
+    # The per-field counts, printed whether or not they are asserted — this is where the next
+    # release reads PROV_CENSUS from, and a number nobody can read is a literal nobody updates.
+    print("census: " + ", ".join(f"{f} {census[f]}" for f in PROV_FIELDS))
     print(f"provenance: {len(PROV_FIELDS)} field(s) across {len(PROV_KEYS)} published key(s), "
           f"{traced} of {n_items} item(s) carrying provenance — "
           + ", ".join(f"{s} {n}" for s, n in per_section.items())

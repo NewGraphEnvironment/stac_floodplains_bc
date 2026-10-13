@@ -217,7 +217,25 @@ does not name, and a record naming a year nobody built. It skips out loud with n
 the uniform-loss case a cross-item compare structurally cannot see (#23) and the `--partial`
 partition (#26).
 
-Both grep for **that guard's own message** rather than reading an exit code: a suite with N
+## Renamed provenance fields
+
+The twelve provenance fields publish under `processing:*`, `link:*` and `landcover:*` (#74),
+and an absent value omits its key. The arms that guard that shape are release-only or sit
+behind the ~670 MB checksum re-read, so a third check script drives them directly — and, like
+the two above, it does not run from `run_pipeline.sh`.
+
+```
+uv run python scripts/prov_fields-check.py       # item_validate.py's #74 arms, over synthetic trees
+```
+
+Fixtures cover all three live populations (all twelve fields, only `link_run_uid` absent, none
+at all), with real tagged GeoTIFFs for the COG-tag arms. It also parses `item_create.py` and
+`02_raster_tag.py` and compares their literals against the validator's: the three copies are
+deliberately not shared, so a field dropped from both sides of a pair is invisible to every
+runtime arm. Removing each guard in a copy of `scripts/` turns assertions red — the table is in
+`planning/archive/2026-10-issue-74-*/findings.md`.
+
+All three grep for **that guard's own message** rather than reading an exit code: a suite with N
 guards has N ways to exit 1, and only one of them is the evidence.
 
 Two values in `stage_years-check.R` are pinned witnesses, each gated so a re-run reads as

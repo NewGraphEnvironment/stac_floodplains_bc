@@ -68,10 +68,11 @@ PROV_FIELDS <- c(
 )
 
 # Absent provenance is the NORMAL state, not an error: floodplains#33 is forward-only, so
-# every area modelled before it lands carries none until it is re-run. Every field is
-# published as an explicit JSON null rather than omitted — an absent property reads as
-# "not implemented", a null one as "we looked and there was not one", and only the second
-# is true.
+# every area modelled before it lands carries none until it is re-run. Every field is staged
+# as NA, so meta.json carries the key with a null on every item — and that is where the
+# distinction now ends: since #74 item_create.py OMITS the key on the published item, because
+# the processing extension admits no null. The "we looked and there was not one" statement
+# survives on the COGs, as NGE_PROVENANCE_NULL, and nowhere else.
 #
 # The reader is the ONLY part of this repo that knows the producer's file shape. Sourced
 # after PROV_FIELDS because it asserts against it.

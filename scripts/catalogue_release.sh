@@ -338,14 +338,20 @@ built = json.load(open('$STAC_DIR/$ONLY.json'))
 lv, bv = canon(live.get('properties', {})), canon(built['properties'])
 lost = sorted(k for k in lv if k not in bv)
 bucket = json.load(open('$only_bucket'))
-shape = [('-' + k) for k in keys(bucket.get('properties', {})) if k not in keys(built['properties'])]
-shape += [('+' + k) for k in keys(built['properties']) if k not in keys(bucket.get('properties', {}))]
-print('|'.join([str(len(lv)), str(len(bv)), ','.join(lost), ','.join(shape)]))") \
+bk, kk = keys(bucket.get('properties', {})), keys(built['properties'])
+# Asymmetric, deliberately. A key the bucket copy has and this build does not is a rename or
+# a dropped field: refused. A key this build has and the bucket copy does not is a GAIN — an
+# area re-run upstream that now carries a field it did not before, which is the normal
+# forward-only state and exactly what --only exists to publish. Refusing that direction would
+# have blocked the next kotl/larl/sloc republish and called it a renamed contract.
+dropped = [k for k in bk if k not in kk]
+gained = [k for k in kk if k not in bk]
+print('|'.join([str(len(lv)), str(len(bv)), ','.join(lost), ','.join(dropped), ','.join(gained)]))") \
     || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
   # IFS='|', so an empty field stays in its own position: with whitespace splitting, an empty
   # `lost` beside a non-empty `shape` would hand the shape difference to the wrong variable
   # and the wrong message would be printed for it.
-  IFS='|' read -r only_live_prov only_built_prov only_lost_prov only_shape_prov <<EOF
+  IFS='|' read -r only_live_prov only_built_prov only_lost_prov only_dropped_prov only_gained_prov <<EOF
 $only_prov
 EOF
   echo "provenance under --only: live item carries $only_live_prov value(s), this build carries $only_built_prov."
@@ -355,13 +361,15 @@ EOF
     echo "producer's provenance.json. Refusing before anything is written." >&2
     exit 1
   fi
-  if [ -n "$only_shape_prov" ]; then
-    echo "The bucket copy of $ONLY publishes a different provenance key set than this build:" >&2
-    echo "  $only_shape_prov   (- lost from the bucket copy, + new in this build)" >&2
+  if [ -n "$only_dropped_prov" ]; then
+    echo "The bucket copy of $ONLY publishes provenance key(s) this build does not: $only_dropped_prov." >&2
     echo "A renamed or re-shaped provenance contract is a FULL-release change — republishing one" >&2
     echo "item would leave every other live item on the old contract, and the API cannot show it" >&2
     echo "because it drops nulls. Refusing." >&2
     exit 1
+  fi
+  if [ -n "$only_gained_prov" ]; then
+    echo "provenance gained since the bucket copy: $only_gained_prov (an area re-run upstream; --only may publish it)."
   fi
 else
 orphans=$(comm -23 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") || true)
