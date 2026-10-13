@@ -128,9 +128,9 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 - [x] `ATTRIBUTION.md` (the `nge:landcover_*` sentence, and "keeps non-null" which omission
       falsifies), `scripts/README.md`, `CLAUDE.md`, and the stale premises in `01_stage.R`,
       `02_raster_tag.py`, `fp_provenance.R`, `catalogue_release-check.sh`'s header.
-- [ ] Edit issue #74's body: the mapping as shipped, the crate dependency removed, the COG-tag
+- [x] Edit issue #74's body: the mapping as shipped, the crate dependency removed, the COG-tag
       question resolved.
-- [ ] Comment on `crate#23` recording that these prefixes take no schema, and why.
+- [x] Comment on `crate#23` recording that these prefixes take no schema, and why.
 
 ## Validation
 
