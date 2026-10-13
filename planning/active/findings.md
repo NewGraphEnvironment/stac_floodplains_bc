@@ -273,12 +273,52 @@ the one-`trap` claim (one `trap` statement, the second grep hit is the comment a
 order against `01_stage.R`, and the ten copies with their joins. Four were false and are fixed
 above; the rest hold.
 
+## Review round 4 — three more holes in the guard, so the construct went instead
+
+Round 4 was asked whether the two enumerations were terminal. The character set was: `$`,
+`` ` ``, `\` and the closing `"` is POSIX's own list for a double-quoted string, and `!` was
+measured not to apply (history expansion is off non-interactively, on bash 3.2 and 5 alike).
+What was not terminal was everything around it:
+
+| # | finding | verified how | fix |
+|---|---|---|---|
+| 1 | the `$` subtraction was a **prefix** test, and bash's identifier is maximal — so `$ONLY_PATH`, `$ONLYX`, `$STAC_DIRX` and `$only_bucket2` all passed as "one of the three" | the reviewer changed `$ONLY.json` to `$ONLY_PATH` in a copy and the driver stayed 44/0 | moot: the program is no longer a shell argument |
+| 2 | the slice's end marker `")` is the one sequence the scan cannot see — an odd `"` before a `)` both truncates the program and is excluded from the text being scanned | a comment ending `: ")` gave 44/0 while `bash -n` reported a syntax error | moot, same reason |
+| 3 | the guard covered 1 of the **7** inline `python3 -c "` programs in `catalogue_release.sh`; the other six carry the identical class | enumerated: all six clean today (0 backticks, no stray `$`) | filed as [#77](https://github.com/NewGraphEnvironment/stac_floodplains_bc/issues/77) with the three options and the measurement |
+
+Three fixes in three rounds, each correct, each leaving a new hole. The hazard was never the
+characters — it was the **construct**: a program written as the argument of a double-quoted
+shell string, where bash gets to it first. So the construct is gone. `scripts/only_preflight.py`
+is a stdlib-only file taking two paths as argv and the live item on stdin, run as `python3`
+(not `uv run`: the release machine holds nothing else, and `catalogue_release-check.sh` shims
+`uv`). There is no shell quoting left to get wrong, the comments can say anything, and
+`prov_fields-check.py` now **imports** the module to compare its map against the validator's
+instead of slicing a shell script — plus one assertion that the release still calls the file,
+because reverting the extraction would bring the class back while the comparisons kept passing.
+
+| mutation | assertions red |
+|---|---|
+| `only_preflight.py`'s map | 1 |
+| …its software entries | 1 |
+| …its prefix tuple, including the retired `nge:` it alone reads | 1 |
+| the release reverting to an inline `python3 -c` | 1 |
+
+Round 4 also checked three load-bearing claims against commands: every asset-writing script has
+**zero** non-comment changed lines against the base commit (so "no raster changed" is a
+property of the diff, not a hope); the processing v1.2.0 schema's shapes are as documented, with
+`processing:software` typed `object` of string values rather than `string` — NEWS said the loose
+thing and now says the precise one; and both suites pass on this HEAD.
+
+Also removed: an `import re` left unused by round 3, and a second non-finding —
+`PROV_PROPERTIES["link_run_uid"]` resolves statically, as intended.
+
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
 | `catalogue_release-check.sh` case 16 asserted a key list that did not exist in the fixture | read the actual message rather than predicting it — the fixture carries two provenance keys, not three |
 | a "nothing was said" assertion written as a `grep -c` inside `expect_out` | `expect_out` only matches positively; the negative form is `expect_eq "$(grep -c … || true)" 0` |
+| a guard over a construct, fixed three times | the third fix removed the construct — a program in a file has no shell quoting to get wrong |
 | an "enumeration" written as a pattern over the forms we thought of | `$(…)` slipped it — invert it to a subtraction over every occurrence of the dangerous character |
 | a backtick span in a comment inside `python3 -c "…"` | bash expands it before python sees it — keep backticks out of any inline program, and prefer a heredoc when prose must carry them |
 | the bucket read used `curl -o`, which the check harness shim ignores (it prints to stdout), leaving an empty file the comparison then read as nothing | redirect instead: `curl -sf "$url" > "$file"` |

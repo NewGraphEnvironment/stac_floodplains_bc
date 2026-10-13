@@ -25,7 +25,10 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   SSH, not the source tree, so a release can be cut from a machine that does not hold it.
   (There is no `04_s3_upload.R`; its sync folded into the release script in #14.)
   `--only <item_id>` republishes one live item and never `collection.json` — the single-group
-  pilot path (#36), pinned by `catalogue_release-check.sh`.
+  pilot path (#36), pinned by `catalogue_release-check.sh`. Its preflight comparison is
+  `scripts/only_preflight.py`, a stdlib-only file rather than an inline `python3 -c`: as a
+  double-quoted shell argument, bash reached the program before python did and three separate
+  characters broke it (#74), so the construct was removed rather than guarded.
 - `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for `03_cog.py` + `item_create.py`, run via
   `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
   the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically. `rio-cogeo` (#33) is

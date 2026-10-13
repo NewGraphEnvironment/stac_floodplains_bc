@@ -63,9 +63,10 @@ change only. Measured rather than reasoned: a full rebuild of `larl_bt_ff04` rep
 of its assets byte-for-byte against what the API was serving.
 
 **A field the producer has no value for is now ABSENT rather than published as `null`.** The
-extension forbids a null — every field is typed `string`, and an item that declares the extension
-while carrying no `processing:` field is refused outright — so the choice was forced there and
-applied to all twelve for one rule. **API consumers see no change**: pgstac already dropped a
+extension forbids a null — `processing:datetime` is typed `string`, `processing:software` is an
+object whose values are typed `string`, and an item that declares the extension while carrying
+no `processing:` field is refused outright — so the choice was forced there and applied to all
+twelve for one rule. **API consumers see no change**: pgstac already dropped a
 published null on output, so these keys were already absent from every API response. Two
 consequences worth knowing:
 

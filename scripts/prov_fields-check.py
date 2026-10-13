@@ -24,7 +24,6 @@ import ast
 import hashlib
 import json
 import pathlib
-import re
 import shutil
 import sys
 import tempfile
@@ -34,6 +33,7 @@ import pystac
 import rasterio
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import only_preflight as op  # noqa: E402
 from item_validate import (  # noqa: E402
     PROV_CENSUS, PROV_FIELDS, PROV_PREFIXES, PROV_PROPERTIES, PROV_SOFTWARE,
     SOFTWARE_PROPERTY, SHARED_TAG_PROPERTIES, check_cog_tags, check_field_prefixes,
@@ -224,49 +224,6 @@ def literal(path: pathlib.Path, name: str):
 # to the item, by reading the data; the four static assertions below join the writer, the COG
 # tagger, this validator and the release preflight, by parsing them. A field dropped from BOTH
 # sides of a pair is invisible to every runtime arm.
-def release_preflight_program() -> str:
-    """The text of the `--only` preflight program, sliced out of the shell script."""
-    text = (ROOT / "scripts" / "catalogue_release.sh").read_text()
-    marker = 'python3 -c "'
-    try:
-        start = text.index(marker, text.index("only_prov=$(curl")) + len(marker)
-        end = text.index('")', start)
-    except ValueError:
-        # The slice failing must not read as "nothing to compare": it means the preflight was
-        # rewritten (a heredoc, a separate file), and then this arm is checking nothing.
-        raise SystemExit("could not find the --only preflight program in "
-                         "catalogue_release.sh — if it moved out of the inline `python3 -c`, "
-                         "point this at its new home rather than leaving the map unpinned")
-    body = text[start:end]
-    if "def canon" not in body:
-        raise SystemExit("could not slice the --only preflight program out of "
-                         "catalogue_release.sh — the markers moved, and an unparsed "
-                         "program must not read as a pass")
-    return body
-
-
-def release_preflight_literals() -> dict:
-    """The publish map copied into `catalogue_release.sh`'s `--only` preflight.
-
-    That preflight is an inline `python3 -c` program inside a double-quoted bash string, so it
-    cannot import from this repo and its copy of the map was pinned by nothing — a thirteenth
-    field added everywhere else would leave its VALUE arm blind to that field being lost,
-    which fails toward publishing on a bucket with no rollback. Sliced out of the shell script
-    and parsed, which is the only way to reach it without running a release.
-    """
-    body = release_preflight_program()
-    out = {}
-    for node in ast.parse(body).body:
-        if isinstance(node, ast.Assign):
-            name = getattr(node.targets[0], "id", None)
-            if name in ("NEW", "SOFTWARE", "PREFIXES"):
-                out[name] = ast.literal_eval(node.value)
-    if set(out) != {"NEW", "SOFTWARE", "PREFIXES"}:
-        raise SystemExit(f"the preflight program parsed but declares {sorted(out)} — "
-                         f"refusing to pass on a partial read")
-    return out
-
-
 _create_props = literal(ROOT / "scripts" / "item_create.py", "PROV_PROPERTIES")
 _create_software = literal(ROOT / "scripts" / "item_create.py", "PROV_SOFTWARE")
 _tag_fields = literal(ROOT / "scripts" / "02_raster_tag.py", "PROV_FIELDS")
@@ -283,56 +240,32 @@ expect_clean("02_raster_tag.py tags exactly the fields the map publishes",
 # a build into staged field names. Its map is the INVERSE of item_create.py's, plus the
 # retired `nge:` prefix, which it alone still reads — that is what lets it compare a renamed
 # build against an item published before the rename.
-# Before comparing what the program SAYS, check that bash leaves it alone. The program is the
-# argument of a double-quoted `python3 -c`, so bash expands it first, and two different
-# characters have already broken it: a backtick span ran as a command on every preflight, and
-# a double quote in the comment that recorded THAT truncated the program and broke 28
-# assertions in catalogue_release-check.sh. Enumerated rather than remembered — every
-# character bash still expands inside double quotes is listed here, and every `$` must be one
-# of the three interpolations the program is written to receive.
-_ALLOWED_INTERPOLATIONS = ("$STAC_DIR", "$ONLY", "$only_bucket")
-
-
-def bash_hazards(body: str) -> list[str]:
-    """Every character bash still expands inside a double-quoted string, enumerated.
-
-    A SUBTRACTION over every `$`, not a pattern match over the forms we thought of. The
-    pattern version of this check passed `$(touch …)` — measured, and it ran — because
-    `$(` matches neither `$NAME` nor `${NAME}`, and `$(` is the same mechanism as the
-    backtick that shipped. `$?`, `$$`, `$@`, `$*`, `$!`, `$#` and `$1` are the rest of that
-    set. So the rule is inverted: every `$` in the program must BEGIN one of the three
-    interpolations the program is written to receive, and anything else is a hazard
-    whatever it looks like.
-    """
-    out = []
-    for ch, what in (("`", "a backtick span runs as a command substitution"),
-                     ('"', "a double quote ends the python3 -c argument"),
-                     ("\\", "a backslash is consumed by bash before python sees it")):
-        if ch in body:
-            out.append(f"{ch!r} ({what})")
-    for i, ch in enumerate(body):
-        if ch != "$":
-            continue
-        rest = body[i:]
-        if not any(rest.startswith(ok) for ok in _ALLOWED_INTERPOLATIONS):
-            out.append(f"{rest[:24]!r} — a $ that is not one of "
-                       f"{', '.join(_ALLOWED_INTERPOLATIONS)}; bash expands it first")
-    return out
-
-
-expect_clean("the preflight program survives bash: every $ is one of three, nothing else "
-             "bash expands", bash_hazards(release_preflight_program()))
-
-_pre = release_preflight_literals()
-expect_clean("the --only preflight canonicalises through the same map, inverted",
-             [] if _pre["NEW"] == {v: k for k, v in PROV_PROPERTIES.items()}
-             else [f"the preflight maps {_pre['NEW']}"])
+# The fifth copy of the fact: `only_preflight.py`, which canonicalises a live item and a build
+# into staged field names for `catalogue_release.sh --only`. IMPORTED, not parsed — until #74's
+# round 4 it was an inline `python3 -c` program inside a double-quoted shell string and had to
+# be sliced out of the script, which is how three separate shell-expansion defects reached it.
+# Comparing two independently declared maps is the join; it is not the x == x hazard, which is
+# a guard importing the value it asserts.
+expect_clean("only_preflight.py canonicalises through the same map, inverted",
+             [] if op.NEW == {v: k for k, v in PROV_PROPERTIES.items()}
+             else [f"the preflight maps {op.NEW}"])
 expect_clean("...and the same software entries",
-             [] if {k: tuple(v) for k, v in _pre["SOFTWARE"].items()} == PROV_SOFTWARE
-             else [f"the preflight maps {_pre['SOFTWARE']}"])
+             [] if {k: tuple(v) for k, v in op.SOFTWARE.items()} == PROV_SOFTWARE
+             else [f"the preflight maps {op.SOFTWARE}"])
 expect_clean("...over the published prefixes plus the retired one",
-             [] if set(_pre["PREFIXES"]) == {f"{p}:" for p in PROV_PREFIXES} | {"nge:"}
-             else [f"the preflight scans {sorted(_pre['PREFIXES'])}"])
+             [] if set(op.PREFIXES) == {f"{p}:" for p in PROV_PREFIXES} | {"nge:"}
+             else [f"the preflight scans {sorted(op.PREFIXES)}"])
+# And that the release still CALLS it. Extracting the program removed a whole class of shell
+# defect; reverting it to an inline `python3 -c` would bring the class back, and the three
+# assertions above would keep passing against a module nothing runs.
+_release = (ROOT / "scripts" / "catalogue_release.sh").read_text()
+expect_clean("the release path runs it rather than an inline program",
+             [] if ("python3 scripts/only_preflight.py" in _release
+                    and "only_prov=$(curl" in _release
+                    and 'python3 -c "' not in _release.split("only_prov=$(curl")[1][:400])
+             else ["catalogue_release.sh does not call scripts/only_preflight.py for the "
+                   "--only preflight — if the program moved back inline, bash is expanding it "
+                   "again and these assertions are checking a module the release never runs"])
 
 # --- controls --------------------------------------------------------------------------
 

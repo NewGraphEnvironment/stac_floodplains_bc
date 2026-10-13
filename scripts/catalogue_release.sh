@@ -290,72 +290,17 @@ if [ -n "$ONLY" ]; then
   curl -sf --max-time 60 "$S3_BASE/$ONLY.json" > "$only_bucket" \
     || { echo "Could not read the bucket copy of $ONLY — refusing to publish blind. It is" >&2
          echo "live, so the bucket must hold it; a 403/404 here is a bucket problem." >&2; exit 1; }
-  only_prov=$(curl -sf --max-time 60 "$API/items/$ONLY" | python3 -c "
-import json, sys
-NEW = {
-    'link:run_uid': 'link_run_uid',
-    'link:config_sha256': 'link_config_sha256',
-    'processing:datetime': 'produced_datetime',
-    'landcover:source': 'landcover_source',
-    'landcover:collection': 'landcover_collection',
-    'landcover:stac_url': 'landcover_stac_url',
-    'landcover:key': 'landcover_key',
-    'landcover:item_hash': 'landcover_item_hash',
-}
-SOFTWARE = {'link': ('link_version', 'link_sha'),
-            'flooded': ('flooded_version',),
-            'drift': ('drift_version',)}
-PREFIXES = ('nge:', 'processing:', 'link:', 'landcover:')
-
-
-def canon(props):
-    # Published property -> staged field name, reading BOTH shapes: anything under the
-    # retired nge: prefix is the staged name already, and the rest goes through the map
-    # item_create.py publishes by. A software entry marks every field it was built from,
-    # whose value is the entry string — nothing here splits <version>+<sha>, because only
-    # the last + separates the two and the comparison does not need the halves.
-    #
-    # NO BACKTICKS and NO DOUBLE QUOTES anywhere in this program. It is the argument of a
-    # double-quoted python3 -c, so bash gets to it first: it expands a backtick span as a
-    # command substitution, and a double quote ENDS the argument. Both measured on this
-    # script within one hour of each other — a markdown span of nge: in this comment ran as
-    # a command on every --only preflight (a span naming a real executable would have been
-    # RUN), and a quoted phrase in the comment that recorded it truncated the program and
-    # broke 28 assertions in catalogue_release-check.sh. Single quotes only, prose unquoted.
-    out = {}
-    for k, v in props.items():
-        if v is None:
-            continue
-        if k.startswith('nge:'):
-            out[k[4:]] = v
-        elif k in NEW:
-            out[NEW[k]] = v
-        elif k == 'processing:software' and isinstance(v, dict):
-            for entry, fields in SOFTWARE.items():
-                if v.get(entry) is not None:
-                    for f in fields:
-                        out[f] = v[entry]
-    return out
-
-
-def keys(props):
-    return sorted(k for k in props if k.split(':', 1)[0] + ':' in PREFIXES)
-
-
-live = json.load(sys.stdin)
-built = json.load(open('$STAC_DIR/$ONLY.json'))
-lv, bv = canon(live.get('properties', {})), canon(built['properties'])
-lost = sorted(k for k in lv if k not in bv)
-bucket = json.load(open('$only_bucket'))
-bk, kk = keys(bucket.get('properties', {})), keys(built['properties'])
-# Asymmetric, deliberately. A key the bucket copy has and this build does not is a rename or
-# a dropped field: refused. A key this build has and the bucket copy does not is a GAIN — an
-# area re-run upstream that now carries a field it did not before, which is the normal
-# forward-only state and exactly what --only exists to publish. Refusing that direction would
-# have blocked the next kotl/larl/sloc republish and called it a renamed contract.
-dropped = [k for k in bk if k not in kk]
-gained = [k for k in kk if k not in bk]
-print('|'.join([str(len(lv)), str(len(bv)), ','.join(lost), ','.join(dropped), ','.join(gained)]))") \
+  # A FILE, not an inline `python3 -c` (#74): the program used to be the argument of a
+  # double-quoted shell string, and bash got to it before python did. Three characters broke
+  # it in one afternoon — a markdown backtick span that RAN, the quoted phrase in the comment
+  # recording that, and a `$(` the pattern written to catch both did not match. Every fix was
+  # right and every one left a new hole, because the hazard was the construct. In a file there
+  # is no shell quoting left to get wrong.
+  #
+  # `python3`, not `uv run`: this needs stdlib only, it must work on a release machine holding
+  # nothing but this repo, and catalogue_release-check.sh shims `uv`.
+  only_prov=$(curl -sf --max-time 60 "$API/items/$ONLY" \
+    | python3 scripts/only_preflight.py "$STAC_DIR/$ONLY.json" "$only_bucket") \
     || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
   # IFS='|', so an empty field stays in its own position: with whitespace splitting, an empty
   # `lost` beside a non-empty `dropped` would hand the dropped keys to the wrong variable and

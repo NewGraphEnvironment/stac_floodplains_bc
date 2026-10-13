@@ -217,6 +217,22 @@ does not name, and a record naming a year nobody built. It skips out loud with n
 the uniform-loss case a cross-item compare structurally cannot see (#23) and the `--partial`
 partition (#26).
 
+## The `--only` preflight
+
+`scripts/only_preflight.py` is the comparison `catalogue_release.sh --only` makes before it
+writes anything: it reads the live item from the API on stdin, the item this build would
+publish, and the bucket's current copy, and prints one `|`-separated line of counts, lost
+fields, dropped keys and gained keys. Stdlib only, run as `python3` rather than `uv run`,
+because a release machine holds nothing but this repo and `catalogue_release-check.sh` shims
+`uv`.
+
+It is a file rather than an inline `python3 -c` for a measured reason (#74): as the argument of
+a double-quoted shell string, bash reached it before python did, and three separate characters
+broke it — a markdown backtick span that ran as a command on every preflight, the quoted phrase
+in the comment recording that, and a `$(` the pattern written to catch both did not match.
+`prov_fields-check.py` asserts that the release still calls the file, because reverting it
+would bring the whole class back.
+
 ## Renamed provenance fields
 
 The twelve provenance fields publish under `processing:*`, `link:*` and `landcover:*` (#74),
