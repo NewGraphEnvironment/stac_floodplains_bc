@@ -134,13 +134,13 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 
 ## Validation
 
-- [ ] `uv run python scripts/prov_fields-check.py` — 0 failed assertions
-- [ ] `bash scripts/catalogue_release-check.sh` — every case passes
-- [ ] `WSG=<group> Rscript scripts/test_pipeline.R` — clean, item JSON read by eye
-- [ ] `uv run python scripts/attribution_drift-check.py`
-- [ ] `/code-check branch`, three-round floor
-- [ ] PWF checkboxes match landed work
-- [ ] `/planning-archive`, then `/gh-pr-push`
+- [x] `uv run python scripts/prov_fields-check.py` — 44 assertions, 0 failed
+- [x] `bash scripts/catalogue_release-check.sh` — ALL PASS, cases 1-17
+- [x] `WSG=larl ALLOW_DRIFT_SKEW=1 Rscript scripts/test_pipeline.R` — PASS, and all 10 assets byte-identical to the live item
+- [x] `uv run python scripts/attribution_drift-check.py` — clean
+- [x] `/code-check branch` — five rounds, 25 findings, all fixed; ended on an enumeration rather than a quiet round
+- [x] PWF checkboxes match landed work
+- [x] `/planning-archive`, then `/gh-pr-push`
 
 ## Not in this work
 
