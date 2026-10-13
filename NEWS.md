@@ -84,7 +84,9 @@ object, and a republish of an item upstream had not re-run would leave it untouc
   provenance block into *every* COG's TIFF tags, so the four properties above move the bytes of
   files whose pixels nobody touched. This is v1.1.0's warning arriving one release later — a
   checksum answers *are my bytes current*, not *did the values change*, and here it could not
-  answer the second question even in principle. What does answer it, and holds for all four:
+  answer the second question even in principle. That is the marker working: it tracks which
+  iteration is live, and these are new bytes. The second question has its own instrument — the
+  `nge:landcover_key` fold in the bullet above — and an independent read agrees with it:
   **`transition_vector.gpkg` is byte-identical** on all four — measured, checksum and size.
   Unlike the COGs it carries no per-item provenance stamp for the year set to move, its layer
   and file names are deliberately year-free, and both of its writers pin their timestamps
