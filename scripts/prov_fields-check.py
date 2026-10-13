@@ -221,9 +221,9 @@ def literal(path: pathlib.Path, name: str):
 
 # The publish-side copies of the field list are deliberately not shared (a guard that imports
 # the value it checks is x == x), so something has to join them. test_pipeline.R joins staging
-# to the item, by reading the data; the four static assertions below join the writer, the COG
-# tagger, this validator and the release preflight, by parsing them. A field dropped from BOTH
-# sides of a pair is invisible to every runtime arm.
+# to the item, by reading the data; the assertions below join the writer, the COG tagger, this
+# validator and the release preflight — the first two by parsing, the third by importing it. A
+# field dropped from BOTH sides of a pair is invisible to every runtime arm.
 _create_props = literal(ROOT / "scripts" / "item_create.py", "PROV_PROPERTIES")
 _create_software = literal(ROOT / "scripts" / "item_create.py", "PROV_SOFTWARE")
 _tag_fields = literal(ROOT / "scripts" / "02_raster_tag.py", "PROV_FIELDS")
@@ -236,10 +236,6 @@ expect_clean("02_raster_tag.py tags exactly the fields the map publishes",
              else [f"02_raster_tag.py tags {sorted(set(_tag_fields) ^ set(PROV_FIELDS))} "
                    f"differently"])
 
-# The fifth copy: catalogue_release.sh's --only preflight, which canonicalises a live item and
-# a build into staged field names. Its map is the INVERSE of item_create.py's, plus the
-# retired `nge:` prefix, which it alone still reads — that is what lets it compare a renamed
-# build against an item published before the rename.
 # The fifth copy of the fact: `only_preflight.py`, which canonicalises a live item and a build
 # into staged field names for `catalogue_release.sh --only`. IMPORTED, not parsed — until #74's
 # round 4 it was an inline `python3 -c` program inside a double-quoted shell string and had to
@@ -260,9 +256,8 @@ expect_clean("...over the published prefixes plus the retired one",
 # assertions above would keep passing against a module nothing runs.
 _release = (ROOT / "scripts" / "catalogue_release.sh").read_text()
 expect_clean("the release path runs it rather than an inline program",
-             [] if ("python3 scripts/only_preflight.py" in _release
-                    and "only_prov=$(curl" in _release
-                    and 'python3 -c "' not in _release.split("only_prov=$(curl")[1][:400])
+             [] if ("| python3 scripts/only_preflight.py"
+                    in _release.split("only_prov=$(curl")[1][:400])
              else ["catalogue_release.sh does not call scripts/only_preflight.py for the "
                    "--only preflight — if the program moved back inline, bash is expanding it "
                    "again and these assertions are checking a module the release never runs"])

@@ -7,6 +7,12 @@ Prints one `|`-separated line for the shell to read:
 
     <live value count>|<built value count>|<lost fields>|<dropped keys>|<gained keys>
 
+Counts and KEY NAMES only — never a value. That is what makes the `|` protocol safe: a
+provenance value is a free-form string that could contain anything, while the names come from
+this repo's own declared map and the document being compared. (A key carrying a `|` would
+corrupt its own field, which is one of the fields that refuses, so it cannot turn a refusal
+into a pass — measured through the real `IFS=|` read.)
+
 A FILE, not an inline program, and that is the whole point (#74). It used to be the argument of
 a double-quoted `python3 -c` inside the release script, where bash got to it before python did
 and three separate characters broke it in one afternoon: a markdown backtick span ran as a
@@ -73,7 +79,14 @@ def canon(props: dict) -> dict:
             out[key[len("nge:"):]] = value
         elif key in NEW:
             out[NEW[key]] = value
-        elif key == "processing:software" and isinstance(value, dict):
+        elif key == "processing:software":
+            if not isinstance(value, dict):
+                # Not skipped. A live item serving this as a string or a list would silently
+                # drop up to four fields from the comparison and report nothing lost, which
+                # is the direction that publishes.
+                raise SystemExit(f"processing:software is {type(value).__name__}, expected an "
+                                 f"object of name -> version — refusing to compare against a "
+                                 f"document this shape")
             for entry, fields in SOFTWARE.items():
                 if value.get(entry) is not None:
                     for field in fields:
@@ -94,7 +107,30 @@ def main(argv: list) -> int:
     bucket = json.load(open(argv[2]))
     live = json.load(sys.stdin)
 
-    live_values = canon(live.get("properties", {}))
+    # The live side is asserted, not defaulted. `live.get("properties", {})` returns {} for
+    # ANY readable JSON that is not an item — an error page, a redirect body, a collection —
+    # and then `lost` is empty and this prints a clean line: a reader that compared nothing,
+    # passing. Measured before this guard: `echo {} | only_preflight.py …` printed `0|2|||`
+    # and exited 0. The built side already raised a KeyError on the same shape, so only one
+    # of the two sides was honest. This is the same premise check_provenance makes with
+    # `seen == 0` and check_cog_tags with `compared == 0`.
+    # Both documents this does not construct itself are asserted, not defaulted.
+    # `doc.get("properties", {})` returns {} for ANY readable JSON that is not an item — an
+    # error page, a redirect body, the collection fetched by mistake — and then the comparison
+    # finds nothing: a reader that compared nothing, passing. Measured before this guard:
+    # `echo {} | only_preflight.py …` printed `0|2|||` and exited 0 on the live side, and a
+    # bucket copy of that shape read every built key as GAINED, which is reported rather than
+    # refused. The built side already raised a KeyError on the same shape, so one of three
+    # inputs was honest. Same premise as check_provenance's `seen == 0` and check_cog_tags'
+    # `compared == 0`.
+    for label, doc in (("live", live), ("bucket", bucket)):
+        if doc.get("type") != "Feature" or not isinstance(doc.get("properties"), dict):
+            raise SystemExit(f"the {label} document is not a STAC item (type="
+                             f"{doc.get('type')!r}, properties="
+                             f"{type(doc.get('properties')).__name__}) — refusing to compare "
+                             f"against it rather than reporting nothing lost")
+
+    live_values = canon(live["properties"])
     built_values = canon(built["properties"])
     lost = sorted(k for k in live_values if k not in built_values)
 
@@ -103,7 +139,7 @@ def main(argv: list) -> int:
     # GAIN — an area re-run upstream that now carries a field it did not before, which is the
     # normal forward-only state and exactly what --only exists to publish. Refusing that
     # direction would block the next kotl/larl/sloc republish and call it a renamed contract.
-    bucket_keys, built_keys = keys(bucket.get("properties", {})), keys(built["properties"])
+    bucket_keys, built_keys = keys(bucket["properties"]), keys(built["properties"])
     dropped = [k for k in bucket_keys if k not in built_keys]
     gained = [k for k in built_keys if k not in bucket_keys]
 

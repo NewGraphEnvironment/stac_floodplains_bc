@@ -312,6 +312,51 @@ thing and now says the precise one; and both suites pass on this HEAD.
 Also removed: an `import re` left unused by round 3, and a second non-finding —
 `PROV_PROPERTIES["link_run_uid"]` resolves statically, as intended.
 
+## Review round 5 — the new file, and the class that terminates the loop
+
+| # | finding | verified how | fix |
+|---|---|---|---|
+| 1 | `only_preflight.py`'s **live** side read `live.get("properties", {})`, so any readable JSON that is not an item — an error page, a collection, a redirect body — compared as empty and printed a clean line. The built side already raised on the same shape, so one of three inputs was honest | the reviewer measured `echo {} \| only_preflight.py …` → `0\|2\|\|\|`, rc 0, no refusal | both documents it does not construct are asserted: `type == "Feature"` and a dict `properties`, or refuse. The bucket side had the same shape — a bad bucket copy read every built key as *gained*, which is reported rather than refused — and is now guarded with it |
+| 2 | four pointers still placed the comparison inside `catalogue_release.sh` after round 4 moved it, and one claimed a bash enumeration that was deleted with the construct — a reader told a guard is in place that is not | grep for the guard's identifiers, which returned only prose | `scripts/README.md`, `CLAUDE.md`, `item_create.py` and a superseded duplicate paragraph in the driver all corrected |
+
+Round 5 also verified, with measurements, the things only it had reason to check: every failure
+mode of the new program refuses (missing argv, nonexistent path, empty stdin, a list, a bare
+string, `properties: null`); `pipefail` inside `$( )` makes a failing `curl` or `python3` a
+non-zero substitution so the `||` fires; the heredoc body and `EOF` sit at column 0; `IFS='|'`
+keeps the trailing empty field in position; a `|` or newline inside a key corrupts its own
+field, which is one of the refusing fields, so it cannot turn a refusal into a pass; there is
+exactly one `trap … EXIT`, armed after a six-X `mktemp`; `python3` over `uv run` is right
+because the harness shims `uv`; and the "the release still calls the file" assertion could not
+be made to pass against a revert (single-quoted inline, `/dev/stdin`, or a deleted call).
+
+And it stated out loud what nothing had written down: **until this release lands, `--only`
+refuses every item**, because every live item's bucket copy is pre-rename. That is the designed
+behaviour; it is now in NEWS.
+
+### The enumeration that ends the review
+
+Five rounds, and twice a round found a defect inside the previous round's fix. The rule for
+stopping is an enumeration rather than a quiet round, and the class round 5 landed on — **a
+comparison that compared nothing, reporting clean** — is enumerable. Every comparison this
+branch adds or changes, with what it does when it has nothing to compare:
+
+| comparison | on an empty comparison |
+|---|---|
+| `only_preflight` live document | refuses (`type`/`properties` asserted) |
+| `only_preflight` built document | refuses (`KeyError` on `properties`) |
+| `only_preflight` bucket document | refuses (same assertion as live) |
+| `only_preflight` `processing:software` of the wrong type | refuses rather than skipping the four fields |
+| `check_provenance` | `seen == 0` is a problem |
+| `check_cog_tags` | `compared == 0` is a problem |
+| `check_field_prefixes`, `check_processing_stamp` | report clean on zero items — covered because `main()` always runs `check_provenance` over the same tree, and the driver asserts that an empty tree is not a pass |
+| `prov_fields-check`'s literal joins | a file that will not parse, or a preflight that moved, raises `SystemExit` rather than passing |
+| `test_pipeline.R`'s staged↔published join | `setequal(character(0), prov_fields)` is FALSE, so an empty staged set fails |
+
+Nothing in that set sits above its source. Combined with the two earlier enumerations — the
+complete character set bash expands inside a double-quoted string (now moot: the construct is
+gone), and the ten copies of the provenance fact with the join pinning each — the review ends
+here rather than on a quiet round.
+
 ## Errors Encountered
 
 | Error | Resolution |

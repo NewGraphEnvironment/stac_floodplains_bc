@@ -78,6 +78,11 @@ consequences worth knowing:
   `larl_bt_ff04`, `kotl_bt_ff04` and `sloc_bt_ff04` that is `link_run_uid`, which no API response
   has ever shown.
 
+**Until this release lands, `catalogue_release.sh --only` refuses every item.** Each live
+item's bucket copy carries the old key names, which the preflight reads as a contract change —
+by design, and the message says so. Single-item republishes resume once the full release has
+written the new shape.
+
 **This is a breaking change for consumers and it is not `v2.0.0`.** That version stays reserved
 for the release in which every published area carries corrected geometry (see the note at the top
 of this file) — the reservation is about the data, and this release changes only what the fields

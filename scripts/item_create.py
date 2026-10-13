@@ -174,8 +174,9 @@ _MULTIHASH_SHA256 = "1220"
 # So this map IS the publish boundary, and the only place a BUILD translates between the two
 # naming schemes. It replaces the mechanical `f"nge:{f}"` the two were joined by until #74.
 # One other reader still knows the retired prefix on purpose: `canon()` in
-# catalogue_release.sh reads both shapes, which is what lets the `--only` preflight compare a
-# renamed build against an item published before the rename. Three kinds of destination:
+# scripts/only_preflight.py reads both shapes, which is what lets the `--only` preflight
+# compare a renamed build against an item published before the rename. Three kinds of
+# destination:
 #
 #   * a plain property — one staged field, one published key;
 #   * one `processing:software` entry — one staged field, one entry;

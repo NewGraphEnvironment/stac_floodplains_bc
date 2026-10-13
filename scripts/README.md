@@ -245,12 +245,12 @@ uv run python scripts/prov_fields-check.py       # item_validate.py's #74 arms, 
 ```
 
 Fixtures cover all three live populations (all twelve fields, only `link_run_uid` absent, none
-at all), with real tagged GeoTIFFs for the COG-tag arms. It also parses `item_create.py`,
-`02_raster_tag.py` and the inline program inside `catalogue_release.sh`'s `--only` preflight,
-and compares their literals against the validator's: those four publish-side copies are
-deliberately not shared, so a field dropped from both sides of a pair would be invisible to
-every runtime arm. The same slice enumerates every character bash expands inside that
-preflight's double-quoted argument, because a comment there is program input. Removing each guard in a copy of `scripts/` turns assertions red — the table is in
+at all), with real tagged GeoTIFFs for the COG-tag arms. It also joins the four publish-side
+copies of the field map, which are deliberately not shared: it parses `item_create.py` and
+`02_raster_tag.py`, imports `only_preflight.py`, and compares all three against the
+validator's, plus one assertion that the release still calls `only_preflight.py` rather than
+an inline program. A field dropped from both sides of any pair would otherwise be invisible to
+every runtime arm. Removing each guard in a copy of `scripts/` turns assertions red — the table is in
 `planning/archive/2026-10-issue-74-*/findings.md`.
 
 All three grep for **that guard's own message** rather than reading an exit code: a suite with N

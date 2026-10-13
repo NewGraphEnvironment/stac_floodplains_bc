@@ -118,9 +118,9 @@ STAGED names did not move: they are what `01_stage.R` writes into `meta.json` an
 `02_raster_tag.py` writes into every COG as `NGE_<FIELD>`, so the rename rewrote no raster bytes
 and moved no `file:checksum` (measured on `larl_bt_ff04`: 10 of 10 assets byte-identical to what
 is live). The map in `item_create.py` is the publish boundary — the only place a build
-translates between the two schemes; `canon()` in `catalogue_release.sh` is the one other reader
-that still knows the retired prefix, deliberately, so `--only` can compare a renamed build
-against an item published before the rename. `item_validate.py` bridges the two by
+translates between the two schemes; `canon()` in `scripts/only_preflight.py` is the one other
+reader that still knows the retired prefix, deliberately, so `--only` can compare a renamed
+build against an item published before the rename. `item_validate.py` bridges the two by
 reassembling `NGE_LINK_VERSION + "+" +
 NGE_LINK_SHA` against the `link` entry, never by splitting the published value — only the LAST
 `+` separates version from sha. `FIELD_PREFIXES` is the table every namespaced field is checked
