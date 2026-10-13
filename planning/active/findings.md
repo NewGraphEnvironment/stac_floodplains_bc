@@ -87,6 +87,37 @@ Findings folded into `task_plan.md` before the baseline. The ones that changed t
 | stale premises outside the listed files | `01_stage.R:44`, `02_raster_tag.py:75-82`, `fp_provenance.R:5`, `catalogue_release-check.sh` header, seven `CLAUDE.md` facts |
 | `index.html` / `README.Rmd` / `readme_functions.R` are clean | every `nge:` hit there is a minified-JS `change:` substring; no time spent |
 
+## Mutation table (2026-10-13)
+
+`scripts/prov_fields-check.py` is 38 assertions, 0 failed. Each guard was then removed in a
+**copy** of `scripts/` and the driver re-run, so the measurement is of the guard and not of
+the working tree:
+
+| defect restored | assertions red |
+|---|---|
+| the declared-key arm | 2 |
+| the stray-software-entry arm | 1 |
+| the per-field census | 4 |
+| the floor | 1 |
+| `seen == 0` | 1 |
+| `check_field_prefixes` | 3 |
+| the processing-extension biconditional | 2 |
+| the empty-software-map arm | 1 |
+| the `<version>+<sha>` pair arm | 1 |
+| the `processing:datetime` shape arm | 1 |
+| the COG-tag reassembly | 2 |
+| `NGE_PROVENANCE_NULL` as declared-minus-present (ported mechanically instead) | 1 |
+| holding the bridged tags out of the generic diff | 1 |
+| **the writer's refusal of a half-present software entry** | **0** |
+
+The last row is the honest gap. The driver mirrors `item_create.py`'s writer rather than
+importing it — importing runs the whole build — so mutating the writer cannot turn the driver
+red. What *is* proven is the backstop that decides whether such a tree can be published: the
+validator's `<version>+<sha>` arm, which refuses a half-present entry whatever wrote it. The
+writer's own `raise` is a fail-fast convenience in front of that, and the two literal maps are
+pinned to each other statically by the first three assertions, which parse
+`item_create.py` and `02_raster_tag.py` instead of trusting the mirror.
+
 ## Errors Encountered
 
 | Error | Resolution |

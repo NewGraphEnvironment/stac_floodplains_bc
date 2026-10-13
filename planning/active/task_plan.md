@@ -91,15 +91,15 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 
 ## Phase 3: prove the new arms fire
 
-- [ ] `scripts/prov_fields-check.py`, modelled on `scripts/year_sets-check.py`: synthetic
+- [x] `scripts/prov_fields-check.py`, modelled on `scripts/year_sets-check.py`: synthetic
       `data/stac`-shaped trees with real tagged GeoTIFFs, every assertion grepping **its own**
       message. Fixtures cover all three real populations (12 of 12, 11 of 12, 0 of 12).
-- [ ] Arms: an undeclared key under an allowed prefix; a resurrected `nge:` key; the census
+- [x] Arms: an undeclared key under an allowed prefix; a resurrected `nge:` key; the census
       short and over; the floor short and over; `processing:software: {}`; a half-written
       `link` entry; `processing:datetime` without the extension; the extension with no
       `processing:` field; `NGE_PROVENANCE_NULL` garbage on an all-null item; each reassembled
       tag perturbed; the map's field domain against `02_raster_tag.py`'s own list.
-- [ ] Mutation evidence in `findings.md` — each guard removed in turn, the assertions it turns
+- [x] Mutation evidence in `findings.md` — each guard removed in turn, the assertions it turns
       red counted.
 
 ## Phase 4: the release path
