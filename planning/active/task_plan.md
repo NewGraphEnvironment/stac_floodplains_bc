@@ -45,17 +45,17 @@ Outcome: 12 `nge:` properties become `processing:datetime` + `processing:softwar
 
 ## Phase 1: the map, and the writer
 
-- [ ] One declared structure in `scripts/item_create.py` replacing `PROV_FIELDS` /
+- [x] One declared structure in `scripts/item_create.py` replacing `PROV_FIELDS` /
       `NGE_PROV_PROPERTIES`: staged `meta.json` field → published property, with the
       `processing:software` entry name for the four version/sha fields, plus the prefix table
       (`processing` → the extension URL, `link`/`landcover` → `None`).
-- [ ] `PROCESSING_EXT` declared **iff** the item carries a `processing:` field.
-- [ ] Property assembly: omit a key whose staged value is absent; omit the whole
+- [x] `PROCESSING_EXT` declared **iff** the item carries a `processing:` field.
+- [x] Property assembly: omit a key whose staged value is absent; omit the whole
       `processing:software` key when no entry has a value; refuse a half-written `link` entry
       (exactly one of version/sha absent is an upstream schema break, not a null).
-- [ ] `DERIVATION_STATEMENT` — it names two `nge:` properties and ships in the **published
+- [x] `DERIVATION_STATEMENT` — it names two `nge:` properties and ships in the **published
       collection description**.
-- [ ] The two coverage prints (`_no_prov`, `_untraceable`).
+- [x] The two coverage prints (`_no_prov`, `_untraceable`).
 
 ## Phase 2: the guards
 

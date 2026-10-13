@@ -154,7 +154,7 @@ EXPECTED_DERIVATION_STATEMENT = (
     "(io-lulc-annual-v02, CC BY 4.0, via Microsoft Planetary Computer) and is "
     "modified: clipped to the modelled floodplain extent and cross-tabulated between 2017 "
     "and 2023 into land-cover transitions. Every year is read from that one collection, "
-    "recorded per item as nge:landcover_collection and fingerprinted as nge:landcover_key, "
+    "recorded per item as landcover:collection and fingerprinted as landcover:key, "
     "so the series cannot silently mix releases and manufacture change."
 )
 
