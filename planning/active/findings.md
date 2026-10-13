@@ -108,10 +108,10 @@ re-measured here rather than taken from the note, and it changed no bytes for th
 
 ## Mutation table (re-measured 2026-10-13 after round 2)
 
-`scripts/prov_fields-check.py` is **43 assertions, 0 failed**. Each guard was then removed in a
+`scripts/prov_fields-check.py` is **44 assertions, 0 failed**. Each guard was then removed in a
 **copy** of `scripts/` and the driver re-run, so the measurement is of the guard rather than of
-the working tree. (It was 38 assertions when first measured; round 1 added two `tags_drop` arms
-and round 2 three static ones, and the table below is the re-run, not the original.)
+the working tree. (38 when first measured; round 1 added two `tags_drop` arms, round 2 three static ones
+and round 3 one more, so the table below is a re-run rather than the original.)
 
 | defect restored | assertions red |
 |---|---|
@@ -225,12 +225,61 @@ over the characters rather than over the phrasings, so there is nothing left for
 comment to get wrong, and `catalogue_release-check.sh` is the second instrument — it is what
 caught the quote within the hour, by exercising the preflight rather than reading it.
 
+## Review round 3 — the mechanism, and a defect inside round 2's enumeration
+
+Round 3 was asked for the MECHANISM rather than more instances. Its answer: of the thirteen
+prior findings, nine were one shape — **a comment, message or printed line asserting a property
+the code does not have** — and three of those were that shape sharpened, where the prose is
+itself program input. Only two were the copies-and-joins shape, which round 2 closed. It
+enumerated all ten copies of the provenance fact with the join pinning each: eight below their
+source, two above.
+
+And it found a defect **inside round 2's enumeration**, which is the second time this branch has
+reproduced a class inside its own fix:
+
+| # | finding | verified how | fix |
+|---|---|---|---|
+| 1 | **bug** — the hazard enumeration listed three characters and matched `$NAME`/`${NAME}`, so it missed `$(…)` — the *same mechanism* as the backtick that shipped — along with `$?`, `$$`, `$@`, `$*`, `$!`, `$#`. The reviewer injected `MARKER = '$(touch /tmp/PWNED_MARKER)'` into the preflight: the driver passed 44/0 with the bash arm **ok**, the release-check suite passed, and bash created the file | reproduced independently here: a `$(touch …)` inside the `python3 -c` argument ran and created the probe file | the `$` arm is now a **subtraction over every `$`** — each one must BEGIN one of the three allowed interpolations — and 15 injected forms are all caught, 0 uncaught |
+| 2 | `CLAUDE.md` still said the static comparison is "the only thing joining those three" after round 2 made it four | read it | corrected, and it now names the bash enumeration too |
+| 3 | `scripts/README.md` carried the same stale claim, and `prov_fields-check.py` said "three copies" in one place and "the fifth copy" in another | read both | both corrected |
+| 4 | `item_create.py`'s traceability print held a **sixth**, bare copy of a published key name, joined to nothing: a rename would make it read `0/23` silently | read it | reads `PROV_PROPERTIES["link_run_uid"]` instead, in both the predicate and the label |
+| 5 | the stated reason for `PROV_FIELDS` being a written list ("the ORDER is what NGE_PROVENANCE_NULL reads in") is false — both producers `sorted()` | read both | it says what it is: the declaration the assert checks the map against |
+| 6 | `PROV_CENSUS`'s comment said neither upstream script prints a per-field count; `item_create.py` prints the `link_run_uid` row | read the print | corrected to name that one row |
+| 7 | this file said 43 assertions when the driver reported 44 | ran it | corrected, and the count now comes with its arithmetic |
+
+Two more claims were checked here and tightened rather than left: `NGE_PROVENANCE_NULL` is the
+only **provenance** tag the all-absent items carry (not the only tag — the shared identity and
+metric tags are there too), and "every other read takes curl's stdout" now excludes the two
+`-o /dev/null` status probes, which read no body.
+
+### The enumerations that close the two classes
+
+**Shell expansion inside the preflight's `python3 -c "…"`** — the complete set bash expands
+inside a double-quoted string is `$`, `` ` ``, `\` and the closing `"`. The guard covers all
+four, with `$` as a subtraction rather than a pattern, and every form was injected in a copy of
+`scripts/`:
+
+```
+backtick span, double quote, backslash, $(...) substitution, $(...) in a comment,
+backtick substitution, $?, $$, $@, $*, $!, $#, $1, $VAR, ${VAR}
+15 forms, 0 uncaught
+```
+
+**Quantified prose in the branch's own comments** — 107 added comment lines carry a
+quantifier (`every`, `each`, `all`, `only`, `never`, `none`, `nothing`). Round 3 checked the
+documentation claim by claim and this session re-checked the mechanically falsifiable ones:
+the one-`trap` claim (one `trap` statement, the second grep hit is the comment about it), the
+`curl` claim (tightened), the tag names on a real build (measured on `larl`), `PROV_FIELDS`'
+order against `01_stage.R`, and the ten copies with their joins. Four were false and are fixed
+above; the rest hold.
+
 ## Errors Encountered
 
 | Error | Resolution |
 |-------|------------|
 | `catalogue_release-check.sh` case 16 asserted a key list that did not exist in the fixture | read the actual message rather than predicting it — the fixture carries two provenance keys, not three |
 | a "nothing was said" assertion written as a `grep -c` inside `expect_out` | `expect_out` only matches positively; the negative form is `expect_eq "$(grep -c … || true)" 0` |
+| an "enumeration" written as a pattern over the forms we thought of | `$(…)` slipped it — invert it to a subtraction over every occurrence of the dangerous character |
 | a backtick span in a comment inside `python3 -c "…"` | bash expands it before python sees it — keep backticks out of any inline program, and prefer a heredoc when prose must carry them |
 | the bucket read used `curl -o`, which the check harness shim ignores (it prints to stdout), leaving an empty file the comparison then read as nothing | redirect instead: `curl -sf "$url" > "$file"` |
 

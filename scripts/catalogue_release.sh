@@ -283,9 +283,10 @@ if [ -n "$ONLY" ]; then
   only_bucket=$(mktemp -t only_bucket.XXXXXX) \
     || { echo "Could not create a temp file for the bucket comparison." >&2; exit 1; }
   trap 'rm -f "$only_bucket"' EXIT
-  # Redirection, not `curl -o`: every other read in this script takes curl's stdout, and the
-  # check harness shims curl by printing the fixture — so a `-o` here would leave an empty
-  # file and the comparison would be made against nothing.
+  # Redirection, not `curl -o`: every other read of a DOCUMENT in this script takes curl's
+  # stdout (the two `-o /dev/null` calls read a status code, not a body), and the check
+  # harness shims curl by printing the fixture — so a `-o` here would leave an empty file and
+  # the comparison would be made against nothing. Measured: it did, and 28 assertions failed.
   curl -sf --max-time 60 "$S3_BASE/$ONLY.json" > "$only_bucket" \
     || { echo "Could not read the bucket copy of $ONLY — refusing to publish blind. It is" >&2
          echo "live, so the bucket must hold it; a 403/404 here is a bucket problem." >&2; exit 1; }

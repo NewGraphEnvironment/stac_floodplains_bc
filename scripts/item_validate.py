@@ -532,8 +532,9 @@ FIELD_PREFIXES = {
 #
 # Set from the per-field counts the validator itself prints for the build being released — the
 # `census:` line in main(), which is why it prints on a rebuild as well, when nothing is being
-# asserted. 01_stage.R and item_create.py print only the ITEM-level count, which is the floor,
-# so neither of them answers this. A release sets it in the same commit as its NEWS entry, so
+# asserted. 01_stage.R prints only the ITEM-level count, which is the floor; item_create.py
+# prints that plus one census row, the `link:run_uid` one, which is the field that varies
+# today. Neither answers the other ten. A release sets it in the same commit as its NEWS entry, so
 # every release records the shape rather than printing it. EXACT in both directions: below is a
 # reader that lost a field, above is a census nobody updated.
 PROV_CENSUS = {

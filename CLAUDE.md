@@ -143,8 +143,10 @@ the producer's own files. Its two siblings for the per-item year set (#61) are
 drives the renamed provenance arms — the declared-key arm, `PROV_CENSUS`, the processing
 biconditional, the prefix table and the COG-tag bridge — over synthetic trees carrying all
 three live populations, and statically compares the publish map in `item_create.py` and the
-field list in `02_raster_tag.py` against the validator's copies, which is the only thing
-joining those three. None of them runs from `run_pipeline.sh`: like `fp_provenance-check.R`
+field list in `02_raster_tag.py` and the map inside `catalogue_release.sh`'s `--only`
+preflight against the validator's copies — four publish-side copies that cannot import from
+one another, joined by nothing else. It also enumerates what bash would expand inside that
+preflight's inline `python3 -c` argument, which has twice been the defect itself. None of them runs from `run_pipeline.sh`: like `fp_provenance-check.R`
 they exercise guards a normal build never trips.
 
 **The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in

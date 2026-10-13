@@ -209,9 +209,9 @@ PROV_SOFTWARE = {
     "flooded": ("flooded_version",),
     "drift": ("drift_version",),
 }
-# The twelve staged fields, in 01_stage.R's order. Written out rather than derived from the
-# map, because the ORDER is what NGE_PROVENANCE_NULL and every printed list read in, and a
-# set has none — the assert below is what keeps the two from drifting.
+# The twelve staged fields, in 01_stage.R's order so the two files read alike. Written out
+# rather than derived from the map because it is the DECLARATION — the thing the assert below
+# checks the map against — and deriving it from the map would make that assert x == x.
 PROV_FIELDS = [
     "link_run_uid", "link_config_sha256", "link_sha", "link_version",
     "flooded_version", "drift_version", "produced_datetime",
@@ -631,9 +631,10 @@ print(f"Generated {len(items)} STAC items")
 # `link_run_uid` is legitimately null even on a fresh block if the schema predates
 # link#262, so a block can be present while the run is still untraceable.
 _no_prov = [i.id for i in items if not (PROV_KEYS & set(i.properties))]
-_untraceable = [i.id for i in items if "link:run_uid" not in i.properties]
+_untraceable = [i.id for i in items
+                if PROV_PROPERTIES["link_run_uid"] not in i.properties]
 print(f"  provenance block: {len(items) - len(_no_prov)}/{len(items)} item(s)")
-print(f"  link run traceable (link:run_uid): "
+print(f"  link run traceable ({PROV_PROPERTIES['link_run_uid']}): "
       f"{len(items) - len(_untraceable)}/{len(items)} item(s)")
 if _untraceable:
     _shown = sorted(_untraceable)[:10]

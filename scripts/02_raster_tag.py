@@ -97,8 +97,9 @@ PROV_FIELDS = [
 # One companion tag naming what was looked for and not found, so a COG carries the
 # "we looked and there was none" signal. Since #74 the published item does NOT carry it —
 # an absent value omits its key there — so this tag is now the ONLY positive statement of
-# absence this catalogue publishes anywhere, which is why item_validate.py derives its
-# expected value as declared-minus-present and asserts it on every COG.
+# absence this catalogue publishes anywhere (the `deprecated` marker aside, which says
+# something narrower about two items), which is why item_validate.py derives its expected
+# value as declared-minus-present and asserts it on every COG.
 PROV_NULL_TAG = "NGE_PROVENANCE_NULL"
 
 

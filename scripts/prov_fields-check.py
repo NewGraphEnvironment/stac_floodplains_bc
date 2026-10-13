@@ -219,10 +219,11 @@ def literal(path: pathlib.Path, name: str):
     raise SystemExit(f"{path.name}: no module-level literal {name}")
 
 
-# The three copies of the field list are deliberately not shared (a guard that imports the
-# value it checks is x == x), so something has to join them. test_pipeline.R joins staging to
-# the item; this joins the publish map to the writer and to the COG tags. A field dropped from
-# BOTH sides of a pair is invisible to every runtime arm.
+# The publish-side copies of the field list are deliberately not shared (a guard that imports
+# the value it checks is x == x), so something has to join them. test_pipeline.R joins staging
+# to the item, by reading the data; the four static assertions below join the writer, the COG
+# tagger, this validator and the release preflight, by parsing them. A field dropped from BOTH
+# sides of a pair is invisible to every runtime arm.
 def release_preflight_program() -> str:
     """The text of the `--only` preflight program, sliced out of the shell script."""
     text = (ROOT / "scripts" / "catalogue_release.sh").read_text()
@@ -289,19 +290,38 @@ expect_clean("02_raster_tag.py tags exactly the fields the map publishes",
 # assertions in catalogue_release-check.sh. Enumerated rather than remembered — every
 # character bash still expands inside double quotes is listed here, and every `$` must be one
 # of the three interpolations the program is written to receive.
-_body = release_preflight_program()
-_hazards = []
-for ch, what in (("`", "a backtick span runs as a command substitution"),
-                 ('"', "a double quote ends the python3 -c argument"),
-                 ("\\", "a backslash is consumed by bash before python sees it")):
-    if ch in _body:
-        _hazards.append(f"{ch!r} ({what})")
-_interp = set(re.findall(r"\$\{?([A-Za-z_][A-Za-z_0-9]*)", _body))
-_expected = {"STAC_DIR", "ONLY", "only_bucket"}
-if _interp - _expected:
-    _hazards.append(f"unexpected shell interpolation(s): {sorted(_interp - _expected)}")
-expect_clean("the preflight program survives bash: no backtick, quote or stray $",
-             _hazards)
+_ALLOWED_INTERPOLATIONS = ("$STAC_DIR", "$ONLY", "$only_bucket")
+
+
+def bash_hazards(body: str) -> list[str]:
+    """Every character bash still expands inside a double-quoted string, enumerated.
+
+    A SUBTRACTION over every `$`, not a pattern match over the forms we thought of. The
+    pattern version of this check passed `$(touch …)` — measured, and it ran — because
+    `$(` matches neither `$NAME` nor `${NAME}`, and `$(` is the same mechanism as the
+    backtick that shipped. `$?`, `$$`, `$@`, `$*`, `$!`, `$#` and `$1` are the rest of that
+    set. So the rule is inverted: every `$` in the program must BEGIN one of the three
+    interpolations the program is written to receive, and anything else is a hazard
+    whatever it looks like.
+    """
+    out = []
+    for ch, what in (("`", "a backtick span runs as a command substitution"),
+                     ('"', "a double quote ends the python3 -c argument"),
+                     ("\\", "a backslash is consumed by bash before python sees it")):
+        if ch in body:
+            out.append(f"{ch!r} ({what})")
+    for i, ch in enumerate(body):
+        if ch != "$":
+            continue
+        rest = body[i:]
+        if not any(rest.startswith(ok) for ok in _ALLOWED_INTERPOLATIONS):
+            out.append(f"{rest[:24]!r} — a $ that is not one of "
+                       f"{', '.join(_ALLOWED_INTERPOLATIONS)}; bash expands it first")
+    return out
+
+
+expect_clean("the preflight program survives bash: every $ is one of three, nothing else "
+             "bash expands", bash_hazards(release_preflight_program()))
 
 _pre = release_preflight_literals()
 expect_clean("the --only preflight canonicalises through the same map, inverted",
@@ -506,7 +526,8 @@ shutil.rmtree(b)
 
 # The arm that a mechanical port of the old `v is None` derivation silences: with no null
 # properties left to find, NGE_PROVENANCE_NULL would never enter `want` and this tag could
-# hold anything. It is also the only tag the two all-absent items carry at all.
+# hold anything. It is also the only PROVENANCE tag those two items carry — the shared
+# identity and metric tags are there as on any other item.
 b = tree([{"item_id": "none_ch_ff04", "staged": NONE_STAGED, "cog": True,
            "tags_override": {"NGE_PROVENANCE_NULL": "garbage"}}])
 expect_problem("NGE_PROVENANCE_NULL overwritten on an all-absent item is caught",
