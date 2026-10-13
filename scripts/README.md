@@ -64,7 +64,7 @@ of the guard actually guarding something.
 | Step | What |
 |----|----|
 | 0 preflight | `PARTIAL_STAGE` absent; ≥1 item + `collection.json`; SSH reachable; the build compared against the **live** collection — refuses if any live item is missing; then the **version gate** — HEAD exactly at a `vX.Y.Z` tag, tracked tree clean, `NEWS.md` top entry naming that version — and `collection_version.py` stamps `collection.json` (STAC Version Extension) before anything is validated or published |
-| 1 validate | the gate. Nothing below runs unless every document validates; on a full release the validator is also given `PROVENANCE_FLOOR` — a literal in the script, set by a human, naming how many items must carry a non-null `nge:` value (#32). `check_collection_metadata` and `check_citation_premise` also run here: the licence, the six providers, both links and `sci:citation` asserted verbatim, and every item's `nge:landcover_collection` **and** `nge:landcover_stac_url` checked against what the citation attributes — the id and the host can move independently, and a host move alone would change the licensor (#47). `check_deprecated` asserts exactly `EXPECTED_DEPRECATED` publish `deprecated: true`, and that every item is marked **iff** it lacks `nge:flooded_version` — both directions, since an unmarked over-mapped item adds nothing to the provenance floor's count (#26). Under `--only` the release passes `--partial`, which drops exactly one arm — ids named in the literal but absent from the tree. A stray marker, and an item in the literal that is present but unmarked, are both still refused there |
+| 1 validate | the gate. Nothing below runs unless every document validates; on a full release the validator is also given `PROVENANCE_FLOOR` — a literal in the script, set by a human, naming how many items must carry provenance at all (#32), which also turns on the per-field census — the literal `PROV_CENSUS` in `item_validate.py` naming how many items carry a value for **each** of the twelve fields (#74). `check_collection_metadata` and `check_citation_premise` also run here: the licence, the six providers, both links and `sci:citation` asserted verbatim, and every item's `landcover:collection` **and** `landcover:stac_url` checked against what the citation attributes — the id and the host can move independently, and a host move alone would change the licensor (#47). `check_deprecated` asserts exactly `EXPECTED_DEPRECATED` publish `deprecated: true`, and that every item is marked **iff** its `processing:software` `flooded` entry is below 0.5.0 or unreadable — both directions, since an unmarked over-mapped item adds nothing to the provenance floor's count (#26). Under `--only` the release passes `--partial`, which drops exactly one arm — ids named in the literal but absent from the tree. A stray marker, and an item in the literal that is present but unmarked, are both still refused there |
 | 2 sync assets | `aws s3 sync` — no `--delete`, no `--size-only`, `--exclude '*.json'` |
 | 3 sync JSON | after the assets, so no document references an object that has not landed |
 | 4 register | collection first (pgstac items reference the collection row), then items |
@@ -152,7 +152,7 @@ What `--only` changes, step by step:
 | Step | Under `--only` |
 |----|----|
 | 0 preflight | `PARTIAL_STAGE` interlock and the live-vs-build comparison are **skipped, out loud** — both guard `collection.json`, which is never published here. Instead: the item's JSON and asset dir must exist, and the item must **already be live** (a new item needs a full release, which updates the collection's extent/summaries/links) |
-| 1 validate | the whole tree on disk, so with a full build present this re-hashes ~670 MB; the provenance floor is **not** applied (a one-group tree cannot meet it) — instead step 0 refuses if any `nge:` value on the live item is null on this build's copy, per key |
+| 1 validate | the whole tree on disk, so with a full build present this re-hashes ~670 MB; the provenance floor is **not** applied (a one-group tree cannot meet it) — instead step 0 refuses if any provenance value the live item serves is absent on this build's copy, per field — both sides canonicalised to the staged names so the comparison survives #74's rename — and refuses too if the **bucket** copy of the item publishes a different provenance key set, which is the only read that can see a contract change on an item whose values are all absent (the API drops nulls) |
 | 2 sync assets | `aws s3 sync data/stac/<id> s3://…/<id>`, same excludes, no `--delete` |
 | 3 sync JSON | `aws s3 cp data/stac/<id>.json s3://…/<id>.json` — **one explicit object**. The full path's `--include '*.json' --exclude '*/*'` sweep would carry `collection.json` with it, and a one-group tree's `collection.json` describes one group |
 | 4 register | `item_register.sh` for that file; `collection_register.sh` is never run |
@@ -217,7 +217,43 @@ does not name, and a record naming a year nobody built. It skips out loud with n
 the uniform-loss case a cross-item compare structurally cannot see (#23) and the `--partial`
 partition (#26).
 
-Both grep for **that guard's own message** rather than reading an exit code: a suite with N
+## The `--only` preflight
+
+`scripts/only_preflight.py` is the comparison `catalogue_release.sh --only` makes before it
+writes anything: it reads the live item from the API on stdin, the item this build would
+publish, and the bucket's current copy, and prints one `|`-separated line of counts, lost
+fields, dropped keys and gained keys. Stdlib only, run as `python3` rather than `uv run`,
+because a release machine holds nothing but this repo and `catalogue_release-check.sh` shims
+`uv`.
+
+It is a file rather than an inline `python3 -c` for a measured reason (#74): as the argument of
+a double-quoted shell string, bash reached it before python did, and three separate characters
+broke it — a markdown backtick span that ran as a command on every preflight, the quoted phrase
+in the comment recording that, and a `$(` the pattern written to catch both did not match.
+`prov_fields-check.py` asserts that the release still calls the file, because reverting it
+would bring the whole class back.
+
+## Renamed provenance fields
+
+The twelve provenance fields publish under `processing:*`, `link:*` and `landcover:*` (#74),
+and an absent value omits its key. The arms that guard that shape are release-only or sit
+behind the ~670 MB checksum re-read, so a third check script drives them directly — and, like
+the two above, it does not run from `run_pipeline.sh`.
+
+```
+uv run python scripts/prov_fields-check.py       # item_validate.py's #74 arms, over synthetic trees
+```
+
+Fixtures cover all three live populations (all twelve fields, only `link_run_uid` absent, none
+at all), with real tagged GeoTIFFs for the COG-tag arms. It also joins the four publish-side
+copies of the field map, which are deliberately not shared: it parses `item_create.py` and
+`02_raster_tag.py`, imports `only_preflight.py`, and compares all three against the
+validator's, plus one assertion that the release still calls `only_preflight.py` rather than
+an inline program. A field dropped from both sides of any pair would otherwise be invisible to
+every runtime arm. Removing each guard in a copy of `scripts/` turns assertions red — the table is in
+`planning/archive/2026-10-issue-74-*/findings.md`.
+
+All three grep for **that guard's own message** rather than reading an exit code: a suite with N
 guards has N ways to exit 1, and only one of them is the evidence.
 
 Two values in `stage_years-check.R` are pinned witnesses, each gated so a re-run reads as

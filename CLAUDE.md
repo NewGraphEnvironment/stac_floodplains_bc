@@ -25,7 +25,10 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   SSH, not the source tree, so a release can be cut from a machine that does not hold it.
   (There is no `04_s3_upload.R`; its sync folded into the release script in #14.)
   `--only <item_id>` republishes one live item and never `collection.json` — the single-group
-  pilot path (#36), pinned by `catalogue_release-check.sh`.
+  pilot path (#36), pinned by `catalogue_release-check.sh`. Its preflight comparison is
+  `scripts/only_preflight.py`, a stdlib-only file rather than an inline `python3 -c`: as a
+  double-quoted shell argument, bash reached the program before python did and three separate
+  characters broke it (#74), so the construct was removed rather than guarded.
 - `pyproject.toml` + `uv.lock` — the Python env (pystac / rasterio) for `03_cog.py` + `item_create.py`, run via
   `uv run` (auto-syncs). This repo pilots uv for the `stac_*_bc` family (see `stac_dem_bc#16`);
   the conda→uv blocker (GDAL/rasterio wheels) was cleared here empirically. `rio-cogeo` (#33) is
@@ -107,32 +110,77 @@ filters on `features` — `04_gpkg_style.py`, `item_validate.check_layer_styles`
 consumer opening the file sees it, nothing here documents it, and one upstream `data_type`
 value is all that stands between it and a refused release (#65).
 
-Two of the eleven-plus-one `nge:` provenance properties describe the landcover input (#40):
-`nge:landcover_key` is a **fingerprint of what was produced** — the producer's per-year content
+**The twelve provenance fields are published under standard or descriptive names, and the COG
+tags are not** (#74). `processing:datetime`, one `processing:software` map holding `link`
+(`<version>+<sha>`, semver build metadata), `flooded` and `drift`, then `link:run_uid`,
+`link:config_sha256` and five `landcover:*` — nine published keys from twelve staged fields. The
+STAGED names did not move: they are what `01_stage.R` writes into `meta.json` and what
+`02_raster_tag.py` writes into every COG as `NGE_<FIELD>`, so the rename rewrote no raster bytes
+and moved no `file:checksum` (measured on `larl_bt_ff04`: 10 of 10 assets byte-identical to what
+is live). The map in `item_create.py` is the publish boundary — the only place a build
+translates between the two schemes; `canon()` in `scripts/only_preflight.py` is the one other
+reader that still knows the retired prefix, deliberately, so `--only` can compare a renamed
+build against an item published before the rename. `item_validate.py` bridges the two by
+reassembling `NGE_LINK_VERSION + "+" +
+NGE_LINK_SHA` against the `link` entry, never by splitting the published value — only the LAST
+`+` separates version from sha. `FIELD_PREFIXES` is the table every namespaced field is checked
+against, with `None` for the two prefixes no schema describes: crate's rule is that a prefix
+earns a versioned schema only when more than one catalogue writes it, which is why nothing here
+is vendored and nothing waited on a crate deploy (crate#23; `stac_airphoto_bc#47` made the same
+call for `airphoto:`). **An absent value omits its key**, where until #74 it published an
+explicit null — forced by the extension, whose fields are all typed `string` and whose Item
+branch refuses an item that declares it and carries no `processing:` field.
+
+Two of the twelve provenance fields describe the landcover input (#40):
+`landcover:key` is a **fingerprint of what was produced** — the producer's per-year content
 digests over cell values plus geometry (floodplains#64), folded to one scalar as `sha256:` of the
 text `<year>=<digest>` lines, years ascending, newline-joined — so it moves on one changed cell and
-not on a re-written identical file; `nge:landcover_item_hash` is the **identity of what was
+not on a re-written identical file; `landcover:item_hash` is the **identity of what was
 read**, a hash over the resolved STAC item ids, which an in-place upstream re-derivation leaves
 unchanged. Until #40 the identity was published under the fingerprint's name. The fold rule lives
 in `scripts/fp_provenance.R`, and `scripts/fp_provenance-check.R` proves the reader offline against
 the producer's own files. Its two siblings for the per-item year set (#61) are
 `scripts/stage_years-check.R`, which restores three defects in a sandboxed upstream tree and runs
 `01_stage.R` over each, and `scripts/year_sets-check.py`, which drives `item_validate.py`'s
-`ALLOWED_YEAR_SETS` arms over synthetic trees. Neither runs from `run_pipeline.sh`: like
-`fp_provenance-check.R` they exercise guards a normal build never trips.
+`ALLOWED_YEAR_SETS` arms over synthetic trees. A third, `scripts/prov_fields-check.py` (#74),
+drives the renamed provenance arms — the declared-key arm, `PROV_CENSUS`, the processing
+biconditional, the prefix table and the COG-tag bridge — over synthetic trees carrying all
+three live populations, and statically compares the publish map in `item_create.py` and the
+field list in `02_raster_tag.py` and the map inside `catalogue_release.sh`'s `--only`
+preflight against the validator's copies — four publish-side copies that cannot import from
+one another, joined by nothing else. It also enumerates what bash would expand inside that
+preflight's inline `python3 -c` argument, which has twice been the defect itself. None of them runs from `run_pipeline.sh`: like `fp_provenance-check.R`
+they exercise guards a normal build never trips.
 
 **The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in
 `catalogue_release.sh`, passed to `item_validate.py --expect-provenance` on a full release, is the
-**exact** number of items carrying a non-null `nge:` value — a literal equal to the count
+**exact** number of items carrying provenance at all — a literal equal to the count
 `01_stage.R` printed for that build, never `$n_local` or anything derived (an expectation that
 comes from the data cannot be contradicted by it), with no env override. Exact in both directions,
 so every release records the count beside its NEWS entry: below is a reader that found nothing
 (indistinguishable from the forward-only state every presence check passes), above is a floor
-nobody updated. `--only` cannot meet a full-tree floor, so its preflight refuses instead if any
-`nge:` value present on the live item is null on the build's copy — per key, naming them, so a
-reader that kept one section and lost another is refused too (the API drops nulls, so a key present
-on the live item is a value). The full-release floor is item-level by design; the per-section
-counts it prints are the eye's guard for that shape.
+nobody updated.
+
+**Its per-field sibling is `PROV_CENSUS` in `item_validate.py`** (#74), the same literal shape,
+asserted whenever the floor is: how many items carry a value for **each** field (today
+`link_run_uid` 18, the other eleven 21). It exists because omitting absent keys retired set
+equality over the key set, which had been catching a reader that silently found nothing and a
+reader that kept one section and lost another. It is also strictly stronger than what it
+replaced: a whole section lost on every item used to pass every arm, because the item-level floor
+was still met by the surviving sections and the per-section counts were only ever PRINTED. **Per
+field and not per section**, because per section is false on the published catalogue — measured
+2026-10-13, `link_run_uid` is absent on `kotl`/`larl`/`sloc` while the rest of its section
+carries values, which is modelled upstream (a block whose schema predates link#262), so an
+all-or-nothing section arm would refuse three live items.
+
+`--only` cannot meet a full-tree expectation, so its preflight compares against the live item
+instead, in two arms. **Values**, from the API, per field, with both sides canonicalised to the
+staged names — a scan for either naming scheme alone would compare a renamed build against a
+pre-rename item and find nothing lost. **Shape**, from the **bucket**: the API drops nulls, so it
+cannot tell a pre-#74 item carrying twelve nulls from a post-#74 item that omits them, which is
+exactly the two provenance-less items; the bucket copy keeps its nulls and is the document the
+release would overwrite, so any difference in its provenance key set refuses `--only` as a
+full-release change.
 
 `transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
 why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published
@@ -147,11 +195,12 @@ could not be re-run after the `flooded` bankfull units fix (blocked by floodplai
 remain over-mapped. `DEPRECATED_ITEMS` in `item_create.py` is a literal a human sets, the same
 shape as `PROVENANCE_FLOOR`, duplicated as `EXPECTED_DEPRECATED` in `item_validate.py`. The
 guard runs **both** directions: exactly that set is marked, and every item is marked *iff* its
-`nge:flooded_version` is below 0.5.0 or unreadable — the version, not merely its presence, since
+`processing:software` `flooded` entry is below 0.5.0 or unreadable — the version, not merely its
+presence, since
 an item rebuilt on 0.4.0 carries one and is still over-mapped — the converse matters because an unmarked over-mapped item adds
 nothing to the floor's count, so an exact floor of 21 is satisfied by 21 provenanced items
-whatever ships beside them. It also **self-clears**: a marked item carrying a non-null
-`nge:flooded_version` has been rebuilt, and refusing it is what stops the marker outliving the
+whatever ships beside them. It also **self-clears**: a marked item carrying a
+`flooded` entry has been rebuilt, and refusing it is what stops the marker outliving the
 defect. Under `--only` the release passes `--partial`, which drops exactly one arm — the one asking
 about ids **absent** from the tree, the normal state of a subset. A marker on an item *outside* the
 literal is still refused there, because that names an id the tree contains: letting it through
@@ -185,8 +234,8 @@ stac-fastapi-pgstac's source, and **measured on this deployment at the v1.1.0 re
 (2026-09-03), which is the first time any collection on `images.a11s.one` published such a link.
 The API serves `['derived_from', 'license', 'items', 'parent', 'root', 'self', 'queryables']`, so
 both survive and step 5's read-back is what keeps that true. Items carry no `license` of their own, deliberately: STAC inherits it
-from the collection, and per-item source attribution is the `nge:landcover_*` block the floor keeps
-non-null.
+from the collection, and per-item source attribution is the `landcover:*` block the census keeps
+present.
 
 **Class labels ship inside the COGs, as a GDAL Raster Attribute Table** (#34/#35), and as
 `classification:classes` on every raster asset — both generated from one `data/raw/classes.json`
@@ -233,11 +282,13 @@ hand on the `NEWS.md` commit, as `stac_uav_bc` does; there is no `DESCRIPTION`, 
 **A published null is invisible from the API.** pgstac stores an item property whose value is
 `null` (the row shows the key with `jsonb_typeof` null), and the API omits it on output, while
 every non-null value and every asset field round-trips byte-for-byte. Measured 2026-09-02 on the
-first `--only` release (#36): all 11 `nge:` provenance properties, published null, came back
-absent. So a consumer cannot distinguish "published null" from "never published", and any guard
-that needs the distinction must read the row, not the API. The `--only` read-back treats a
-build-null / served-absent pair as equal for this reason. If #17's null-means-something contract
-is to reach API consumers, the value has to be a non-null sentinel.
+first `--only` release (#36): all 11 `nge:` provenance properties then published, published null,
+came back absent. So a consumer cannot distinguish "published null" from "never published", and
+any guard that needs the distinction must read the row — or the bucket — not the API. The `--only`
+read-back treats a build-null / served-absent pair as equal for this reason, and the shape arm
+above reads the bucket for the same one. **#74 resolved the question that measurement raised** by
+not publishing the null at all: the positive "we looked and there was none" statement now lives
+only on the COGs, as `NGE_PROVENANCE_NULL`, and on the two items `deprecated: true` marks.
 
 The bucket and the server itself are still managed in
 [`rtj`](https://github.com/NewGraphEnvironment/rtj), whose `stac_register-all.sh` can reload this

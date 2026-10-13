@@ -37,9 +37,14 @@
 #                    live collection with NO version passes (MISSING -> MISSING is unchanged)
 #  13  refusal       a modified tracked file -> refused, no aws call
 #  14  gate          a second, non-release tag on the same commit does not confuse the gate
-#  15  --only        a live item carrying a provenance value that this build would publish as
-#                    null is refused before anything is written — per key, so a partial loss
-#                    (network kept, landcover lost) is refused too (the floor's stand-in)
+#  15  --only        a live item carrying provenance this build does not is refused before
+#                    anything is written — per FIELD, so a partial loss (one section kept,
+#                    another lost) is refused too (the floor's stand-in). Both sides are
+#                    canonicalised to the staged field names, so the comparison survives #74
+#  16  --only        a BUCKET copy publishing a different provenance key set is refused: the
+#                    API drops nulls, so it cannot tell a pre-#74 item carrying twelve nulls
+#                    from a post-#74 item that omits them, and the bucket copy is the document
+#                    the release would overwrite
 #
 #  9c  verify      the API serving license 'proprietary' after a full release -> refused
 #  9d  verify      the API dropping sci:citation -> refused
@@ -118,13 +123,19 @@ def item(iid, sizes):
         assets[name.split(".")[0]] = {
             "href": f"{s3}/{iid}/{name}", "type": "application/octet-stream",
             "file:size": len(data), "file:checksum": "1220" + hashlib.sha256(data).hexdigest()}
-    # nge:probe is null: the real API omits null-valued properties (measured on BULK,
+    # REAL declared provenance names (#74), not synthetic ones: the preflight canonicalises
+    # both sides through item_create.py's publish map, and a made-up key maps to nothing — so
+    # a fixture of `nge:probe`/`nge:kept` would make cases 11 and 15 pass against an empty
+    # comparison on both sides.
+    # link:run_uid is null: the real API omits null-valued properties (measured on BULK,
     # 2026-09-02), and the curl shim mirrors that, so the read-back must accept it.
-    # nge:kept is a value on both sides, so a PARTIAL loss is representable (case 15): the
-    # shim can serve a live value for nge:probe while the build still has nge:kept.
+    # landcover:key is a value on both sides, so a PARTIAL loss is representable (case 15):
+    # the shim can serve a live value for link:run_uid while the build still has
+    # landcover:key.
     doc = {"type": "Feature", "stac_version": "1.0.0", "id": iid, "collection": coll,
            "geometry": None,
-           "properties": {"datetime": "2023-01-01T00:00:00Z", "nge:probe": None, "nge:kept": "same"},
+           "properties": {"datetime": "2023-01-01T00:00:00Z", "link:run_uid": None,
+                          "landcover:key": "same"},
            "links": [], "assets": assets}
     json.dump(doc, open(os.path.join(stac, iid + ".json"), "w"))
 item("aaaa_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
@@ -258,7 +269,7 @@ case "$url" in
     | case "${FAKE_LIVE_ITEM_STALE:-}" in
         asset) sed 's/"file:checksum": "1220/"file:checksum": "1220dead/' ;;
         property) sed 's/"datetime": "2023-01-01T00:00:00Z"/"datetime": "2022-01-01T00:00:00Z"/' ;;   # no byte changes
-        provenance) sed 's/"properties": {/"properties": {"nge:probe": "live-value", /' ;;   # live has a value the build does not
+        provenance) sed 's/"properties": {/"properties": {"link:run_uid": "live-value", /' ;;   # live has a value the build does not
         *) cat ;;
       esac
     exit 0 ;;
@@ -270,6 +281,20 @@ if [ -n "$head" ]; then
   printf 'HTTP/1.1 200 OK\r\nContent-Length: %s\r\n\r\n' "$(wc -c < "$f" | tr -d ' ')"
 elif [ "$rel" = collection.json ] && { [ -n "${FAKE_BUCKET_VERSION:-}" ] || [ -n "${FAKE_BUCKET_LICENCE:-}" ]; }; then
   force_fields "$f" "${FAKE_BUCKET_VERSION:-}" "${FAKE_BUCKET_LICENCE:-}"
+elif [ -n "${FAKE_BUCKET_ITEM_SHAPE:-}" ] && [ "$rel" != collection.json ] && [ "${rel%.json}" != "$rel" ]; then
+  # The bucket copy as some OTHER release left it. `nge` is a pre-#74 copy: the same values
+  # under the retired names. `drop` removes one key, which is the shape an upstream re-run
+  # produces — the build gains a field the published copy never had.
+  # Only the item JSON, never an asset — step 5 probes asset bytes through this same branch
+  # and a rewritten payload would fail the checksum instead of the shape arm.
+  python3 -c 'import json,sys
+d = json.load(open(sys.argv[1]))
+if sys.argv[2] == "drop":
+    d["properties"].pop("link:run_uid", None)
+else:
+    d["properties"] = {("nge:" + k.split(":", 1)[1] if ":" in k else k): v
+                       for k, v in d["properties"].items()}
+print(json.dumps(d))' "$f" "${FAKE_BUCKET_ITEM_SHAPE}"
 else
   cat "$f"
 fi
@@ -285,6 +310,7 @@ BUCKETV=""
 LIVELIC=""
 BUCKETLIC=""
 LIVEDEP=""
+BUCKETSHAPE=""
 RC=0
 run_release() {
   : > "$LOG"; rm -f "$WORK/search_count"
@@ -294,7 +320,7 @@ run_release() {
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
-      FAKE_LIVE_DEPRECATED="$LIVEDEP" \
+      FAKE_LIVE_DEPRECATED="$LIVEDEP" FAKE_BUCKET_ITEM_SHAPE="$BUCKETSHAPE" \
       bash "$RELEASE" "$@" ) > "$OUT" 2>&1 < /dev/null
   RC=$?
   set -e
@@ -580,7 +606,12 @@ expect_out "the provenance floor skip is the one named" "provenance floor: skipp
 expect_eq "premise: the validator was invoked once" "$(n_uv)" 1
 expect_eq "the validator was NOT given a provenance floor (flag absent, not merely empty)" "$(n_floor_flag)" 0
 expect_eq "the validator WAS given --partial (#26: without it a one-group tree is refused)" "$(n_partial_flag)" 1
-expect_out "preflight compared the item's live provenance (the control: nothing lost)" "provenance under --only: live item carries 1 nge: value(s), this build carries 1."
+expect_out "preflight compared the item's live provenance (the control: nothing lost)" "provenance under --only: live item carries 1 value(s), this build carries 1."
+# NOT a positive match on the preflight's own count line: `live: N | built: N` is printed by
+# the release BEFORE the --only branch, so it appears in cases 15 and 16 too, where both arms
+# refuse. The property this case is about is that NEITHER shape message was printed.
+expect_eq "...and the bucket copy agreed on the key shape (neither shape message printed)" \
+  "$(( $(grep -c 'FULL-release change' "$OUT" || true) + $(grep -c 'provenance gained since' "$OUT" || true) ))" 0
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
 expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 3 properties"
 expect_out "the version gate was skipped out loud" "version gate: skipped under --only"
@@ -598,13 +629,37 @@ LIVEV=""
 
 # --- case 15: the floor's stand-in under --only (after case 12: it replaces $OUT) ------------------------------------------
 echo "case 15: a live provenance value this build would publish as null is refused (partial loss)"
-# Live serves nge:kept AND nge:probe; the build has nge:kept and a null nge:probe. Counts are
-# 2 vs 1 — a total-loss check (build == 0) would pass this; the per-key check must not.
+# Live serves landcover:key AND link:run_uid; the build has landcover:key and a null
+# link:run_uid. Counts are 2 vs 1 — a total-loss check (build == 0) would pass this; the
+# per-field check must not.
 STALE=provenance
 run_release --only aaaa_ch_ff04;                    refused "a partial provenance loss is refused before any write"
-expect_out "counts show the partial shape" "live item carries 2 nge: value(s), this build carries 1."
-expect_out "names the lost key" "would publish as null: nge:probe"
+expect_out "counts show the partial shape" "live item carries 2 value(s), this build carries 1."
+expect_out "names the lost field" "carries provenance this build does not: link_run_uid"
 STALE=""
+
+# --- case 16: the shape arm, which is what the rename needed (#74) ----------------------
+echo "case 16: a bucket copy on a different provenance contract refuses --only"
+# The API cannot answer this: it drops null properties, so a pre-#74 item that carried twelve
+# nulls serves none of them and looks identical to a post-#74 item that omits them. The bucket
+# copy keeps its nulls, and it is the document this release would overwrite.
+BUCKETSHAPE=nge
+run_release --only aaaa_ch_ff04;                    refused "a renamed provenance contract is refused under --only"
+expect_out "names it as a full-release change" "A renamed or re-shaped provenance contract is a FULL-release change"
+expect_out "names the keys the bucket has and the build does not" "publishes provenance key(s) this build does not: nge:key,nge:run_uid"
+BUCKETSHAPE=""
+
+# --- case 17: the other direction is a GAIN, which --only exists to publish --------------
+echo "case 17: a provenance key the bucket copy lacks is a gain, not a refusal"
+# An area re-run upstream that now carries a field it did not before — the normal
+# forward-only state, and the shape that will arrive when kotl/larl/sloc get a link run uid.
+# Refusing it would break #36's single-group path for exactly the items it was built for.
+BUCKETSHAPE=drop
+run_release --only aaaa_ch_ff04
+expect_eq "exit 0" "$RC" 0
+expect_out "the gain is reported, not refused" "provenance gained since the bucket copy: link:run_uid"
+expect_eq "and nothing is said about a renamed contract" "$(grep -c 'FULL-release change' "$OUT" || true)" 0
+BUCKETSHAPE=""
 
 # --- case 3: refusals ------------------------------------------------------------------
 echo "case 3: refusals touch nothing"

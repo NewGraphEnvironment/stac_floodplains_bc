@@ -40,9 +40,12 @@ raw_dir <- file.path("data", "raw")
 stac_dir <- file.path("data", "stac")
 
 # --- Run provenance (#17) -------------------------------------------------
-# Ferried from the producer, never derived here. The names are the STAC property names
-# minus the `nge:` prefix, so item_create.py maps them mechanically and this vector
-# is the single place the set is declared.
+# Ferried from the producer, never derived here. These are the STAGED names, and since #74
+# they are NOT the published property names: item_create.py carries the map from each of
+# these to `processing:datetime`, a `processing:software` entry, `link:*` or `landcover:*`.
+# They are still the names 02_raster_tag.py writes into every COG as NGE_<FIELD>, which is
+# why renaming the published properties moved no raster bytes. This vector is the single
+# place the staged set is declared.
 #
 # `link_config_sha256` is link's OWN stored `config_hash` — a hash over 17 config files
 # plus the config name and species list, not a SHA of config.yaml. Recomputing one here
@@ -65,10 +68,11 @@ PROV_FIELDS <- c(
 )
 
 # Absent provenance is the NORMAL state, not an error: floodplains#33 is forward-only, so
-# every area modelled before it lands carries none until it is re-run. Every field is
-# published as an explicit JSON null rather than omitted — an absent property reads as
-# "not implemented", a null one as "we looked and there was not one", and only the second
-# is true.
+# every area modelled before it lands carries none until it is re-run. Every field is staged
+# as NA, so meta.json carries the key with a null on every item — and that is where the
+# distinction now ends: since #74 item_create.py OMITS the key on the published item, because
+# the processing extension admits no null. The "we looked and there was not one" statement
+# survives on the COGs, as NGE_PROVENANCE_NULL, and nowhere else.
 #
 # The reader is the ONLY part of this repo that knows the producer's file shape. Sourced
 # after PROV_FIELDS because it asserts against it.

@@ -19,6 +19,77 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
+### Item field names moved off the `nge:` prefix (#74)
+
+Every custom item property is renamed. **A saved filter or script that names an old property
+stops matching** — it does not error, it returns nothing.
+
+| was | now |
+|---|---|
+| `nge:produced_datetime` | `processing:datetime` |
+| `nge:link_version` | `processing:software` → `link`, before the last `+` |
+| `nge:link_sha` | `processing:software` → `link`, after the last `+` |
+| `nge:flooded_version` | `processing:software` → `flooded` |
+| `nge:drift_version` | `processing:software` → `drift` |
+| `nge:link_run_uid` | `link:run_uid` |
+| `nge:link_config_sha256` | `link:config_sha256` |
+| `nge:landcover_source` | `landcover:source` |
+| `nge:landcover_collection` | `landcover:collection` |
+| `nge:landcover_stac_url` | `landcover:stac_url` |
+| `nge:landcover_key` | `landcover:key` |
+| `nge:landcover_item_hash` | `landcover:item_hash` |
+
+Twelve fields, nine published keys. The three version fields and the link commit now live
+inside one [processing extension](https://github.com/stac-extensions/processing) v1.2.0 property,
+which items list in `stac_extensions`:
+
+```json
+"processing:software": {"link": "0.50.0+8c8c29b2d9b0", "flooded": "0.5.0", "drift": "0.8.0"}
+```
+
+The `link` entry is `<version>+<sha>`, semver build metadata. **Split it on the LAST `+`, not
+the first** — a version may itself carry build metadata, so the first `+` is not necessarily the
+separator. A filter that compared `nge:link_version` for equality has to compare the start of the
+`link` entry instead.
+
+Standard names where a standard exists, and otherwise a prefix that says what the field
+describes rather than who produced it — the rule the catalogue family settled in
+`stac_pointcloud_bc#12`, and the same move `stac_airphoto_bc` made in its v1.0.0. One query now
+spans both collections for a processing datetime or a software version.
+
+**No raster changed, and no `file:checksum` moved.** The GDAL tags inside each COG keep their
+names (`NGE_LINK_VERSION`, `NGE_LANDCOVER_KEY`, `NGE_PROVENANCE_NULL`, …), so this is an item-JSON
+change only. Measured rather than reasoned: a full rebuild of `larl_bt_ff04` reproduced all ten
+of its assets byte-for-byte against what the API was serving.
+
+**A field the producer has no value for is now ABSENT rather than published as `null`.** The
+extension forbids a null — `processing:datetime` is typed `string`, `processing:software` is an
+object whose values are typed `string`, and an item that declares the extension while carrying
+no `processing:` field is refused outright — so the choice was forced there and applied to all
+twelve for one rule. **API consumers see no change**: pgstac already dropped a
+published null on output, so these keys were already absent from every API response. Two
+consequences worth knowing:
+
+- `mcgr_ch_ff04` and `pine_bt_ff04`, which carry no provenance at all, now publish **no**
+  provenance keys and do not declare the processing extension. They remain `deprecated: true`,
+  which is the positive statement about them.
+- The "we looked upstream and there was none" statement now survives only inside the COGs, as
+  `NGE_PROVENANCE_NULL` — a comma-separated list of the fields that had no value. On
+  `larl_bt_ff04`, `kotl_bt_ff04` and `sloc_bt_ff04` that is `link_run_uid`, which no API response
+  has ever shown.
+
+**Until this release lands, `catalogue_release.sh --only` refuses every item.** Each live
+item's bucket copy carries the old key names, which the preflight reads as a contract change —
+by design, and the message says so. Single-item republishes resume once the full release has
+written the new shape.
+
+**This is a breaking change for consumers and it is not `v2.0.0`.** That version stays reserved
+for the release in which every published area carries corrected geometry (see the note at the top
+of this file) — the reservation is about the data, and this release changes only what the fields
+are called.
+
+### Seven years of land cover for four areas (#59)
+
 **Four areas now publish land cover for every year from 2017 to 2023** (#59), on top of the
 code change that made that expressible (#61). The collection carries two populations from here
 on: `bulk_co_ff04`, `necr_ch_ff04`, `lnth_ch_ff04` and `kotl_bt_ff04` serve seven
@@ -48,7 +119,10 @@ No *modelled value* about the four changed, and that is measured rather than ass
 three floodplain extents, the tree-change figures, the temporal window, the `bbox` and the
 geometry are unchanged, and the `floodplain`, `transition_vector` and three `style_*` assets
 are unchanged on both checksum and size. Every COG's bytes did move, for the tag reason below,
-and `necr` and `kotl` also picked up stray upstream metadata — both are their own bullets. Exactly four properties move — `nge:landcover_key`,
+and `necr` and `kotl` also picked up stray upstream metadata — both are their own bullets.
+
+This entry names the properties as **those four items were published under them**, which is the
+`nge:` naming the entry above renames. Exactly four properties move — `nge:landcover_key`,
 `nge:landcover_item_hash`, `nge:drift_version` (now `0.13.0`) and `nge:produced_datetime`.
 
 **The other nineteen items did not move at all.** The four were published one at a time with

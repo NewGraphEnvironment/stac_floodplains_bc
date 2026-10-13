@@ -74,7 +74,7 @@ def check_version_stamp(doc: dict) -> "str | None":
 # --- Licence and attribution (#47) -----------------------------------------------------
 #
 # ABSOLUTE expectations, duplicated from item_create.py rather than imported. Two reasons,
-# and only the second is the one the REQUIRED_NGE_PROPERTIES block below gives:
+# and only the second is the one the PROV_PROPERTIES block below gives:
 #
 #   * importing item_create.py runs the entire build — it raises SystemExit at module level
 #     when nothing is staged, and writes 24 files as an import side effect; and
@@ -154,7 +154,7 @@ EXPECTED_DERIVATION_STATEMENT = (
     "(io-lulc-annual-v02, CC BY 4.0, via Microsoft Planetary Computer) and is "
     "modified: clipped to the modelled floodplain extent and cross-tabulated between 2017 "
     "and 2023 into land-cover transitions. Every year is read from that one collection, "
-    "recorded per item as nge:landcover_collection and fingerprinted as nge:landcover_key, "
+    "recorded per item as landcover:collection and fingerprinted as landcover:key, "
     "so the series cannot silently mix releases and manufacture change."
 )
 
@@ -253,7 +253,7 @@ def check_collection_metadata(doc: dict) -> list[str]:
 
 
 # The items published as over-mapped (#26). Duplicated from item_create.py's DEPRECATED_ITEMS
-# rather than imported, for the reasons given above REQUIRED_NGE_PROPERTIES: importing that
+# rather than imported, for the reasons given above PROV_PROPERTIES: importing that
 # module runs the whole build, and a guard that reads the value it checks is x == x.
 EXPECTED_DEPRECATED = {"mcgr_ch_ff04", "pine_bt_ff04"}
 
@@ -302,7 +302,7 @@ def check_deprecated(base: Path, partial: bool = False) -> list[str]:
     unblocks and MCGR is rebuilt, nothing would remove it from the literal, and it would
     publish as deprecated forever while carrying corrected geometry — a lie in the opposite
     direction from the one #26 opened. So an item marked deprecated may not carry a non-null
-    `nge:flooded_version`, and the first corrected build fails the release until the id is
+    `flooded` software entry, and the first corrected build fails the release until the id is
     deleted from the literal.
 
     What that arm encodes is "deprecated HERE means not-rebuilt". True by construction today —
@@ -346,18 +346,22 @@ def check_deprecated(base: Path, partial: bool = False) -> list[str]:
         # so an exact floor of 21 is satisfied by 21 provenanced items whatever ships beside
         # them. Without this, a 24th over-mapped item ships looking current and every guard
         # stays green.
-        fv = props.get("nge:flooded_version")
+        # Read through the map, not by key: since #74 the version lives inside
+        # `processing:software`, so a `.get("nge:flooded_version")` ported straight across
+        # would return None on every item and mark the whole catalogue as not-rebuilt.
+        fv = _software(props).get("flooded")
         if flag is True:
             marked.add(item_id)
             if _corrected(fv):
                 problems.append(
-                    f"{item_id}: marked deprecated but carries nge:flooded_version {fv!r}. "
+                    f"{item_id}: marked deprecated but carries a flooded version of {fv!r}. "
                     f"If it has been rebuilt, delete it from DEPRECATED_ITEMS in "
                     f"item_create.py and EXPECTED_DEPRECATED here. If it is deprecated for "
                     f"some other reason, this guard is the wrong one — it encodes "
                     f"'deprecated here means not-rebuilt' and needs widening, not silencing")
         elif not _corrected(fv):
-            _v = "no nge:flooded_version" if fv is None else f"nge:flooded_version {fv!r}"
+            _v = ("no flooded version" if fv is None
+                  else f"a flooded version of {fv!r}")
             problems.append(
                 f"{item_id}: carries {_v}, so nothing here can vouch that it was built on "
                 f"flooded >= {'.'.join(map(str, MIN_FLOODED_VERSION))}, and it publishes "
@@ -406,13 +410,13 @@ def check_citation_premise(base: Path) -> list[str]:
     different host — an Esri-hosted variant on different terms — leaves the id untouched, so
     checking the id alone would let it through while the citation named the wrong licensor.
 
-    A NULL value stays legal on either: the provenance floor (#32) is what governs how many
+    An ABSENT value stays legal on either: the per-field census (#74) is what governs how many
     items must carry one, and refusing here would be a guard failing toward abort on a build
     the floor deliberately permits.
     """
     problems: list[str] = []
-    claims = (("nge:landcover_collection", EXPECTED_SOURCE_COLLECTION),
-              ("nge:landcover_stac_url", EXPECTED_SOURCE_STAC_URL))
+    claims = ((PROV_PROPERTIES["landcover_collection"], EXPECTED_SOURCE_COLLECTION),
+              (PROV_PROPERTIES["landcover_stac_url"], EXPECTED_SOURCE_STAC_URL))
     for path in sorted(base.glob("*.json")):
         doc = json.loads(path.read_text())
         if doc.get("type") != "Feature":
@@ -425,11 +429,8 @@ def check_citation_premise(base: Path) -> list[str]:
                     f"attributes {want!r}")
     return problems
 
-# Run provenance (#17). Declared here as an ABSOLUTE set, deliberately duplicating
-# item_create.py's PROV_FIELDS rather than importing it — importing that module
-# would run the entire build, since it is a script and not a library.
 # The item properties that 02_raster_tag.py mirrors as UPPERCASE GDAL tags. Absolute and
-# hardcoded, for the same reason as REQUIRED_NGE_PROPERTIES: derived from the data, a tag
+# hardcoded, for the same reason as PROV_CENSUS below: derived from the data, a tag
 # that vanished from every COG would take the expectation with it.
 #
 # Only the NGE_ half was guarded before #33. The other nine had no guard anywhere — and
@@ -445,114 +446,421 @@ SHARED_TAG_PROPERTIES = {
     "gross_loss_ha", "gross_gain_ha", "net_ha",
 }
 
-REQUIRED_NGE_PROPERTIES = {
-    "nge:link_run_uid", "nge:link_config_sha256", "nge:link_sha", "nge:link_version",
-    "nge:flooded_version", "nge:drift_version", "nge:produced_datetime",
-    "nge:landcover_source", "nge:landcover_collection", "nge:landcover_stac_url",
-    "nge:landcover_key", "nge:landcover_item_hash",
+# The published provenance contract (#17, renamed off the `nge:` prefix in #74). Declared here
+# as ABSOLUTE, deliberately duplicating item_create.py's map rather than importing it —
+# importing that module would run the entire build, since it is a script and not a library.
+#
+# The STAGED field name is the key on both sides of the map, because it is the name every
+# other surface still uses: what 01_stage.R writes into meta.json, what 02_raster_tag.py
+# writes into every COG as `NGE_<FIELD>`, and what the per-field census below counts. Only the
+# published property moved in #74, which is what let the COG tags stay where they are and so
+# left every `file:checksum` untouched.
+PROV_PROPERTIES = {
+    "link_run_uid": "link:run_uid",
+    "link_config_sha256": "link:config_sha256",
+    "produced_datetime": "processing:datetime",
+    "landcover_source": "landcover:source",
+    "landcover_collection": "landcover:collection",
+    "landcover_stac_url": "landcover:stac_url",
+    "landcover_key": "landcover:key",
+    "landcover_item_hash": "landcover:item_hash",
+}
+# The four version/sha fields land INSIDE one property, as a name -> version map. `link` is a
+# pair joined with `+` (semver build metadata), as stac_airphoto_bc#47 publishes
+# `{"fly": "<version>+<sha>"}`.
+SOFTWARE_PROPERTY = "processing:software"
+PROV_SOFTWARE = {
+    "link": ("link_version", "link_sha"),
+    "flooded": ("flooded_version",),
+    "drift": ("drift_version",),
+}
+PROV_FIELDS = [
+    "link_run_uid", "link_config_sha256", "link_sha", "link_version",
+    "flooded_version", "drift_version", "produced_datetime",
+    "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
+    "landcover_item_hash",
+]
+# Nine published keys from twelve staged fields.
+PROV_KEYS = set(PROV_PROPERTIES.values()) | {SOFTWARE_PROPERTY}
+PROV_PREFIXES = {k.split(":", 1)[0] for k in PROV_KEYS}
+assert set(PROV_FIELDS) == set(PROV_PROPERTIES) | {f for fs in PROV_SOFTWARE.values() for f in fs}, (
+    "PROV_FIELDS and the publish map disagree — a field with no destination would be staged, "
+    "tagged into every COG, and never published")
+
+# The extensions this build declares, as literals. Duplicated from item_create.py for the
+# reason stated above, and needed here by the prefix table: a field whose prefix belongs to an
+# extension is only meaningful if the item declares that extension, because the schema that
+# would check the field is selected BY the extension list.
+PROJECTION_EXT = "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+FILE_EXT = "https://stac-extensions.github.io/file/v2.1.0/schema.json"
+CLASSIFICATION_EXT = "https://stac-extensions.github.io/classification/v2.0.0/schema.json"
+PROCESSING_EXT = "https://stac-extensions.github.io/processing/v1.2.0/schema.json"
+# Every prefix this catalogue may publish, and the schema that governs it. `None` means a
+# descriptive prefix with no schema anywhere: crate's rule is that a prefix earns a versioned
+# schema only when more than one catalogue writes it or something outside NGE reads it, and
+# these two are written here alone — the same call stac_airphoto_bc#47 made for `airphoto:`.
+#
+# The table is the arm that refuses a resurrected `nge:` key, since `nge` is not in it.
+FIELD_PREFIXES = {
+    "proj": PROJECTION_EXT,
+    "file": FILE_EXT,
+    "classification": CLASSIFICATION_EXT,
+    "sci": SCIENTIFIC_EXT,
+    "processing": PROCESSING_EXT,
+    "link": None,
+    "landcover": None,
 }
 
+# The per-field EXACT census (#74): how many items carry a VALUE for each staged field. A
+# literal a human sets, the same shape and the same reason as PROVENANCE_FLOOR in
+# catalogue_release.sh — an expectation derived from the data cannot be contradicted by it.
+#
+# It exists because #74 stopped publishing an explicit null, which cost the guard that had
+# been doing this job: until then every item carried every key, so SET EQUALITY over the
+# `nge:` keys caught a reader that silently found nothing (#23's hole) and a reader that kept
+# one section and lost another. With keys omitted, presence varies per item by design and that
+# equality is gone. Counting each field is what replaces it, and it is strictly stronger than
+# what it replaces plus the per-section counts, which were only ever PRINTED: a section lost
+# on every item used to pass every arm, because the item-level floor was still met by the
+# surviving sections and the count went into a scrollback nobody reads.
+#
+# Why per field and not per section: measured on the live catalogue 2026-10-13, `link_run_uid`
+# is absent on kotl/larl/sloc while the rest of its section carries values — legitimately, a
+# fresh block whose schema predates link#262 — so "a section is present or wholly absent" is
+# false on three published items. Per field is the only shape that tolerates that hole and
+# still sees a uniform loss of any single field.
+#
+# Set from the per-field counts the validator itself prints for the build being released — the
+# `census:` line in main(), which is why it prints on a rebuild as well, when nothing is being
+# asserted. 01_stage.R prints only the ITEM-level count, which is the floor; item_create.py
+# prints that plus one census row, the `link:run_uid` one, which is the field that varies
+# today. Neither answers the other ten. A release sets it in the same commit as its NEWS entry, so
+# every release records the shape rather than printing it. EXACT in both directions: below is a
+# reader that lost a field, above is a census nobody updated.
+PROV_CENSUS = {
+    "link_run_uid": 18,
+    "link_config_sha256": 21,
+    "link_sha": 21,
+    "link_version": 21,
+    "flooded_version": 21,
+    "drift_version": 21,
+    "produced_datetime": 21,
+    "landcover_source": 21,
+    "landcover_collection": 21,
+    "landcover_stac_url": 21,
+    "landcover_key": 21,
+    "landcover_item_hash": 21,
+}
+assert set(PROV_CENSUS) == set(PROV_FIELDS), (
+    "PROV_CENSUS and PROV_FIELDS disagree — a field with no census row would be counted by "
+    "nothing")
 
-# The three upstream steps that write provenance, by the fields each one owns. Printed per
-# section so a partial reader — network found, landcover lost — is visible on screen even
-# though the item-level floor counts it as carrying provenance.
+# The three upstream steps that write provenance, by the STAGED fields each one owns — not by
+# published key, because `processing:software` holds one field from each of the three
+# (link_version, flooded_version, drift_version), so the sections are not expressible over
+# top-level keys any more. Printed per section so a partial reader is visible on screen; the
+# census above is what ASSERTS it.
 PROV_SECTIONS = {
-    "network": {"nge:link_run_uid", "nge:link_config_sha256", "nge:link_sha", "nge:link_version"},
-    "floodplain": {"nge:flooded_version"},
+    "network": {"link_run_uid", "link_config_sha256", "link_sha", "link_version"},
+    "floodplain": {"flooded_version"},
 }
-PROV_SECTIONS["landcover"] = REQUIRED_NGE_PROPERTIES - PROV_SECTIONS["network"] - PROV_SECTIONS["floodplain"]
+PROV_SECTIONS["landcover"] = (
+    set(PROV_FIELDS) - PROV_SECTIONS["network"] - PROV_SECTIONS["floodplain"])
+
+# `processing:datetime` is `type: string` with `format: date-time` AND
+# `pattern: (\+00:00|Z)$` in the v1.2.0 schema, so a value with no UTC designator is refused
+# by pystac — several hundred megabytes of hashing later, with a raw jsonschema message. The
+# value is passed through verbatim from the producer's `landcover$run$datetime_utc`, which
+# this repo does not otherwise shape-check, so it is asserted early with a message that names
+# the cause.
+_UTC_INSTANT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)$")
+
+
+def _software(props: dict) -> dict:
+    """The `processing:software` map, or {} when absent or the wrong type.
+
+    Wrong-type tolerant on purpose: check_processing_stamp reports the shape, and every other
+    reader wants to carry on and report its own arm rather than raise on the first bad item.
+    """
+    sw = props.get(SOFTWARE_PROPERTY)
+    return sw if isinstance(sw, dict) else {}
+
+
+def prov_present(props: dict) -> dict[str, object]:
+    """The staged provenance fields a published item carries, keyed by STAGED name.
+
+    The inverse of the publish map, and the one place the two shapes are reconciled. A field
+    backed by a `processing:software` entry takes the ENTRY's string as its value, including
+    for the `link` pair — nothing here splits `<version>+<sha>` back apart. A version may
+    itself carry build metadata (`0.50.0+dirty`), so only the last `+` separates the two and a
+    consumer splitting on the first gets a wrong answer; every comparison in this file is made
+    by reassembling instead, which has no such ambiguity.
+
+    Presence means a non-null VALUE, not merely the key: a build that still published nulls
+    reads the same way as one that omits them. It does NOT read an item published before #74,
+    whose keys are all `nge:`-prefixed and match nothing here — canonicalising across the
+    rename is catalogue_release.sh step 0 and it does that explicitly.
+    """
+    out: dict[str, object] = {}
+    for field, prop in PROV_PROPERTIES.items():
+        if props.get(prop) is not None:
+            out[field] = props[prop]
+    sw = _software(props)
+    for entry, fields in PROV_SOFTWARE.items():
+        if sw.get(entry) is None:
+            continue
+        for field in fields:
+            out[field] = sw[entry]
+    return out
 
 
 def check_provenance(base: Path, floor: int | None = None
-                     ) -> tuple[list[str], int, int, dict[str, int]]:
-    """Verify every item carries every `nge:` provenance KEY, and — when `floor` is given —
-    that EXACTLY `floor` items carry a VALUE. Returns (problems, items carrying a value,
-    items seen, items carrying a value per upstream section).
+                     ) -> tuple[list[str], int, int, dict[str, int], dict[str, int]]:
+    """Verify the published provenance contract, and — when `floor` is given — its census.
 
-    Absolute, not comparative. The asset check below compares items against each other,
-    which is structurally blind to a defect that hits all of them uniformly — the exact
-    hole #23 fell into. If the staging reader silently found nothing and every item lost
-    the same properties, a cross-item check sees no variance and passes, and pystac's
-    schema validation cannot see custom properties at all. So the required set is named
-    here rather than derived from the data.
+    Returns (problems, items carrying provenance, items seen, per-section counts, per-field
+    counts). The per-field counts come back whether or not they were asserted, because they
+    are what the next release sets PROV_CENSUS from.
 
-    Set EQUALITY, not containment: a property added to item_create.py without being
-    declared here fails too, which is what keeps the two lists in step now that they
-    cannot import from one another.
+    Absolute, not comparative. The asset check below compares items against each other, which
+    is structurally blind to a defect that hits all of them uniformly — the exact hole #23 fell
+    into. pystac cannot help either: it validates `processing:*` against the extension once
+    declared, and it cannot see `link:*` or `landcover:*` at all, because no schema anywhere
+    describes them (deliberately — see FIELD_PREFIXES). So everything below is named here.
 
-    A null VALUE is expected and allowed — floodplains#33 is forward-only, so an area
-    modelled before it lands has no provenance to carry, and publishing the null is the
-    point of the issue. Only an absent KEY is a failure.
+    Three arms, and they answer three different questions:
 
-    The floor (#32) is the one guard on VALUES, and it is set by the operator, never
-    derived: deriving it from the build reproduces #23 — the expectation comes from the
-    data, so the data cannot contradict it. Once areas are re-modelled under provenance,
-    "every item null" stops being the expected state and becomes the one failure this
-    feature exists to make visible — a reader that silently found nothing produces exactly
-    the all-null catalogue that every presence check waves through. "Carries a value" is
-    the same predicate 01_stage.R (`has_prov`) and item_create.py (`_no_prov`) print, so the
-    number on screen after a build is the number to set.
+      * DECLARED. Every published key under a provenance prefix is one this contract names,
+        and every `processing:software` entry name likewise. This is what survives from the
+        key-set equality #74 retired: a thirteenth field, a typo (`landcover:sourc`), or a
+        `processing:` field this build does not publish all fail here, under an ALLOWED prefix,
+        which is more than the prefix table alone can see.
+      * CENSUS. Exactly PROV_CENSUS[field] items carry a VALUE for each field, when a floor is
+        given (a release, not a rebuild). The reasoning is at PROV_CENSUS.
+      * FLOOR. Exactly `floor` items carry provenance at all. Kept beside the census rather
+        than derived from it: it is the number catalogue_release.sh passes, the number
+        01_stage.R and item_create.py print, and the one a human reads back from a release.
 
-    EXACT, not a minimum. A minimum makes "raise it" a convention nobody enforces: coverage
-    climbs from 1 to 20 across releases and the literal stays at 0, printing a number in a
-    scrollback nobody reads. Exact means every release records the count as a fact beside
-    its NEWS entry, and a build that disagrees with the record fails in either direction —
-    below is a reader that found nothing, above is a floor nobody updated. None means no
-    check: a rebuild is not a release.
+    An absent field is expected and allowed — floodplains#33 is forward-only, so an area
+    modelled before it lands has nothing to carry, and two items carry nothing at all. What is
+    NOT allowed is a count that moved without the literal moving with it.
     """
     problems: list[str] = []
     seen = 0
     traced = 0
     per_section = {s: 0 for s in PROV_SECTIONS}
+    census = {f: 0 for f in PROV_FIELDS}
     for path in sorted(base.glob("*.json")):
         doc = json.loads(path.read_text())
         if doc.get("type") != "Feature":
             continue
         seen += 1
-        props = doc.get("properties", {})
-        found = {k for k in props if k.startswith("nge:")}
-        if found != REQUIRED_NGE_PROPERTIES:
+        item_id = doc.get("id", path.stem)
+        props = doc.get("properties") or {}
+
+        undeclared = sorted(k for k in props
+                            if k.split(":", 1)[0] in PROV_PREFIXES and k not in PROV_KEYS)
+        if undeclared:
             problems.append(
-                f"{doc['id']}: nge: property set differs from the declared contract — "
-                f"missing {sorted(REQUIRED_NGE_PROPERTIES - found) or 'none'}, "
-                f"undeclared {sorted(found - REQUIRED_NGE_PROPERTIES) or 'none'}")
-        if any(props.get(k) is not None for k in REQUIRED_NGE_PROPERTIES):
+                f"{item_id}: publishes provenance key(s) this contract does not declare: "
+                f"{', '.join(undeclared)}. Add them to PROV_PROPERTIES here and in "
+                f"item_create.py, or stop publishing them — an undeclared key is checked by "
+                f"nothing, since no schema describes these prefixes")
+        sw = props.get(SOFTWARE_PROPERTY)
+        if isinstance(sw, dict):
+            stray = sorted(set(sw) - set(PROV_SOFTWARE))
+            if stray:
+                problems.append(
+                    f"{item_id}: {SOFTWARE_PROPERTY} carries undeclared entry name(s): "
+                    f"{', '.join(stray)}")
+
+        present = prov_present(props)
+        for field in present:
+            census[field] += 1
+        if present:
             traced += 1
-        for sect, keys in PROV_SECTIONS.items():
-            if any(props.get(k) is not None for k in keys):
+        for sect, fields in PROV_SECTIONS.items():
+            if fields & set(present):
                 per_section[sect] += 1
+
     # Zero items is not a pass. The loop above would report nothing at all for an empty
     # or wrongly-pointed directory, which reads identically to "every item checked out".
     if seen == 0:
         problems.append(
             f"no items found under {base}/*.json — the provenance contract was not "
             f"actually checked against anything")
-    if floor is not None and traced < floor:
-        problems.append(
-            f"{traced} of {seen} item(s) carry a non-null nge: value but the release floor is "
-            f"{floor}. A reader that silently found nothing looks exactly like the expected "
-            f"forward-only state; the floor is what tells them apart. If fewer areas genuinely "
-            f"carry provenance now, lower PROVENANCE_FLOOR in catalogue_release.sh deliberately.")
-    elif floor is not None and traced > floor:
-        problems.append(
-            f"{traced} of {seen} item(s) carry a non-null nge: value but the release floor is "
-            f"{floor} — the floor is behind the build. Set PROVENANCE_FLOOR to {traced} in "
-            f"catalogue_release.sh, in the same commit as this release's NEWS entry, so the "
-            f"count is recorded rather than printed.")
-    return problems, traced, seen, per_section
+        return problems, traced, seen, per_section, census
+
+    # Both the census and the floor are release-time: a rebuild has no business asserting how
+    # many areas the producer has re-modelled, and `floor is None` is how the release says
+    # "this is a rebuild" (and how --only says "a one-group tree cannot meet a full-tree
+    # expectation").
+    if floor is not None:
+        for field in PROV_FIELDS:
+            if census[field] != PROV_CENSUS[field]:
+                problems.append(
+                    f"{field}: {census[field]} of {seen} item(s) carry a value, but "
+                    f"PROV_CENSUS says {PROV_CENSUS[field]}. Below means a reader lost that "
+                    f"field — which is invisible to every other guard, because a uniform loss "
+                    f"leaves nothing to compare against. Above means the census is behind the "
+                    f"build: set it to {census[field]} here, in the same commit as this "
+                    f"release's NEWS entry")
+        if traced < floor:
+            problems.append(
+                f"{traced} of {seen} item(s) carry provenance but the release floor is "
+                f"{floor}. A reader that silently found nothing looks exactly like the expected "
+                f"forward-only state; the floor is what tells them apart. If fewer areas genuinely "
+                f"carry provenance now, lower PROVENANCE_FLOOR in catalogue_release.sh deliberately.")
+        elif traced > floor:
+            problems.append(
+                f"{traced} of {seen} item(s) carry provenance but the release floor is "
+                f"{floor} — the floor is behind the build. Set PROVENANCE_FLOOR to {traced} in "
+                f"catalogue_release.sh, in the same commit as this release's NEWS entry, so the "
+                f"count is recorded rather than printed.")
+    return problems, traced, seen, per_section, census
+
+
+def check_processing_stamp(base: Path) -> list[str]:
+    """The processing extension and its fields, pinned in BOTH directions (#74).
+
+    Three things no schema can do for us, each measured against processing/v1.2.0 on
+    2026-10-13 rather than reasoned from the spec:
+
+      * The extension is selected BY `stac_extensions`, so a `processing:` field published
+        with the extension absent is validated by nothing. The converse IS refused — the Item
+        branch is `allOf[require_any_field, fields]` — which is why item_create.py declares it
+        conditionally, and why the pairing has to be asserted here as a biconditional. Same
+        shape as check_version_stamp and check_scientific, for the same reason.
+      * `processing:software` is an `object` with `patternProperties {".{1,}": string}` and no
+        `required` and no `minProperties`, so `{}` validates — AND the mere presence of the
+        key satisfies `require_any_field`. An empty map would therefore declare the extension,
+        pass pystac, and read as "provenance present" to every predicate that asks whether the
+        key is there.
+      * The `link` entry is `<version>+<sha>`. One half absent would publish `+<sha>` or a
+        bare version: a schema-valid string that is not what it claims. item_create.py raises
+        before writing one; this is the arm that catches a tree built before it did.
+    """
+    problems: list[str] = []
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc.get("id", path.stem)
+        props = doc.get("properties") or {}
+        has_ext = PROCESSING_EXT in (doc.get("stac_extensions") or [])
+        fields = sorted(k for k in props if k.startswith("processing:"))
+        if has_ext != bool(fields):
+            problems.append(
+                f"{item_id}: processing extension half-applied — extension "
+                f"{'declared' if has_ext else 'absent'}, "
+                f"{'field(s) ' + ', '.join(fields) if fields else 'no processing: field'}")
+
+        sw = props.get(SOFTWARE_PROPERTY, _ABSENT)
+        if sw is not _ABSENT:
+            if not isinstance(sw, dict):
+                problems.append(
+                    f"{item_id}: {SOFTWARE_PROPERTY} is {type(sw).__name__}, expected an "
+                    f"object of name -> version")
+            elif not sw:
+                problems.append(
+                    f"{item_id}: {SOFTWARE_PROPERTY} is empty. An empty object validates and "
+                    f"satisfies the extension, so it publishes the claim 'software recorded' "
+                    f"with nothing behind it — omit the key instead")
+            else:
+                for entry, value in sorted(sw.items()):
+                    if not isinstance(value, str) or not value:
+                        problems.append(
+                            f"{item_id}: {SOFTWARE_PROPERTY} entry {entry!r} is {value!r}, "
+                            f"expected a non-empty string")
+                    elif len(PROV_SOFTWARE.get(entry, ())) == 2:
+                        version, sep, sha = value.rpartition("+")
+                        if not (sep and version and sha):
+                            problems.append(
+                                f"{item_id}: {SOFTWARE_PROPERTY} entry {entry!r} is {value!r}, "
+                                f"expected <version>+<sha> — a half-present pair publishes a "
+                                f"version string nobody ran")
+
+        dt = props.get("processing:datetime", _ABSENT)
+        if dt is not _ABSENT and not (isinstance(dt, str) and _UTC_INSTANT.match(dt)):
+            problems.append(
+                f"{item_id}: processing:datetime is {dt!r}. The extension pins a UTC "
+                f"designator (`Z` or `+00:00`), and this value is passed through verbatim "
+                f"from the producer's landcover run datetime_utc — fix it upstream rather "
+                f"than reformatting it here, or pystac refuses the item with a raw schema "
+                f"message after the whole tree has been hashed")
+    return problems
+
+
+def check_field_prefixes(base: Path) -> list[str]:
+    """Every published namespaced field has a declared home (#74).
+
+    The coarse arm beside check_provenance's declared-key arm, and the one that generalises:
+    any prefix not in FIELD_PREFIXES is refused, which is what makes a resurrected `nge:` key
+    — on a property OR on an asset — a failed release rather than a thing someone notices.
+    Where the prefix belongs to an extension, that extension must be declared, since the
+    schema is selected by the list.
+
+    Core STAC fields carry no colon and are not this guard's business.
+    """
+    problems: list[str] = []
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        kind = doc.get("type")
+        if kind not in ("Feature", "Collection"):
+            continue
+        name = doc.get("id", path.stem)
+        exts = doc.get("stac_extensions") or []
+        # An Item namespaces under `properties` and per asset; a Collection carries its
+        # extension fields at the top level (`sci:citation`) and in `summaries`.
+        places: list[tuple[str, dict]] = []
+        if kind == "Feature":
+            places.append(("properties", doc.get("properties") or {}))
+        else:
+            places.append(("collection", doc))
+            places.append(("summaries", doc.get("summaries") or {}))
+        for asset_key, asset in (doc.get("assets") or {}).items():
+            places.append((f"asset {asset_key}", asset or {}))
+        for where, fields in places:
+            for key in sorted(fields):
+                if ":" not in key:
+                    continue
+                prefix = key.split(":", 1)[0]
+                if prefix not in FIELD_PREFIXES:
+                    problems.append(
+                        f"{name}: {where} publishes {key!r}, whose prefix {prefix!r} is not "
+                        f"declared in FIELD_PREFIXES. Either it belongs to an extension and "
+                        f"should be named there, or the prefix is a typo, or it is a field "
+                        f"this catalogue retired")
+                    continue
+                schema = FIELD_PREFIXES[prefix]
+                if schema is not None and schema not in exts:
+                    problems.append(
+                        f"{name}: {where} publishes {key!r} but does not declare {schema} in "
+                        f"stac_extensions, so nothing validates it")
+    return problems
 
 
 def check_cog_tags(base: Path) -> list[str]:
-    """Verify each COG's NGE_ tags agree with its item's non-null `nge:` properties.
+    """Verify each COG's NGE_ tags agree with the provenance its item publishes.
 
     02_raster_tag.py keeps its own copy of the field list, and nothing else in the repo reads
-    a COG — so before this check, adding a twelfth field and forgetting that copy would
+    a COG — so before this check, adding a thirteenth field and forgetting that copy would
     ship silently incomplete COGs. Every other copy of the list is tied to another
-    (fp_provenance.R stopifnot, item_create/item_validate set equality); this was the one with no
-    guard in the add direction.
+    (fp_provenance.R stopifnot, item_create/item_validate declared contract); this was the one
+    with no guard in the add direction. It still is not symmetric and does not need to be:
+    `managed` unions the COG's own `NGE_` keys below, so a tag with no counterpart in `want`
+    fires even though `want` is built from the item.
 
-    Compares against the ITEM, not against a second hardcoded list, so the assertion
-    cannot drift from what was published.
+    Compares against the ITEM, not against a second hardcoded list, so the assertion cannot
+    drift from what was published. Since #74 the two sides no longer share a name, so the
+    comparison goes through the publish map:
+
+      * a plain property -> `NGE_<FIELD>`;
+      * a one-field `processing:software` entry -> `NGE_<FIELD>`;
+      * the `link` entry -> TWO tags, compared by REASSEMBLING `NGE_LINK_VERSION + "+" +
+        NGE_LINK_SHA` and matching that against the published entry. Never by splitting the
+        published value: only the last `+` separates version from sha, so a split is ambiguous
+        where the concatenation is not.
     """
     problems: list[str] = []
     compared = 0
@@ -561,18 +869,30 @@ def check_cog_tags(base: Path) -> list[str]:
         if doc.get("type") != "Feature":
             continue
         item_id = doc["id"]
-        props = doc.get("properties", {})
-        # A null property is deliberately NOT tagged: GDAL metadata is string-only and has
-        # no null, so 03 encodes absence as the empty string, which GDAL drops on read.
-        want = {f"NGE_{k[len('nge:'):].upper()}": str(v)
-                for k, v in props.items() if k.startswith("nge:") and v is not None}
-        # NGE_PROVENANCE_NULL is included, not excluded. Until floodplains#33 lands it is
-        # the ONLY NGE_ tag on a COG — every value tag is absent — so excluding it made
-        # this check compare {} against {} for every item in exactly the state the repo
-        # expects to be in. Measured: the tag could be overwritten with garbage and the
-        # check still passed. It is derivable from the item for free.
-        nulls = sorted(k[len("nge:"):] for k, v in props.items()
-                       if k.startswith("nge:") and v is None)
+        props = doc.get("properties") or {}
+        # An absent field is deliberately NOT tagged: GDAL metadata is string-only and has no
+        # null, so 02 encodes absence as the empty string, which GDAL drops on read.
+        want = {}
+        for field, prop in PROV_PROPERTIES.items():
+            if props.get(prop) is not None:
+                want[f"NGE_{field.upper()}"] = str(props[prop])
+        software = _software(props)
+        # The pair is bridged below rather than diffed here, so its two tag names are held out
+        # of the generic comparison — otherwise they would read as tags with no property.
+        bridged = {f"NGE_{f.upper()}"
+                   for entry, fields in PROV_SOFTWARE.items() if len(fields) == 2
+                   for f in fields}
+        for entry, fields in PROV_SOFTWARE.items():
+            if len(fields) == 1 and software.get(entry) is not None:
+                want[f"NGE_{fields[0].upper()}"] = str(software[entry])
+        # NGE_PROVENANCE_NULL is included, not excluded, and is now derived as DECLARED MINUS
+        # PRESENT rather than from null-valued properties — since #74 there are no null-valued
+        # properties, so the old derivation would silently yield the empty list on every item
+        # and this arm would compare {} against {} for the whole catalogue. That is the same
+        # trap that was measured here before #33, when the tag could be overwritten with
+        # garbage and the check still passed.
+        present = set(prov_present(props))
+        nulls = sorted(f for f in PROV_FIELDS if f not in present)
         if nulls:
             want["NGE_PROVENANCE_NULL"] = ",".join(nulls)
         # The shared identity/metric tags, absent from the item is itself a failure.
@@ -594,8 +914,7 @@ def check_cog_tags(base: Path) -> list[str]:
             compared += 1
             with rasterio.open(local) as ds:
                 tags = ds.tags()
-            managed = {k for k in want} | {k for k in tags
-                                            if k.startswith("NGE_")}
+            managed = ({k for k in want} | {k for k in tags if k.startswith("NGE_")}) - bridged
             got = {k: v for k, v in tags.items() if k in managed}
 
             def _same(a, b):
@@ -619,6 +938,23 @@ def check_cog_tags(base: Path) -> list[str]:
                 problems.append(
                     f"{item_id}/{local.name}: GDAL tags disagree with the item's "
                     f"properties — {'; '.join(changed)}")
+            # The reassembly. Reached for every COG, including when the entry is absent: two
+            # tags on a COG whose item publishes no `link` entry is exactly the drift this
+            # guard exists for, and it is not visible to the diff above.
+            for entry, fields in PROV_SOFTWARE.items():
+                if len(fields) != 2:
+                    continue
+                keys = [f"NGE_{f.upper()}" for f in fields]
+                parts = [tags.get(k) for k in keys]
+                published = software.get(entry)
+                if published is None and all(p is None for p in parts):
+                    continue
+                rebuilt = "+".join("" if p is None else p for p in parts)
+                if published != rebuilt:
+                    problems.append(
+                        f"{item_id}/{local.name}: COG tags {' + '.join(keys)} reassemble to "
+                        f"{rebuilt!r} but the item publishes {SOFTWARE_PROPERTY} "
+                        f"{entry} = {published!r}")
     # Zero comparisons is not a pass. Same reasoning as check_provenance's seen == 0: a
     # loop over nothing prints nothing and returns clean, which is indistinguishable from
     # every COG having checked out.
@@ -1599,7 +1935,8 @@ def main() -> int:
     p.add_argument("--expect", type=int, default=None,
                    help="expected item count (default: number of data/raw/*/meta.json)")
     p.add_argument("--expect-provenance", type=int, default=None,
-                   help="EXACT number of items carrying a non-null nge: value (#32). Set by the "
+                   help="EXACT number of items carrying provenance (#32). Also turns on the "
+                        "per-field census (#74). Set by the "
                         "release from a human-chosen literal, never derived from the build; "
                         "omitted (a rebuild) means no check")
     p.add_argument("--partial", action="store_true",
@@ -1696,6 +2033,29 @@ def main() -> int:
             print(f"  {msg}", file=sys.stderr)
         return 1
 
+    # --- field names: does every namespaced field have a declared home? (#74) ---
+    #
+    # Before the provenance arms, because it is the cheap one and because a stray prefix makes
+    # every count below describe a shape nobody declared. Also before check_deprecated, which
+    # reads the flooded version out of `processing:software` and takes a malformed one as
+    # absent — so without this first, a software map of the wrong TYPE reports 21 items as
+    # unmarked-and-not-rebuilt instead of the one shape message that names the cause.
+    bad_prefixes = check_field_prefixes(args.base)
+    if bad_prefixes:
+        print(f"FAILED: {len(bad_prefixes)} field-name problem(s)", file=sys.stderr)
+        for msg in bad_prefixes:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    bad_proc = check_processing_stamp(args.base)
+    if bad_proc:
+        print(f"FAILED: {len(bad_proc)} processing-extension problem(s)", file=sys.stderr)
+        for msg in bad_proc:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"field names: every namespaced field sits under one of "
+          f"{', '.join(sorted(FIELD_PREFIXES))}, each declaring its schema where it has one; "
+          f"processing extension declared iff the item carries a processing: field")
+
     # --- deprecation: are the over-mapped items marked, and only them? (#26) ---
     # Here rather than after check_checksums, for the same reason as the premise check above:
     # behind the 670 MB re-read, any asset drift short-circuits it and a restore-the-bug proof
@@ -1713,11 +2073,12 @@ def main() -> int:
     else:
         print(f"deprecation: exactly {len(EXPECTED_DEPRECATED)} item(s) published "
               f"deprecated ({', '.join(sorted(EXPECTED_DEPRECATED))}), each declaring the "
-              f"version extension, and every item is marked iff its nge:flooded_version is "
+              f"version extension, and every item is marked iff its flooded version is "
               f"below {'.'.join(map(str, MIN_FLOODED_VERSION))} or unreadable")
     print(f"licence: {EXPECTED_LICENSE} with rel=license + rel=derived_from links, "
           f"{len(EXPECTED_PROVIDERS)} providers, sci:citation verbatim; no item's "
-          f"nge:landcover_collection or nge:landcover_stac_url contradicts the "
+          f"{PROV_PROPERTIES['landcover_collection']} or "
+          f"{PROV_PROPERTIES['landcover_stac_url']} contradicts the "
           f"citation (each is {EXPECTED_SOURCE_COLLECTION} / the Planetary Computer, "
           f"or null, independently)")
 
@@ -1739,8 +2100,9 @@ def main() -> int:
                       for y, ids in sorted(year_sets.items()))
           + (" (--partial: unused sets not checked)" if args.partial else ""))
 
-    # --- run provenance: does every item carry the declared nge: contract? ---
-    missing_prov, traced, n_items, per_section = check_provenance(args.base, args.expect_provenance)
+    # --- run provenance: does every item carry the declared contract? ---
+    missing_prov, traced, n_items, per_section, census = check_provenance(
+        args.base, args.expect_provenance)
     if missing_prov:
         print(f"FAILED: {len(missing_prov)} provenance contract problem(s)",
               file=sys.stderr)
@@ -1753,11 +2115,16 @@ def main() -> int:
         for msg in bad_tags:
             print(f"  {msg}", file=sys.stderr)
         return 1
-    print(f"provenance: {len(REQUIRED_NGE_PROPERTIES)} nge: properties on every item "
-          f"({traced} of {n_items} carry values — "
+    # The per-field counts, printed whether or not they are asserted — this is where the next
+    # release reads PROV_CENSUS from, and a number nobody can read is a literal nobody updates.
+    print("census: " + ", ".join(f"{f} {census[f]}" for f in PROV_FIELDS))
+    print(f"provenance: {len(PROV_FIELDS)} field(s) across {len(PROV_KEYS)} published key(s), "
+          f"{traced} of {n_items} item(s) carrying provenance — "
           + ", ".join(f"{s} {n}" for s, n in per_section.items())
-          + f"; floor {'none' if args.expect_provenance is None else args.expect_provenance}), "
-          f"COG tags agree")
+          + (f"; floor {args.expect_provenance} and the per-field census asserted"
+             if args.expect_provenance is not None
+             else "; floor and census not asserted (a rebuild, or --only)")
+          + "; COG tags agree")
 
     # --- layer styles: do the GeoPackages open styled, and does that style agree
     # --- with the raster palette for the same ground? (#46)

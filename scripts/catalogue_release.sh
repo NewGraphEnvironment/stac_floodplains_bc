@@ -42,7 +42,7 @@ RAW_DIR="${RAW_DIR:-data/raw}"
 HOST="${GEOSERV_HOST:-root@geopro}"
 S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.py emits
 
-# The provenance floor (#32): EXACTLY how many items carry a non-null nge: value in the
+# The provenance floor (#32): EXACTLY how many items carry provenance at all in the
 # build a full release publishes. A LITERAL set by a human, on purpose. Deriving it from
 # the build would reproduce #23 — an expectation that comes from the data cannot be
 # contradicted by it — and an env override would be the escape hatch this exists not to
@@ -259,41 +259,71 @@ if [ -n "$ONLY" ]; then
   fi
   echo "live-vs-build comparison: skipped under --only (this build may hold one group; nothing is retracted)."
   # The provenance floor cannot apply to a one-group tree, and --only is the release path
-  # in use — so the guard here is the live item itself (#32 review): the API drops null
-  # properties, so an nge: key PRESENT on the live item is a value. Any live value that
-  # this build's copy publishes as null is provenance LOST between the record and the
-  # build — a reader that found nothing, or one that found only some sections — and the
-  # step-5 read-back accepts build-null / served-absent as "the same document", so it
-  # would go through. Per key, not a total count: network found and landcover lost is the
-  # realistic shape, and a count would pass it. Refuse before anything is written.
-  only_prov=$(curl -sf --max-time 60 "$API/items/$ONLY" | python3 -c "
-import json, sys
-live = json.load(sys.stdin)
-built = json.load(open('$STAC_DIR/$ONLY.json'))
-lp, bp = live.get('properties', {}), built['properties']
-n_live = sum(1 for k, v in lp.items() if k.startswith('nge:') and v is not None)
-n_built = sum(1 for k, v in bp.items() if k.startswith('nge:') and v is not None)
-# A live key ABSENT from the build is a contract rename (#40's kind of change), not a
-# reader loss: still refused — a one-item republish under a renamed key would leave the
-# other live items on the old one — but diagnosed as what it is.
-lost = sorted(k for k, v in lp.items() if k.startswith('nge:') and v is not None and k in bp and bp[k] is None)
-gone = sorted(k for k, v in lp.items() if k.startswith('nge:') and v is not None and k not in bp)
-print(n_live, n_built, ','.join(lost), ','.join(gone))") || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
-  read -r only_live_prov only_built_prov only_lost_prov only_gone_prov <<EOF
+  # in use — so the guard here is the live item itself (#32 review). Two arms, because the
+  # rename in #74 showed one is not enough:
+  #
+  #   VALUES, from the API. Any value the live item serves that this build does not carry is
+  #   provenance LOST between the producer's record and the build — a reader that found
+  #   nothing, or only some sections. Per field, not a total: network found and landcover lost
+  #   is the realistic shape and a count would pass it. Both sides are canonicalised to the
+  #   STAGED field names first, so the comparison still works across #74's rename: the live
+  #   item may be serving `nge:link_version` while the build publishes
+  #   `processing:software.link`, and a scan for either name alone would compare a full item
+  #   against an empty one and call it clean.
+  #
+  #   SHAPE, from the BUCKET. The API drops null properties (#31/#36, measured), so it cannot
+  #   show what KEYS a pre-#74 item was published with — the two all-provenance-less items
+  #   serve none at all, and a contract change on them would look like no change. The bucket
+  #   copy is the document this release would overwrite and it keeps its nulls, so it is what
+  #   answers "is this the same contract". Any difference refuses --only: republishing one
+  #   item under a new contract leaves every other live item on the old one, which is
+  #   invisible from the API and permanent on a bucket with versioning Suspended.
+  # The bucket copy, fetched before the comparison and cleaned up on EXIT. One trap in this
+  # script, so there is nothing for a second one to replace.
+  only_bucket=$(mktemp -t only_bucket.XXXXXX) \
+    || { echo "Could not create a temp file for the bucket comparison." >&2; exit 1; }
+  trap 'rm -f "$only_bucket"' EXIT
+  # Redirection, not `curl -o`: every other read of a DOCUMENT in this script takes curl's
+  # stdout (the two `-o /dev/null` calls read a status code, not a body), and the check
+  # harness shims curl by printing the fixture — so a `-o` here would leave an empty file and
+  # the comparison would be made against nothing. Measured: it did, and 28 assertions failed.
+  curl -sf --max-time 60 "$S3_BASE/$ONLY.json" > "$only_bucket" \
+    || { echo "Could not read the bucket copy of $ONLY — refusing to publish blind. It is" >&2
+         echo "live, so the bucket must hold it; a 403/404 here is a bucket problem." >&2; exit 1; }
+  # A FILE, not an inline `python3 -c` (#74): the program used to be the argument of a
+  # double-quoted shell string, and bash got to it before python did. Three characters broke
+  # it in one afternoon — a markdown backtick span that RAN, the quoted phrase in the comment
+  # recording that, and a `$(` the pattern written to catch both did not match. Every fix was
+  # right and every one left a new hole, because the hazard was the construct. In a file there
+  # is no shell quoting left to get wrong.
+  #
+  # `python3`, not `uv run`: this needs stdlib only, it must work on a release machine holding
+  # nothing but this repo, and catalogue_release-check.sh shims `uv`.
+  only_prov=$(curl -sf --max-time 60 "$API/items/$ONLY" \
+    | python3 scripts/only_preflight.py "$STAC_DIR/$ONLY.json" "$only_bucket") \
+    || { echo "Could not read the live item's provenance — refusing to publish blind." >&2; exit 1; }
+  # IFS='|', so an empty field stays in its own position: with whitespace splitting, an empty
+  # `lost` beside a non-empty `dropped` would hand the dropped keys to the wrong variable and
+  # the wrong message would be printed for them.
+  IFS='|' read -r only_live_prov only_built_prov only_lost_prov only_dropped_prov only_gained_prov <<EOF
 $only_prov
 EOF
-  echo "provenance under --only: live item carries $only_live_prov nge: value(s), this build carries $only_built_prov."
+  echo "provenance under --only: live item carries $only_live_prov value(s), this build carries $only_built_prov."
   if [ -n "$only_lost_prov" ]; then
-    echo "The live $ONLY carries provenance that this build would publish as null: $only_lost_prov." >&2
+    echo "The live $ONLY carries provenance this build does not: $only_lost_prov." >&2
     echo "A reader that found nothing, or only some sections, or a stage from a tree without the" >&2
     echo "producer's provenance.json. Refusing before anything is written." >&2
     exit 1
   fi
-  if [ -n "$only_gone_prov" ]; then
-    echo "The live $ONLY carries nge: key(s) this build does not declare at all: $only_gone_prov." >&2
-    echo "A renamed provenance contract is a full-release change — republishing one item would leave" >&2
-    echo "every other live item on the old key. Refusing." >&2
+  if [ -n "$only_dropped_prov" ]; then
+    echo "The bucket copy of $ONLY publishes provenance key(s) this build does not: $only_dropped_prov." >&2
+    echo "A renamed or re-shaped provenance contract is a FULL-release change — republishing one" >&2
+    echo "item would leave every other live item on the old contract, and the API cannot show it" >&2
+    echo "because it drops nulls. Refusing." >&2
     exit 1
+  fi
+  if [ -n "$only_gained_prov" ]; then
+    echo "provenance gained since the bucket copy: $only_gained_prov (an area re-run upstream; --only may publish it)."
   fi
 else
 orphans=$(comm -23 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") || true)

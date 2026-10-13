@@ -71,6 +71,9 @@ SCIENTIFIC_EXT = "https://stac-extensions.github.io/scientific/v1.0.0/schema.jso
 # Same extension collection_version.py stamps the release version with; it also defines
 # `deprecated` on ITEMS, which is what #26 uses below.
 VERSION_EXT = "https://stac-extensions.github.io/version/v1.2.0/schema.json"
+# Where the run provenance lives since #74. Declared per item rather than always — see
+# the conditional below, which is forced by the schema and not a preference.
+PROCESSING_EXT = "https://stac-extensions.github.io/processing/v1.2.0/schema.json"
 
 CLASSES_PATH = RAW_DIR / "classes.json"
 
@@ -82,7 +85,7 @@ CLASSES_PATH = RAW_DIR / "classes.json"
 # A LITERAL a human sets, the same shape and the same reason as PROVENANCE_FLOOR (#32) — an
 # expectation derived from the data cannot be contradicted by it. item_validate.py asserts
 # EXACTLY this set carries the marker, and refuses when an item in it has gained a
-# nge:flooded_version, so a rebuilt MCGR fails the release until the id is deleted here
+# `flooded` software entry, so a rebuilt MCGR fails the release until the id is deleted here
 # rather than publishing as deprecated forever.
 DEPRECATED_ITEMS = {"mcgr_ch_ff04", "pine_bt_ff04"}
 
@@ -138,7 +141,7 @@ DERIVATION_STATEMENT = (
     f"({SOURCE_COLLECTION_ID}, CC BY 4.0, via Microsoft Planetary Computer) and is "
     "modified: clipped to the modelled floodplain extent and cross-tabulated between 2017 "
     "and 2023 into land-cover transitions. Every year is read from that one collection, "
-    "recorded per item as nge:landcover_collection and fingerprinted as nge:landcover_key, "
+    "recorded per item as landcover:collection and fingerprinted as landcover:key, "
     "so the series cannot silently mix releases and manufacture change."
 )
 
@@ -163,17 +166,65 @@ CITATION = (
 # file:checksum is a multihash, NOT a bare digest — see file_meta().
 _MULTIHASH_SHA256 = "1220"
 
-# Run provenance (#17), ferried from the producer via meta.json. Declared in
-# 01_stage.R's PROV_FIELDS; these are the same names, published under the `nge:`
-# namespace established in stac_uav_bc#16. Keep the two lists in step — the
-# meta[f] lookup below raises rather than defaulting, so a drift fails loudly.
+# Run provenance (#17), ferried from the producer via meta.json. The STAGED field names are
+# 01_stage.R's PROV_FIELDS and they do not change in #74 — they are also the GDAL tag names
+# 02_raster_tag.py writes into every COG, and renaming those would rewrite every COG's bytes
+# and so every published `file:checksum`, on a bucket with versioning Suspended.
+#
+# So this map IS the publish boundary, and the only place a BUILD translates between the two
+# naming schemes. It replaces the mechanical `f"nge:{f}"` the two were joined by until #74.
+# One other reader still knows the retired prefix on purpose: `canon()` in
+# scripts/only_preflight.py reads both shapes, which is what lets the `--only` preflight
+# compare a renamed build against an item published before the rename. Three kinds of
+# destination:
+#
+#   * a plain property — one staged field, one published key;
+#   * one `processing:software` entry — one staged field, one entry;
+#   * the `link` entry — TWO staged fields in one entry, `<version>+<sha>`.
+#
+# Keep in step with 01_stage.R: the meta[f] lookups below raise rather than defaulting, so a
+# drift fails loudly.
+PROV_PROPERTIES = {
+    "link_run_uid": "link:run_uid",
+    "link_config_sha256": "link:config_sha256",
+    "produced_datetime": "processing:datetime",
+    "landcover_source": "landcover:source",
+    "landcover_collection": "landcover:collection",
+    "landcover_stac_url": "landcover:stac_url",
+    "landcover_key": "landcover:key",
+    "landcover_item_hash": "landcover:item_hash",
+}
+# `processing:software` is ONE property holding a name -> version map, so the four version and
+# sha fields land inside it rather than beside it. Each entry names the staged field(s) it is
+# built from, and `link` is a PAIR joined with `+` — semver build metadata, exactly as
+# stac_airphoto_bc#47 publishes `{"fly": "<version>+<sha>"}`. That join is what lets two
+# fields become one entry without touching a raster: item_validate.py reassembles the same
+# string from NGE_LINK_VERSION and NGE_LINK_SHA rather than splitting the published value.
+#
+# Do not split it back. A version may itself carry build metadata (`0.50.0+dirty`), so only
+# the LAST `+` separates version from sha, and a consumer that splits on the first gets the
+# wrong answer. NEWS.md says so for the same reason.
+SOFTWARE_PROPERTY = "processing:software"
+PROV_SOFTWARE = {
+    "link": ("link_version", "link_sha"),
+    "flooded": ("flooded_version",),
+    "drift": ("drift_version",),
+}
+# The twelve staged fields, in 01_stage.R's order so the two files read alike. Written out
+# rather than derived from the map because it is the DECLARATION — the thing the assert below
+# checks the map against — and deriving it from the map would make that assert x == x.
 PROV_FIELDS = [
     "link_run_uid", "link_config_sha256", "link_sha", "link_version",
     "flooded_version", "drift_version", "produced_datetime",
     "landcover_source", "landcover_collection", "landcover_stac_url", "landcover_key",
     "landcover_item_hash",
 ]
-NGE_PROV_PROPERTIES = [f"nge:{f}" for f in PROV_FIELDS]
+assert set(PROV_FIELDS) == set(PROV_PROPERTIES) | {f for fs in PROV_SOFTWARE.values() for f in fs}, (
+    "PROV_FIELDS and the publish map disagree — a staged field with no destination would be "
+    "staged, tagged into every COG and never published")
+# Every published provenance KEY, which is 9 keys from 12 fields. Named here so the coverage
+# prints below ask about the published shape rather than re-deriving it.
+PROV_KEYS = set(PROV_PROPERTIES.values()) | {SOFTWARE_PROPERTY}
 
 
 def _slug(name: str) -> str:
@@ -419,25 +470,69 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         "proj:transform": transform,
     }
 
-    # Provenance (#17). `meta[f]` deliberately, not `meta.get(f)`: 01_stage.R writes every
-    # field on every item, so a missing key is a staging bug and must raise here rather
-    # than default to a null that is indistinguishable from a genuine absence.
+    # Provenance (#17), under the names #74 moved it to. `meta[f]` deliberately, not
+    # `meta.get(f)`: 01_stage.R writes every field on every item, so a missing key is a
+    # staging bug and must raise here rather than default to an absence.
     #
-    # A null VALUE is expected and correct — floodplains#33 is forward-only, so an area
-    # modelled before it lands has no provenance to carry. Verified that pystac preserves
-    # null properties through to_dict(), a JSON round trip, from_dict() and validate().
-    properties.update({f"nge:{f}": meta[f] for f in PROV_FIELDS})
+    # An absent value OMITS the key, where until #74 it published an explicit null. Forced by
+    # the processing extension and then applied to all twelve for one rule: measured on the
+    # v1.2.0 schema, every `processing:` field is typed `string` with no null admitted, and
+    # the Item branch's `require_any_field` refuses an item that declares the extension and
+    # carries no `processing:` field. Nothing was lost at the API — pgstac already dropped a
+    # published null on output (measured, #36) — but the key-set equality that guarded against
+    # a reader silently finding nothing had to be replaced, and item_validate.py's per-field
+    # census is what replaces it.
+    #
+    # Absent provenance is the NORMAL state, not an error: floodplains#33 is forward-only, so
+    # an area modelled before it lands has nothing to carry.
+    prov: dict = {}
+    for field, prop in PROV_PROPERTIES.items():
+        if meta[field] is not None:
+            prov[prop] = meta[field]
+    software = {}
+    for entry, fields in PROV_SOFTWARE.items():
+        values = [meta[f] for f in fields]
+        if all(v is None for v in values):
+            continue
+        if any(v is None for v in values):
+            # Never half-write an entry. `link_sha` and `link_version` come from two
+            # different leaves of the producer's network section (fp_provenance.R), so
+            # one-sided absence is reachable — and joining it anyway publishes `+<sha>` or a
+            # bare version, both schema-valid strings that are not what they claim. That is
+            # an upstream schema break, which this repo raises on rather than encodes.
+            raise SystemExit(
+                f"{item_id}: {entry} software entry is half-present — "
+                f"{', '.join(f for f, v in zip(fields, values) if v is None)} absent while "
+                f"the rest carries a value. Fix the producer's provenance record; publishing "
+                f"a partial version string would claim a version nobody ran.")
+        software[entry] = "+".join(str(v) for v in values)
+    # Omitted entirely when empty, never `{}`: an empty object is schema-valid AND satisfies
+    # require_any_field, so it would declare the extension and read as "provenance present"
+    # to every predicate that asks whether the key is there.
+    if software:
+        prov[SOFTWARE_PROPERTY] = software
+    properties.update(prov)
 
     # The two areas that could not be re-run publish MARKED (#26). Both already differ by
-    # carrying null on all twelve nge: properties while every rebuilt group carries
-    # nge:flooded_version 0.5.0 — but the API drops nulls (#31/#36, measured), so from
-    # outside a consumer sees only that two items LACK a field, and absence is not a
-    # statement. `deprecated` is the positive one.
+    # carrying none of the twelve provenance fields while every rebuilt group carries a
+    # `flooded` software entry of 0.5.0 — but absence is not a statement, and since #74 it is
+    # absence on the wire as well as at the API (it was always absence at the API: pgstac
+    # drops a published null on output, #31/#36, measured). `deprecated` is the positive one.
     #
     # Note the asymmetry that makes publishing it on two items and not twenty-one sound: the
     # Version Extension defines `deprecated` with `default: false`, so for the other 21
-    # absence IS a statement, backed by the extension — unlike the nge: nulls, where it is not.
+    # absence IS a statement, backed by the extension — unlike the provenance keys, where it
+    # is not. That asymmetry is also the cost #74 accepted: the explicit null used to say "we
+    # looked and there was none", and the positive statement now survives only on the COGs,
+    # as NGE_PROVENANCE_NULL, and here for these two items.
     exts = [PROJECTION_EXT, FILE_EXT, CLASSIFICATION_EXT]
+    # Declared IFF the item carries a processing: field (#74). Not a style choice: the Item
+    # branch of the v1.2.0 schema is allOf[require_any_field, fields], so declaring it on the
+    # two items that carry no provenance at all would FAIL validation. The converse — a
+    # processing: field with the extension absent — is not refused by any schema, because the
+    # schema is selected BY this list, so item_validate.py guards that direction itself.
+    if any(k.startswith("processing:") for k in properties):
+        exts.append(PROCESSING_EXT)
     if item_id in DEPRECATED_ITEMS:
         properties["deprecated"] = True
         exts.append(VERSION_EXT)
@@ -536,11 +631,11 @@ print(f"Generated {len(items)} STAC items")
 # carried, and whether the specific field that identifies a link RUN is present.
 # `link_run_uid` is legitimately null even on a fresh block if the schema predates
 # link#262, so a block can be present while the run is still untraceable.
-_no_prov = [i.id for i in items
-            if all(i.properties.get(p) is None for p in NGE_PROV_PROPERTIES)]
-_untraceable = [i.id for i in items if i.properties.get("nge:link_run_uid") is None]
+_no_prov = [i.id for i in items if not (PROV_KEYS & set(i.properties))]
+_untraceable = [i.id for i in items
+                if PROV_PROPERTIES["link_run_uid"] not in i.properties]
 print(f"  provenance block: {len(items) - len(_no_prov)}/{len(items)} item(s)")
-print(f"  link run traceable (nge:link_run_uid): "
+print(f"  link run traceable ({PROV_PROPERTIES['link_run_uid']}): "
       f"{len(items) - len(_untraceable)}/{len(items)} item(s)")
 if _untraceable:
     _shown = sorted(_untraceable)[:10]
