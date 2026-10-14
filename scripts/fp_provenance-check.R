@@ -152,7 +152,7 @@ d <- synthetic(); names(d$floodplain) <- "ff04"
 expect_stop("a re-keyed floodplain section stops the same way",
             item(read_doc(d, "rekeyed_fp")), "floodplain section has no 'co_ff04' key")
 expect_stop("...and the refusal names the keys the section does hold",
-            item(read_doc(d, "rekeyed_fp_keys")), "it holds")
+            item(read_doc(d, "rekeyed_fp_keys")), paste0("it holds ", sQuote("ff04")))
 d <- synthetic(); d$area <- "morr"
 expect_stop("a file declaring another area than its directory stops", read_doc(d, "wrong_area"), "declares area 'morr'")
 d <- synthetic(); d$area <- NULL; d$wsg <- "MORR"
@@ -191,7 +191,6 @@ whole <- function() {
   d$floodplain <- list(all_ff02 = d$floodplain$co_ff04,
                        all_ff04 = d$floodplain$co_ff04,
                        all_ff06 = d$floodplain$co_ff04)
-  d$floodplain$all_ff04$inputs$scenario <- "all_ff04"
   d$landcover <- list(all_ff04 = d$landcover$co_ff04)
   d
 }
@@ -221,6 +220,40 @@ expect_stop("a floodplain section that reads back as an array stops before being
             item(read_doc(d, "fp_array")), "not an object keyed by scenario id")
 expect_stop("a target declaring no scenario stops, naming the cause",
             fp_prov_item(base, "co", NULL, "check", YEARS), "declares no usable scenario")
+
+# --- the two states that satisfy the NAME check and still cannot be read -----------------
+# `scenario %in% names(s)` answers about the name. These are the two cases where the name is
+# there and the section is not, both found by review and both measured before being fixed:
+# the duplicate published a WRONG value (9.9.9 over the real 0.5.0), and the null-valued key
+# published seven NAs and sent a recorded item down the unchecked disk-discovery path.
+#
+# Written as raw JSON, not through synthetic(): jsonlite::write_json cannot emit a duplicate
+# object key from an R list, so a fixture built the usual way could not reach this state.
+raw_doc <- function(txt, case) {
+  dd <- file.path(WORK, case, "bulk"); dir.create(dd, recursive = TRUE, showWarnings = FALSE)
+  writeLines(txt, file.path(dd, "provenance.json")); fp_prov_read(dd)
+}
+FP_SECT <- function(v) sprintf(paste0('{"inputs":{"scenario":"co_ff04","flooded":',
+                                      '{"version":"%s"}},"run":{"datetime_utc":',
+                                      '"2026-09-02T19:00:00Z"}}'), v)
+dup <- raw_doc(sprintf(paste0('{"area":"bulk","wsg":"BULK","schema_version":2,"network":{},',
+                              '"floodplain":{"co_ff04":%s,"co_ff04":%s},"landcover":{}}'),
+                       FP_SECT("9.9.9"), FP_SECT("0.5.0")), "dup")
+expect_equal("premise: jsonlite keeps a duplicate JSON key as a duplicate list name",
+             names(dup$floodplain), c("co_ff04", "co_ff04"))
+expect_stop("a duplicated scenario key refuses rather than taking the first",
+            fp_prov_sections(dup, "co", "co_ff04", "check"), "Cannot choose; refusing to guess")
+
+# `d$landcover["co_ff04"] <- list(NULL)` assigns a NULL member rather than deleting the key,
+# which `$<- NULL` would do.
+d <- synthetic(); d$landcover["co_ff04"] <- list(NULL)
+nul <- read_doc(d, "nullsect")
+expect_equal("premise: the key survives the round trip with a null value",
+             c(names(nul$landcover), is.null(nul$landcover[["co_ff04"]])), c("co_ff04", "TRUE"))
+expect_stop("a scenario key whose value is null refuses rather than reading as an absence",
+            item(nul), "key is null")
+expect_stop("...and fp_prov_span refuses it too, rather than returning the unchecked NULL",
+            fp_prov_span(nul, "co", "co_ff04", "check"), "key is null")
 
 cat("rasters vs the record that describes them\n")
 # The reference is the landcover section's run stamp, NOT the file's mtime. Three states,
@@ -429,20 +462,27 @@ if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") el
               grepl("^sha256:[0-9a-f]{64}$", got$landcover_key))
   expect_equal("neexdzii: landcover_item_hash is the recorded item_hash",
                got$landcover_item_hash, "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904")
-  # Pinned from the producer's file on 2026-09-02: a function of its three published
-  # per-year digests and the rule above. This is the only assertion here that proves the
-  # RULE rather than the reader, so it is the one worth keeping — but it is a witness
-  # pinned to a copy, and floodplains#79 will re-run neexdzii onto an annual span and move
-  # it. Gated on the file still being the build it was pinned from, and skipped OUT LOUD
-  # otherwise, so a re-run reads as "re-take the pin" and not as "the fold broke".
-  PIN_STAMP <- "2026-09-02T19:48:49Z"
+  # Pinned from the producer's file: a function of its three published per-year digests and
+  # the rule above. This is the only assertion here that proves the RULE rather than the
+  # reader, so it is the one worth keeping — but it is a witness pinned to a copy, and an
+  # upstream re-run moves it. Gated on the file still being the build it was pinned from, and
+  # skipped OUT LOUD otherwise, so a re-run reads as "re-take the pin" and not as "the fold
+  # broke".
+  #
+  # RE-TAKEN 2026-10-14 (#75), from the 2026-10-13 re-run. It had been skipping, which is the
+  # state this gate is designed to produce and also the state in which nothing proves the fold
+  # against producer bytes — and #75 was the first branch to reach these arms at all, since the
+  # script halted on the real bulk file before the key check changed. Re-derived independently
+  # of this reader, in stdlib Python over the producer's own digests, so the pin is not a
+  # round trip through the thing it checks.
+  PIN_STAMP <- "2026-10-13T23:24:26Z"
   if (!identical(got$produced_datetime, PIN_STAMP)) {
     skip("neexdzii: landcover_key folds to the pinned value",
          paste0("upstream re-ran (", got$produced_datetime, " != pinned ", PIN_STAMP,
                 ") — re-take the pin from the new file"))
   } else {
     expect_equal("neexdzii: landcover_key folds to the pinned value",
-                 got$landcover_key, "sha256:27a0c5b649f44ed3f449820ec9c69ac96306aeccbe704ee80467d8a20fb89b04")
+                 got$landcover_key, "sha256:170a9ef4d7d5d668893c46d978064d4aaf8f75a2bb021db31c3645fe0af42989")
   }
 }
 

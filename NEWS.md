@@ -51,11 +51,32 @@ Two consequences for anyone reading the record:
   mode made load-bearing rather than merely principled: a group carrying both `co3` and `all2`
   cannot be keyed by a derived `paste0(species, min_order)`.
 
-Proof is in `scripts/fp_provenance-check.R` (81 assertions): two must-fail arms re-keying
-`landcover` and `floodplain`, and controls for `all_*` / `wct_*` siblings beside a `co_ff04` item,
-a whole-network record read end to end, the forward-only state, and a section that reads back as a
-JSON array. `scripts/stage_years-check.R` reports a three-year item's `meta.json` byte-identical
-to the pre-change build.
+Two states satisfy a name check and still cannot be read, and both are now refused rather than
+read as an absence. A **duplicate** scenario key survives `jsonlite` as a duplicate list name, so
+`[[` took the first — measured, a planted sibling published its own `flooded` version silently,
+which is the one failure class that publishes a *wrong value* rather than an absence. A key whose
+**value is null** published seven NAs and routed a recorded item onto the unchecked
+disk-discovery path. Neither was caught before this release, by the old check or the new one.
+
+**What the old whitelist gave up, on the record.** A re-key touching only keys for scenarios this
+repo does not publish is no longer caught at all — nothing else catches it, because every `_ff`
+derivation downstream reads the item's own scenario, never a provenance key. So a producer
+key-format change now arrives as a stage that succeeds and is caught when a target lands on the
+changed key: fail-late, fail-loud, never a published null. A cross-check that would restore the
+early warning with no regex (every section restates its own key inside itself — measured on all
+104 sections on disk) was considered and **declined**, because it re-asserts something about
+sections we never read and would again stop a group over a key it does not need. The reasoning is
+in the code so the next reader does not re-add it.
+
+Proof is in `scripts/fp_provenance-check.R` (87 assertions, 0 skipped): must-fail arms for both
+re-keyed sections, the duplicate key and the null-valued key, and controls for `all_*` / `wct_*`
+siblings beside a `co_ff04` item, a whole-network record read end to end, the forward-only state,
+and a section that reads back as a JSON array. The `neexdzii` fold pin — the only assertion
+proving the fold rule against producer bytes — was **dead** (upstream re-ran 2026-10-13) and is
+re-taken, re-derived independently of the reader. `scripts/stage_years-check.R` reports a
+three-year item's `meta.json` byte-identical to the pre-change build, and now takes an `AREA`
+override so it can drive a whole-network annual span at the real call site instead of only
+`ufra` / `ch_ff04`.
 
 ### Item field names moved off the `nge:` prefix (#74)
 

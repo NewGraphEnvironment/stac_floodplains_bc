@@ -45,8 +45,9 @@ Relates: NewGraphEnvironment/floodplains#104, NewGraphEnvironment/floodplains#12
 floodplains `main` at `a91acdb`; PR #132 for floodplains#125 (whole-network region mode) is
 **merged**. Measured with stdlib `json` over `../floodplains/data/*/provenance.json`.
 
-22 of 24 area dirs carry a `provenance.json`. `mcgr` and `pine` carry none — they are the two
-`DEPRECATED_ITEMS`, and `fp_prov_read()` returns `NULL` for them, so no section check ever runs.
+`../floodplains/data` holds 28 entries; **22** carry a `provenance.json`. The four without are
+`mcgr` and `pine` — the two `DEPRECATED_ITEMS`, for which `fp_prov_read()` returns `NULL` so no
+section check ever runs — plus `lit` (not rostered) and `logs` (not an area).
 
 `all_ff04` exists **now** in four areas:
 

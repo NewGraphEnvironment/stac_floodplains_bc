@@ -47,7 +47,19 @@ repo_data_fingerprint <- function() {
     algo = "sha256"))
 }
 FP <- Sys.getenv("FLOODPLAINS_DATA", unset = file.path("..", "floodplains", "data"))
-AREA <- "ufra"; SCEN <- "ch_ff04"
+# The fixture area, overridable. It was a bare `AREA <- "ufra"; SCEN <- "ch_ff04"`, which
+# floodplains#125 flagged as breaking when Fraser converts to whole-network — and left this
+# script, the ONLY proof of the reconciliation guard at the real call site, unable to exercise
+# an `all_*` record at all, although bulk and dunc carry one on disk (#75). The scenario is
+# derived from the area's own `primary_scenario` rather than pinned beside it, so the two
+# cannot be set to disagree:
+#
+#   AREA=bulk Rscript scripts/stage_years-check.R    # a whole-network record, 7-year span
+#
+# A group declaring `targets:` is refused rather than guessed at: this script rewrites ONE
+# scenario's record and asserts one item staged, so a multi-target group would stage a second
+# item the arms say nothing about.
+AREA <- tolower(Sys.getenv("AREA", unset = "ufra"))
 
 src_area <- file.path(FP, AREA)
 src_cfg <- file.path(dirname(FP), "config", AREA, "area.yml")
@@ -63,6 +75,37 @@ if (!dir.exists(src_area) || !file.exists(src_cfg) || is.null(AREA_REGION)) {
   cat("\n0 assertions, 0 failed, 1 skipped — the call site was NOT proven\n")
   quit(status = 0)
 }
+# Read from the area's own config, never pinned beside AREA, so the two cannot disagree.
+AREA_CFG <- yaml::read_yaml(src_cfg)
+if (!is.null(AREA_CFG$targets)) {
+  cat("  skip  every case (", AREA, " declares `targets:`; this script drives one scenario)\n",
+      sep = "")
+  cat("\n0 assertions, 0 failed, 1 skipped — the call site was NOT proven\n")
+  quit(status = 0)
+}
+SCEN <- AREA_CFG$primary_scenario
+stopifnot("area.yml declares no primary_scenario" =
+            is.character(SCEN) && length(SCEN) == 1L && nzchar(SCEN))
+ITEM <- paste0(AREA, "_", SCEN)
+# The arms below mutate one recorded year and plant one UNRECORDED year. Both were constants
+# (2020 and 2021), which only hold for a three-year span: on an annual-span area the record
+# already names 2021, so the planted year was not unrecorded and arm (b)'s premise aborted
+# (#75). Derived from the record instead.
+REC_YEARS <- sort(as.integer(unlist(
+  jsonlite::read_json(file.path(src_area, "provenance.json"),
+                      simplifyVector = FALSE)$landcover[[SCEN]]$inputs$years)))
+stopifnot("the record names fewer than three years" = length(REC_YEARS) >= 3L)
+# A year to delete that is not an end of the transition span: dropping an end trips the
+# span-coverage arm instead, which is a different guard with a different message.
+DROP_YEAR <- REC_YEARS[2L]
+PLANT_YEAR <- max(REC_YEARS) + 1L
+# Arm (c) swaps one recorded year for a year that was never built. Inside the span where the
+# span has a gap (a three-year record), otherwise past its end — an annual record has no gap,
+# which is why this cannot be the constant 2019 it was.
+FAKE_YEAR <- setdiff(seq(min(REC_YEARS), max(REC_YEARS)), REC_YEARS)[1L]
+if (is.na(FAKE_YEAR)) FAKE_YEAR <- PLANT_YEAR
+MUT_YEARS <- sort(c(setdiff(REC_YEARS, DROP_YEAR), FAKE_YEAR))
+cat("fixture: area ", AREA, " (", AREA_REGION, "), item ", ITEM, "\n", sep = "")
 
 # --- Build a sandbox whose upstream area is symlinks --------------------------------------
 # `provenance.json` is a real copy in every sandbox: one arm rewrites it, and a symlink
@@ -121,7 +164,7 @@ cat("control\n")
 repo_data_before <- repo_data_fingerprint()
 sbx <- sandbox("control")
 out <- run_in(sbx, drift_skew = TRUE)
-expect_true("the unmutated tree stages the item", grepl("STAGED ufra_ch_ff04", out, fixed = TRUE))
+expect_true("the unmutated tree stages the item", grepl(paste0("STAGED ", ITEM), out, fixed = TRUE))
 expect_true("...and trips none of the year-set arms",
             !grepl("recorded-but-absent|do not cover the transition span|change_interval", out))
 # The issue's "every existing three-year item byte-identical — this issue changes code, not
@@ -132,7 +175,8 @@ expect_true("...and trips none of the year-set arms",
 # anything — a reference tree here would be present or absent depending on what was run
 # last, and absent is the direction that reads as a pass.
 #
-# Taken 2026-09-05 from the last pre-change build of ufra_ch_ff04, and gated on ufra's own
+# Taken 2026-09-05 from the last pre-change build of ufra_ch_ff04, and gated on THREE
+# things: the AREA override (the pin is ufra's build), ufra's own
 # landcover stamp: floodplains#79 is converting areas to an annual span one at a time, and
 # when it reaches ufra this pin stops describing anything. Skipped OUT LOUD then, so a
 # re-run reads as "re-take the pin", never as "the code moved the data".
@@ -151,7 +195,7 @@ PIN_TOOLCHAIN <- "GEOS 3.13.0, GDAL 3.8.5, PROJ 9.5.1"
 sfv <- sf::sf_extSoftVersion()
 toolchain <- paste0("GEOS ", sfv[["GEOS"]], ", GDAL ", sfv[["GDAL"]], ", PROJ ", sfv[["PROJ"]])
 DESC <- "a three-year item's meta.json is byte-identical to the pre-change build"
-built <- file.path(sbx, "data", "raw", "ufra_ch_ff04", "meta.json")
+built <- file.path(sbx, "data", "raw", ITEM, "meta.json")
 if (!file.exists(built)) {
   fail(DESC, "no meta.json staged")
 } else {
@@ -163,8 +207,13 @@ if (!file.exists(built)) {
   # code moving meta.json. The two carry the same value; only one of them is independent.
   stamp <- jsonlite::read_json(file.path(FP, AREA, "provenance.json"),
                                simplifyVector = FALSE)$landcover[[SCEN]]$run$datetime_utc
-  if (!identical(stamp, PIN_STAMP)) {
-    skip(DESC, paste0("upstream re-ran ufra (", stamp, " != pinned ", PIN_STAMP,
+  if (!identical(AREA, "ufra")) {
+    # A THIRD gate, for the AREA override (#75): the digest is of ufra_ch_ff04's meta.json,
+    # so on any other area it describes nothing. Skipped before the stamp gate, whose message
+    # would otherwise blame upstream for a pin that was never about this area.
+    skip(DESC, paste0("the pin is ufra_ch_ff04's build and AREA is ", AREA))
+  } else if (!identical(stamp, PIN_STAMP)) {
+    skip(DESC, paste0("upstream re-ran ", AREA, " (", stamp, " != pinned ", PIN_STAMP,
                       ") — re-take the pin from the new build"))
   } else if (!identical(toolchain, PIN_TOOLCHAIN)) {
     skip(DESC, paste0("this machine is ", toolchain, ", the pin was taken on ",
@@ -176,33 +225,37 @@ if (!file.exists(built)) {
   }
 }
 expect_true("the sandbox holds the build",
-            dir.exists(file.path(sbx, "data", "stac", "ufra_ch_ff04")))
+            dir.exists(file.path(sbx, "data", "stac", ITEM)))
 
 # --- Arm (a): the record names a year the rasters do not have -----------------------------
 cat("arm (a): a raster the record names is missing from disk\n")
 sbx <- sandbox("missing")
-gone <- raster_path(sbx, 2020)
+gone <- raster_path(sbx, DROP_YEAR)
 stopifnot("premise: the raster to delete is there" = file.exists(gone))
 unlink(gone)
-expect_true("premise: the mutation took — classified_2020.tif is gone", !file.exists(gone))
+expect_true(paste0("premise: the mutation took — classified_", DROP_YEAR, ".tif is gone"),
+            !file.exists(gone))
 out <- run_in(sbx)
 expect_true("the stage refuses, naming the year and the direction",
-            grepl("recorded-but-absent: 2020; present-but-unrecorded: none", out, fixed = TRUE))
-expect_true("...and nothing was staged", !grepl("STAGED ufra_ch_ff04", out, fixed = TRUE))
+            grepl(paste0("recorded-but-absent: ", DROP_YEAR,
+                         "; present-but-unrecorded: none"), out, fixed = TRUE))
+expect_true("...and nothing was staged", !grepl(paste0("STAGED ", ITEM), out, fixed = TRUE))
 
 # --- Arm (b): a raster on disk the record does not name -----------------------------------
 # The direction with no guard AT ALL before this change: an extra raster upstream wrote
 # would have been ignored by a constant year list and published nowhere, silently.
 cat("arm (b): a raster on disk the record does not name\n")
 sbx <- sandbox("extra")
-extra <- raster_path(sbx, 2021)
-stopifnot("premise: 2021 is not already there" = !file.exists(extra))
-invisible(file.symlink(normalizePath(raster_path(sbx, 2020)), extra))
-expect_true("premise: the mutation took — classified_2021.tif is there", file.exists(extra))
+extra <- raster_path(sbx, PLANT_YEAR)
+stopifnot("premise: the planted year is not already there" = !file.exists(extra))
+invisible(file.symlink(normalizePath(raster_path(sbx, DROP_YEAR)), extra))
+expect_true(paste0("premise: the mutation took — classified_", PLANT_YEAR, ".tif is there"),
+            file.exists(extra))
 out <- run_in(sbx)
 expect_true("the stage refuses, naming the unrecorded year",
-            grepl("recorded-but-absent: none; present-but-unrecorded: 2021", out, fixed = TRUE))
-expect_true("...and nothing was staged", !grepl("STAGED ufra_ch_ff04", out, fixed = TRUE))
+            grepl(paste0("recorded-but-absent: none; present-but-unrecorded: ", PLANT_YEAR),
+                  out, fixed = TRUE))
+expect_true("...and nothing was staged", !grepl(paste0("STAGED ", ITEM), out, fixed = TRUE))
 
 # --- Arm (c): the record itself is wrong --------------------------------------------------
 # Mutating the RECORD rather than the disk. The guard reads one copy of the year set from
@@ -213,15 +266,18 @@ sbx <- sandbox("record")
 pj <- file.path(sbx, "src", "data", AREA, "provenance.json")
 doc <- jsonlite::read_json(pj, simplifyVector = FALSE)
 before <- unlist(doc$landcover[[SCEN]]$inputs$years)
-doc$landcover[[SCEN]]$inputs$years <- list(2017L, 2019L, 2023L)
+doc$landcover[[SCEN]]$inputs$years <- as.list(as.integer(MUT_YEARS))
 jsonlite::write_json(doc, pj, auto_unbox = TRUE, null = "null", na = "null", digits = NA)
 after <- unlist(jsonlite::read_json(pj, simplifyVector = FALSE)$landcover[[SCEN]]$inputs$years)
-expect_true("premise: the mutation took — the record now says 2017, 2019, 2023",
-            !identical(before, after) && identical(as.integer(after), c(2017L, 2019L, 2023L)))
+expect_true(paste0("premise: the mutation took — the record now says ",
+                   paste(MUT_YEARS, collapse = ", ")),
+            !identical(before, after) &&
+              identical(as.integer(after), as.integer(MUT_YEARS)))
 out <- run_in(sbx)
 expect_true("the stage refuses, reporting both directions",
-            grepl("recorded-but-absent: 2019; present-but-unrecorded: 2020", out, fixed = TRUE))
-expect_true("...and nothing was staged", !grepl("STAGED ufra_ch_ff04", out, fixed = TRUE))
+            grepl(paste0("recorded-but-absent: ", FAKE_YEAR,
+                         "; present-but-unrecorded: ", DROP_YEAR), out, fixed = TRUE))
+expect_true("...and nothing was staged", !grepl(paste0("STAGED ", ITEM), out, fixed = TRUE))
 
 # Last, after every run_in(): the four stages above ran 01_stage.R four times, and if any
 # of them had resolved its cwd or its data/ to the repo the first one would have unlinked

@@ -89,7 +89,9 @@ file's `classified_content_sha256`. `TRANSITION_SPAN` stays a literal and is the
 year set is data, the span is a contract.
 
 **One item per `(watershed group, species, scenario)` target**, id `<wsg>_<sp>_ff0N` — *not* one per
-group. MORR carries two (`morr_co_ff04` + `morr_ch_ff06`), and the collection mixes flood factors,
+group. MORR carries two LIVE (`morr_co_ff04` + `morr_ch_ff06`) but stages one: upstream retired its
+`targets:` block under floodplains#125, so a rebuild produces `morr_all_ff04` and those two survive
+only as live orphans until #76 unregisters them. The collection mixes flood factors,
 so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
 extents (ff04 = functional floodplain, ff06 = valley bottom).
 

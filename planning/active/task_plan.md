@@ -67,6 +67,25 @@ lookup misses, and admits any key `floodplains` writes.
 - [x] File floodplains#133 — `dunc` cannot publish: no link log row and `inputs$link$sha` null
       on every `all2` section, so the `processing:software` link entry is half-present
 
+## Phase 6: Fold in the plan review (landed work, reviewed as code)
+
+- [x] A duplicate scenario key refuses rather than taking the first — measured publishing a wrong
+      value (9.9.9 over the real 0.5.0), the one class worse than a null; the network arm 50 lines
+      above already refused the same ambiguity
+- [x] A scenario key whose value is JSON null refuses rather than reading as an absence — measured
+      publishing seven NAs and routing a recorded item onto the unchecked disk-discovery path
+- [x] Record in the code the safety premise (raster dirs == landcover keys, all 22 areas) and the
+      early-warning signal deliberately given up, so the next reader does not re-add the whitelist
+- [x] Two stale headers in `fp_provenance.R` describing a state the reader now refuses
+- [x] Re-take the dead `neexdzii` fold pin, re-derived independently of the reader
+- [x] `stage_years-check.R`: `AREA` override, scenario and mutated years derived from the record,
+      so it can drive a whole-network annual span at the real call site (floodplains#125 asked)
+- [x] Assert the roster's `species`/`scenario` in `01_stage.R`, where every symptom is quiet
+- [x] Strengthen the weak `"it holds"` arm; drop the fixture line hinting at a declined check
+- [x] The live-catalogue vs build distinction for MORR, in `CLAUDE.md` and `item_create.py`
+- [x] File #80 for the per-item-layer staging the restored #75 decision requires, and restore the
+      body section an earlier edit of mine destroyed
+
 ## Validation
 
 - [x] Tests pass

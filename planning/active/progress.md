@@ -36,3 +36,19 @@
   floodplains#133.
 - Filed #79 (once-per-group ff04 total) and cross-linked it from #76; corrected #75's body.
 - Next: `/code-check branch`, archive, PR.
+- Plan review (background `Plan` agent, ~10 min) landed after the code did and read real code
+  rather than a plan. Three findings reproduced before acting on any of them:
+  - **I destroyed a user decision.** My `gh issue edit` of #75's body at 16:04 UTC dropped the
+    "Decided (2026-10-14)" section added at 15:50 — I read the body in plan mode before it
+    existed and did not re-read it before editing, which is exactly what `feature-workflow.md`'s
+    "Re-read the issue body before the baseline" exists to prevent. Recovered verbatim from
+    `userContentEdits` via GraphQL, restored, and said so in a comment.
+  - A duplicate scenario key published a wrong value (measured: 9.9.9 over the real 0.5.0).
+  - A null-valued scenario key published seven NAs and took the unchecked year path.
+- The per-item-layer staging the restored decision requires is #80, by the user's call: it moves
+  the bytes of every published GeoPackage, so it gets its own plan gate. Its cost was re-costed
+  honestly in the issue — the first framing ("republish 23 items on a bucket with no rollback")
+  overstated it, since a full release republishes everything anyway.
+- Verification after the review fixes: fp_provenance-check 87/0/0 (the dead pin now live),
+  prov_fields 44/0, year_sets 16/0, stage_years 14/0 on ufra and 13/0/1 on bulk, and
+  `WSG=bulk test_pipeline.R` PASS.

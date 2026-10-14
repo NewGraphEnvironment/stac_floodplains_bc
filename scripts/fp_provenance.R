@@ -267,6 +267,33 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
   # Only when the section HAS keys. An absent or empty section is the forward-only state —
   # one of the producer's three steps has not run for this area — and must keep degrading to
   # NULL, the same three-state discipline fp_prov_leaf applies one level down.
+  #
+  # WHY "NON-EMPTY SECTION, MY KEY ABSENT" IS A SCHEMA BREAK AND NOT A PARTIAL STATE. It is
+  # not self-evident: morr's file holds 9 floodplain keys and 3 landcover ones, so a section
+  # IS partial per scenario, and this stop is a behaviour change for that state (it used to
+  # publish nulls). What makes it right is measured, 2026-10-14 over all 22 areas carrying a
+  # record: the set of `rasters/<scenario>/` directories EQUALS the set of landcover keys,
+  # with no exceptions, and the floodplain keys are a superset of both. So a target whose key
+  # is missing has no rasters, and 01_stage.R skips it before any provenance call is made.
+  # The stop is reachable only in the crash state fp_prov_rasters_current() exists for —
+  # rasters written, section not yet stamped — and there halting beats publishing nulls. If
+  # upstream ever writes rasters without stamping the section, this is the line to revisit.
+  #
+  # WHAT THE SHAPE WHITELIST GAVE UP, SAID OUT LOUD so the next reader does not re-add it. A
+  # re-key touching ONLY keys for scenarios this repo does not publish is no longer caught at
+  # all, and nothing else catches it: every `_ff` derivation downstream reads the ITEM's own
+  # scenario from area.yml, never a provenance key. So a producer key-format change now
+  # arrives as a stage that succeeds, and is detected when a target lands on the changed key —
+  # fail-late, but fail-loud, and never as a published null.
+  #
+  # There is a cross-check that would restore the early warning without any regex, and it was
+  # considered and declined: every section restates its own key inside itself (`inputs$scenario`
+  # on floodplain, `inputs$floodplain_layer` on landcover — measured on all 104 sections on
+  # disk, zero exceptions), which is the same instrument the network arm above uses on
+  # `inputs$species`. Declined because it re-asserts something about sections we never read, so
+  # an upstream format change would again stop a group that does not need that key — which is
+  # the exact defect #75 was filed about. The early warning is not worth buying back at that
+  # price.
   if (!is.character(scenario) || length(scenario) != 1L || is.na(scenario) ||
       !nzchar(scenario)) {
     stop("provenance.json ", where, ": the target declares no usable scenario (",
@@ -280,10 +307,11 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
     # on one raises "subscript out of bounds" at the end of this function — a schema break
     # reported as an indexing error. An empty object and an empty array are indistinguishable
     # after parsing, so both take the forward-only path below.
-    if (!is.list(s) || (length(s) && (is.null(names(s)) || any(!nzchar(names(s)))))) {
-      stop("provenance.json ", where, ": the ", sect, " section is ",
-           if (is.list(s)) "an unnamed list" else class(s)[1],
-           ", not an object keyed by scenario id. Update scripts/fp_provenance.R.",
+    if (!is.list(s) || (length(s) && (is.null(names(s)) ||
+                                      any(is.na(names(s))) || any(!nzchar(names(s)))))) {
+      stop("provenance.json ", where, ": the ", sect, " section is not an object keyed by ",
+           "scenario id (", if (!is.list(s)) class(s)[1] else
+             "at least one member has no name", "). Update scripts/fp_provenance.R.",
            call. = FALSE)
     }
     keys <- names(s)
@@ -293,6 +321,36 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
            ". This item's own scenario must be one of them, or every field read from that ",
            "section publishes a null that reads like a step which had not run. Re-run that ",
            "step upstream, or drop this target from the roster.", call. = FALSE)
+    }
+    # `%in% names()` answers whether the NAME is there. Two states satisfy it and still cannot
+    # be read, and each is refused on its own terms.
+    #
+    # A duplicate key: jsonlite keeps duplicate JSON names as duplicate list names, `%in%` is
+    # TRUE, and `[[` returns the FIRST. Measured — a planted `"co_ff04"` ahead of the real one
+    # published its `flooded` version, silently. That is the one failure class fp_prov_leaf's
+    # scalar guard calls strictly worse than a null: it looks like a real answer and is counted
+    # as traced. The network section 50 lines above already refuses exactly this ambiguity
+    # ("Cannot choose; refusing to guess"), so not refusing it here was an asymmetry, not a
+    # decision.
+    if (sum(keys == scenario) > 1L) {
+      stop("provenance.json ", where, ": the ", sect, " section has '", scenario, "' ",
+           sum(keys == scenario), " times. `[[` would take the first; the values may differ, ",
+           "so one of them would publish as this item's and be counted as traced. Cannot ",
+           "choose; refusing to guess.", call. = FALSE)
+    }
+    # A key whose VALUE is JSON null. Measured: it passes the name check, every field under it
+    # publishes NA, and fp_prov_span() returns NULL — which routes a recorded item onto the
+    # disk-discovery path that has nothing to assert against, losing the one check the span
+    # exists to enable. Exactly the three-state defect this function was written to prevent,
+    # one level up. The contrast with fp_prov_leaf's `link_log` exception is the point: that
+    # null is a MODELLED absence the producer documents and records a note for. Nothing
+    # documents a null scenario section, so it is a schema break.
+    if (scenario %in% keys && is.null(s[[scenario]])) {
+      stop("provenance.json ", where, ": the ", sect, " section's '", scenario,
+           "' key is null. A key with no section is not an absence — every field under it ",
+           "would publish as a null indistinguishable from a step that had not run, and the ",
+           "item would take an unchecked year set. Update scripts/fp_provenance.R if upstream ",
+           "means this.", call. = FALSE)
     }
   }
 
@@ -367,8 +425,11 @@ fp_prov_leaf <- function(section, path, where, fold = NULL, years = NULL) {
 
 # --- The item's temporal shape ----------------------------------------------------------
 # The classified year set is a fact about the PRODUCER's run, not a contract this repo
-# chose, so it is READ rather than declared (#61). Returns NULL when this target has no
-# landcover section — the normal forward-only state — or a list of two integer vectors:
+# chose, so it is READ rather than declared (#61). Returns NULL when the WHOLE landcover
+# section is absent or empty — the normal forward-only state — or a list of two integer
+# vectors. Since #75 that is the only way it returns NULL: a non-empty section that does not
+# hold this target's key is refused by fp_prov_sections() rather than read as an absence, so
+# "no record for this target" and "no record for this area" are no longer the same answer.
 #
 #   years           the classified span the producer says it built
 #   change_interval the two-year window it cross-tabulated into the transition raster
@@ -494,7 +555,9 @@ fp_years_reconcile <- function(years_disk, span_rec, transition_span, where) {
 # raster NEWER than that stamp means a step in flight, or one that crashed between the two
 # writes. In that state the item would publish landcover_key as a fingerprint of rasters
 # other than the ones it ships, and nothing downstream could tell. Only meaningful when the
-# landcover section for this target exists (no section, no fingerprint); absent rasters are
+# area HAS a landcover section (no section, no fingerprint) — and since #75 a non-empty one
+# missing this target's key is refused upstream of here rather than reaching this as a NULL;
+# absent rasters are
 # 01_stage.R's own error. The strong form — recomputing the digest on the staged copies —
 # is a follow-up (#40 review S4); this is the cheap half.
 #
