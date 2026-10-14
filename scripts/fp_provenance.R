@@ -196,13 +196,20 @@ fp_prov_read <- function(src_wsg) {
 
 # --- Select the sections for one published target ---------------------------------------
 # This repo publishes one item per (wsg, species, scenario); upstream writes one file per
-# WSG. MORR's two targets share a file, so the sections must be SELECTED, never assumed.
+# WSG, carrying every scenario it has ever modelled for that group. So the sections must be
+# SELECTED, never assumed: measured 2026-10-14, morr's file holds nine floodplain sections
+# and three landcover ones while the roster asks for a single target. (MORR used to be the
+# example of a group with TWO targets; upstream retired its `targets:` block under
+# floodplains#125, so it now falls back to the one `all_ff04` item and the plural case is
+# currently unoccupied — the selection still has to be correct for when it is not.)
 #
 # The network section is matched on its own recorded `inputs$species`, not by rebuilding
-# its key from `paste0(species, min_order)`. Two reasons, and the second is why it
-# matters: the producer already states the join, so re-deriving it duplicates a fact; and
-# every config/<wsg>/area.yml on disk today has min_order 3, so a derivation and a
-# hardcoded "3" are indistinguishable — a test of it could not fail.
+# its key from `paste0(species, min_order)`. Two reasons, and the second is why it matters:
+# the producer already states the join, so re-deriving it duplicates a fact; and until the
+# whole-network mode landed, every config/<wsg>/area.yml on disk had min_order 3, so a
+# derivation and a hardcoded "3" were indistinguishable — a test of it could not fail. That
+# is no longer true (`all2` is order 2), which makes the matching load-bearing rather than
+# merely principled: a group carrying both `co3` and `all2` needs the recorded species.
 fp_prov_sections <- function(prov, species, scenario, where = "") {
   if (is.null(prov)) return(list(network = NULL, floodplain = NULL, landcover = NULL))
 
@@ -238,24 +245,119 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
          call. = FALSE)
   }
   # floodplain/landcover are keyed by scenario_id directly, which is this repo's own
-  # `scenario` (e.g. ch_ff04) — the same string both sides already agree on.
+  # `scenario` (e.g. ch_ff04, all_ff04) — the same string both sides already agree on.
   #
   # Those keys are DATA, so unknown-key rejection cannot close them the way it closes the
-  # document root: any string is a possible scenario. What is pinned is their documented
-  # SHAPE. Without this, re-formatting the key (`ch_ff04` -> `ff04`) makes both lookups
-  # miss and publishes seven nulls on every item at once — a uniform loss, which is
-  # exactly what a cross-item check cannot see.
+  # document root: any string is a possible scenario. The first instrument tried here was a
+  # whitelist of their documented SHAPE, `^[a-z]{2}_ff[0-9]{2}$`, and it decided what may be
+  # PUBLISHED rather than reading what the record says (#75). It refused `all_ff04` — the
+  # whole-network mode, floodplains#104/#125 — and every three-letter species code such as
+  # `wct_ff04`; and because it scanned the whole section rather than the key being looked up,
+  # one unrecognised sibling stopped a group even for a target whose own key was fine.
   #
-  # A key that matches the shape but names a scenario this repo does not publish is fine
-  # and must stay fine: upstream may model scenarios we never emit an item for.
+  # The failure it existed for is a RE-KEYING: `ch_ff04` -> `ff04` makes both lookups below
+  # miss and publishes seven nulls on every item at once, a uniform loss which is exactly
+  # what a cross-item check cannot see. So the subject of the check is the ITEM. Its own
+  # scenario must be a key of any section that has keys at all — a re-key is still refused,
+  # because every item's lookup misses, and it is refused naming the key and the keys present
+  # rather than a regex nobody can read off the file. A key naming a scenario this repo does
+  # not publish is no longer examined, which is what lets upstream model scenarios we never
+  # emit an item for.
+  #
+  # Only when the section HAS keys. An absent or empty section is the forward-only state —
+  # one of the producer's three steps has not run for this area — and must keep degrading to
+  # NULL, the same three-state discipline fp_prov_leaf applies one level down.
+  #
+  # WHY "NON-EMPTY SECTION, MY KEY ABSENT" IS A SCHEMA BREAK AND NOT A PARTIAL STATE. It is
+  # not self-evident: morr's file holds 9 floodplain keys and 3 landcover ones, so a section
+  # IS partial per scenario, and this stop is a behaviour change for that state (it used to
+  # publish nulls). What makes it right is measured, 2026-10-14 over all 22 areas carrying a
+  # record: the set of `rasters/<scenario>/` directories EQUALS the set of landcover keys,
+  # with no exceptions, and the floodplain keys are a superset of both. So a target whose key
+  # is missing has no rasters, and 01_stage.R skips it before any provenance call is made.
+  # The stop is reachable only in the crash state fp_prov_rasters_current() exists for —
+  # rasters written, section not yet stamped — and there halting beats publishing nulls. If
+  # upstream ever writes rasters without stamping the section, this is the line to revisit.
+  #
+  # WHAT THE SHAPE WHITELIST GAVE UP, SAID OUT LOUD so the next reader does not re-add it. A
+  # re-key touching ONLY keys for scenarios this repo does not publish is no longer caught at
+  # all, and nothing else catches it: every `_ff` derivation downstream reads the ITEM's own
+  # scenario from area.yml, never a provenance key. So a producer key-format change now
+  # arrives as a stage that succeeds, and is detected when a target lands on the changed key —
+  # fail-late, but fail-loud, and never as a published null.
+  #
+  # There is a cross-check that would restore the early warning without any regex, and it was
+  # considered and declined: every section restates its own key inside itself (`inputs$scenario`
+  # on floodplain, `inputs$floodplain_layer` on landcover — measured on all 104 sections on
+  # disk, zero exceptions), which is the same instrument the network arm above uses on
+  # `inputs$species`. Declined because it re-asserts something about sections we never read, so
+  # an upstream format change would again stop a group that does not need that key — which is
+  # the exact defect #75 was filed about. The early warning is not worth buying back at that
+  # price.
+  # Defence in depth, and no longer the first line of it: 01_stage.R asserts the roster's
+  # species and scenario before any fp_prov_* call, for every area, so the STAGE cannot reach
+  # this. It still covers every other caller — the check scripts, and anything that calls the
+  # reader directly — which is why it names the value rather than a config file it cannot know
+  # the path of.
+  if (!is.character(scenario) || length(scenario) != 1L || is.na(scenario) ||
+      !nzchar(scenario)) {
+    stop("provenance.json ", where, ": the target declares no usable scenario (",
+         deparse(scenario)[1], "), so there is no key to look for.", call. = FALSE)
+  }
   for (sect in c("floodplain", "landcover")) {
-    bad <- grep("^[a-z]{2}_ff[0-9]{2}$", names(prov[[sect]] %||% list()),
-                value = TRUE, invert = TRUE)
-    if (length(bad)) {
-      stop("provenance.json ", where, ": ", sect, " section key(s) ",
-           paste(sQuote(bad), collapse = ", "), " are not scenario ids of the form ",
-           "<species>_ff<NN>. A re-keyed section would otherwise publish nulls that read ",
-           "like a step that had not run. Update scripts/fp_provenance.R.", call. = FALSE)
+    s <- prov[[sect]]
+    if (is.null(s)) next
+    # An object reads back as a NAMED list. A JSON array reads back unnamed, and the stakes are
+    # the OPPOSITE of what they look like: `list(1, 2)[["co_ff04"]]` is **NULL**, not an error
+    # (measured — only an ATOMIC vector raises "subscript out of bounds"). So without this
+    # guard an array-shaped section would not crash at the end of this function; it would
+    # degrade to the forward-only NULL and publish seven nulls, which is the silent failure
+    # this whole file exists to prevent. An empty object and an empty array are
+    # indistinguishable after parsing, so both take the forward-only path below.
+    if (!is.list(s) || (length(s) && (is.null(names(s)) ||
+                                      any(is.na(names(s))) || any(!nzchar(names(s)))))) {
+      stop("provenance.json ", where, ": the ", sect, " section is not an object keyed by ",
+           "scenario id (", if (!is.list(s)) class(s)[1] else
+             "at least one member has no name", "). Update scripts/fp_provenance.R.",
+           call. = FALSE)
+    }
+    keys <- names(s)
+    if (length(keys) && !(scenario %in% keys)) {
+      stop("provenance.json ", where, ": the ", sect, " section has no '", scenario,
+           "' key — it holds ", paste(sQuote(keys), collapse = ", "),
+           ". This item's own scenario must be one of them, or every field read from that ",
+           "section publishes a null that reads like a step which had not run. Re-run that ",
+           "step upstream, or drop this target from the roster.", call. = FALSE)
+    }
+    # `%in% names()` answers whether the NAME is there. Two states satisfy it and still cannot
+    # be read, and each is refused on its own terms.
+    #
+    # A duplicate key: jsonlite keeps duplicate JSON names as duplicate list names, `%in%` is
+    # TRUE, and `[[` returns the FIRST. Measured — a planted `"co_ff04"` ahead of the real one
+    # published its `flooded` version, silently. That is the one failure class fp_prov_leaf's
+    # scalar guard calls strictly worse than a null: it looks like a real answer and is counted
+    # as traced. The network section 50 lines above already refuses exactly this ambiguity
+    # ("Cannot choose; refusing to guess"), so not refusing it here was an asymmetry, not a
+    # decision.
+    if (sum(keys == scenario) > 1L) {
+      stop("provenance.json ", where, ": the ", sect, " section has '", scenario, "' ",
+           sum(keys == scenario), " times. `[[` would take the first; the values may differ, ",
+           "so one of them would publish as this item's and be counted as traced. Cannot ",
+           "choose; refusing to guess.", call. = FALSE)
+    }
+    # A key whose VALUE is JSON null. Measured: it passes the name check, every field under it
+    # publishes NA, and fp_prov_span() returns NULL — which routes a recorded item onto the
+    # disk-discovery path that has nothing to assert against, losing the one check the span
+    # exists to enable. Exactly the three-state defect this function was written to prevent,
+    # one level up. The contrast with fp_prov_leaf's `link_log` exception is the point: that
+    # null is a MODELLED absence the producer documents and records a note for. Nothing
+    # documents a null scenario section, so it is a schema break.
+    if (scenario %in% keys && is.null(s[[scenario]])) {
+      stop("provenance.json ", where, ": the ", sect, " section's '", scenario,
+           "' key is null. A key with no section is not an absence — every field under it ",
+           "would publish as a null indistinguishable from a step that had not run, and the ",
+           "item would take an unchecked year set. Update scripts/fp_provenance.R if upstream ",
+           "means this.", call. = FALSE)
     }
   }
 
@@ -330,8 +432,11 @@ fp_prov_leaf <- function(section, path, where, fold = NULL, years = NULL) {
 
 # --- The item's temporal shape ----------------------------------------------------------
 # The classified year set is a fact about the PRODUCER's run, not a contract this repo
-# chose, so it is READ rather than declared (#61). Returns NULL when this target has no
-# landcover section — the normal forward-only state — or a list of two integer vectors:
+# chose, so it is READ rather than declared (#61). Returns NULL when the WHOLE landcover
+# section is absent or empty — the normal forward-only state — or a list of two integer
+# vectors. Since #75 that is the only way it returns NULL: a non-empty section that does not
+# hold this target's key is refused by fp_prov_sections() rather than read as an absence, so
+# "no record for this target" and "no record for this area" are no longer the same answer.
 #
 #   years           the classified span the producer says it built
 #   change_interval the two-year window it cross-tabulated into the transition raster
@@ -457,7 +562,9 @@ fp_years_reconcile <- function(years_disk, span_rec, transition_span, where) {
 # raster NEWER than that stamp means a step in flight, or one that crashed between the two
 # writes. In that state the item would publish landcover_key as a fingerprint of rasters
 # other than the ones it ships, and nothing downstream could tell. Only meaningful when the
-# landcover section for this target exists (no section, no fingerprint); absent rasters are
+# area HAS a landcover section (no section, no fingerprint) — and since #75 a non-empty one
+# missing this target's key is refused upstream of here rather than reaching this as a NULL;
+# absent rasters are
 # 01_stage.R's own error. The strong form — recomputing the digest on the staged copies —
 # is a follow-up (#40 review S4); this is the cheap half.
 #

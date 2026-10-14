@@ -195,7 +195,7 @@ schema, before a real full publish.
 ```
 Rscript scripts/test_pipeline.R            # defaults to UFRA
 WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
-WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
+WSG=bulk Rscript scripts/test_pipeline.R   # whole-network group: species `all`, 7-year span
 ```
 
 ## Classified year sets
@@ -371,6 +371,27 @@ producer's own `$FLOODPLAINS_DATA/{bulk,neexdzii}/provenance.json` when present,
 when not. Exit status is the number of failed assertions. Run it whenever the reader or the
 upstream writer changes; it is the only exercise of the reader that needs no stage.
 
+The section headed **"the item's own scenario key (#75)"** is the one whose *passing* direction is
+the subject. Its two must-fail arms re-key a section (`co_ff04` -> `ff04`) in `landcover` and in
+`floodplain` and grep for that arm's own message; its controls prove what the retired key-shape
+whitelist refused — `all_*` and `wct_*` siblings beside `co_ff04` do not stop the `co_ff04` item,
+and a whole-network record (`network[all2]` with `inputs$species: all`, floodplain keyed
+`all_ff02/04/06`) reads end to end through `fp_prov_item()` and `fp_prov_span()`. Two further
+controls hold the line on either side of it: an absent section is still the forward-only state and
+does **not** stop, and a section that reads back as a JSON array is refused before `[[scenario]]`
+can report a schema break as "subscript out of bounds". A real-file arm that *halts* rather than
+failing is the tell that the reader has stopped on a key: measured 2026-10-14, the whole script
+halted on the real `bulk` file, so its producer-file arms had no coverage at all.
+
+A following section covers **the two states that satisfy the name check and still cannot be read**,
+both found in review and both measured before being fixed. A **duplicate** JSON key survives as a
+duplicate list name, `%in%` is TRUE and `[[` takes the first — a planted sibling published its own
+`flooded` version silently, which is the one failure class that publishes a wrong value rather than
+an absence, and which the network arm 50 lines above already refused. A key whose **value is null**
+published seven NAs and sent a recorded item down the unchecked disk-discovery path. Its fixtures
+are raw JSON rather than `synthetic()`, because `jsonlite::write_json` cannot emit a duplicate
+object key from an R list.
+
 ## Attribution drift check
 
 ```bash
@@ -398,6 +419,7 @@ the collection id, or the licence each exits 1 naming the arm that fired.
 | `WSG_ONLY=<wsg>` | Restricts `01_stage.R` to one group and drops a `PARTIAL_STAGE` marker. Used by the smoke test; `run_pipeline.sh` refuses to start if it is set, and `catalogue_release.sh` publishes the result only under `--only` | safe |
 | `NO_PIN=1` | Disables the GeoPackage timestamp pin in `gpkg_determinism-check.R` only — the cold path that proves the check can fail | safe (check only) |
 | `ITEM=<item_id>` | Which staged item `gpkg_determinism-check.R` exercises (default `sloc_bt_ff04`, the smallest) | safe |
+| `AREA=<wsg>` | Which upstream area `stage_years-check.R` builds its sandbox from (default `ufra`). Its scenario comes from that area's own `primary_scenario`, and the mutated years from its own record, so `AREA=bulk` exercises the reconciliation guard against a whole-network annual span rather than only a three-year one. A group declaring `targets:` is skipped out loud — the arms drive one scenario. The `meta.json` digest pin is `ufra_ch_ff04`'s and skips on any other area | safe (check only) |
 | `GEOSERV_HOST` | Overrides the catalog host (default `root@geopro`, the tailnet node name) | safe |
 | `ALLOW_SKIPPED=1` | Suppresses the `PARTIAL_STAGE` marker when a rostered group was skipped (not modelled yet) | **disables an interlock** |
 

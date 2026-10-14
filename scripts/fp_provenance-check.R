@@ -146,7 +146,13 @@ d <- synthetic(); d$network$co3$inputs$species <- NULL
 expect_stop("a network section with no inputs$species is a schema break",
             item(read_doc(d, "no_species")), "has no inputs$species")
 d <- synthetic(); names(d$landcover) <- "ff04"
-expect_stop("a re-keyed scenario section stops", item(read_doc(d, "rekeyed")), "not scenario ids of the form")
+expect_stop("a re-keyed landcover section stops, naming the item's own key",
+            item(read_doc(d, "rekeyed_lc")), "landcover section has no 'co_ff04' key")
+d <- synthetic(); names(d$floodplain) <- "ff04"
+expect_stop("a re-keyed floodplain section stops the same way",
+            item(read_doc(d, "rekeyed_fp")), "floodplain section has no 'co_ff04' key")
+expect_stop("...and the refusal names the keys the section does hold",
+            item(read_doc(d, "rekeyed_fp_keys")), paste0("it holds ", sQuote("ff04")))
 d <- synthetic(); d$area <- "morr"
 expect_stop("a file declaring another area than its directory stops", read_doc(d, "wrong_area"), "declares area 'morr'")
 d <- synthetic(); d$area <- NULL; d$wsg <- "MORR"
@@ -154,6 +160,100 @@ expect_stop("...and with no area recorded, the wsg is compared instead", read_do
 d <- synthetic(); d$area <- "neexdzii"
 expect_true("a subset area sharing its parent's wsg reads from its own directory",
             !is.null(read_doc(d, "subset", area = "neexdzii")))
+
+# --- the item's own scenario key (#75) ---------------------------------------------------
+# The two must-fail arms above are the re-keying case. These are the other half: the shape
+# of a key decides nothing, so a key naming a scenario this repo does not publish must pass
+# — which the retired `^[a-z]{2}_ff[0-9]{2}$` whitelist refused, taking the whole group with
+# it because it scanned every sibling rather than the key being looked up.
+#
+# Controls first. A guard that has never passed is as untested as one that has never fired,
+# and the thing being tested here IS the passing direction.
+cat("the item's own scenario key (#75)\n")
+d <- synthetic()
+d$floodplain <- c(d$floodplain, list(all_ff02 = d$floodplain$co_ff04,
+                                     all_ff04 = d$floodplain$co_ff04,
+                                     all_ff06 = d$floodplain$co_ff04,
+                                     wct_ff04 = d$floodplain$co_ff04))
+d$landcover <- c(d$landcover, list(all_ff04 = d$landcover$co_ff04,
+                                   wct_ff04 = d$landcover$co_ff04))
+got <- item(read_doc(d, "siblings"))
+expect_true("all_* and wct_* siblings do not stop the co_ff04 item",
+            all(!vapply(got, is_na1, logical(1))))
+
+# A whole-network record end to end: species `all`, network key `all2` (order 2, not 3), and
+# every floodplain/landcover key three characters in the species slot. This is the shape
+# `bulk`, `kisp`, `morr` and `dunc` carry on disk as of 2026-10-14.
+whole <- function() {
+  d <- synthetic()
+  names(d$network) <- "all2"
+  d$network$all2$inputs$species <- "all"
+  d$floodplain <- list(all_ff02 = d$floodplain$co_ff04,
+                       all_ff04 = d$floodplain$co_ff04,
+                       all_ff06 = d$floodplain$co_ff04)
+  d$landcover <- list(all_ff04 = d$landcover$co_ff04)
+  d
+}
+w <- read_doc(whole(), "whole")
+got <- fp_prov_item(w, "all", "all_ff04", "check", YEARS)
+expect_true("an all_ff04 item reads every field from an all_*-keyed record",
+            all(!vapply(got, is_na1, logical(1))))
+expect_equal("...with its network section matched on inputs$species 'all', not on min_order",
+            got$link_version, "0.50.0")
+expect_equal("...and fp_prov_span reads its years through the same selection",
+             fp_prov_span(w, "all", "all_ff04", "check")$years, YEARS)
+
+# The forward-only state survives the change: an absent section is a step that has not run,
+# never a key miss. Without this arm the new check could be made to pass by stopping on
+# every item whose record is incomplete, which is the behaviour #17 forbids.
+d <- synthetic(); d$floodplain <- list(); d$landcover <- list()
+got <- item(read_doc(d, "nosections"))
+expect_true("absent floodplain and landcover sections stay the forward-only state, not a miss",
+            is_na1(got$flooded_version) && is_na1(got$landcover_source))
+expect_equal("...while the network section still publishes", got$link_version, "0.50.0")
+
+# Two ways the lookup itself would fail opaquely three lines later, both refused up front:
+# a section that reads back as a JSON array raises "subscript out of bounds" on `[[scenario]]`,
+# and an area.yml with neither `targets` nor `primary_scenario` reaches here with no key at all.
+d <- synthetic(); d$floodplain <- list(d$floodplain$co_ff04)
+expect_stop("a floodplain section that reads back as an array stops before being indexed",
+            item(read_doc(d, "fp_array")), "not an object keyed by scenario id")
+expect_stop("a target declaring no scenario stops, naming the cause",
+            fp_prov_item(base, "co", NULL, "check", YEARS), "declares no usable scenario")
+
+# --- the two states that satisfy the NAME check and still cannot be read -----------------
+# `scenario %in% names(s)` answers about the name. These are the two cases where the name is
+# there and the section is not, both found by review and both measured before being fixed:
+# the duplicate published a WRONG value (9.9.9 over the real 0.5.0), and the null-valued key
+# published seven NAs and sent a recorded item down the unchecked disk-discovery path.
+#
+# Written as raw JSON, not through synthetic(): jsonlite::write_json cannot emit a duplicate
+# object key from an R list, so a fixture built the usual way could not reach this state.
+raw_doc <- function(txt, case) {
+  dd <- file.path(WORK, case, "bulk"); dir.create(dd, recursive = TRUE, showWarnings = FALSE)
+  writeLines(txt, file.path(dd, "provenance.json")); fp_prov_read(dd)
+}
+FP_SECT <- function(v) sprintf(paste0('{"inputs":{"scenario":"co_ff04","flooded":',
+                                      '{"version":"%s"}},"run":{"datetime_utc":',
+                                      '"2026-09-02T19:00:00Z"}}'), v)
+dup <- raw_doc(sprintf(paste0('{"area":"bulk","wsg":"BULK","schema_version":2,"network":{},',
+                              '"floodplain":{"co_ff04":%s,"co_ff04":%s},"landcover":{}}'),
+                       FP_SECT("9.9.9"), FP_SECT("0.5.0")), "dup")
+expect_equal("premise: jsonlite keeps a duplicate JSON key as a duplicate list name",
+             names(dup$floodplain), c("co_ff04", "co_ff04"))
+expect_stop("a duplicated scenario key refuses rather than taking the first",
+            fp_prov_sections(dup, "co", "co_ff04", "check"), "Cannot choose; refusing to guess")
+
+# `d$landcover["co_ff04"] <- list(NULL)` assigns a NULL member rather than deleting the key,
+# which `$<- NULL` would do.
+d <- synthetic(); d$landcover["co_ff04"] <- list(NULL)
+nul <- read_doc(d, "nullsect")
+expect_equal("premise: the key survives the round trip with a null value",
+             c(names(nul$landcover), is.null(nul$landcover[["co_ff04"]])), c("co_ff04", "TRUE"))
+expect_stop("a scenario key whose value is null refuses rather than reading as an absence",
+            item(nul), "key is null")
+expect_stop("...and fp_prov_span refuses it too, rather than returning the unchecked NULL",
+            fp_prov_span(nul, "co", "co_ff04", "check"), "key is null")
 
 cat("rasters vs the record that describes them\n")
 # The reference is the landcover section's run stamp, NOT the file's mtime. Three states,
@@ -332,12 +432,35 @@ real_item <- function(prov, species = "co", scenario = "co_ff04") {
   sp <- fp_prov_span(prov, species, scenario, "check")
   fp_prov_item(prov, species, scenario, "check", if (is.null(sp)) YEARS else sp$years)
 }
+# The real-file arms call the reader UNCAUGHT, which is how one producer file aborted the
+# whole script: before #75 the whitelist stopped on bulk's `all_ff02` and the nine arms below
+# never ran — including the only one that proves the fold rule against producer bytes. (Nine,
+# counted, not recalled: `grep -cE 'expect_(true|equal|stop)\('` from `b <- real("bulk")` to
+# EOF. A copied count in the argument for a guard is the same defect the guard is about.)
+# #75 removed that cause and this removes the SHAPE, which outlived it: these arms are pinned
+# to `co_ff04`, a section floodplains#125/#131 retires, and under the new per-item rule a
+# non-empty section missing that key is a stop() rather than the nulls it used to be. So any
+# reader refusal here is turned into ONE failed assertion carrying the reader's own message,
+# and the remaining arms still run.
+real_arms <- function(label, expr) {
+  tryCatch(force(expr), error = function(e)
+    fail(paste0(label, ": the reader refused this producer file"),
+         conditionMessage(e)))
+}
 b <- real("bulk")
-if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else {
+if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else real_arms("bulk", {
   got <- real_item(b)
   expect_true("bulk: link_* and flooded_version populated from the v2 file",
               !any(vapply(got[c("link_run_uid", "link_config_sha256", "link_sha", "link_version", "flooded_version")], is_na1, logical(1))))
-  expect_equal("bulk: flooded_version is the #26 fix (0.5.0)", got$flooded_version, "0.5.0")
+  # Compared, not pinned: `== "0.5.0"` was a copied value on a moving population, the same
+  # shape as the census literal round 1 found. What the arm is about is that the reader reads
+  # a real version at or above the #26 bankfull-units fix — which is also the threshold
+  # item_create.py's `deprecated` biconditional uses — so assert that, and an upstream re-run
+  # onto 0.7.0 no longer reads as the reader breaking. compareVersion, not package_version():
+  # the latter raises on a pre-release suffix (code-check-r.md).
+  expect_true("bulk: flooded_version is at or above the #26 fix (0.5.0)",
+              is.character(got$flooded_version) &&
+                utils::compareVersion(got$flooded_version, "0.5.0") >= 0)
   # Whichever span this area is on today, both ends of the published transition window must
   # be classified — the one property of a real year set that does not depend on which
   # population floodplains#79 has converted it to yet.
@@ -352,32 +475,46 @@ if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else {
                      if (lc_present) "present" else "absent"),
               if (lc_present) !any(vapply(got[lc], is_na1, logical(1)))
               else all(vapply(got[lc], is_na1, logical(1))))
-}
+})
 n <- real("neexdzii")
-if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") else {
+if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") else real_arms("neexdzii", {
   got <- real_item(n)
   expect_true("neexdzii: every field non-null", !any(vapply(got, is_na1, logical(1))))
   expect_equal("neexdzii: landcover_source", got$landcover_source, "io-lulc")
   expect_true("neexdzii: landcover_key is a sha256: string",
               grepl("^sha256:[0-9a-f]{64}$", got$landcover_key))
-  expect_equal("neexdzii: landcover_item_hash is the recorded item_hash",
-               got$landcover_item_hash, "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904")
-  # Pinned from the producer's file on 2026-09-02: a function of its three published
-  # per-year digests and the rule above. This is the only assertion here that proves the
-  # RULE rather than the reader, so it is the one worth keeping — but it is a witness
-  # pinned to a copy, and floodplains#79 will re-run neexdzii onto an annual span and move
-  # it. Gated on the file still being the build it was pinned from, and skipped OUT LOUD
-  # otherwise, so a re-run reads as "re-take the pin" and not as "the fold broke".
-  PIN_STAMP <- "2026-09-02T19:48:49Z"
+  # Pinned from the producer's file: a function of its three published per-year digests and
+  # the rule above. This is the only assertion here that proves the RULE rather than the
+  # reader, so it is the one worth keeping — but it is a witness pinned to a copy, and an
+  # upstream re-run moves it. Gated on the file still being the build it was pinned from, and
+  # skipped OUT LOUD otherwise, so a re-run reads as "re-take the pin" and not as "the fold
+  # broke".
+  #
+  # RE-TAKEN 2026-10-14 (#75), from the 2026-10-13 re-run. It had been skipping, which is the
+  # state this gate is designed to produce and also the state in which nothing proves the fold
+  # against producer bytes — and #75 was the first branch to reach these arms at all, since the
+  # script halted on the real bulk file before the key check changed. Re-derived independently
+  # of this reader, in stdlib Python over the producer's own digests, so the pin is not a
+  # round trip through the thing it checks.
+  PIN_STAMP <- "2026-10-13T23:24:26Z"
   if (!identical(got$produced_datetime, PIN_STAMP)) {
     skip("neexdzii: landcover_key folds to the pinned value",
          paste0("upstream re-ran (", got$produced_datetime, " != pinned ", PIN_STAMP,
                 ") — re-take the pin from the new file"))
   } else {
     expect_equal("neexdzii: landcover_key folds to the pinned value",
-                 got$landcover_key, "sha256:27a0c5b649f44ed3f449820ec9c69ac96306aeccbe704ee80467d8a20fb89b04")
+                 got$landcover_key, "sha256:170a9ef4d7d5d668893c46d978064d4aaf8f75a2bb021db31c3645fe0af42989")
+    # Under the SAME gate, not beside it. These are witnesses pinned to the same copy:
+    # `item_hash` is stable across an in-place upstream re-derivation but NOT across a span
+    # change, and floodplains#79 converts areas to the annual span one at a time (bulk went
+    # 3 -> 7 during this branch's own work). Left ungated they would FAIL on the re-run that
+    # makes the fold pin SKIP — one assertion saying "re-take the pin" beside two saying "the
+    # reader broke", about the same event.
+    expect_equal("neexdzii: landcover_item_hash is the recorded item_hash",
+                 got$landcover_item_hash,
+                 "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904")
   }
-}
+})
 
 unlink(WORK, recursive = TRUE)
 cat("\n", N, " assertions, ", FAILS, " failed, ", SKIPPED, " skipped",

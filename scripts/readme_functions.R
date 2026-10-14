@@ -16,7 +16,14 @@ S3_BASE <- "https://stac-floodplains-bc.s3.us-west-2.amazonaws.com"
 CACHE <- "data/readme_items.rds"
 
 # `wsg` is a code; the items publish the code, not the label.
-SPECIES <- c(bt = "bull trout", ch = "chinook", co = "coho")
+#
+# `all` is not a fish (#75). It is the producer's reserved token for the whole stream network at
+# order >= 2 with no access filter, one floodplain per group attributed by `blue_line_key`
+# (floodplains#104/#125) — so the label is "whole network", not "all species", which would read as
+# a union of per-species networks. `wct` has no published item yet; it is here because the species
+# slot takes two to four letters and a code with no entry renders as itself in a committed table.
+SPECIES <- c(all = "whole network", bt = "bull trout", ch = "chinook", co = "coho",
+             wct = "westslope cutthroat trout")
 
 #' A property that must be there, or the render stops
 #'

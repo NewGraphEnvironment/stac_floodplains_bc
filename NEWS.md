@@ -19,6 +19,74 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
+### The provenance reader checks that each item finds its scenario, not the key's shape (#75)
+
+Nothing published changes. This unblocks publishing whole-network floodplains, which was frozen
+on it (floodplains#125).
+
+`scripts/fp_provenance.R` refused any `floodplain` / `landcover` section key in the producer's
+`provenance.json` that did not match `^[a-z]{2}_ff[0-9]{2}$`, and it scanned **every** key in the
+section rather than the one being looked up. So a single unrecognised sibling stopped the whole
+watershed group, including targets whose own key was fine. Measured 2026-10-14: `all_ff02`,
+`all_ff04` and `all_ff06` keys exist on disk now in `bulk`, `kisp`, `morr` and `dunc`, and
+`Rscript scripts/fp_provenance-check.R` halted on the real `bulk` file — so that script's own
+producer-file arms had no coverage at all.
+
+A record says what produced a file at a point in time; it does not decide what may be published.
+The check now asks whether **the item finds its key** — the item's own `scenario` must be present
+in any of those two sections that has keys at all — and the refusal names the key and the keys
+present. The re-keying failure the old whitelist existed for (`ch_ff04` → `ff04`, which makes
+every lookup miss and publishes seven nulls on every item at once) is still refused, because
+every item's own lookup misses. A key naming a scenario this repo does not publish is no longer
+examined, which is what lets upstream model scenarios we never emit an item for. An absent or
+empty section stays the forward-only state and still degrades to `NULL`.
+
+**A full release is blocked, and not by this change.** `PROVENANCE_FLOOR` (21) is still exact, but
+`PROV_CENSUS` reads `link_run_uid` 18 / `link_config_sha256` 21 / `link_sha` 21 where the current
+roster measures 17 / 20 / 20 — the delta is entirely DUNC, new in `columbia.yml` upstream with a
+null `link_log`. Those literals are deliberately **not** re-measured here: DUNC is refused one step
+earlier by `item_create.py` for a half-present `processing:software` `link` entry
+(floodplains#133), so a release cut today would fail before the census, and writing the new numbers
+would encode a broken record as the expectation. They are re-taken on the build the next full
+release is cut from. The refusal is the exact literal doing its job.
+
+Two consequences for anyone reading the record:
+
+- **The species slot is two to four letters, and `all` is not a fish.** It is the producer's
+  reserved token for the whole stream network at order ≥ 2 with no access filter, attributed by
+  `blue_line_key` (floodplains#104/#125). It renders as "whole network" in the coverage table and
+  the map popups; `wct` is also labelled, ahead of any item carrying it.
+- **The `network` section is matched on its recorded `inputs$species`**, which the whole-network
+  mode made load-bearing rather than merely principled: a group carrying both `co3` and `all2`
+  cannot be keyed by a derived `paste0(species, min_order)`.
+
+Two states satisfy a name check and still cannot be read, and both are now refused rather than
+read as an absence. A **duplicate** scenario key survives `jsonlite` as a duplicate list name, so
+`[[` took the first — measured, a planted sibling published its own `flooded` version silently,
+which is the one failure class that publishes a *wrong value* rather than an absence. A key whose
+**value is null** published seven NAs and routed a recorded item onto the unchecked
+disk-discovery path. Neither was caught before this release, by the old check or the new one.
+
+**What the old whitelist gave up, on the record.** A re-key touching only keys for scenarios this
+repo does not publish is no longer caught at all — nothing else catches it, because every `_ff`
+derivation downstream reads the item's own scenario, never a provenance key. So a producer
+key-format change now arrives as a stage that succeeds and is caught when a target lands on the
+changed key: fail-late, fail-loud, never a published null. A cross-check that would restore the
+early warning with no regex (every section restates its own key inside itself — measured on all
+104 sections on disk) was considered and **declined**, because it re-asserts something about
+sections we never read and would again stop a group over a key it does not need. The reasoning is
+in the code so the next reader does not re-add it.
+
+Proof is in `scripts/fp_provenance-check.R` (87 assertions, 0 skipped): must-fail arms for both
+re-keyed sections, the duplicate key and the null-valued key, and controls for `all_*` / `wct_*`
+siblings beside a `co_ff04` item, a whole-network record read end to end, the forward-only state,
+and a section that reads back as a JSON array. The `neexdzii` fold pin — the only assertion
+proving the fold rule against producer bytes — was **dead** (upstream re-ran 2026-10-13) and is
+re-taken, re-derived independently of the reader. `scripts/stage_years-check.R` reports a
+three-year item's `meta.json` byte-identical to the pre-change build, and now takes an `AREA`
+override so it can drive a whole-network annual span at the real call site instead of only
+`ufra` / `ch_ff04`.
+
 ### Item field names moved off the `nge:` prefix (#74)
 
 Every custom item property is renamed. **A saved filter or script that names an old property

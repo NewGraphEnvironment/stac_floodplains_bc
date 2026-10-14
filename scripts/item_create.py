@@ -1,7 +1,8 @@
 """item_create.py — build the stac-floodplains-bc collection + item JSON.
 
 One or more STAC items per watershed group — one per modelled (species, scenario)
-target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06`). Item id is the key
+target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06` — both still live, though a
+rebuild now stages `morr_all_ff04` alone; #76). Item id is the key
 for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
   - geometry  = the item's headline-scenario floodplain footprint (from meta.json)
   - datetime  = 2017 -> 2023 land-cover-change span
