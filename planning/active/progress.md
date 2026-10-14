@@ -12,3 +12,10 @@
   issue rather than fixed here; `all` renders as "whole network".
 - Created branch `75-provenance-key-check-verify-each-item-fi` off main; scaffolded PWF baseline.
 - Next: Phase 1 — replace the whitelist in `fp_prov_sections()`.
+
+- Phases 1-2 landed in one commit: the check script pins the message the reader emits, so
+  splitting them would leave a red commit. `fp_provenance-check.R`: 81 assertions, 0 failed,
+  1 skipped (the pre-existing stale `neexdzii` fold pin — upstream re-ran 2026-10-13).
+- Mutation evidence, measured before the fix: the old whitelist stopped with "not scenario ids
+  of the form" on the `co_ff04` item of a doc carrying `all_*` siblings, and halted the whole
+  check script on the real `bulk` file. Both new controls fail under it.

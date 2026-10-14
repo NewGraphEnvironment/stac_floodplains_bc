@@ -18,21 +18,21 @@ lookup misses, and admits any key `floodplains` writes.
 
 ## Phase 1: Replace the whitelist with a per-item presence check
 
-- [ ] `scripts/fp_provenance.R` `fp_prov_sections()`: replace the `grep("^[a-z]{2}_ff[0-9]{2}$", ...)`
+- [x] `scripts/fp_provenance.R` `fp_prov_sections()`: replace the `grep("^[a-z]{2}_ff[0-9]{2}$", ...)`
       loop with a per-item key-presence check over `floodplain` and `landcover`
-- [ ] An empty or absent section stays the forward-only state and still yields `NULL`
-- [ ] Rewrite the comment block: the subject is now the item, not the key's shape
-- [ ] Fix the two comments the upstream move falsified — MORR's `targets:` block is gone
+- [x] An empty or absent section stays the forward-only state and still yields `NULL`
+- [x] Rewrite the comment block: the subject is now the item, not the key's shape
+- [x] Fix the two comments the upstream move falsified — MORR's `targets:` block is gone
       (one target, `all_ff04`), and `min_order` is no longer uniformly 3 (`all2` is order 2)
 
 ## Phase 2: Prove it in `scripts/fp_provenance-check.R`
 
-- [ ] Must-fail, landcover: the re-keyed section (`names(d$landcover) <- "ff04"`) stops on the new message
-- [ ] Must-fail, floodplain: its twin, which the old shape check also covered
-- [ ] Control: `all_ff02`/`all_ff04`/`all_ff06` + `wct_ff04` beside `co_ff04` reads clean for the `co_ff04` item
-- [ ] Control: an `all_ff04` item round-trips `fp_prov_item()` and `fp_prov_span()` clean
-- [ ] Control: an absent / empty section does not stop (forward-only state preserved)
-- [ ] The real-file arms run rather than halt the script
+- [x] Must-fail, landcover: the re-keyed section (`names(d$landcover) <- "ff04"`) stops on the new message
+- [x] Must-fail, floodplain: its twin, which the old shape check also covered
+- [x] Control: `all_ff02`/`all_ff04`/`all_ff06` + `wct_ff04` beside `co_ff04` reads clean for the `co_ff04` item
+- [x] Control: an `all_ff04` item round-trips `fp_prov_item()` and `fp_prov_span()` clean
+- [x] Control: an absent / empty section does not stop (forward-only state preserved)
+- [x] The real-file arms run rather than halt the script
 
 ## Phase 3: `all` end to end, and the prose that states a two-letter species
 

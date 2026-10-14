@@ -196,13 +196,20 @@ fp_prov_read <- function(src_wsg) {
 
 # --- Select the sections for one published target ---------------------------------------
 # This repo publishes one item per (wsg, species, scenario); upstream writes one file per
-# WSG. MORR's two targets share a file, so the sections must be SELECTED, never assumed.
+# WSG, carrying every scenario it has ever modelled for that group. So the sections must be
+# SELECTED, never assumed: measured 2026-10-14, morr's file holds nine floodplain sections
+# and three landcover ones while the roster asks for a single target. (MORR used to be the
+# example of a group with TWO targets; upstream retired its `targets:` block under
+# floodplains#125, so it now falls back to the one `all_ff04` item and the plural case is
+# currently unoccupied — the selection still has to be correct for when it is not.)
 #
 # The network section is matched on its own recorded `inputs$species`, not by rebuilding
-# its key from `paste0(species, min_order)`. Two reasons, and the second is why it
-# matters: the producer already states the join, so re-deriving it duplicates a fact; and
-# every config/<wsg>/area.yml on disk today has min_order 3, so a derivation and a
-# hardcoded "3" are indistinguishable — a test of it could not fail.
+# its key from `paste0(species, min_order)`. Two reasons, and the second is why it matters:
+# the producer already states the join, so re-deriving it duplicates a fact; and until the
+# whole-network mode landed, every config/<wsg>/area.yml on disk had min_order 3, so a
+# derivation and a hardcoded "3" were indistinguishable — a test of it could not fail. That
+# is no longer true (`all2` is order 2), which makes the matching load-bearing rather than
+# merely principled: a group carrying both `co3` and `all2` needs the recorded species.
 fp_prov_sections <- function(prov, species, scenario, where = "") {
   if (is.null(prov)) return(list(network = NULL, floodplain = NULL, landcover = NULL))
 
@@ -238,24 +245,54 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
          call. = FALSE)
   }
   # floodplain/landcover are keyed by scenario_id directly, which is this repo's own
-  # `scenario` (e.g. ch_ff04) — the same string both sides already agree on.
+  # `scenario` (e.g. ch_ff04, all_ff04) — the same string both sides already agree on.
   #
   # Those keys are DATA, so unknown-key rejection cannot close them the way it closes the
-  # document root: any string is a possible scenario. What is pinned is their documented
-  # SHAPE. Without this, re-formatting the key (`ch_ff04` -> `ff04`) makes both lookups
-  # miss and publishes seven nulls on every item at once — a uniform loss, which is
-  # exactly what a cross-item check cannot see.
+  # document root: any string is a possible scenario. The first instrument tried here was a
+  # whitelist of their documented SHAPE, `^[a-z]{2}_ff[0-9]{2}$`, and it decided what may be
+  # PUBLISHED rather than reading what the record says (#75). It refused `all_ff04` — the
+  # whole-network mode, floodplains#104/#125 — and every three-letter species code such as
+  # `wct_ff04`; and because it scanned the whole section rather than the key being looked up,
+  # one unrecognised sibling stopped a group even for a target whose own key was fine.
   #
-  # A key that matches the shape but names a scenario this repo does not publish is fine
-  # and must stay fine: upstream may model scenarios we never emit an item for.
+  # The failure it existed for is a RE-KEYING: `ch_ff04` -> `ff04` makes both lookups below
+  # miss and publishes seven nulls on every item at once, a uniform loss which is exactly
+  # what a cross-item check cannot see. So the subject of the check is the ITEM. Its own
+  # scenario must be a key of any section that has keys at all — a re-key is still refused,
+  # because every item's lookup misses, and it is refused naming the key and the keys present
+  # rather than a regex nobody can read off the file. A key naming a scenario this repo does
+  # not publish is no longer examined, which is what lets upstream model scenarios we never
+  # emit an item for.
+  #
+  # Only when the section HAS keys. An absent or empty section is the forward-only state —
+  # one of the producer's three steps has not run for this area — and must keep degrading to
+  # NULL, the same three-state discipline fp_prov_leaf applies one level down.
+  if (!is.character(scenario) || length(scenario) != 1L || is.na(scenario) ||
+      !nzchar(scenario)) {
+    stop("provenance.json ", where, ": the target declares no usable scenario (",
+         deparse(scenario)[1], "), so there is no key to look for. An area.yml with no ",
+         "`primary_scenario` and no `targets` reaches here.", call. = FALSE)
+  }
   for (sect in c("floodplain", "landcover")) {
-    bad <- grep("^[a-z]{2}_ff[0-9]{2}$", names(prov[[sect]] %||% list()),
-                value = TRUE, invert = TRUE)
-    if (length(bad)) {
-      stop("provenance.json ", where, ": ", sect, " section key(s) ",
-           paste(sQuote(bad), collapse = ", "), " are not scenario ids of the form ",
-           "<species>_ff<NN>. A re-keyed section would otherwise publish nulls that read ",
-           "like a step that had not run. Update scripts/fp_provenance.R.", call. = FALSE)
+    s <- prov[[sect]]
+    if (is.null(s)) next
+    # An object reads back as a NAMED list. A JSON array reads back unnamed, and `[[scenario]]`
+    # on one raises "subscript out of bounds" at the end of this function — a schema break
+    # reported as an indexing error. An empty object and an empty array are indistinguishable
+    # after parsing, so both take the forward-only path below.
+    if (!is.list(s) || (length(s) && (is.null(names(s)) || any(!nzchar(names(s)))))) {
+      stop("provenance.json ", where, ": the ", sect, " section is ",
+           if (is.list(s)) "an unnamed list" else class(s)[1],
+           ", not an object keyed by scenario id. Update scripts/fp_provenance.R.",
+           call. = FALSE)
+    }
+    keys <- names(s)
+    if (length(keys) && !(scenario %in% keys)) {
+      stop("provenance.json ", where, ": the ", sect, " section has no '", scenario,
+           "' key — it holds ", paste(sQuote(keys), collapse = ", "),
+           ". This item's own scenario must be one of them, or every field read from that ",
+           "section publishes a null that reads like a step which had not run. Re-run that ",
+           "step upstream, or drop this target from the roster.", call. = FALSE)
     }
   }
 

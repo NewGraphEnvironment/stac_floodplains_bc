@@ -146,7 +146,13 @@ d <- synthetic(); d$network$co3$inputs$species <- NULL
 expect_stop("a network section with no inputs$species is a schema break",
             item(read_doc(d, "no_species")), "has no inputs$species")
 d <- synthetic(); names(d$landcover) <- "ff04"
-expect_stop("a re-keyed scenario section stops", item(read_doc(d, "rekeyed")), "not scenario ids of the form")
+expect_stop("a re-keyed landcover section stops, naming the item's own key",
+            item(read_doc(d, "rekeyed_lc")), "landcover section has no 'co_ff04' key")
+d <- synthetic(); names(d$floodplain) <- "ff04"
+expect_stop("a re-keyed floodplain section stops the same way",
+            item(read_doc(d, "rekeyed_fp")), "floodplain section has no 'co_ff04' key")
+expect_stop("...and the refusal names the keys the section does hold",
+            item(read_doc(d, "rekeyed_fp_keys")), "it holds")
 d <- synthetic(); d$area <- "morr"
 expect_stop("a file declaring another area than its directory stops", read_doc(d, "wrong_area"), "declares area 'morr'")
 d <- synthetic(); d$area <- NULL; d$wsg <- "MORR"
@@ -154,6 +160,67 @@ expect_stop("...and with no area recorded, the wsg is compared instead", read_do
 d <- synthetic(); d$area <- "neexdzii"
 expect_true("a subset area sharing its parent's wsg reads from its own directory",
             !is.null(read_doc(d, "subset", area = "neexdzii")))
+
+# --- the item's own scenario key (#75) ---------------------------------------------------
+# The two must-fail arms above are the re-keying case. These are the other half: the shape
+# of a key decides nothing, so a key naming a scenario this repo does not publish must pass
+# — which the retired `^[a-z]{2}_ff[0-9]{2}$` whitelist refused, taking the whole group with
+# it because it scanned every sibling rather than the key being looked up.
+#
+# Controls first. A guard that has never passed is as untested as one that has never fired,
+# and the thing being tested here IS the passing direction.
+cat("the item's own scenario key (#75)\n")
+d <- synthetic()
+d$floodplain <- c(d$floodplain, list(all_ff02 = d$floodplain$co_ff04,
+                                     all_ff04 = d$floodplain$co_ff04,
+                                     all_ff06 = d$floodplain$co_ff04,
+                                     wct_ff04 = d$floodplain$co_ff04))
+d$landcover <- c(d$landcover, list(all_ff04 = d$landcover$co_ff04,
+                                   wct_ff04 = d$landcover$co_ff04))
+got <- item(read_doc(d, "siblings"))
+expect_true("all_* and wct_* siblings do not stop the co_ff04 item",
+            all(!vapply(got, is_na1, logical(1))))
+
+# A whole-network record end to end: species `all`, network key `all2` (order 2, not 3), and
+# every floodplain/landcover key three characters in the species slot. This is the shape
+# `bulk`, `kisp`, `morr` and `dunc` carry on disk as of 2026-10-14.
+whole <- function() {
+  d <- synthetic()
+  names(d$network) <- "all2"
+  d$network$all2$inputs$species <- "all"
+  d$floodplain <- list(all_ff02 = d$floodplain$co_ff04,
+                       all_ff04 = d$floodplain$co_ff04,
+                       all_ff06 = d$floodplain$co_ff04)
+  d$floodplain$all_ff04$inputs$scenario <- "all_ff04"
+  d$landcover <- list(all_ff04 = d$landcover$co_ff04)
+  d
+}
+w <- read_doc(whole(), "whole")
+got <- fp_prov_item(w, "all", "all_ff04", "check", YEARS)
+expect_true("an all_ff04 item reads every field from an all_*-keyed record",
+            all(!vapply(got, is_na1, logical(1))))
+expect_equal("...with its network section matched on inputs$species 'all', not on min_order",
+            got$link_version, "0.50.0")
+expect_equal("...and fp_prov_span reads its years through the same selection",
+             fp_prov_span(w, "all", "all_ff04", "check")$years, YEARS)
+
+# The forward-only state survives the change: an absent section is a step that has not run,
+# never a key miss. Without this arm the new check could be made to pass by stopping on
+# every item whose record is incomplete, which is the behaviour #17 forbids.
+d <- synthetic(); d$floodplain <- list(); d$landcover <- list()
+got <- item(read_doc(d, "nosections"))
+expect_true("absent floodplain and landcover sections stay the forward-only state, not a miss",
+            is_na1(got$flooded_version) && is_na1(got$landcover_source))
+expect_equal("...while the network section still publishes", got$link_version, "0.50.0")
+
+# Two ways the lookup itself would fail opaquely three lines later, both refused up front:
+# a section that reads back as a JSON array raises "subscript out of bounds" on `[[scenario]]`,
+# and an area.yml with neither `targets` nor `primary_scenario` reaches here with no key at all.
+d <- synthetic(); d$floodplain <- list(d$floodplain$co_ff04)
+expect_stop("a floodplain section that reads back as an array stops before being indexed",
+            item(read_doc(d, "fp_array")), "not an object keyed by scenario id")
+expect_stop("a target declaring no scenario stops, naming the cause",
+            fp_prov_item(base, "co", NULL, "check", YEARS), "declares no usable scenario")
 
 cat("rasters vs the record that describes them\n")
 # The reference is the landcover section's run stamp, NOT the file's mtime. Three states,
