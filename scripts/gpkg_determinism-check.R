@@ -32,8 +32,14 @@ no_pin <- tolower(Sys.getenv("NO_PIN", unset = "")) %in% c("1", "true", "yes")
 
 staged <- file.path("data", "stac", item)
 src <- file.path(staged, "floodplain_landcover.gpkg")
-if (!file.exists(src)) {
-  stop("no staged bundle at ", src, " — run scripts/run_pipeline.sh first, or set ITEM=")
+# All three, not just the one the first arm reads: the other two are what the multi-layer arms
+# take their layer sets from, and a missing one would surface further down as an st_layers()
+# failure naming only a path.
+for (f in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
+  if (!file.exists(file.path(staged, f))) {
+    stop("no staged ", f, " at ", staged,
+         " — run scripts/run_pipeline.sh first, or set ITEM=")
+  }
 }
 
 meta <- jsonlite::read_json(file.path("data", "raw", item, "meta.json"))
@@ -98,6 +104,13 @@ for (gp in c("floodplain.gpkg", "floodplain_landcover.gpkg")) {
   # twice gives the same bytes. Said out loud because the repo's convention is the reverse —
   # item_validate.py and test_pipeline.R both take their expectations from a different
   # artifact than the one under test, precisely so an expectation cannot agree with itself.
+  #
+  # The ORDER this query returns them in does not have to match the stage's, because
+  # gpkg_copy_layers() sorts internally. It did not always: while the writer honoured the
+  # caller's order, this check's `ORDER BY table_name` and the stage's `st_layers()` order
+  # produced different bytes from the same layers, so a green warm arm here described a file
+  # the stage does not write. That is why the sort is in the writer rather than in its
+  # callers.
   layers <- sf::st_read(file.path(staged, gp), quiet = TRUE,
                         query = paste("SELECT table_name FROM gpkg_contents",
                                       "WHERE data_type IN ('features','attributes')",

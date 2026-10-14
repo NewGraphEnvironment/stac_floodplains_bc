@@ -421,32 +421,70 @@ for (mp in meta_paths) {
   # Nothing outside the item's own set, counted against the SOURCE (#80). The per-layer key
   # arm above is satisfied by any subset, so it cannot see a layer that is missing; this arm
   # is the one that fails on the defect as it stood before #80, where the staged file held
-  # every layer the source did. Compared by COUNT against the source's own key table rather
-  # than against a list typed here: a literal would have to be re-typed for every group, and
-  # the source is a different artifact written by a different repo.
+  # every layer the source did.
   #
-  # Upstream is read through the same helper 01_stage.R selects with. That is deliberately
-  # not independent, and it is not the arm doing the work — the key assertion above is, and
-  # it reads the published bytes with no reference to the selector. This arm only asks
-  # whether the count the selector should have produced is the count that landed.
-  for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
-    src_gpkg <- file.path(fp_data, meta$wsg_lower, gp)
-    if (!file.exists(src_gpkg)) next
-    src_keys <- gpkg_layer_keys(src_gpkg)
-    want_scen <- if (gp == "floodplain.gpkg") {
+  # TWO arms, because the obvious single one cannot see a loss. The set comparison below asks
+  # the SOURCE which layers are keyed to this item — and it must not ask through
+  # `gpkg_own_layers()`, which is the function the stage selects with: a selector that dropped
+  # a layer family would make the expectation drop it too and the arm would agree with the
+  # defect. (It did, in the first version of this test.) So the expectation is re-derived here
+  # in SQL, a second implementation of the same rule over the same bytes.
+  lst <- function(x) if (length(x)) paste(x, collapse = ", ") else "<none>"
+  want_scen_for <- function(gp) {
+    if (gp == "floodplain.gpkg") {
       unique(c(meta$scenario, paste0(sub("_ff.*$", "", meta$scenario),
                                      "_ff", c("02", "04", "06"))))
     } else {
       meta$scenario
     }
-    expect <- gpkg_own_layers(src_keys, meta$wsg_lower, meta$species, want_scen)
+  }
+  for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
+    src_gpkg <- file.path(fp_data, meta$wsg_lower, gp)
+    if (!file.exists(src_gpkg)) next
+    src_lyrs <- sf::st_read(src_gpkg, quiet = TRUE,
+                            query = paste("SELECT table_name FROM gpkg_contents",
+                                          "WHERE data_type IN ('features','attributes')",
+                                          "ORDER BY table_name"))$table_name
+    want_scen <- want_scen_for(gp)
+    expect <- character(0)
+    for (lyr in src_lyrs) {
+      k <- sf::st_read(src_gpkg, quiet = TRUE,
+                       query = sprintf(
+                         'SELECT DISTINCT wsg, species, scenario FROM "%s"', lyr))
+      if (nrow(k) == 1L && identical(toupper(k$wsg[1]), toupper(meta$wsg)) &&
+            identical(k$species[1], meta$species) && k$scenario[1] %in% want_scen) {
+        expect <- c(expect, lyr)
+      }
+    }
     got <- keyed_layers(file.path(item_dir, gp))
     if (!setequal(got, expect)) {
-      lst <- function(x) if (length(x)) paste(x, collapse = ", ") else "<none>"
       stop(gp, " for ", meta$item_id, " holds ", length(got), " layer(s) but the source's ",
-           length(src_keys$layer), " include exactly ", length(expect),
+           length(src_lyrs), " include exactly ", length(expect),
            " keyed to this item. Extra: ", lst(setdiff(got, expect)),
            "; missing: ", lst(setdiff(expect, got)))
+    }
+  }
+
+  # The second arm: an absolute floor of layer NAMES built from meta.json and the item id,
+  # which reach this test from a different script than the one that selected the layers. The
+  # set arm above is the right shape but still reads the producer's file to decide what to
+  # expect, so a loss that hits the SOURCE — upstream dropping a classified year, say — is
+  # consistent on both of its sides. This one cannot be: the years come from `meta$years`,
+  # which `01_stage.R` reconciled against the producer's record before anything was written,
+  # and the ff names from the scenario. Absolute, for the same reason the style-asset and RAT
+  # checks in item_validate.py are: a loss that hits every item identically is invisible to a
+  # comparison between items or between artifacts that share an ancestor.
+  floor_fp <- paste0(sub("_ff.*$", "", meta$scenario), "_ff", c("02", "04", "06"))
+  floor_lc <- c(sprintf("classified_%s_%s", meta$scenario, unlist(meta$years)),
+                sprintf("transition_%s_%s_%s", meta$scenario,
+                        meta$transition_span[[1]], meta$transition_span[[2]]))
+  for (f in list(list(gp = "floodplain.gpkg", want = floor_fp),
+                 list(gp = "floodplain_landcover.gpkg", want = floor_lc))) {
+    have <- keyed_layers(file.path(item_dir, f$gp))
+    absent <- setdiff(f$want, have)
+    if (length(absent)) {
+      stop(f$gp, " for ", meta$item_id, " is missing layer(s) the item must publish: ",
+           lst(absent), " (has: ", lst(have), ")")
     }
   }
 

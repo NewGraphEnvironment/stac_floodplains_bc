@@ -241,7 +241,19 @@ for (wsg in wsgs) {
   # exactly the shape #75 spent four rounds on.
   gpkg_src <- c(floodplain = file.path(src_wsg, "floodplain.gpkg"),
                 landcover = file.path(src_wsg, "floodplain_landcover.gpkg"))
-  for (p in gpkg_src) if (!file.exists(p)) stop("Missing source GeoPackage: ", p)
+  # SKIPPED, not stopped. A rostered group with no upstream outputs is the state
+  # `PARTIAL_STAGE` and `ALLOW_SKIPPED` exist for ("$FLOODPLAINS_DATA is stale or
+  # mid-recompute", below), and before #80 these two files were only touched inside the target
+  # loop, after the no-rasters skip — so a hard stop here would sit UPSTREAM of both and make
+  # that documented escape hatch unreachable. The skip is recorded, so the interlock still
+  # refuses to publish a short collection; it is a louder outcome than it looks.
+  missing_gpkg <- names(gpkg_src)[!file.exists(gpkg_src)]
+  if (length(missing_gpkg)) {
+    message("SKIPPED ", toupper(wsg), " — no ",
+            paste(basename(gpkg_src[missing_gpkg]), collapse = " / "), " at ", src_wsg)
+    skipped <- c(skipped, wsg)
+    next
+  }
   keys_fp <- gpkg_layer_keys(gpkg_src[["floodplain"]])
   keys_lc <- gpkg_layer_keys(gpkg_src[["landcover"]])
 
@@ -302,9 +314,12 @@ for (wsg in wsgs) {
     # `paste0(wsg, "_", NULL)` is "bulk_", not an error, and `file.path(src, "rasters", NULL)`
     # is the area's `rasters/` parent — which EXISTS, so the "no rasters, skip" branch below
     # does not fire either. This runs before every fp_prov_* call for every area, including
-    # the four that carry no provenance.json at all (measured 2026-10-14: lit, logs, mcgr,
+    # the two rostered ones that carry no provenance.json at all (measured 2026-10-14: mcgr,
     # pine), so it is the only guard on this path — fp_prov_sections() keeps its own copy for
-    # the check scripts and any other direct caller, not for the stage.
+    # the check scripts and any other direct caller, not for the stage. (An earlier version of
+    # this comment counted four, naming `lit` and `logs`. Neither is an area: `lit` holds two
+    # reference PDFs and `logs` holds run logs, and neither has a config/<wsg>/ directory, so
+    # neither was ever walked by this loop.)
     for (f in c("species", "scenario")) {
       v <- tgt[[f]]  # already `[[`, and the loop below reads only these two names
       if (!is.character(v) || length(v) != 1L || is.na(v) || !nzchar(v)) {
@@ -320,6 +335,27 @@ for (wsg in wsgs) {
     scenario <- tgt[["scenario"]]                   # e.g. co_ff04, ch_ff06, all_ff04
     species <- tgt[["species"]]
     item_id <- paste0(wsg, "_", scenario)
+
+    # The item's own layers, and the group's claim on them, computed BEFORE the raster skip
+    # below. The claim set has to come from the group's DECLARED targets, not from the ones
+    # that happen to stage: computed after the skip, a target with no rasters contributed
+    # nothing, so the per-group census would report every layer of its own live target as
+    # matching no target of the group — and then label them "upstream's retired targets,
+    # pruned by floodplains#131", which is false in both directions and invites deleting
+    # upstream data belonging to a target that is simply mid-recompute.
+    #
+    # The ff set, not the item's single scenario, for floodplain.gpkg: its ff02/ff06
+    # delineations each record their OWN flood factor in `scenario` and the item publishes
+    # all three. `needed` is the same vector the layer-name assertion further down uses, so
+    # the selection and that assertion cannot part company.
+    sp_prefix <- sub("_ff.*$", "", scenario)
+    ff_layers <- setNames(paste0(sp_prefix, "_ff", c("02", "04", "06")),
+                          c("ff02", "ff04", "ff06"))
+    needed <- unique(c(scenario, ff_layers))
+    own_fp <- gpkg_own_layers(keys_fp, wsg, species, needed)
+    own_lc <- gpkg_own_layers(keys_lc, wsg, species, scenario)
+    claimed_fp <- union(claimed_fp, own_fp)
+    claimed_lc <- union(claimed_lc, own_lc)
 
     src_rasters <- file.path(src_wsg, "rasters", scenario)
     if (!dir.exists(src_rasters)) {
@@ -400,20 +436,6 @@ for (wsg in wsgs) {
     # copy publishes another target's floodplain inside this item's own assets. See the
     # header of fp_gpkg.R for the selection rule and the asymmetry between the two files.
     #
-    # The ff set, not the item's single scenario, for floodplain.gpkg: its ff02/ff06
-    # delineations each record their OWN flood factor in `scenario` and the item publishes
-    # all three. `needed` is the same vector the layer-name assertion below uses, so the two
-    # cannot part company — and it is built here rather than there because the write has to
-    # precede the reads.
-    sp_prefix <- sub("_ff.*$", "", scenario)
-    ff_layers <- setNames(paste0(sp_prefix, "_ff", c("02", "04", "06")),
-                          c("ff02", "ff04", "ff06"))
-    needed <- unique(c(scenario, ff_layers))
-    own_fp <- gpkg_own_layers(keys_fp, wsg, species, needed)
-    own_lc <- gpkg_own_layers(keys_lc, wsg, species, scenario)
-    claimed_fp <- union(claimed_fp, own_fp)
-    claimed_lc <- union(claimed_lc, own_lc)
-
     # Both refusals BEFORE the census, so a group whose target has no landcover at all stops
     # here rather than printing twenty "matches no item" lines and then stopping anyway.
     #
@@ -434,8 +456,12 @@ for (wsg in wsgs) {
              paste(unique(paste(sel$keys$wsg, sel$keys$species, sel$keys$scenario,
                                 sep = "/")), collapse = "; "), call. = FALSE)
       }
+      # `%in% "features"`, never `== "features"`: `gpkg_layer_keys()` fills `data_type` by
+      # `match()` against gpkg_contents, so a layer GDAL lists that the table does not
+      # register gives NA — and `x[c(TRUE, NA)]` yields an NA ELEMENT, so `length(feat)` would
+      # be non-zero and this refusal would pass vacuously on exactly the file it is for.
       feat <- sel$keys$layer[sel$keys$layer %in% sel$own &
-                               sel$keys$data_type == "features"]
+                               sel$keys$data_type %in% "features"]
       if (!length(feat)) {
         stop(item_id, ": this item's ", length(sel$own), " layer(s) of ", sel$f,
              " are all aspatial (", paste(sel$own, collapse = ", "),
@@ -455,7 +481,9 @@ for (wsg in wsgs) {
     # can catch a NEW one: 04_gpkg_style.py's "matches no style rule" refusal runs after a
     # filter to feature layers, so an aspatial family never reaches it. A line per item is
     # what makes that hole legible until #65 closes it.
-    aspatial <- keys_lc$layer[keys_lc$layer %in% own_lc & keys_lc$data_type == "attributes"]
+    # `%in%`, not `==`, for the same NA reason as the features filter above: `==` would print
+    # a phantom NA in the report.
+    aspatial <- keys_lc$layer[keys_lc$layer %in% own_lc & keys_lc$data_type %in% "attributes"]
     if (length(aspatial)) {
       message("  ", item_id, ": ", length(aspatial),
               " aspatial table(s) staged, undescribed here (#65): ",

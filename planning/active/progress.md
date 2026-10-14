@@ -151,3 +151,47 @@ skipped each — the skip is the `PIN_META_SHA256` arm, which is ufra_ch_ff04's 
 so, and it is the arm's own documented refusal to describe another area rather than a silence.
 So the 25- and 14-foreign-layer paths both run through the real `01_stage.R` call site in a
 sandbox, with all three year-set defect arms restored and caught.
+
+### Code-check round 1 — 5 findings, all fixed
+
+Reviewer report: `planning/active/review-round1.md`. Every finding reproduced before it was
+acted on; the reviewer also re-derived every prose number in the diff independently and found
+none wrong.
+
+**The bug was inside my own fix.** `gpkg_copy_layers()`'s warning guard captured the GDAL
+warning, muffled it, and raised *after* the call — but `gdal_utils()` raises on the same call,
+which unwound `withCallingHandlers()` before that line could run. The captured text was
+discarded and the muffle suppressed the one place it would have printed, so the operator got
+`gdal_utils vectortranslate: an error occured` and nothing else: **strictly worse than having
+no handler**, since R otherwise prints the warning beside the error. Reproduced, and visible in
+my own Phase 1 probe output, which I had misread as `-f GPKG` changing the failure path rather
+than as my guard's message never appearing. Now both conditions are captured and joined into
+one message, and the layer name is back.
+
+A second defect came out of chasing the reviewer's minor note that the determinism arms
+translate in a different layer order than the stage. **Layer order changes the bytes** —
+measured: BULK's four floodplain layers written in reverse give an identical file size and a
+different md5. So the published `file:checksum` depended on `st_layers()` order, a GDAL
+implementation detail, and `gpkg_determinism-check.R` (which orders by `table_name`) had been
+proving the reproducibility of a file the stage does not write. `gpkg_copy_layers()` now sorts
+internally, with `method = "radix"` so the order is C-locale bytes rather than the operator's
+`LC_COLLATE`. The determinism arms' md5s now equal the staged files' md5s exactly
+(`7152a8bde62f…`, `c74432f94f21…`).
+
+| finding | fix | proof |
+|---|---|---|
+| 1 warning guard unreachable, layer name lost | capture the error too, join both into one message | the message now contains `nope_missing` |
+| 2a a documented skip became a hard stop (bundle check hoisted above the no-rasters skip, upstream of `PARTIAL_STAGE` and `ALLOW_SKIPPED`) | missing bundle is a group **SKIP**, recorded in `skipped` | full run, one group's bundle removed: `PARTIAL_STAGE written — 22 target(s) skipped`, and `ALLOW_SKIPPED=1` reaches its own branch with no marker. (The earlier `WSG_ONLY` attempt could never reach it: `01_stage.R:174` writes the marker for `WSG_ONLY`, so the block short-circuits — pre-existing and documented.) |
+| 2b a skipped target's layers reported as upstream's retired targets | own sets and the group claim computed **before** the raster skip, from declared targets | sandbox with `rasters/` removed: `SKIPPED`, and no "match no target" line at all |
+| 3 the layer-set arm derived its expectation from the selector it checks | expectation re-derived in SQL (a second implementation), **plus** an absolute floor of layer names built from `meta.json` and the item id | selector made to drop every `classified_*`: the SQL arm fires. Source *and* selector both missing `classified_bt_ff04_2020`, so the SQL arm agrees: the floor arm fires |
+| 4 `NA` `data_type` made the all-aspatial refusal pass vacuously (`x[c(TRUE,NA)]` yields an NA element) | `%in% "features"` / `%in% "attributes"` | gpkg_contents rows deleted for the feature layers: the refusal fires, naming all four |
+| 5 a layerless GeoPackage raised `arguments imply differing number of rows: 0, 1` | explicit precondition naming the file | **not reproduced** — dropping the last table makes GDAL refuse to open the file at all, so the case may be unreachable. Kept as a cheap precondition that refuses rather than passes, and recorded as unproven |
+
+Minor notes also taken: the `floodplain.gpkg` asset description said "ff02/ff04/ff06" while 18
+of 23 items also ship `_by_blue_line_key`; `gpkg_determinism-check.R` guarded only one of the
+two source paths; and a pre-existing wrong claim (#75) that `lit` and `logs` are areas carrying
+no `provenance.json` — they are a reference-PDF folder and a log folder, with no
+`config/<wsg>/` at all, so the stage never walked them.
+
+Re-validated after the fixes: roster-wide 23 staged / 0 skipped, independent audit 46/46 and
+23/23 at 642.9 MB, `WSG=morr` PASS end to end, determinism 3 arms MATCH and all 3 DIFFER cold.

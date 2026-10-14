@@ -111,6 +111,13 @@ GPKG_ITEM_KEY <- c("wsg", "species", "scenario")
 #' against one reading of the same table.
 gpkg_layer_keys <- function(src) {
   layers <- sf::st_layers(src)$name
+  # Named explicitly, because the data.frame() below would otherwise raise "arguments imply
+  # differing number of rows: 0, 1" — R recycles a length-1 column against a length-0 one
+  # rather than yielding a 0-row frame (code-check-r.md) — and that message names neither the
+  # file nor the condition.
+  if (!length(layers)) {
+    stop("gpkg_layer_keys: ", src, " declares no layers in gpkg_contents", call. = FALSE)
+  }
   # `data_type` from gpkg_contents, not from the geometry type sf reports. Two reasons, both
   # measured. A `transition_*` layer is declared `Unknown (any)` and reports an EMPTY
   # geomtype, not NA, so a geometry test calls it aspatial or not depending on which of the
@@ -199,41 +206,59 @@ gpkg_copy_layers <- function(src, dst, layers) {
   if (!length(layers)) {
     stop("gpkg_copy_layers: no layers requested for ", dst, call. = FALSE)
   }
+  # SORTED, and this is load-bearing rather than tidiness: measured 2026-10-14, writing BULK's
+  # four floodplain layers in reverse order gives a file of identical SIZE and a different md5.
+  # Unsorted, every published `file:checksum` would depend on `st_layers()` order — a GDAL
+  # implementation detail nothing here pins — and `gpkg_determinism-check.R`, which takes its
+  # layer set from `gpkg_contents ORDER BY table_name`, would have been proving the
+  # reproducibility of a file the stage does not produce.
+  #
+  # `method = "radix"` for the C-locale byte order: the default collates by LC_COLLATE
+  # (code-check-r.md), which would make a published checksum a function of the operator's
+  # locale — the same class of defect one layer down.
+  layers <- sort(unique(layers), method = "radix")
   unlink(dst)
   # `-f GPKG` explicitly, and every switch BEFORE the positional layer names: GDAL 3.9+
   # parses these options with argparse, where trailing positional args are the reliable
   # place for the remainder. Guessing the driver from the extension would also work and
   # says less.
   #
-  # TWO guards, for two different reasons — and NEITHER is "gdal_utils does not raise".
-  # Measured both ways 2026-10-14: given a layer name the source does not hold, it emits
-  # `GDAL Error 1: Couldn't fetch requested layer 'x'!` as an R warning AND raises on the
-  # non-zero GDALVectorTranslate return, with or without `-f GPKG`, leaving a 65,536-byte
-  # file st_layers() cannot open. An earlier probe here reported "warns only" because it used
-  # `tryCatch(error =, warning =)`, which takes the warning first and so never reaches the
-  # error (code-check-r.md, "tryCatch(warning = ) DISCARDS the value the expression
-  # produced").
+  # Both conditions are captured, and BOTH have to be, because GDAL splits one failure across
+  # two of them. Measured 2026-10-14: given a layer name the source does not hold,
+  # `gdal_utils()` emits `GDAL Error 1: Couldn't fetch requested layer 'x'!` as an R warning
+  # AND raises `gdal_utils vectortranslate: an error occured` on the non-zero
+  # GDALVectorTranslate return. The raise is the useless half — it names nothing — and the
+  # warning is the half that names the layer.
   #
-  # The warning guard is kept for the MESSAGE: gdal_utils's own error says
-  # "gdal_utils vectortranslate: an error occured" and names nothing, while the warning names
-  # the layer, which is the one fact an operator needs. It also still covers
-  # code-check-spatial.md's documented case, where a source GDAL cannot open warns and
-  # returns `NA` rather than raising.
+  # So the handler must not merely muffle. A first version of this guard captured the warning,
+  # muffled it, and raised AFTER the call: the raise from inside `gdal_utils()` unwound
+  # `withCallingHandlers()` before that line could run, so the captured text was discarded and
+  # the muffle suppressed the one place it would have printed. The operator got
+  # "an error occured" and nothing else — strictly WORSE than having no handler, since R
+  # otherwise prints the warning beside the error. Both halves are joined into one message
+  # here instead.
   #
-  # Flag-then-raise, not a stop() inside the handler: this warning comes up through sf's C++
-  # frames, and aborting from the handler longjmps past their destructors.
+  # Flag-then-raise rather than a stop() inside the handler: the warning comes up through sf's
+  # C++ frames, and aborting from the handler longjmps past their destructors. The tryCatch is
+  # INSIDE withCallingHandlers so the warning is seen before the error unwinds; nesting them
+  # the other way loses it (code-check-r.md, "tryCatch() nests its handlers").
   gdal_warning <- NULL
+  gdal_error <- NULL
   withCallingHandlers(
-    sf::gdal_utils("vectortranslate", source = src, destination = dst,
-                   options = c("-f", "GPKG", layers), quiet = TRUE),
+    tryCatch(
+      sf::gdal_utils("vectortranslate", source = src, destination = dst,
+                     options = c("-f", "GPKG", layers), quiet = TRUE),
+      error = function(e) gdal_error <<- conditionMessage(e)),
     warning = function(w) {
       gdal_warning <<- conditionMessage(w)
       invokeRestart("muffleWarning")
     }
   )
-  if (!is.null(gdal_warning)) {
-    stop("gpkg_copy_layers: GDAL warned writing ", basename(dst), " from ", src, ": ",
-         gdal_warning, call. = FALSE)
+  if (!is.null(gdal_error) || !is.null(gdal_warning)) {
+    stop("gpkg_copy_layers: writing ", basename(dst), " from ", src, " failed",
+         if (!is.null(gdal_error)) paste0(" — ", gdal_error),
+         if (!is.null(gdal_warning)) paste0(" — ", gdal_warning),
+         call. = FALSE)
   }
   # The written FILE, not the call's return value. The backstop: both signals above are
   # GDAL's own, and the 65,536-byte carcass a failed call leaves behind is what the next step

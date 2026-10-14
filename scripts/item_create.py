@@ -425,9 +425,10 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
         description=(
-            f"The ff02/ff04/ff06 delineations for {meta['item_id']}'s species alone. Each "
-            f"layer records its own flood factor in `scenario`, so all three ship under one "
-            f"item."),
+            f"The ff02/ff04/ff06 delineations for {meta['item_id']}'s species alone, plus "
+            f"the producer's per-blue-line-key breakdown of the headline scenario where one "
+            f"exists. Each layer records its own flood factor in `scenario`, so several "
+            f"values appear under one item; read the layer list rather than assuming three."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )
