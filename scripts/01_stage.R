@@ -213,7 +213,8 @@ for (wsg in wsgs) {
   # so read once and select per target. NULL when the area predates floodplains#33.
   wsg_prov <- fp_prov_read(src_wsg)
 
-  for (tgt in targets) {
+  for (tgt_i in seq_along(targets)) {
+    tgt <- targets[[tgt_i]]
     scenario <- tgt$scenario                        # e.g. co_ff04, ch_ff06, all_ff04
     species <- tgt$species
     # Asserted here, where the roster is read, because every downstream symptom is quiet.
@@ -225,7 +226,10 @@ for (wsg in wsgs) {
     for (f in c("species", "scenario")) {
       v <- tgt[[f]]
       if (!is.character(v) || length(v) != 1L || is.na(v) || !nzchar(v)) {
-        stop("config/", wsg, "/area.yml: target ", which(vapply(targets, identical, logical(1), tgt)),
+        # The loop index, not `which(vapply(targets, identical, ...))`: two byte-identical
+        # `targets:` entries make that `which` length 2, and stop() concatenates with no
+        # separator — measured "target 12", a plausible wrong pointer into area.yml.
+        stop("config/", wsg, "/area.yml: target ", tgt_i,
              " declares no usable `", f, "` (", deparse(v)[1], "). With no `targets:` block ",
              "that means a missing `", if (f == "scenario") "primary_scenario" else f,
              "`.", call. = FALSE)

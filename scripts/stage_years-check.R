@@ -91,9 +91,22 @@ ITEM <- paste0(AREA, "_", SCEN)
 # (2020 and 2021), which only hold for a three-year span: on an annual-span area the record
 # already names 2021, so the planted year was not unrecorded and arm (b)'s premise aborted
 # (#75). Derived from the record instead.
-REC_YEARS <- sort(as.integer(unlist(
-  jsonlite::read_json(file.path(src_area, "provenance.json"),
-                      simplifyVector = FALSE)$landcover[[SCEN]]$inputs$years)))
+# `[[` throughout, never `$`: `$` partial-matches on a list, so an upstream rename to a longer
+# sibling (`years_v2`) would be matched silently HERE while fp_prov_span() — which uses `[[` —
+# stops. That is the access form fp_provenance.R bans by name, and a fixture builder reading the
+# producer's file is not exempt from it.
+`%||%` <- function(a, b) if (is.null(a)) b else a
+REC_DOC <- jsonlite::read_json(file.path(src_area, "provenance.json"), simplifyVector = FALSE)
+REC_LC <- (REC_DOC[["landcover"]] %||% list())[[SCEN]]
+# Skipped out loud rather than reported as a short year list: an area with no landcover section
+# for this scenario is the forward-only state, reachable through the AREA override, and
+# "the record names fewer than three years" would name the wrong cause.
+if (is.null(REC_LC)) {
+  cat("  skip  every case (", AREA, " has no landcover record for ", SCEN, ")\n", sep = "")
+  cat("\n0 assertions, 0 failed, 1 skipped — the call site was NOT proven\n")
+  quit(status = 0)
+}
+REC_YEARS <- sort(as.integer(unlist(REC_LC[["inputs"]][["years"]])))
 stopifnot("the record names fewer than three years" = length(REC_YEARS) >= 3L)
 # A year to delete that is not an end of the transition span: dropping an end trips the
 # span-coverage arm instead, which is a different guard with a different message.
@@ -205,8 +218,10 @@ if (!file.exists(built)) {
   # a rename in fp_prov_item — downgrades the assertion from FAIL to SKIP, under a message
   # blaming upstream. A guard failing toward skip, on the one arm that exists to notice the
   # code moving meta.json. The two carry the same value; only one of them is independent.
+  # `[[`, not `$`, for the same reason as REC_LC above — the twin instance of one mechanism,
+  # fixed together so a later reader does not find one half converted.
   stamp <- jsonlite::read_json(file.path(FP, AREA, "provenance.json"),
-                               simplifyVector = FALSE)$landcover[[SCEN]]$run$datetime_utc
+                               simplifyVector = FALSE)[["landcover"]][[SCEN]][["run"]][["datetime_utc"]]
   if (!identical(AREA, "ufra")) {
     # A THIRD gate, for the AREA override (#75): the digest is of ufra_ch_ff04's meta.json,
     # so on any other area it describes nothing. Skipped before the stamp gate, whose message

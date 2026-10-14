@@ -41,6 +41,15 @@ every item's own lookup misses. A key naming a scenario this repo does not publi
 examined, which is what lets upstream model scenarios we never emit an item for. An absent or
 empty section stays the forward-only state and still degrades to `NULL`.
 
+**A full release is blocked, and not by this change.** `PROVENANCE_FLOOR` (21) is still exact, but
+`PROV_CENSUS` reads `link_run_uid` 18 / `link_config_sha256` 21 / `link_sha` 21 where the current
+roster measures 17 / 20 / 20 — the delta is entirely DUNC, new in `columbia.yml` upstream with a
+null `link_log`. Those literals are deliberately **not** re-measured here: DUNC is refused one step
+earlier by `item_create.py` for a half-present `processing:software` `link` entry
+(floodplains#133), so a release cut today would fail before the census, and writing the new numbers
+would encode a broken record as the expectation. They are re-taken on the build the next full
+release is cut from. The refusal is the exact literal doing its job.
+
 Two consequences for anyone reading the record:
 
 - **The species slot is two to four letters, and `all` is not a fish.** It is the producer's

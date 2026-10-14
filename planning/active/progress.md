@@ -52,3 +52,10 @@
 - Verification after the review fixes: fp_provenance-check 87/0/0 (the dead pin now live),
   prov_fields 44/0, year_sets 16/0, stage_years 14/0 on ufra and 13/0/1 on bulk, and
   `WSG=bulk test_pipeline.R` PASS.
+- `/code-check branch` round 1 (reviewer, 11.6 min): three findings, none in the core change.
+  The stale `PROV_CENSUS` is named rather than re-measured — DUNC blocks a release one step
+  earlier, so writing its numbers in would encode a broken record as the expectation. Two
+  quiet pointers fixed, one of them with a twin on the same mechanism.
+- One transient failure worth not mistaking for a defect: `item_validate.py` fetches remote
+  STAC extension schemas, and `classification/v2.0.0` was briefly unreachable. The retry
+  passes every gate. A re-run IS the attempt for a transient, per `planning.md`.

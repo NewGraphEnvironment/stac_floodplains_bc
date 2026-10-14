@@ -190,8 +190,17 @@ so every release records the count beside its NEWS entry: below is a reader that
 nobody updated.
 
 **Its per-field sibling is `PROV_CENSUS` in `item_validate.py`** (#74), the same literal shape,
-asserted whenever the floor is: how many items carry a value for **each** field (today
-`link_run_uid` 18, the other eleven 21). It exists because omitting absent keys retired set
+asserted whenever the floor is: how many items carry a value for **each** field. The literal reads
+`link_run_uid` 18 and the other eleven 21, which was true of the build it was taken from and is
+**stale against the current roster**: measured 2026-10-14 through this repo's own reader over all
+23 rostered targets, the census is `link_run_uid` 17, `link_config_sha256` 20, `link_sha` 20, the
+other nine 21, with `PROVENANCE_FLOOR` 21 still exact. The whole delta is DUNC, which joined
+`columbia.yml` upstream carrying `link_log: null`, so it drops all three log-sourced fields. **It
+is deliberately not re-measured here** (#75): DUNC cannot publish at all until floodplains#133 is
+resolved, so a release cut today would fail one step earlier, and writing 17/20/20 now would
+encode a broken record as the expectation. The literals are re-taken on the build the next full
+release is cut from — which is what an exact literal is for, and the refusal is the mechanism
+working. It exists because omitting absent keys retired set
 equality over the key set, which had been catching a reader that silently found nothing and a
 reader that kept one section and lost another. It is also strictly stronger than what it
 replaced: a whole section lost on every item used to pass every arm, because the item-level floor
