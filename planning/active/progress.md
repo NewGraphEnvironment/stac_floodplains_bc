@@ -125,3 +125,29 @@ alone, which is why every item's `file:checksum` for both assets moves and not o
 | `style_drift-check.py` | 3 styles byte-identical |
 | `style_determinism-check.py` | 3 GeoPackages byte-identical, re-run a no-op |
 | `gpkg_determinism-check.R` | 3 arms MATCH; `NO_PIN=1` all 3 DIFFER |
+
+### Validation — roster-wide (done)
+
+`ALLOW_DRIFT_SKEW=1 Rscript scripts/01_stage.R` over the whole roster: **23 staged, 0 skipped**,
+no `PARTIAL_STAGE`, 21 of 23 carrying run provenance (`PROVENANCE_FLOOR`'s literal, unmoved).
+The census named exactly BULK, MORR and KISP, and the unknown-family report printed nothing —
+so no staged layer across the catalogue sits in a family this repo does not know.
+
+Then an independent check over all 23 staged items (`sqlite3` only, no `fp_gpkg.R`, so it
+shares no code with the selector):
+
+| assertion | result |
+|---|---|
+| staged layer set is a subset of the upstream file's | 46 / 46 files |
+| `<sp>_ff02/04/06` and the item's `transition_<scen>_<span>` present | 23 / 23 items |
+| every staged layer keyed to its own item (`wsg`, `species`, and `scenario` in the item's ff set for `floodplain.gpkg` / the item scenario for the landcover bundle) | all 218 layers |
+| two bundles on disk | **642.9 MB** |
+
+That 642.9 MB is the same number the volume measurement reached through `gpkg_copy_layers()`
+into a tempdir, from a different code path — the published tree and the projection agree.
+
+`AREA=morr` and `AREA=bulk Rscript scripts/stage_years-check.R`: 13 assertions, 0 failed, 1
+skipped each — the skip is the `PIN_META_SHA256` arm, which is ufra_ch_ff04's digest and says
+so, and it is the arm's own documented refusal to describe another area rather than a silence.
+So the 25- and 14-foreign-layer paths both run through the real `01_stage.R` call site in a
+sandbox, with all three year-set defect arms restored and caught.

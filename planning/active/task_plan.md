@@ -229,27 +229,27 @@ Two notes the plan depends on:
 Cheapest first, per review AC21. `stage_years-check.R` already drives the real `01_stage.R` in
 a sandbox, so the foreign-layer paths need no new harness.
 
-- [ ] `AREA=ufra Rscript scripts/stage_years-check.R` — its `PIN_META_SHA256` is the only
+- [x] `AREA=ufra Rscript scripts/stage_years-check.R` — its `PIN_META_SHA256` is the only
       byte-pin on `meta.json` in the repo, and ufra has no foreign layers, so this is the
       existence proof that reading areas from the staged copy moved no published number.
-- [ ] `AREA=morr` and `AREA=bulk Rscript scripts/stage_years-check.R` — the 25- and
+- [x] `AREA=morr` and `AREA=bulk Rscript scripts/stage_years-check.R` — the 25- and
       14-foreign-layer paths through the real call site.
-- [ ] `WSG=larl Rscript scripts/test_pipeline.R` — the minimal keep set (3 + 4, no
+- [x] `WSG=larl Rscript scripts/test_pipeline.R` — the minimal keep set (3 + 4, no
       `_by_blue_line_key`, no aspatial table), where a too-aggressive filter shows first.
-- [ ] Roster-wide: every item's staged layer names are a subset of the upstream names, and the
+- [x] Roster-wide: every item's staged layer names are a subset of the upstream names, and the
       three ff layers plus the item's transition layer are present.
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` — the group whose defect the issue names;
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` — the group whose defect the issue names;
       asserts stage → tag → COG → STAC → validate end to end, and the two new layer arms.
-- [ ] `WSG=morr Rscript scripts/test_pipeline.R` — the heaviest foreign set (25 layers) and
+- [x] `WSG=morr Rscript scripts/test_pipeline.R` — the heaviest foreign set (25 layers) and
       the only group carrying `_by_gnis_name` and `_patches` families.
-- [ ] `WSG=ufra Rscript scripts/test_pipeline.R` — a group with no foreign layers, so the
+- [x] `WSG=ufra Rscript scripts/test_pipeline.R` — a group with no foreign layers, so the
       filter must be a no-op on content.
-- [ ] `Rscript scripts/gpkg_determinism-check.R` and `NO_PIN=1 Rscript …` — warm arm matches,
+- [x] `Rscript scripts/gpkg_determinism-check.R` and `NO_PIN=1 Rscript …` — warm arm matches,
       cold arm differs.
-- [ ] `Rscript scripts/stage_years-check.R` — its symlinked sandbox runs the real
+- [x] `Rscript scripts/stage_years-check.R` — its symlinked sandbox runs the real
       `01_stage.R`, so it exercises the new writer over real UFRA layers.
-- [ ] `uv run scripts/style_drift-check.py` and `uv run scripts/style_determinism-check.py`.
-- [ ] `bash scripts/catalogue_release-check.sh` — synthetic trees, unaffected by layer
+- [x] `uv run scripts/style_drift-check.py` and `uv run scripts/style_determinism-check.py`.
+- [x] `bash scripts/catalogue_release-check.sh` — synthetic trees, unaffected by layer
       contents, but it pins the `--only` path these bytes travel.
 - [ ] `/code-check branch` before the PR, three rounds minimum.
 
