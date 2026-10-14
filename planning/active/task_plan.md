@@ -102,22 +102,22 @@ Two notes the plan depends on:
 
 `scripts/01_stage.R:337-350`, replacing the two `file.copy()` calls
 
-- [ ] For each of the two bundles, classify the source layers and write only the own set:
+- [x] For each of the two bundles, classify the source layers and write only the own set:
       `floodplain.gpkg` keyed on `(wsg, species)`, `floodplain_landcover.gpkg` on
       `(wsg, species, scenario)`. State the asymmetry and its measurement in the comment.
-- [ ] **Stop** when any layer's status is `nokey`/`multi`, or when any layer's `wsg` is not
+- [x] **Stop** when any layer's status is `nokey`/`multi`, or when any layer's `wsg` is not
       the group's. The `wsg` arm is review **B1**: a foreign wsg has never been seen and would
       mean the producer merged two groups into one area dir, and `test_pipeline.R:373-380` is
       the repo's only guard in that direction — filtering would remove such a layer before
       that assertion could see it, trading a stop for a census line.
-- [ ] **Stop** when the own set is empty for a rostered item (`neexdzii`'s shape), naming the
+- [x] **Stop** when the own set is empty for a rostered item (`neexdzii`'s shape), naming the
       keys looked for and the keys found, **and** when it holds no `features` layer (review
       G3): `04_gpkg_style.py:153-156` would otherwise raise three steps later under a message
       about styling. Both stops fire **before** the census (review O9).
-- [ ] **Stop** when the item's headline-scenario layer or any of `<sp>_ff02/04/06` is not in
+- [x] **Stop** when the item's headline-scenario layer or any of `<sp>_ff02/04/06` is not in
       the own set. This is the existing assertion at `:385-391`, moved onto the staged file so
       it asserts what ships.
-- [ ] **Report** foreign and unattributable layers per item, and accumulate a census, in the
+- [x] **Report** foreign and unattributable layers per item, and accumulate a census, in the
       idiom `01_stage.R` already uses for `traced` / `year_untraced` / `drift_untraced`
       (`:504-528`): a per-item `message()` plus one end-of-run count line naming the items.
       Not a stop: 3 of 24 rostered groups legitimately carry retired-species layers until
@@ -127,14 +127,14 @@ Two notes the plan depends on:
       computed per target, a 2-target group double-counts and can call a layer foreign that a
       sibling target owns — dormant while every `area.yml` is `targets:`-free, which is the
       shape #75 spent four rounds on.
-- [ ] Also report the **aspatial** tables kept per item. They ship (`patch_watercourse_*`,
+- [x] Also report the **aspatial** tables kept per item. They ship (`patch_watercourse_*`,
       `composition_*`) and nothing here describes them (#65/#70); `04_gpkg_style.py`'s
       `feature_layers()` filters them out, so its "matches no style rule" stop cannot see a
       new aspatial family. One line per item is what makes that hole visible. Also report any
       **kept** layer whose name matches no known family (review G5) — the name-vs-key
       cross-check in the opposite direction from the staged-copy assertion below, and the only
       cover `floodplain.gpkg` has, since `04_gpkg_style.py:57` is a catch-all.
-- [ ] Point `fp_gpkg` at the **staged** copy (`:381`) so `read_area_km2()`, the footprint
+- [x] Point `fp_gpkg` at the **staged** copy (`:381`) so `read_area_km2()`, the footprint
       geometry and the EPSG all describe the published bytes — the rationale already written
       at `:361-368` for the transition extraction and at `:417-419` for the metrics. Requires
       the write to precede the area reads, which it does. **The stronger reason is review O7:**
@@ -142,7 +142,7 @@ Two notes the plan depends on:
       *name-vs-key cross-check* — a layer named `ch_ff02` whose `species` column says `co` is
       dropped by the filter and then stops the stage by name. Its message must name the staged
       path and separate "absent upstream" from "dropped by the filter".
-- [ ] Keep the `file.copy()`-returns-FALSE reasoning at `:340-342` (review O11): the raster
+- [x] Keep the `file.copy()`-returns-FALSE reasoning at `:340-342` (review O11): the raster
       copy at `:334` still depends on it. Move one copy and state that `gdal_utils` is the
       different case, with the inverted-return detail.
 

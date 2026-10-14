@@ -111,8 +111,17 @@ GPKG_ITEM_KEY <- c("wsg", "species", "scenario")
 #' against one reading of the same table.
 gpkg_layer_keys <- function(src) {
   layers <- sf::st_layers(src)$name
+  # `data_type` from gpkg_contents, not from the geometry type sf reports. Two reasons, both
+  # measured. A `transition_*` layer is declared `Unknown (any)` and reports an EMPTY
+  # geomtype, not NA, so a geometry test calls it aspatial or not depending on which of the
+  # two emptinesses it checks; and `layer_styles` (04_gpkg_style.py) gets no gpkg_contents
+  # row at all, so selecting on data_type excludes it without naming it. GDAL serves the
+  # table through st_read(query=) — checked.
+  dt <- sf::st_read(src, quiet = TRUE,
+                    query = "SELECT table_name, data_type FROM gpkg_contents")
   out <- data.frame(layer = layers, wsg = NA_character_, species = NA_character_,
                     scenario = NA_character_, status = NA_character_,
+                    data_type = dt$data_type[match(layers, dt$table_name)],
                     stringsAsFactors = FALSE)
   for (i in seq_along(layers)) {
     lyr <- layers[i]
