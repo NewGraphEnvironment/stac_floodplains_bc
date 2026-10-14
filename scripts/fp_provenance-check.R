@@ -432,12 +432,33 @@ real_item <- function(prov, species = "co", scenario = "co_ff04") {
   sp <- fp_prov_span(prov, species, scenario, "check")
   fp_prov_item(prov, species, scenario, "check", if (is.null(sp)) YEARS else sp$years)
 }
+# The real-file arms call the reader UNCAUGHT, which is how one producer file aborted the
+# whole script: before #75 the whitelist stopped on bulk's `all_ff02` and the 15 arms below
+# never ran — including the only one that proves the fold rule against producer bytes.
+# #75 removed that cause and this removes the SHAPE, which outlived it: these arms are pinned
+# to `co_ff04`, a section floodplains#125/#131 retires, and under the new per-item rule a
+# non-empty section missing that key is a stop() rather than the nulls it used to be. So any
+# reader refusal here is turned into ONE failed assertion carrying the reader's own message,
+# and the remaining arms still run.
+real_arms <- function(label, expr) {
+  tryCatch(force(expr), error = function(e)
+    fail(paste0(label, ": the reader refused this producer file"),
+         conditionMessage(e)))
+}
 b <- real("bulk")
-if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else {
+if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else real_arms("bulk", {
   got <- real_item(b)
   expect_true("bulk: link_* and flooded_version populated from the v2 file",
               !any(vapply(got[c("link_run_uid", "link_config_sha256", "link_sha", "link_version", "flooded_version")], is_na1, logical(1))))
-  expect_equal("bulk: flooded_version is the #26 fix (0.5.0)", got$flooded_version, "0.5.0")
+  # Compared, not pinned: `== "0.5.0"` was a copied value on a moving population, the same
+  # shape as the census literal round 1 found. What the arm is about is that the reader reads
+  # a real version at or above the #26 bankfull-units fix — which is also the threshold
+  # item_create.py's `deprecated` biconditional uses — so assert that, and an upstream re-run
+  # onto 0.7.0 no longer reads as the reader breaking. compareVersion, not package_version():
+  # the latter raises on a pre-release suffix (code-check-r.md).
+  expect_true("bulk: flooded_version is at or above the #26 fix (0.5.0)",
+              is.character(got$flooded_version) &&
+                utils::compareVersion(got$flooded_version, "0.5.0") >= 0)
   # Whichever span this area is on today, both ends of the published transition window must
   # be classified — the one property of a real year set that does not depend on which
   # population floodplains#79 has converted it to yet.
@@ -452,16 +473,14 @@ if (is.null(b)) skip("bulk/provenance.json reads", "not on this machine") else {
                      if (lc_present) "present" else "absent"),
               if (lc_present) !any(vapply(got[lc], is_na1, logical(1)))
               else all(vapply(got[lc], is_na1, logical(1))))
-}
+})
 n <- real("neexdzii")
-if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") else {
+if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") else real_arms("neexdzii", {
   got <- real_item(n)
   expect_true("neexdzii: every field non-null", !any(vapply(got, is_na1, logical(1))))
   expect_equal("neexdzii: landcover_source", got$landcover_source, "io-lulc")
   expect_true("neexdzii: landcover_key is a sha256: string",
               grepl("^sha256:[0-9a-f]{64}$", got$landcover_key))
-  expect_equal("neexdzii: landcover_item_hash is the recorded item_hash",
-               got$landcover_item_hash, "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904")
   # Pinned from the producer's file: a function of its three published per-year digests and
   # the rule above. This is the only assertion here that proves the RULE rather than the
   # reader, so it is the one worth keeping — but it is a witness pinned to a copy, and an
@@ -483,8 +502,17 @@ if (is.null(n)) skip("neexdzii/provenance.json reads", "not on this machine") el
   } else {
     expect_equal("neexdzii: landcover_key folds to the pinned value",
                  got$landcover_key, "sha256:170a9ef4d7d5d668893c46d978064d4aaf8f75a2bb021db31c3645fe0af42989")
+    # Under the SAME gate, not beside it. These are witnesses pinned to the same copy:
+    # `item_hash` is stable across an in-place upstream re-derivation but NOT across a span
+    # change, and floodplains#79 converts areas to the annual span one at a time (bulk went
+    # 3 -> 7 during this branch's own work). Left ungated they would FAIL on the re-run that
+    # makes the fold pin SKIP — one assertion saying "re-take the pin" beside two saying "the
+    # reader broke", about the same event.
+    expect_equal("neexdzii: landcover_item_hash is the recorded item_hash",
+                 got$landcover_item_hash,
+                 "sha256:c653b16d657768788957efa8a297d938e4ad4bef85538d9119e5bf3f24ed5904")
   }
-}
+})
 
 unlink(WORK, recursive = TRUE)
 cat("\n", N, " assertions, ", FAILS, " failed, ", SKIPPED, " skipped",

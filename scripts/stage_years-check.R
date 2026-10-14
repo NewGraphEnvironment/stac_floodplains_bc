@@ -96,7 +96,20 @@ ITEM <- paste0(AREA, "_", SCEN)
 # stops. That is the access form fp_provenance.R bans by name, and a fixture builder reading the
 # producer's file is not exempt from it.
 `%||%` <- function(a, b) if (is.null(a)) b else a
-REC_DOC <- jsonlite::read_json(file.path(src_area, "provenance.json"), simplifyVector = FALSE)
+# The record's EXISTENCE first. 2 of the 23 rostered groups carry none (mcgr, pine — the two
+# DEPRECATED_ITEMS), which the new AREA override makes reachable: `AREA=mcgr` crashed in
+# read_json with "cannot open the connection" and exit 1, which this suite's convention reads
+# as one failed assertion while printing no assertion line and naming no cause — in a script
+# that already skips out loud for four other states. Found by review inside the override's own
+# fix (#75).
+REC_PATH <- file.path(src_area, "provenance.json")
+if (!file.exists(REC_PATH) || file.size(REC_PATH) == 0) {
+  cat("  skip  every case (", AREA, " carries no provenance.json — the forward-only state)\n",
+      sep = "")
+  cat("\n0 assertions, 0 failed, 1 skipped — the call site was NOT proven\n")
+  quit(status = 0)
+}
+REC_DOC <- jsonlite::read_json(REC_PATH, simplifyVector = FALSE)
 REC_LC <- (REC_DOC[["landcover"]] %||% list())[[SCEN]]
 # Skipped out loud rather than reported as a short year list: an area with no landcover section
 # for this scenario is the forward-only state, reachable through the AREA override, and

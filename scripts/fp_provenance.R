@@ -294,19 +294,26 @@ fp_prov_sections <- function(prov, species, scenario, where = "") {
   # an upstream format change would again stop a group that does not need that key — which is
   # the exact defect #75 was filed about. The early warning is not worth buying back at that
   # price.
+  # Defence in depth, and no longer the first line of it: 01_stage.R asserts the roster's
+  # species and scenario before any fp_prov_* call, for every area, so the STAGE cannot reach
+  # this. It still covers every other caller — the check scripts, and anything that calls the
+  # reader directly — which is why it names the value rather than a config file it cannot know
+  # the path of.
   if (!is.character(scenario) || length(scenario) != 1L || is.na(scenario) ||
       !nzchar(scenario)) {
     stop("provenance.json ", where, ": the target declares no usable scenario (",
-         deparse(scenario)[1], "), so there is no key to look for. An area.yml with no ",
-         "`primary_scenario` and no `targets` reaches here.", call. = FALSE)
+         deparse(scenario)[1], "), so there is no key to look for.", call. = FALSE)
   }
   for (sect in c("floodplain", "landcover")) {
     s <- prov[[sect]]
     if (is.null(s)) next
-    # An object reads back as a NAMED list. A JSON array reads back unnamed, and `[[scenario]]`
-    # on one raises "subscript out of bounds" at the end of this function — a schema break
-    # reported as an indexing error. An empty object and an empty array are indistinguishable
-    # after parsing, so both take the forward-only path below.
+    # An object reads back as a NAMED list. A JSON array reads back unnamed, and the stakes are
+    # the OPPOSITE of what they look like: `list(1, 2)[["co_ff04"]]` is **NULL**, not an error
+    # (measured — only an ATOMIC vector raises "subscript out of bounds"). So without this
+    # guard an array-shaped section would not crash at the end of this function; it would
+    # degrade to the forward-only NULL and publish seven nulls, which is the silent failure
+    # this whole file exists to prevent. An empty object and an empty array are
+    # indistinguishable after parsing, so both take the forward-only path below.
     if (!is.list(s) || (length(s) && (is.null(names(s)) ||
                                       any(is.na(names(s))) || any(!nzchar(names(s)))))) {
       stop("provenance.json ", where, ": the ", sect, " section is not an object keyed by ",

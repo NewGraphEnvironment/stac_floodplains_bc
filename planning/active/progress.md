@@ -59,3 +59,11 @@
 - One transient failure worth not mistaking for a defect: `item_validate.py` fetches remote
   STAC extension schemas, and `classification/v2.0.0` was briefly unreachable. The retry
   passes every gate. A re-run IS the attempt for a transient, per `planning.md`.
+- Round 2 (reviewer, 10.8 min): five findings, one of them INSIDE round 1's fix (the `AREA`
+  override made the recordless groups reachable and the script crashed). Mechanism named:
+  a fact about the upstream population copied in as a statement, with nothing re-deriving it
+  and a quiet failure direction. Because a round found a defect inside a fix, a quiet round 3
+  no longer ends the loop — only an enumeration does (`code-check.md`'s stopping rule).
+- The real-file arms' uncaught reader call was how the fold pin went unnoticed-dead. Fixed and
+  PROVED: with bulk's `co_ff04` landcover re-keyed in a sandbox, the suite reports 84/1 with
+  the bulk arm naming the reader's message, and all five neexdzii arms still run.

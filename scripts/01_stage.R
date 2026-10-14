@@ -220,9 +220,10 @@ for (wsg in wsgs) {
     # Asserted here, where the roster is read, because every downstream symptom is quiet.
     # `paste0(wsg, "_", NULL)` is "bulk_", not an error, and `file.path(src, "rasters", NULL)`
     # is the area's `rasters/` parent — which EXISTS, so the "no rasters, skip" branch below
-    # does not fire either. fp_prov_sections() carries the same guard for its own lookup, but
-    # it is reached only when the area has a provenance.json, so it cannot cover the four
-    # areas that do not (measured 2026-10-14: lit, logs, mcgr, pine).
+    # does not fire either. This runs before every fp_prov_* call for every area, including
+    # the four that carry no provenance.json at all (measured 2026-10-14: lit, logs, mcgr,
+    # pine), so it is the only guard on this path — fp_prov_sections() keeps its own copy for
+    # the check scripts and any other direct caller, not for the stage.
     for (f in c("species", "scenario")) {
       v <- tgt[[f]]
       if (!is.character(v) || length(v) != 1L || is.na(v) || !nzchar(v)) {
