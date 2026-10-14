@@ -1,9 +1,10 @@
 # 01_stage.R — stage the floodplains ff04 outputs for the publish pipeline.
 #
 # Discovers the watershed groups (WSGs) listed in any config/regions/*.yml that carry an
-# `ff04` floodplain, copies their classified/transition rasters + landcover GeoPackage into
-# `data/`, and derives the per-WSG publish metrics (floodplain area, tree loss/gain/net)
-# from the upstream transition layer. Each WSG's `region` is the region roster that lists it.
+# `ff04` floodplain, copies their classified/transition rasters into `data/`, WRITES each
+# item's three GeoPackages holding only that item's own layers (#80), and derives the per-WSG
+# publish metrics (floodplain area, tree loss/gain/net) from the upstream transition layer.
+# Each WSG's `region` is the region roster that lists it.
 #
 # No modelling here: loss/gain/net are aggregations of the transition patches already
 # produced by the `floodplains` driver. They are computed once, at staging, and written

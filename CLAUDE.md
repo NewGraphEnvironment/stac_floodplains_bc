@@ -15,7 +15,8 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
 
 ## Layout
 
-- **Rebuild** — `scripts/01_stage.R`, `02_raster_tag.py`, `03_cog.py`, `04_gpkg_style.py`,
+- **Rebuild** — `scripts/01_stage.R` (which WRITES all three GeoPackages since #80, not one),
+  `02_raster_tag.py`, `03_cog.py`, `04_gpkg_style.py`,
   `item_create.py`, `item_validate.py`, chained by `run_pipeline.sh`. Makes **no network writes**: publishing is a
   separate command, so a rebuild or smoke test cannot reach S3 or the live catalog. Source data
   comes from `$FLOODPLAINS_DATA` (default `../floodplains/data`).
@@ -110,19 +111,43 @@ names its targets, so which scenarios publish is **not** a decision this repo re
 Assets per item: **one COG per classified year** + a transition COG, plus **three**
 GeoPackages —
 `floodplain_landcover.gpkg`, `floodplain.gpkg` (ff02/ff04/ff06 delineations), and
-`transition_vector.gpkg` (the transition patches alone, ~14% of the bundle's bytes). Every layer of
+`transition_vector.gpkg` (the transition patches alone — a tenth of the bundle's bytes on the
+groups measured, and the ratio rises wherever the bundle shrank). Every layer of
 all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by
 attribute.
 
-**`floodplain_landcover.gpkg` also ships a table this repo does not describe.** 18 of 23 areas
-carry a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` table the producer writes, registered
-`data_type='attributes'` rather than `features` — measured 2026-09-05, and it is **already
-published**, since that GeoPackage is synced whole. It is not a property of the annual span:
-`ufra` (three-year) has one and `kotl` (annual) does not. Everything here that walks layers
-filters on `features` — `04_gpkg_style.py`, `item_validate.check_layer_styles`,
-`test_pipeline.R` — so it is inert on all three surfaces, verified rather than reasoned. But a
-consumer opening the file sees it, nothing here documents it, and one upstream `data_type`
-value is all that stands between it and a refused release (#65).
+**All three are WRITTEN here, and each holds only its own item's layers** (#80). The first two
+used to be whole-file copies of the group's bundle, which was self-describing while a group's
+layers were all one species' — and stopped being so the moment a group went whole-network,
+because upstream keeps the retired species' layers on disk until floodplains#131 prunes them.
+`bulk_all_ff04` was publishing BULK's **coho** floodplain and coho transition inside the
+whole-network item's own assets: #76's problem happening inside a single item, and nothing
+caught it, because the one key that was item-invariant under a whole copy was `wsg`. Selection
+is by each layer's own `wsg`/`species`/`scenario` — never by its name — and the two files are
+keyed differently for a reason that is a property of the data: `floodplain.gpkg`'s ff02/ff06
+delineations each record their OWN flood factor in `scenario` and the item publishes all
+three, so that file is keyed on the item's ff set, while every own layer of
+`floodplain_landcover.gpkg` carries the item's scenario. A layer whose key names no target of
+the group is **reported, not refused**: three groups carry one on every run until
+floodplains#131, so a refusal would be overridden every release and an always-set override
+stops being read. A layer of another **watershed group** is refused, because
+`test_pipeline.R`'s per-layer `wsg` assertion reads the staged copy and so could never see one
+again. Measured: 827 -> 643 MB over the 23 rostered groups, MORR -70%.
+
+**`floodplain_landcover.gpkg` also ships two tables this repo does not describe.** 18 of 23
+areas carry a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` table and 5 a
+`composition_<sp>_<scen>_<y1>_<y2>`, both written by the producer and registered
+`data_type='attributes'` rather than `features` — measured 2026-09-05 and re-measured
+2026-10-14. They are **published**: #80 selects them deliberately, since they carry the item's
+key and belong to it. Not a property of the annual span: `ufra` (three-year) has a
+`patch_watercourse` and `kotl` (annual) does not. `04_gpkg_style.py` and
+`item_validate.check_layer_styles` filter to `features`, so they are inert there; since #80
+`test_pipeline.R` filters on `data_type IN ('features','attributes')` instead and asserts the
+item key on them too, because the geometry filter it used before excluded exactly the layers
+staging now selects. What still has no cover is a **new** aspatial family: the
+"matches no style rule" refusal runs after the `features` filter, so one would ship
+undescribed — which is why `01_stage.R` names the aspatial tables it staged, per item, on
+every run. A consumer opening the file still sees two tables nothing here documents (#65).
 
 **The twelve provenance fields are published under standard or descriptive names, and the COG
 tags are not** (#74). `processing:datetime`, one `processing:software` map holding `link`
@@ -219,9 +244,17 @@ exactly the two provenance-less items; the bucket copy keeps its nulls and is th
 release would overwrite, so any difference in its provenance key set refuses `--only` as a
 full-release change.
 
-`transition_vector.gpkg` is the only GeoPackage this repo **writes** rather than copies, which is
-why `01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`): without it that asset's published
-`file:checksum` would churn on every rebuild while every other asset's stayed stable. Its file and
+`01_stage.R` pins `OGR_CURRENT_DATE` (`scripts/fp_gpkg.R`) because GDAL stamps wall-clock time
+into `gpkg_contents.last_change`: without the pin every published GeoPackage's `file:checksum`
+would churn on every rebuild. Since #80 that covers all three rather than
+`transition_vector.gpkg` alone, and it is the whole reason the pin's bound was re-measured — a
+single `vectortranslate` call into an **absent** file is the included case, so a multi-layer
+write is inside the guarantee while a rewrite into an existing file still is not.
+`gpkg_determinism-check.R` proves it over all three, and its two multi-layer arms read the
+**producer's** files rather than the staged copies, which are themselves that writer's output.
+No published asset is a verbatim upstream copy any more, so both bundles' checksums are now a
+function of the R-side GDAL (3.8.5 here, not the 3.12+ the uv env gives the COGs) — a rebuild
+on a differently-linked machine moves them. `transition_vector.gpkg`'s file and
 layer names are deliberately year-free so QGIS `path|layername=` styles survive a change of span.
 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace

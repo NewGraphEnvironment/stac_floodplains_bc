@@ -53,6 +53,11 @@ FP_GPKG_R = REPO / "scripts" / "fp_gpkg.R"
 # reliable discriminator: `floodplain.gpkg`'s layers are named `<sp>_ff0N`, which no
 # prefix rule could tell from an arbitrary name. Within `floodplain_landcover.gpkg`
 # the layer name decides, since it holds both kinds.
+#
+# Note what the `floodplain.gpkg` catch-all means since #80. It was sound while every layer
+# in the file was inherited from upstream; now staging SELECTS them by item key, so a new
+# upstream family in that file is styled rather than refused here. 01_stage.R reports any
+# staged layer whose name matches no known family, which is the only cover this file has.
 FILE_STYLES = {
     "floodplain.gpkg": lambda layer: "floodplain.qml",
     "transition_vector.gpkg": lambda layer: "transition.qml",

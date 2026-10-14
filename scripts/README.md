@@ -27,7 +27,7 @@ the catalog host, so it can be cut from a machine that does not hold the source 
 
 | Step | Script | What |
 |----|----|----|
-| Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/` and `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/`, extract the transition layer to `transition_vector.gpkg` (layer `transition`); derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
+| Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/`; **write** `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/` holding **only that item's layers**, selected by each layer's own `wsg`/`species`/`scenario` (#80 — a whole-file copy would ship a target the group no longer publishes); extract the transition layer to `transition_vector.gpkg` (layer `transition`); derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
 | Tag | `02_raster_tag.py` | Embed GDAL metadata tags from `meta.json` onto the **staged** rasters (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, run provenance, per-asset year). Before the COG conversion, not after — tagging a finished COG in place moves its main IFD to the end of the file (#33). Also authors the class-label RAT as a PAM `.aux.xml` beside each staged raster, which `03` absorbs into the COG (#34/#35) |
 | COG | `03_cog.py` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` via `rasterio.shutil.copy` (a GDAL `CreateCopy`), which carries the tags, colour table, band description **and the class-label RAT** through. This is the last step to touch a published byte. Python rather than terra since #34: only a RAT can put labels inside a `.tif`, and RAT-in-`GDAL_METADATA` needs GDAL 3.12+ while terra links 3.8.5 |
 | Style | `04_gpkg_style.py` | Embed a `layer_styles` row per feature layer in all three GeoPackages, so QGIS opens them already coloured with the same palette the COGs carry in their RAT (#46). Stdlib `sqlite3` — a GeoPackage is a SQLite database and a style row is an INSERT, so no GDAL and no new dependency. `f_table_schema` is `''`, never NULL (QGIS matches with `= ''` and NULL never equals, so a NULL row is written, logs nothing, and the layer opens unstyled). No `gpkg_contents` row and no triggers, unlike QGIS's own writer: measured to auto-style fine without them, and registering the table adds a second wall-clock stamp that would churn `file:checksum`. `update_time` pinned to `GPKG_EPOCH`, read from `fp_gpkg.R` so the two cannot drift. A re-run compares first and skips the write, because SQLite bumps its header change counter on any write transaction |
@@ -56,8 +56,10 @@ holds, and its `NO_PIN=1` cold path proves the check can fail.
 
 `file:checksum` is a multihash (`1220` + sha256), not a bare digest. The STAC schema only checks the
 string is hex, so it accepts a bare digest and cannot catch a checksum of the wrong bytes; both are
-asserted in `item_validate.py` instead. Verifying re-reads every asset (~670 MB) — that is the cost
-of the guard actually guarding something.
+asserted in `item_validate.py` instead. Verifying re-reads every asset — that is the cost
+of the guard actually guarding something. The two GeoPackage bundles are the bulk of it: 643 MB
+across the 23 rostered groups, measured 2026-10-14, down 184 MB from the whole-file copies #80
+retired (827 MB). The tree total also carries the COGs and is re-taken at a full build.
 
 ## Release — `catalogue_release.sh`
 
@@ -71,7 +73,7 @@ of the guard actually guarding something.
 | 5 verify | collection 200; live ids match the build **both ways**; the largest asset of one item probed for size and its published `file:checksum` re-verified against the bytes on S3; the live collection's `version` equals the tag just released (under `--only`: unchanged); and, on a full release, the **deprecation markers** (#26) read back from the API and reconciled against the build — the field's whole purpose is that a consumer sees it — and the **licence** read back from both the API and the bucket copy: `license` against the constant, and `sci:citation` plus the `rel: license` and `rel: derived_from` hrefs compared against the collection.json this release published (#47). Compared by VALUE, not presence: pgstac rebuilds a collection's `links` array through `get_links()` — which is why the build's `rel: item` links are served as none — and the one thing it does to a link it keeps is rewrite the href |
 
 Validation gates the **asset** sync, not just the JSON. Bucket versioning is Suspended, so there is
-no rollback from pushing 700 MB of assets for a build that then fails.
+no rollback from pushing the better part of a gigabyte of assets for a build that then fails.
 
 Registration is an **upsert**, so nothing is deleted implicitly and the collection never serves
 zero items mid-release. The cost is that an item dropped from the build stays live — step 0 and
@@ -152,7 +154,7 @@ What `--only` changes, step by step:
 | Step | Under `--only` |
 |----|----|
 | 0 preflight | `PARTIAL_STAGE` interlock and the live-vs-build comparison are **skipped, out loud** — both guard `collection.json`, which is never published here. Instead: the item's JSON and asset dir must exist, and the item must **already be live** (a new item needs a full release, which updates the collection's extent/summaries/links) |
-| 1 validate | the whole tree on disk, so with a full build present this re-hashes ~670 MB; the provenance floor is **not** applied (a one-group tree cannot meet it) — instead step 0 refuses if any provenance value the live item serves is absent on this build's copy, per field — both sides canonicalised to the staged names so the comparison survives #74's rename — and refuses too if the **bucket** copy of the item publishes a different provenance key set, which is the only read that can see a contract change on an item whose values are all absent (the API drops nulls) |
+| 1 validate | the whole tree on disk, so with a full build present this re-hashes every asset; the provenance floor is **not** applied (a one-group tree cannot meet it) — instead step 0 refuses if any provenance value the live item serves is absent on this build's copy, per field — both sides canonicalised to the staged names so the comparison survives #74's rename — and refuses too if the **bucket** copy of the item publishes a different provenance key set, which is the only read that can see a contract change on an item whose values are all absent (the API drops nulls) |
 | 2 sync assets | `aws s3 sync data/stac/<id> s3://…/<id>`, same excludes, no `--delete` |
 | 3 sync JSON | `aws s3 cp data/stac/<id>.json s3://…/<id>.json` — **one explicit object**. The full path's `--include '*.json' --exclude '*/*'` sweep would carry `collection.json` with it, and a one-group tree's `collection.json` describes one group |
 | 4 register | `item_register.sh` for that file; `collection_register.sh` is never run |
@@ -237,7 +239,7 @@ would bring the whole class back.
 
 The twelve provenance fields publish under `processing:*`, `link:*` and `landcover:*` (#74),
 and an absent value omits its key. The arms that guard that shape are release-only or sit
-behind the ~670 MB checksum re-read, so a third check script drives them directly — and, like
+behind the whole-tree checksum re-read, so a third check script drives them directly — and, like
 the two above, it does not run from `run_pipeline.sh`.
 
 ```
@@ -290,8 +292,8 @@ uv run python scripts/style_drift-check.py    # committed styles still match cla
 
 | Style | Applies to | Renderer |
 |---|---|---|
-| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_gnis_name` / `_by_blue_line_key` variants on some groups | single symbol, ColorBrewer Paired blue |
-| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` | categorized on `class_name`, 9 io-lulc classes |
+| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_blue_line_key` on 18 of 23 groups | single symbol, ColorBrewer Paired blue |
+| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` (upstream only — no published item carries a `_patches` layer since #80) | categorized on `class_name`, 9 io-lulc classes |
 | `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 72 pairs |
 
 All symbols ship at **50% opacity** — these layers are read over a basemap. Transition patches

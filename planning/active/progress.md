@@ -75,3 +75,53 @@
   and never reaches the error. It does both. The plan review's independent code read was
   right and the probe was not; `findings.md` and `review-1.md` carry the corrected
   measurement, and the guards stay for corrected reasons.
+
+### Phase 4 — the prose (done)
+
+Every location the review listed, plus the ones found while editing. The premise this issue
+overturned was quoted or reasoned from in nine files.
+
+- `catalogue_release.sh` — "the largest asset is an upstream gpkg copied verbatim" was
+  *reasoning* for why the `--only` read-back compares wholesale rather than by checksum. The
+  conclusion survives on its other leg; the retired leg is recorded as retired, with the
+  GDAL-version consequence (review G6).
+- `04_gpkg_style.py` — the `floodplain.gpkg` catch-all was sound while the layers were
+  inherited and is a selection we make now.
+- `item_validate.py` — "nine invisible layers per item" is three or four.
+- `style_qml-write.py`, `scripts/README.md`'s style table — `_patches` exists only on MORR's
+  retired families upstream, so no published item ships one.
+- `item_create.py` — both GeoPackage assets gained a `description` saying the file holds one
+  item's layers, which is the one thing a consumer cannot see without opening it.
+- `README.Rmd` — a new paragraph on what merging N items now gives you. **Not re-rendered:**
+  regenerating `README.md` / `index.html` is release step 6, past the tag (#55).
+- `readme_functions.R` — the "~140 kB to ~9 MB" range was measured on the old bundles.
+- `scripts/README.md` — the `~670 MB` / `700 MB` figures were already inconsistent with the
+  two bundles alone being 827 MB, so they were replaced with the figure actually measured
+  rather than with one derived from a stale base.
+- `CLAUDE.md` — a new paragraph on the write and its selection rule, the undescribed-tables
+  paragraph now about **two** tables with what still has no cover named, and the
+  `OGR_CURRENT_DATE` paragraph rewritten: the pin covers all three GeoPackages, and no
+  published asset is a verbatim upstream copy any more.
+- `NEWS.md` — one entry under Unreleased, with the measured volume change and the #76 tie.
+
+#### Published volume, measured over all 23 rostered groups
+
+`826.9 -> 642.9 MB`, 184 MB less to publish. MORR -70% (116.3 -> 35.4), BULK -36%
+(169.0 -> 107.8), KISP -35% (57.2 -> 37.0); the remaining 20 shrink 0-19% from repacking
+alone, which is why every item's `file:checksum` for both assets moves and not only the three.
+
+#### Whole suite, after the prose and the asset-description change
+
+| check | result |
+|---|---|
+| `WSG=morr test_pipeline.R` | PASS end to end |
+| `WSG=larl test_pipeline.R` | PASS end to end |
+| `stage_years-check.R` | 14 assertions, 0 failed, 0 skipped |
+| `fp_provenance-check.R` | 87 assertions, 0 failed, 0 skipped |
+| `prov_fields-check.py` | 44 assertions, 0 failed |
+| `year_sets-check.py` | 16 assertions, 0 failed |
+| `catalogue_release-check.sh` | ALL PASS |
+| `attribution_drift-check.py` | matches |
+| `style_drift-check.py` | 3 styles byte-identical |
+| `style_determinism-check.py` | 3 GeoPackages byte-identical, re-run a no-op |
+| `gpkg_determinism-check.R` | 3 arms MATCH; `NO_PIN=1` all 3 DIFFER |

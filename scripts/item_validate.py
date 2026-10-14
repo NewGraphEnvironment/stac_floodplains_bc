@@ -1497,8 +1497,9 @@ def _single_symbol_paints(root: ET.Element) -> bool:
     """Does a single-symbol renderer actually paint anything?
 
     The floodplain delineations get no palette comparison — there is no attribute to
-    categorize on — so this is the only thing standing between a hand-edit and nine
-    invisible layers per item.
+    categorize on — so this is the only thing standing between a hand-edit and every
+    floodplain layer in the item being invisible. Three or four of them since #80, which
+    stages only the item's own; it was up to nine while the whole-group file was copied.
     """
     rend = root.find("renderer-v2")
     if rend is None:

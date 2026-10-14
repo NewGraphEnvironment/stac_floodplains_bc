@@ -182,32 +182,32 @@ Two notes the plan depends on:
 
 ## Phase 4 — the prose that goes stale
 
-- [ ] `scripts/style_qml-write.py:20-25` — "MORR has nine, including `<sp>_ff04_by_gnis_name`
+- [x] `scripts/style_qml-write.py:20-25` — "MORR has nine, including `<sp>_ff04_by_gnis_name`
       and `<sp>_ff0N_by_blue_line_key`" and "A multi-target group holds both species' layers in
       one file" are both false of a staged bundle afterwards. MORR stages four floodplain
       layers; the `_patches` families exist only for MORR's retired species and stop shipping.
       The styles themselves do not change (`style_drift-check.py` byte-compares them), so this
       is docstring only — verify that by running it.
-- [ ] `scripts/04_gpkg_style.py:52-55` — the comment's reasoning survives; the claim about
+- [x] `scripts/04_gpkg_style.py:52-55` — the comment's reasoning survives; the claim about
       what the landcover bundle holds does not.
-- [ ] `scripts/item_create.py:409-421` — the two GeoPackage asset titles/descriptions now
+- [x] `scripts/item_create.py:409-421` — the two GeoPackage asset titles/descriptions now
       describe an item-scoped file.
-- [ ] `scripts/catalogue_release.sh:597-598` — "the largest asset is an upstream gpkg copied
+- [x] `scripts/catalogue_release.sh:597-598` — "the largest asset is an upstream gpkg copied
       verbatim, so a COG-only republish leaves its checksum identical" is now false, and it is
       *reasoning* rather than decoration (review G6). After this change no published asset is a
       verbatim upstream copy, and both GeoPackage checksums are a function of the R-side GDAL
       (3.8.5 here, not the 3.12+ uv GDAL that writes the COGs), so a rebuild on a
       differently-linked machine churns 2 assets x 23 items.
-- [ ] `scripts/01_stage.R:337-342` and `:378-380`, `scripts/README.md:30` and `:293-294`,
+- [x] `scripts/01_stage.R:337-342` and `:378-380`, `scripts/README.md:30` and `:293-294`,
       `scripts/item_validate.py:1498-1501` ("nine invisible layers per item" — 3-4 now),
       `scripts/readme_functions.R:518`, `README.Rmd:138` — each states or reasons from the
       whole-copy premise this issue overturns.
-- [ ] `CLAUDE.md` — the Collection model's "Assets per item" paragraph, the
+- [x] `CLAUDE.md` — the Collection model's "Assets per item" paragraph, the
       `floodplain_landcover.gpkg also ships a table this repo does not describe` paragraph
       (the per-area counts move — and it is about **two** tables, `composition_*` too, in 5 of
       23 groups), `transition_vector.gpkg`'s "~14% of the bundle's bytes" ratio, and
       `01_stage.R`'s entry under Layout: this repo now writes three GeoPackages, not one.
-- [ ] `NEWS.md` — one entry, with the measured size deltas, the fact that every item's
+- [x] `NEWS.md` — one entry, with the measured size deltas, the fact that every item's
       `file:checksum` for these two assets moves, and one line tying #76: the live orphans are
       the last whole-group GeoPackages in the catalogue after this lands, so #76 finishes what
       #80 starts.

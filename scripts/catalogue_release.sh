@@ -595,9 +595,13 @@ fi
 # Under --only, also prove the pgstac ROW is the one just built. A 200 from the item
 # endpoint is as meaningless as a 200 from an old asset — the row was live before this
 # release too. Read the live item and compare its assets and properties with the build's
-# wholesale. Not checksums alone: the largest asset is an upstream gpkg copied verbatim,
-# so a COG-only republish leaves its checksum identical; and labels, provenance and the
-# loss/gain figures change with no byte changing at all. pgstac returns the document as
+# wholesale. Not checksums alone, because a checksum answers a narrower question than this
+# needs: labels, provenance and the loss/gain figures all change with no byte changing at
+# all. (Until #80 there was a second reason — the largest asset was an upstream gpkg copied
+# verbatim, so a COG-only republish left its checksum identical. No published asset is a
+# verbatim upstream copy now: both GeoPackage bundles are written here by the R-side GDAL,
+# 3.8.5 on this machine rather than the 3.12+ the uv env gives the COGs, so a rebuild on a
+# differently-linked machine moves them.) pgstac returns the document as
 # written (measured: datetime strings round-trip in the builder's own mixed Z / +00:00
 # forms) except for null-valued properties, which it omits — see below. A failed fetch
 # or an unparseable body leaves live_state empty, which fails the compare rather than

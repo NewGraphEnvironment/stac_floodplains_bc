@@ -511,8 +511,10 @@ fp_readme_fig <- function(fp, wsg, props, path = "fig/coverage.png", width = 9, 
 #' Download links for one item, grouped by what a reader would do with them
 #'
 #' Every asset, not a chosen one: picking a single GeoPackage decides for the reader which
-#' question they are asking. Sizes are shown because the bundles range from ~140 kB to ~9 MB and
-#' the choice between `floodplain_landcover` and `transition_vector` is mostly a size decision.
+#' question they are asking. Sizes are shown because the bundles vary by two orders of
+#' magnitude and the choice between `floodplain_landcover` and `transition_vector` is mostly a
+#' size decision. Read from the API per item rather than stated here: since #80 each bundle
+#' holds only its own item's layers, which moved every one of them.
 #'
 #' These links are the reason #55 exists. An href is keyed by item id and so keeps resolving
 #' after a republish, but the bucket has versioning Suspended and a republish overwrites in

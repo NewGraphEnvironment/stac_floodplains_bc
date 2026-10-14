@@ -137,6 +137,8 @@ One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<speci
 
 Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and pin which build a figure came from. (A checksum answers *are my bytes current*, not *did the values change* — a re-encode moves every checksum.) Every GeoPackage layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute.
 
+**Each item's GeoPackages hold only that item's layers.** Merging *N* items therefore gives you *N* copies of the same layer families and nothing retired — no second floodplain model from a target the group no longer publishes. `floodplain.gpkg` is the one place several `scenario` values appear under one item, because the ff02, ff04 and ff06 delineations each record their own flood factor.
+
 **The collection mixes flood factors.** `ff04` is the functional floodplain and `ff06` the wider valley bottom, so filter on `flood_factor` before comparing or summing groups — an unfiltered aggregate adds different extents together.
 
 ## Coverage
