@@ -95,7 +95,10 @@ if (length(meta_paths) == 0L) stop("no items staged for ", toupper(wsg))
 # Expected item count = number of declared targets for this WSG (1 via fallback).
 fp_data <- Sys.getenv("FLOODPLAINS_DATA", unset = "../floodplains/data")
 area <- yaml::read_yaml(file.path(dirname(fp_data), "config", wsg, "area.yml"))
-n_expected <- if (!is.null(area$targets)) length(area$targets) else 1L
+# `[[`, never `$`: a `targets_retired:` block upstream is partial-matched by `$targets`, and
+# this count and the assertion at the end of the file would then agree with 01_stage.R's own
+# partial match rather than check it (#75 round 3).
+n_expected <- if (!is.null(area[["targets"]])) length(area[["targets"]]) else 1L
 stopifnot("staged item count != declared targets" = length(meta_paths) == n_expected)
 
 # isTRUE() guards the ff-area checks: a missing key yields `NULL > 0` -> logical(0), which
@@ -454,9 +457,11 @@ for (mp in meta_paths) {
 # fails here by design: the stage prints SKIPPED and moves on, and a smoke test that accepted a
 # silently smaller build would be checking only what was built.
 area_cfg <- yaml::read_yaml(file.path(CONFIG_DIR, wsg, "area.yml"))
-declared <- area_cfg$targets
-if (is.null(declared)) declared <- list(list(scenario = area_cfg$primary_scenario))
-want <- paste0(wsg, "_", vapply(declared, function(t) t$scenario, character(1)))
+declared <- area_cfg[["targets"]]
+if (is.null(declared)) {
+  declared <- list(list(scenario = area_cfg[["primary_scenario"]]))
+}
+want <- paste0(wsg, "_", vapply(declared, function(t) t[["scenario"]], character(1)))
 stopifnot("the group staged other than the targets its area.yml declares" =
             setequal(names(items), want))
 message("targets: ", length(want), " declared in area.yml, all staged (",

@@ -433,8 +433,10 @@ real_item <- function(prov, species = "co", scenario = "co_ff04") {
   fp_prov_item(prov, species, scenario, "check", if (is.null(sp)) YEARS else sp$years)
 }
 # The real-file arms call the reader UNCAUGHT, which is how one producer file aborted the
-# whole script: before #75 the whitelist stopped on bulk's `all_ff02` and the 15 arms below
-# never ran — including the only one that proves the fold rule against producer bytes.
+# whole script: before #75 the whitelist stopped on bulk's `all_ff02` and the nine arms below
+# never ran — including the only one that proves the fold rule against producer bytes. (Nine,
+# counted, not recalled: `grep -cE 'expect_(true|equal|stop)\('` from `b <- real("bulk")` to
+# EOF. A copied count in the argument for a guard is the same defect the guard is about.)
 # #75 removed that cause and this removes the SHAPE, which outlived it: these arms are pinned
 # to `co_ff04`, a section floodplains#125/#131 retires, and under the new per-item rule a
 # non-empty section missing that key is a stop() rather than the nulls it used to be. So any

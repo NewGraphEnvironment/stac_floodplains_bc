@@ -67,3 +67,15 @@
 - The real-file arms' uncaught reader call was how the fold pin went unnoticed-dead. Fixed and
   PROVED: with bulk's `co_ff04` landcover re-keyed in a sandbox, the suite reports 84/1 with
   the bulk arm naming the reader's message, and all five neexdzii arms still run.
+- Round 3 (reviewer, 11.6 min) produced the ENUMERATION the stopping rule needs: 49 members,
+  derived 12 / gated 10 / compared 1 / re-measured-true prose 23 / 4 unremedied = 3 defects,
+  two of them inside this branch's own fixes. The serious one is on the publish path and was
+  proved: with `targets_retired:` upstream, `$` stages `morr_co_ff04` + `morr_ch_ff06` (the
+  two items #76 removes) while `[[` stages `morr_all_ff04` — and round 1's own new target
+  assertion would have CONFIRMED the wrong pair, because it read the same partial match.
+- The loop is closed mechanically, not by a reviewer's assurance: grepping all scripts for
+  `$` reads of a producer-owned file (`area.yml`, `provenance.json`) returns zero. The
+  synthetic `$` uses in `fp_provenance-check.R` are outside the set — that script builds its
+  own fixture rather than reading upstream.
+- Four reviewer agents, ~700k tokens, past the §2 bound. Rounds 2 and 3 each found a defect
+  inside the previous round's fix, which is the condition the rule says to continue on.

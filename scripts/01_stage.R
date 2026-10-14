@@ -202,9 +202,17 @@ for (wsg in wsgs) {
 
   # Publish targets: one item per declared (species, scenario). Areas without an explicit
   # `targets` list fall back to a single {species, primary_scenario} item (unchanged behaviour).
-  targets <- area$targets
+  # `[[` throughout, never `$`: `$` partial-matches on a list, and the producer is MID-WAY
+  # through retiring target blocks — config/morr/area.yml says so in prose today. Measured: an
+  # `area.yml` carrying `targets_retired:` and no live `targets:` makes `area$targets` return
+  # the RETIRED block, so this build would stage `morr_co_ff04` + `morr_ch_ff06` — the two
+  # items #76 exists to remove — and `test_pipeline.R`'s target assertion would CONFIRM them,
+  # because it read the same partial match. Two gates agreeing because they share one defect.
+  # `area[["targets"]]` is NULL for that file, which is the answer the fallback below wants.
+  targets <- area[["targets"]]
   if (is.null(targets)) {
-    targets <- list(list(species = area$species, scenario = area$primary_scenario))
+    targets <- list(list(species = area[["species"]],
+                         scenario = area[["primary_scenario"]]))
   }
 
   src_wsg <- file.path(FLOODPLAINS_DATA, wsg)
@@ -215,8 +223,8 @@ for (wsg in wsgs) {
 
   for (tgt_i in seq_along(targets)) {
     tgt <- targets[[tgt_i]]
-    scenario <- tgt$scenario                        # e.g. co_ff04, ch_ff06, all_ff04
-    species <- tgt$species
+    scenario <- tgt[["scenario"]]                   # e.g. co_ff04, ch_ff06, all_ff04
+    species <- tgt[["species"]]
     # Asserted here, where the roster is read, because every downstream symptom is quiet.
     # `paste0(wsg, "_", NULL)` is "bulk_", not an error, and `file.path(src, "rasters", NULL)`
     # is the area's `rasters/` parent — which EXISTS, so the "no rasters, skip" branch below
@@ -225,7 +233,7 @@ for (wsg in wsgs) {
     # pine), so it is the only guard on this path — fp_prov_sections() keeps its own copy for
     # the check scripts and any other direct caller, not for the stage.
     for (f in c("species", "scenario")) {
-      v <- tgt[[f]]
+      v <- tgt[[f]]  # already `[[`, and the loop below reads only these two names
       if (!is.character(v) || length(v) != 1L || is.na(v) || !nzchar(v)) {
         # The loop index, not `which(vapply(targets, identical, ...))`: two byte-identical
         # `targets:` entries make that `which` length 2, and stop() concatenates with no

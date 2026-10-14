@@ -70,20 +70,32 @@ for (rf in region_files) {
   rc <- yaml::read_yaml(rf)
   if (AREA %in% tolower(rc$watershed_groups)) { AREA_REGION <- rc$region; break }
 }
-if (!dir.exists(src_area) || !file.exists(src_cfg) || is.null(AREA_REGION)) {
+if (!dir.exists(src_area) || !file.exists(src_cfg)) {
   cat("  skip  every case (no upstream tree at ", FP, ")\n", sep = "")
+  cat("\n0 assertions, 0 failed, 1 skipped — the call site was NOT proven\n")
+  quit(status = 0)
+}
+# Its own arm, not shared with the missing-tree one above. `AREA=neexdzii` printed "no upstream
+# tree" while the tree, data/neexdzii/, config/neexdzii/area.yml and a full provenance.json all
+# existed — the real cause is that no region roster lists it (it is the coho parity fixture, and
+# deliberately unpublished). That is the third instance of one wrong-cause shape on this branch,
+# after AREA=mcgr's crash and two message fixes; neexdzii is the likeliest AREA= value after
+# ufra and bulk, since it is the area the fold pin is taken from.
+if (is.null(AREA_REGION)) {
+  cat("  skip  every case (", AREA, " is in no config/regions/*.yml roster — the stage only ",
+      "walks rostered groups)\n", sep = "")
   cat("\n0 assertions, 0 failed, 1 skipped — the call site was NOT proven\n")
   quit(status = 0)
 }
 # Read from the area's own config, never pinned beside AREA, so the two cannot disagree.
 AREA_CFG <- yaml::read_yaml(src_cfg)
-if (!is.null(AREA_CFG$targets)) {
+if (!is.null(AREA_CFG[["targets"]])) {
   cat("  skip  every case (", AREA, " declares `targets:`; this script drives one scenario)\n",
       sep = "")
   cat("\n0 assertions, 0 failed, 1 skipped — the call site was NOT proven\n")
   quit(status = 0)
 }
-SCEN <- AREA_CFG$primary_scenario
+SCEN <- AREA_CFG[["primary_scenario"]]
 stopifnot("area.yml declares no primary_scenario" =
             is.character(SCEN) && length(SCEN) == 1L && nzchar(SCEN))
 ITEM <- paste0(AREA, "_", SCEN)
@@ -293,10 +305,10 @@ cat("arm (c): the record names a year that was never built\n")
 sbx <- sandbox("record")
 pj <- file.path(sbx, "src", "data", AREA, "provenance.json")
 doc <- jsonlite::read_json(pj, simplifyVector = FALSE)
-before <- unlist(doc$landcover[[SCEN]]$inputs$years)
-doc$landcover[[SCEN]]$inputs$years <- as.list(as.integer(MUT_YEARS))
+before <- unlist(doc[["landcover"]][[SCEN]][["inputs"]][["years"]])
+doc[["landcover"]][[SCEN]][["inputs"]][["years"]] <- as.list(as.integer(MUT_YEARS))
 jsonlite::write_json(doc, pj, auto_unbox = TRUE, null = "null", na = "null", digits = NA)
-after <- unlist(jsonlite::read_json(pj, simplifyVector = FALSE)$landcover[[SCEN]]$inputs$years)
+after <- unlist(jsonlite::read_json(pj, simplifyVector = FALSE)[["landcover"]][[SCEN]][["inputs"]][["years"]])
 expect_true(paste0("premise: the mutation took — the record now says ",
                    paste(MUT_YEARS, collapse = ", ")),
             !identical(before, after) &&
