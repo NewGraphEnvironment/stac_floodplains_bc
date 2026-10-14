@@ -136,15 +136,31 @@ Preserved by the copy, checked against the source: `data_type='attributes'` for
 `sf::st_read(src, query = 'SELECT DISTINCT wsg, species, scenario FROM "<aspatial table>"')`
 works and returns a plain `data.frame`, so one reader covers feature and attributes layers.
 
-### `gdal_utils()` only WARNS on a layer the source does not hold
+### `gdal_utils()` on a layer the source does not hold — corrected
 
-Given `options = c("bt_ff02", "nope_missing")` it emits
-`GDAL Error 1: Couldn't fetch requested layer 'nope_missing'!` as an R **warning**, not an
-error, and leaves a **65,536-byte** file that `sf::st_layers()` cannot open
-(`Cannot open data source … Open failed.`). Same shape as `code-check-spatial.md`'s
-"`sf::gdal_utils()` does not raise when GDAL cannot open the source". Hence two guards:
-stop on any warning from the call, and assert `st_layers(dst)$name` is `setequal()` to the
-requested set.
+**First measurement was wrong, and the probe was the reason.** It reported "warns only,
+returns normally"; re-measured 2026-10-14 with a `withCallingHandlers` warning handler plus a
+`tryCatch` error handler, `gdal_utils()` does **both**: it emits
+`GDAL Error 1: Couldn't fetch requested layer 'nope_missing'!` as a warning **and** raises on
+the non-zero `GDALVectorTranslate` return, with or without `-f GPKG`. The first probe used
+`tryCatch(error =, warning =)`, which takes the warning first and so never reaches the error —
+`code-check-r.md`, "`tryCatch(warning = )` DISCARDS the value the expression produced". The
+plan review's independent code read (`if (ret) stop(...)`, inverted return convention) was
+right and this probe was not.
+
+| probe | warnings | error | file left |
+|---|---|---|---|
+| no `-f`, bad layer | 1 | **RAISED** | 65,536 bytes |
+| `-f GPKG`, bad layer | 1 | **RAISED** | 65,536 bytes |
+| `-f GPKG`, good layer | 0 | none | 946,176 bytes |
+
+Both guards in `gpkg_copy_layers()` stay, for the reasons that survive the correction. The
+warning guard is kept for the **message**: `gdal_utils`'s own error reads
+`gdal_utils vectortranslate: an error occured` and names nothing, while the warning names the
+layer. It also still covers `code-check-spatial.md`'s documented case, where a source GDAL
+cannot open warns and returns `NA`. The `setequal()` arm is the backstop: both signals are
+GDAL's own, and the 65,536-byte carcass is what the next step would hash and publish if either
+were downgraded.
 
 ## Size effect, measured
 

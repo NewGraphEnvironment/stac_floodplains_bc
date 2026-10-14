@@ -205,12 +205,20 @@ gpkg_copy_layers <- function(src, dst, layers) {
   # place for the remainder. Guessing the driver from the extension would also work and
   # says less.
   #
-  # TWO guards, because gdal_utils() signals the two failure modes differently. It raises
-  # on a non-zero GDALVectorTranslate return — but a layer name the source does not hold is
-  # not that: measured, it emits `GDAL Error 1: Couldn't fetch requested layer 'x'!` as an R
-  # WARNING, returns normally, and leaves a 65,536-byte file st_layers() cannot even open
-  # ("Open failed"). Same shape as code-check-spatial.md's "sf::gdal_utils() does not raise
-  # when GDAL cannot open the source".
+  # TWO guards, for two different reasons — and NEITHER is "gdal_utils does not raise".
+  # Measured both ways 2026-10-14: given a layer name the source does not hold, it emits
+  # `GDAL Error 1: Couldn't fetch requested layer 'x'!` as an R warning AND raises on the
+  # non-zero GDALVectorTranslate return, with or without `-f GPKG`, leaving a 65,536-byte
+  # file st_layers() cannot open. An earlier probe here reported "warns only" because it used
+  # `tryCatch(error =, warning =)`, which takes the warning first and so never reaches the
+  # error (code-check-r.md, "tryCatch(warning = ) DISCARDS the value the expression
+  # produced").
+  #
+  # The warning guard is kept for the MESSAGE: gdal_utils's own error says
+  # "gdal_utils vectortranslate: an error occured" and names nothing, while the warning names
+  # the layer, which is the one fact an operator needs. It also still covers
+  # code-check-spatial.md's documented case, where a source GDAL cannot open warns and
+  # returns `NA` rather than raising.
   #
   # Flag-then-raise, not a stop() inside the handler: this warning comes up through sf's C++
   # frames, and aborting from the handler longjmps past their destructors.
@@ -227,8 +235,9 @@ gpkg_copy_layers <- function(src, dst, layers) {
     stop("gpkg_copy_layers: GDAL warned writing ", basename(dst), " from ", src, ": ",
          gdal_warning, call. = FALSE)
   }
-  # The written FILE, not the call's return value: a warning is the only signal GDAL gives
-  # for the case above, so what landed on disk is the thing to test. setequal() in both
+  # The written FILE, not the call's return value. The backstop: both signals above are
+  # GDAL's own, and the 65,536-byte carcass a failed call leaves behind is what the next step
+  # would hash and publish if either signal were ever downgraded. setequal() in both
   # directions — a short write and a write that gained a layer are both failures.
   written <- sf::st_layers(dst)$name
   if (!setequal(written, layers)) {

@@ -21,6 +21,10 @@
 library(jsonlite)
 library(yaml)
 library(sf)   # explicit: the gpkg attribute checks below must not rely on 01_stage.R's attach
+# Explicit for the same reason (#80): the layer-set arm calls gpkg_layer_keys() and
+# gpkg_own_layers(), and relying on 01_stage.R having sourced them would make this test
+# pass or fail on whether an earlier block happened to run.
+source(file.path("scripts", "fp_gpkg.R"))
 
 wsg <- tolower(Sys.getenv("WSG", unset = "ufra"))
 
@@ -342,42 +346,107 @@ for (mp in meta_paths) {
   # them by attribute. Upstream backfills both files (gpkg_backfill-wsg.R), so both are guarded
   # — checking only one would let a regression in the other pass green. Passes today.
   #
-  # Only `wsg` is asserted, not `species`/`scenario`: 01_stage.R copies the whole-WSG gpkgs into
-  # EACH item dir, so a multi-target group ships the other species' layers too — and a
-  # whole-network group ships the retired species layers beside its own — `wsg` is
-  # the one key that is item-invariant under that copy.
+  # All THREE key columns are asserted, not `wsg` alone (#80). Until #80 the bundles were
+  # copied whole, so a multi-target group shipped the other species' layers and a
+  # whole-network group shipped its retired species' layers — `wsg` was the one key that
+  # was item-invariant under that copy, and the stronger assertion was not available. It is
+  # now: staging selects by the layer's own key, so every layer of every published
+  # GeoPackage belongs to the item that ships it.
   #
   # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
   # layer itself), and passing both emits a warning.
-  # `layer_styles` is a non-spatial table (04_gpkg_style.py), and GDAL reports it as a
-  # layer — with or without a `gpkg_contents` row, measured — so `st_layers()` returns it
-  # alongside the real ones. Filter on the PROPERTY that matters, having a geometry, not
-  # on the name: a name test would pass the day a second non-spatial table appears, and
-  # the loop below would then demand a `wsg` column from it. Restored the bug to confirm
-  # the unfiltered loop fails on a styled file.
-  feature_layers <- function(gpkg) {
-    l <- sf::st_layers(gpkg)
-    l$name[!vapply(l$geomtype, function(g) length(g) == 0L || is.na(g[[1]]), logical(1))]
+  #
+  # `layer_styles` (04_gpkg_style.py) is a non-spatial table GDAL reports as a layer, so
+  # `st_layers()` returns it alongside the real ones and an unfiltered loop would demand a
+  # `wsg` column from it — restored the bug to confirm that. The filter is
+  # `gpkg_contents.data_type`, NOT the geometry type it used to be, because the geometry
+  # test excluded exactly the layers staging now SELECTS: `patch_watercourse_*` and
+  # `composition_*` are `attributes` rows, the item's own, and they would go unchecked. Two
+  # measurements make data_type the right discriminator: 04_gpkg_style.py deliberately
+  # writes `layer_styles` with NO `gpkg_contents` row (registering it would add a second
+  # churning timestamp), so selecting on data_type excludes it structurally rather than by
+  # name — verified on a styled file here; and a `transition_*` layer is declared
+  # `Unknown (any)` and reports an EMPTY geomtype rather than NA, so a geometry test gives a
+  # different answer depending on which emptiness it checks.
+  keyed_layers <- function(gpkg) {
+    sf::st_read(gpkg, quiet = TRUE,
+                query = paste("SELECT table_name FROM gpkg_contents",
+                              "WHERE data_type IN ('features','attributes')",
+                              "ORDER BY table_name"))$table_name
   }
   for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg")) {
     gpkg <- file.path(item_dir, gp)
-    lyrs <- feature_layers(gpkg)
+    lyrs <- keyed_layers(gpkg)
     # A filter that removed everything would make every assertion below vacuous.
-    if (!length(lyrs)) stop("no feature layers found in ", gp, " — the layer filter is wrong")
+    if (!length(lyrs)) stop("no keyed layers found in ", gp, " — the layer filter is wrong")
     for (lyr in lyrs) {
       cols <- names(sf::st_read(gpkg, quiet = TRUE,
                                 query = sprintf('SELECT * FROM "%s" LIMIT 0', lyr)))
-      if (!"wsg" %in% cols) {
-        stop("layer '", lyr, "' in ", gpkg, " has no `wsg` column (upstream floodplains#30)")
+      if (!all(c("wsg", "species", "scenario") %in% cols)) {
+        stop("layer '", lyr, "' in ", gpkg, " is missing key column(s) ",
+             paste(setdiff(c("wsg", "species", "scenario"), cols), collapse = "/"),
+             " (upstream floodplains#30)")
       }
-      vals <- unique(sf::st_read(gpkg, quiet = TRUE,
-                                 query = sprintf('SELECT DISTINCT wsg FROM "%s"', lyr))$wsg)
-      # length check first: a zero-feature layer would otherwise report an empty value.
-      if (length(vals) != 1L || !identical(vals, meta$wsg)) {
-        stop("layer '", lyr, "' in ", gp, " has wsg = ",
-             if (length(vals)) paste(vals, collapse = "/") else "<no rows>",
-             " but item is ", meta$wsg)
+      k <- sf::st_read(gpkg, quiet = TRUE,
+                       query = sprintf(
+                         'SELECT DISTINCT wsg, species, scenario FROM "%s"', lyr))
+      # Row count first: a zero-feature layer would otherwise report empty values, and a
+      # layer carrying two items' features would compare only its first.
+      if (nrow(k) != 1L) {
+        stop("layer '", lyr, "' in ", gp, " has ", nrow(k),
+             " distinct (wsg, species, scenario) rows, expected exactly 1")
       }
+      # The scenario arm is a SET for floodplain.gpkg and a single value for the other two,
+      # for the reason fp_gpkg.R's header gives: that file's ff02/ff06 delineations each
+      # record their own flood factor and the item publishes all three. Asserted the same
+      # way the stage selects, so this test cannot be weaker than the thing it checks — a
+      # single-scenario assertion here would reject the ff02 layer the stage correctly keeps.
+      want_scen <- if (gp == "floodplain.gpkg") {
+        unique(c(meta$scenario, paste0(sub("_ff.*$", "", meta$scenario),
+                                       "_ff", c("02", "04", "06"))))
+      } else {
+        meta$scenario
+      }
+      if (!identical(k$wsg[1], meta$wsg) || !identical(k$species[1], meta$species) ||
+            !k$scenario[1] %in% want_scen) {
+        stop("layer '", lyr, "' in ", gp, " is keyed ",
+             paste(k$wsg[1], k$species[1], k$scenario[1], sep = "/"),
+             " but item ", meta$item_id, " is ",
+             paste(meta$wsg, meta$species, paste(want_scen, collapse = "|"), sep = "/"),
+             " — a published GeoPackage must hold only its own item's layers (#80)")
+      }
+    }
+  }
+
+  # Nothing outside the item's own set, counted against the SOURCE (#80). The per-layer key
+  # arm above is satisfied by any subset, so it cannot see a layer that is missing; this arm
+  # is the one that fails on the defect as it stood before #80, where the staged file held
+  # every layer the source did. Compared by COUNT against the source's own key table rather
+  # than against a list typed here: a literal would have to be re-typed for every group, and
+  # the source is a different artifact written by a different repo.
+  #
+  # Upstream is read through the same helper 01_stage.R selects with. That is deliberately
+  # not independent, and it is not the arm doing the work — the key assertion above is, and
+  # it reads the published bytes with no reference to the selector. This arm only asks
+  # whether the count the selector should have produced is the count that landed.
+  for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
+    src_gpkg <- file.path(fp_data, meta$wsg_lower, gp)
+    if (!file.exists(src_gpkg)) next
+    src_keys <- gpkg_layer_keys(src_gpkg)
+    want_scen <- if (gp == "floodplain.gpkg") {
+      unique(c(meta$scenario, paste0(sub("_ff.*$", "", meta$scenario),
+                                     "_ff", c("02", "04", "06"))))
+    } else {
+      meta$scenario
+    }
+    expect <- gpkg_own_layers(src_keys, meta$wsg_lower, meta$species, want_scen)
+    got <- keyed_layers(file.path(item_dir, gp))
+    if (!setequal(got, expect)) {
+      lst <- function(x) if (length(x)) paste(x, collapse = ", ") else "<none>"
+      stop(gp, " for ", meta$item_id, " holds ", length(got), " layer(s) but the source's ",
+           length(src_keys$layer), " include exactly ", length(expect),
+           " keyed to this item. Extra: ", lst(setdiff(got, expect)),
+           "; missing: ", lst(setdiff(expect, got)))
     }
   }
 

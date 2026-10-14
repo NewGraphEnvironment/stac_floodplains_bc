@@ -86,12 +86,13 @@ Two notes the plan depends on:
       is still wrong one axis down (review G2). `wsg` compared case-folded.
 - [x] Add `gpkg_copy_layers(src, dst, layers)`: unlink `dst`, then one
       `sf::gdal_utils("vectortranslate", options = c("-f", "GPKG", layers))`.
-      **Two guards, because the two failure modes signal differently.** `gdal_utils()` raises
-      on a non-zero `GDALVectorTranslate` return, but a layer name the source lacks returns
-      **zero** and only **warns** (`GDAL Error 1: Couldn't fetch requested layer`), leaving a
-      65,536-byte file `st_layers()` cannot open — so flag-then-raise on any warning (not a
-      `stop()` inside the handler, which would longjmp past sf's C++ destructors) **and**
-      `setequal()` the written layer names against the requested set.
+      **Two guards, and the stated reason was corrected mid-phase.** A missing layer both
+      warns and raises (measured both ways; the earlier "warns only" came from a probe using
+      `tryCatch(error =, warning =)`, which takes the warning first and never reaches the
+      error). The warning guard is kept for its message — `gdal_utils`'s own error names
+      nothing, the warning names the layer — as flag-then-raise rather than a `stop()` inside
+      the handler, which would longjmp past sf's C++ destructors; and `setequal()` over the
+      written layer names is the backstop over the 65,536-byte carcass a failed call leaves.
 - [x] Document that `dst` is unlinked (review O12): `stage_years-check.R` hands the stage
       symlinks to the producer's real `.gpkg` files, so a swapped argument deletes upstream data.
 - [x] Extend the `SCOPE OF THE GUARANTEE` header with the multi-layer measurement. The
@@ -148,12 +149,12 @@ Two notes the plan depends on:
 
 ## Phase 3 — the guards
 
-- [ ] `scripts/test_pipeline.R:340-385` — tighten from "every layer carries `wsg`" to "every
+- [x] `scripts/test_pipeline.R:340-385` — tighten from "every layer carries `wsg`" to "every
       layer carries this item's key", with the per-file asymmetry, and rewrite the comment
       explaining why only `wsg` was assertable (it is the thing this issue removed). Keep the
       `feature_layers()` filter's reason intact, and keep asserting the zero-layer case.
       `transition_vector.gpkg` stays on the single-layer assertion it has.
-- [ ] `scripts/test_pipeline.R:358-361` — replace the geometry-based `feature_layers()` filter
+- [x] `scripts/test_pipeline.R:358-361` — replace the geometry-based `feature_layers()` filter
       with `gpkg_contents.data_type IN ('features','attributes')` for the two bundles (review
       **AC19**). The geometry filter excludes exactly the aspatial tables the stage now
       *selects*, so a tightened assertion would leave them unchecked; `data_type` also excludes
@@ -161,10 +162,10 @@ Two notes the plan depends on:
       `gpkg_contents` row. Verified: `st_read(query = "SELECT table_name, data_type FROM
       gpkg_contents")` works. The floodplain arm asserts `scenario ∈` the item's ff set, so the
       test is not weaker than the stage.
-- [ ] `scripts/test_pipeline.R` — assert the staged bundles hold **no** layer outside the
+- [x] `scripts/test_pipeline.R` — assert the staged bundles hold **no** layer outside the
       item's own set. The positive check above is satisfied by a subset; this is the arm that
       fails on the defect as it exists today.
-- [ ] `scripts/gpkg_determinism-check.R` — extend to the multi-layer bundles, reading the
+- [x] `scripts/gpkg_determinism-check.R` — extend to the multi-layer bundles, reading the
       **upstream** source, not the staged copy (review **AC20**). `:28` reads
       `data/stac/<item>/floodplain_landcover.gpkg`, which after this change is itself a
       vectortranslate output, so extending it there would prove "re-translating our own output
@@ -173,9 +174,9 @@ Two notes the plan depends on:
       out loud when `$FLOODPLAINS_DATA` is absent (the idiom at `stage_years-check.R:74-78`);
       keep the staged arm so the check still runs without the source tree. Keep the 1.2 s
       sleep. `NO_PIN=1` must still make them **differ**.
-- [ ] `scripts/gpkg_determinism-check.R:10` and `scripts/style_determinism-check.py:18` both
+- [x] `scripts/gpkg_determinism-check.R:10` and `scripts/style_determinism-check.py:18` both
       suggest `ITEM=bulk_co_ff04`, a retired id. Stale already, fixed in passing.
-- [ ] Restore the defect and prove the new guards fire: stage a group with foreign layers
+- [x] Restore the defect and prove the new guards fire: stage a group with foreign layers
       (`WSG=morr` or `WSG=bulk`) with the filter bypassed, and confirm the two
       `test_pipeline.R` arms go red.
 

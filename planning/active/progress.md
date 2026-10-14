@@ -40,3 +40,38 @@
   `PIN_META_SHA256`, the only byte-pin on `meta.json` in the repo. So reading the areas,
   bbox and geometry from the staged copy rather than the source moved **no published
   number**. The pin fired rather than skipping, so that is a measurement and not a silence.
+
+### Phase 3 — the guards (done)
+
+- `test_pipeline.R`: the per-layer arm now asserts all three key columns, over a
+  `gpkg_contents.data_type` filter rather than a geometry filter — the geometry filter
+  excluded exactly the aspatial tables the stage now selects (review AC19). Verified on a
+  styled file that `layer_styles` carries no `gpkg_contents` row, so the new filter excludes
+  it structurally rather than by name. A second arm compares the staged layer set against the
+  source's own key table.
+- `gpkg_determinism-check.R`: rewritten to three arms, the two multi-layer ones reading the
+  **producer's** files rather than the staged copies (review AC20) — the staged copies are
+  themselves `gpkg_copy_layers()` output, so re-translating one would prove the weaker claim.
+  Skips out loud when `$FLOODPLAINS_DATA` is absent. The cold path now requires **every** arm
+  to differ, not one.
+
+#### Every refusal fired, each against the mutation only it can see
+
+| guard | mutation | result |
+|---|---|---|
+| `test_pipeline` per-layer key | the pre-#80 whole-file copy restored | red: `classified_ch_ff06_2017 … is keyed MORR/ch/ch_ff06 but item morr_all_ff04 is MORR/all/all_ff04` |
+| `test_pipeline` layer set | one of the item's OWN layers dropped, so every shipped layer is correctly keyed and the arm above cannot fire | red: `holds 5 layer(s) but the source's 22 include exactly 6 … missing: composition_all_ff04_2017_2023` |
+| `01_stage` foreign wsg | `UPDATE bt_ff02 SET wsg='BULK'` in a sandbox copy | red, naming the group and the consequence |
+| `01_stage` empty own set | `species='xx'` on every floodplain layer | red, printing the keys present |
+| `01_stage` all-aspatial own set | `species='xx'` on ufra's feature layers, leaving `patch_watercourse_*` | red, naming the step that would otherwise fail three later |
+| `01_stage` missing key column | `ALTER TABLE bt_ff06 DROP COLUMN species` | red: `1 layer(s) carry no usable item key … [absent: species]` |
+| `gpkg_copy_layers` empty request | `layers = character(0)` | red |
+| determinism, cold path | `NO_PIN=1` | all three arms DIFFER |
+
+- End to end: `WSG=larl` and `WSG=morr` both PASS stage -> tag -> COG -> style -> STAC ->
+  validate. MORR's styled bundle drops from ~30 style rows to 9.
+- **Correction landed this phase.** The plan's claim that `gdal_utils()` "only warns" on a
+  missing layer was a probe artifact — `tryCatch(error =, warning =)` takes the warning first
+  and never reaches the error. It does both. The plan review's independent code read was
+  right and the probe was not; `findings.md` and `review-1.md` carry the corrected
+  measurement, and the guards stay for corrected reasons.

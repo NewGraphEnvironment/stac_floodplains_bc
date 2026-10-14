@@ -39,13 +39,20 @@ they were checked.
   `--delete`), and `item_validate.py`'s asset-key / style / checksum checks, which all derive
   their layer lists from the file.
 
-## Corrected
+## Where the review was right and this session was wrong
 
-The review states `sf::gdal_utils()` "**does** `stop()` on failure — `if (ret) stop(...)`".
-That code read is right and does not contradict the measurement: a layer name the source does
-not hold returns **zero** from `GDALVectorTranslate` and surfaces only as an R warning, with a
-65,536-byte unopenable file left behind. Both guards in `gpkg_copy_layers()` stay, and the
-comment now names both failure modes and which signal each gives.
+The review states `sf::gdal_utils()` "**does** `stop()` on failure — `if (ret) stop(...)`,
+note the inverted return convention". This session initially recorded that as compatible with
+its own measurement ("returns zero and only warns"). **It was not compatible, and the review
+was right.** Re-measured with a `withCallingHandlers` warning handler alongside a `tryCatch`
+error handler: a missing layer both warns and raises, with or without `-f GPKG`. The original
+probe used `tryCatch(error =, warning =)`, which takes the warning first and never reaches the
+error — the trap `code-check-r.md` already documents. The probe was broken before the world
+was, which is the standing prior when an ad-hoc probe disagrees with a code read.
+
+Both guards stay, for corrected reasons: the warning guard for its message (`gdal_utils`'s own
+error names nothing; the warning names the layer), and the `setequal()` arm as the backstop
+over the 65,536-byte carcass a failed call leaves on disk. `findings.md` carries the table.
 
 ## Run order the review proposed, adopted for Validation
 
