@@ -89,6 +89,6 @@ lookup misses, and admits any key `floodplains` writes.
 ## Validation
 
 - [x] Tests pass
-- [ ] `/code-check` clean (once over the branch with `/code-check branch`)
+- [x] `/code-check branch` — five rounds, closed by enumeration (see findings.md)
 - [x] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] `/planning-archive` on completion
