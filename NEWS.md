@@ -19,6 +19,34 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
+### Each item's GeoPackages hold only that item's layers (#80)
+
+`floodplain.gpkg` and `floodplain_landcover.gpkg` were copied whole from the producer's
+per-group bundle. That was self-describing while a group's layers were all one species'. It
+stopped being so when groups went whole-network, because upstream keeps the retired species'
+layers on disk: `bulk_all_ff04` was publishing BULK's **coho** floodplain and coho transition
+inside the whole-network item's own assets, and `morr_all_ff04` both coho's and chinook's. A
+consumer opening one item found two floodplain models — different networks, and after
+floodplains#117 different DEM grids — with nothing in the item saying which was current.
+
+Staging now writes both files, selecting each layer by its own `wsg`/`species`/`scenario`
+rather than by its name. The aspatial `patch_watercourse_*` and `composition_*` tables carry
+the item's key and still ship. A layer whose key matches no target of the group is reported
+rather than refused — three groups carry one until floodplains#131 prunes them — and a layer
+belonging to another watershed group is refused outright.
+
+**Every item's `file:checksum` and `file:size` move for both assets**, including the 20 groups
+that had no foreign layers, because the files are written rather than copied. Measured over
+the 23 rostered groups: 827 → 643 MB, 184 MB less to publish. MORR −70% (116.3 → 35.4 MB),
+BULK −36%, KISP −35%; the rest shrink 0–19% from repacking alone. Nothing a consumer reads
+changes value — the areas, metrics, geometry and provenance are byte-identical, pinned by
+`stage_years-check.R`'s `meta.json` digest.
+
+The four live orphans — `bulk_co_ff04`, `kisp_ch_ff04`, `morr_co_ff04` and `morr_ch_ff06` —
+are the only whole-group GeoPackages left in the catalogue once this publishes, so #76
+finishes what this starts: until they are unregistered, a consumer merging a filtered item
+with an orphan still gets duplicate layer families.
+
 ### The provenance reader checks that each item finds its scenario, not the key's shape (#75)
 
 Nothing published changes. This unblocks publishing whole-network floodplains, which was frozen

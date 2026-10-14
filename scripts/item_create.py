@@ -406,10 +406,17 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         extra_fields={**file_meta(wsg_dir / trans_name),
                       "classification:classes": TRANSITION_CLASSES},
     )
+    # Both bundles hold ONLY this item's layers (#80). Said in the description because it is
+    # the one thing a consumer cannot see without opening the file, and because it was not
+    # true before: until #80 these were whole-group copies, so a whole-network item shipped
+    # its group's retired species' floodplains and transitions beside its own.
     assets["floodplain_landcover"] = pystac.Asset(
         href=s3_href(f"{meta['item_id']}/floodplain_landcover.gpkg"),
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain land cover + transition (GeoPackage)",
+        description=(
+            f"Land-cover and transition layers for {meta['item_id']} alone — every layer "
+            f"carries wsg/species/scenario, so items merged into one file stay separable."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain_landcover.gpkg"),
     )
@@ -417,6 +424,11 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         href=s3_href(f"{meta['item_id']}/floodplain.gpkg"),
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
+        description=(
+            f"The ff02/ff04/ff06 delineations for {meta['item_id']}'s species alone, plus "
+            f"the producer's per-blue-line-key breakdown of the headline scenario where one "
+            f"exists. Each layer records its own flood factor in `scenario`, so several "
+            f"values appear under one item; read the layer list rather than assuming three."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )

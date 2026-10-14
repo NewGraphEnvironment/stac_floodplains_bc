@@ -16,7 +16,7 @@ Two things can churn `file:checksum` here, and each gets an arm:
 
     uv run python scripts/style_determinism-check.py             # warm: must MATCH
     NO_PIN=1 uv run python scripts/style_determinism-check.py    # cold: must DIFFER
-    ITEM=bulk_co_ff04 uv run python scripts/style_determinism-check.py
+    ITEM=morr_all_ff04 uv run python scripts/style_determinism-check.py
 
 The cold path is the point. A guard nobody has seen fail is decoration: if the two
 writes match with a wall-clock stamp, this check is not exercising what it claims and

@@ -18,12 +18,16 @@ wipes that palette. Tracked separately.
 Outputs (into styles/):
   floodplain.qml
       Single blue fill for every layer of floodplain.gpkg, which carry no class
-      attribute. A single-species group has three (`<sp>_ff02/04/06`); MORR has nine,
-      including `<sp>_ff04_by_gnis_name` and `<sp>_ff0N_by_blue_line_key`.
+      attribute. Three or four per published item since #80 — `<sp>_ff02/04/06` plus, on
+      18 of 23 groups, `<sp>_ff04_by_blue_line_key`. Upstream also holds
+      `<sp>_ff04_by_gnis_name` and other species' delineations (MORR's file has 13 layers),
+      but staging selects by item key, so no published file carries them.
   classified.qml
       Categorized on `class_name`. For the classified_<sp>_<scen>_<year> layers of
       floodplain_landcover.gpkg, and their `_patches` variants, which carry the same
-      column. A multi-target group holds both species' layers in one file.
+      column. `_patches` exists only on MORR's retired chinook and coho families upstream,
+      so no published item ships one; the rule stays because the next one would be the
+      item's own.
   transition.qml
       Categorized on `transition` ("Trees -> Rangeland"). Every Trees -> X
       category is switched on; every other origin ships switched off, so the
