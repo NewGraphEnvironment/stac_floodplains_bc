@@ -254,3 +254,49 @@ Roster-wide 23 staged / 0 skipped; independent audit 46/46 and 23/23 at 642.9 MB
 `stage_years-check.R` 14/0/0; `fp_provenance-check.R` 87/0/0; `prov_fields-check.py` 44/0;
 `year_sets-check.py` 16/0; `catalogue_release-check.sh` ALL PASS; `style_drift-check.py` and
 `style_determinism-check.py` both byte-identical; `attribution_drift-check.py` matches.
+
+### Code-check round 3 — enumeration CLOSED, 5 findings, no bugs
+
+Reviewer report: `planning/active/review-round3.md`. Scoped to close the enumeration rather
+than run a fourth search, because rounds 1 and 2 each found a defect inside the previous
+round's fix, and the loop's stopping rule is an enumeration rather than a quiet round.
+
+**Round 2's enumeration was ten entries short**, derived independently rather than read and
+agreed with. Two of the missed M1 members do abort the whole roster above `ALLOW_SKIPPED` —
+but both are byte-identical in position at the merge base, so neither is this diff's, and
+`fp_prov_read`'s disposition is argued in place. Every one of the four end-of-run counters was
+checked for round 1's 2b shape: all append below the raster skip, so none can mis-attribute.
+Four M2 arms in `test_pipeline.R` were missed, the important one being the label-decode oracle
+— **#80 genuinely moved its provenance**, since `transition_vector.gpkg` is now extracted from
+a bundle this repo writes, and nobody in the branch had checked it. Round 3 measured it:
+extracting that layer from upstream and from the staged copy gives md5 `10ea7c71…` /
+2,408,448 B **identically**, so the oracle's independence survives and that asset's published
+checksum does not move under #80. NEWS's "both assets" is precise rather than an undercount.
+
+**No missed place is Above its source of truth in the current tree, and all 13 original rows
+are Below or deliberate.** The enumeration is closed.
+
+| finding | fix |
+|---|---|
+| 1 round 2's "21 → 20" correction landed in **one of three** copies, and `progress.md` recorded it as complete while the wrong number survived 73 lines above the correction in the same file | all three copies corrected, then swept by grep rather than by recall |
+| 2 the empty-own-set refusal's recorded instance (NEEXDZII) is **unreachable twice over** — the group-level `wsg` refusal fires before the target loop computes an own set, and NEEXDZII is unrostered. Its live shape is a species/scenario mismatch, which is what the mutation test actually used | the comment and `findings.md` now record the reachable instance, and say why the old one cannot reach it. Same class as round 2's finding 5 |
+| 3 `gpkg_determinism-check.R` said "**All three** … the other two" over a loop of **two** files; `transition_vector.gpkg` is arm 1's output and is never read. Introduced by round 1's own fix | corrected, and says why the third is excluded |
+| 4 round 2's drift fix resolved the per-layer/set-arm disagreement by **relaxing the stricter copy**, so nothing asserted the gpkg `wsg` column equals the published `wsg` property literally — the join a consumer makes | restored to exact comparison, with why the stage case-folds and the test does not. A drift between two assertions is resolved by keeping the stronger one |
+| 5 three **runnable** commands in `scripts/README.md` and two claims in `catalogue_release.sh` name `bulk_co_ff04`, which a rebuild no longer produces — the `--only` recipe could not run as written. Phase 4 had fixed the identical string in one file and left five | all five corrected. `NEWS.md`'s mentions are historical and correctly left alone |
+
+Round 3 also verified independently that MORR's areas and loss/gain figures are identical read
+from upstream and from the staged copy — so "nothing a consumer reads changes value" holds on
+a foreign-layer group, not only on the one item `PIN_META_SHA256` covers.
+
+#### The pattern the three rounds share
+
+Each round's best finding was **a correction whose own enumeration was one short**: round 1
+fixed one of three statements in the same control-flow position, round 2 fixed one of ten
+copies of a premise, round 3 found one of three copies of a number. The instrument that ends
+that is not another reviewer — it is grepping for the sentence before declaring a sweep
+complete, which round 2 prescribed and its own correction then skipped. Done here for the
+whole-copy premise, the "only `wsg` is asserted" claim, the retired item id and the "nine
+invisible layers" claim: the only surviving hits are historical statements in `NEWS.md` and
+`test_pipeline.R`, which are correct as history.
+
+Re-validated: `WSG=morr` and `WSG=larl` both PASS end to end with the strict `wsg` comparison.

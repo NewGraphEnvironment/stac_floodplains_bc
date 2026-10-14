@@ -4,7 +4,7 @@
 # Usage:
 #   bash scripts/catalogue_release.sh
 #   bash scripts/catalogue_release.sh --allow-retract     # deliberate item removal
-#   bash scripts/catalogue_release.sh --only bulk_co_ff04  # republish ONE item (pilot)
+#   bash scripts/catalogue_release.sh --only bulk_all_ff04 # republish ONE item (pilot)
 #   GEOSERV_HOST=root@1.2.3.4 bash scripts/catalogue_release.sh
 #
 # --only <item_id> republishes one existing item: its assets, its JSON, its pgstac row.
@@ -53,8 +53,9 @@ S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.p
 # above it is a floor nobody updated. So every release records the count here, beside its
 # NEWS entry, and the number to set is the one 01_stage.R prints as "N of M staged item(s)
 # carry run provenance" and item_create.py as "provenance block: N/M". 0 was true of
-# v1.0.0; any full rebuild from today's producer tree carries bulk_co_ff04, so the next
-# full release sets 1 (or whatever its build prints) in the same commit as its NEWS entry.
+# v1.0.0; a full rebuild from today's producer tree carries bulk_all_ff04 and no longer
+# stages bulk_co_ff04 at all (floodplains#125 retired the targets: blocks), so the next
+# full release sets whatever its build prints in the same commit as its NEWS entry.
 # 21 of 23, measured on the build this release publishes: 2 items legitimately carry no
 # provenance at all. Exact in both directions, so this is the count and not a lower bound.
 PROVENANCE_FLOOR=21

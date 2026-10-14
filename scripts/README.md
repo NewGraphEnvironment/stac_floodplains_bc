@@ -146,7 +146,7 @@ piloted on one group and inspected live before a full release against a bucket w
 
 ```bash
 WSG=bulk Rscript scripts/test_pipeline.R                  # one-group tree, PARTIAL_STAGE written
-bash scripts/catalogue_release.sh --only bulk_co_ff04     # that item only
+bash scripts/catalogue_release.sh --only bulk_all_ff04    # that item only
 ```
 
 What `--only` changes, step by step:
@@ -272,7 +272,7 @@ layer twice and assert byte-identical output.
 ```
 Rscript scripts/gpkg_determinism-check.R              # warm path: rebuilds must MATCH
 NO_PIN=1 Rscript scripts/gpkg_determinism-check.R     # cold path: rebuilds must DIFFER
-ITEM=bulk_co_ff04 Rscript scripts/gpkg_determinism-check.R
+ITEM=bulk_all_ff04 Rscript scripts/gpkg_determinism-check.R
 ```
 
 The cold path is the point. A guard nobody has seen fail is decoration, so `NO_PIN=1` asserts the
@@ -323,7 +323,7 @@ does not reach it and the style carries its own pin.
 ```bash
 uv run python scripts/style_determinism-check.py            # warm: rebuilds must MATCH
 NO_PIN=1 uv run python scripts/style_determinism-check.py   # cold: rebuilds must DIFFER
-ITEM=bulk_co_ff04 uv run python scripts/style_determinism-check.py
+ITEM=bulk_all_ff04 uv run python scripts/style_determinism-check.py
 ```
 
 Three properties, measured on `kotl_bt_ff04`: two writes with the pin are byte-identical

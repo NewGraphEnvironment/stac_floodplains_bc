@@ -408,12 +408,23 @@ for (mp in meta_paths) {
       # single-scenario assertion here would reject the ff02 layer the stage correctly keeps.
       #
       # `want_scen_for()` is defined once, above, and used by BOTH arms. It was written out
-      # twice at first and the two copies had already drifted — this one compared `wsg`
-      # case-sensitively while the other case-folded, which is the shape of defect that
-      # "two lists that happen to agree" names. Case-folded here too, because the column
-      # holds `MORR` and nothing guarantees `meta$wsg` always will.
+      # twice at first and the two copies had already drifted on the `wsg` comparison, one
+      # case-folding and one not.
+      #
+      # Resolved toward the STRICT copy, and that direction matters. `wsg` is compared
+      # EXACTLY, because it is the string a consumer joins a merged GeoPackage against the
+      # published `wsg` property on — so equal-ignoring-case is not equal enough, and nothing
+      # else in the repo asserts the two agree literally. The first attempt at this fix
+      # case-folded both sides to make the copies match, which removed a safe failure instead
+      # of fixing a message: a drift between two assertions is resolved by keeping the
+      # stronger one.
+      #
+      # `01_stage.R`'s selector case-folds for a different reason, not an inconsistent one:
+      # there the left side is the roster's lowercase `wsg` and the right the column's
+      # uppercase, so an exact compare would match nothing. Here both sides are already the
+      # uppercase form `meta$wsg` carries.
       want_scen <- want_scen_for(gp)
-      if (!identical(toupper(k$wsg[1]), toupper(meta$wsg)) ||
+      if (!identical(k$wsg[1], meta$wsg) ||
             !identical(k$species[1], meta$species) ||
             !k$scenario[1] %in% want_scen) {
         stop("layer '", lyr, "' in ", gp, " is keyed ",

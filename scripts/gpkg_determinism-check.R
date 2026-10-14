@@ -32,9 +32,11 @@ no_pin <- tolower(Sys.getenv("NO_PIN", unset = "")) %in% c("1", "true", "yes")
 
 staged <- file.path("data", "stac", item)
 src <- file.path(staged, "floodplain_landcover.gpkg")
-# All three, not just the one the first arm reads: the other two are what the multi-layer arms
-# take their layer sets from, and a missing one would surface further down as an st_layers()
-# failure naming only a path.
+# BOTH staged bundles, not just the one arm 1 reads: `floodplain.gpkg` is where the second
+# multi-layer arm takes its layer set from, and a missing one would otherwise surface further
+# down as an st_layers() failure naming only a path. `transition_vector.gpkg` is NOT checked
+# here because nothing reads it — arm 1 writes it into tempdir() from the landcover bundle.
+# (An earlier version of this comment said "all three ... the other two" over a loop of two.)
 for (f in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
   if (!file.exists(file.path(staged, f))) {
     stop("no staged ", f, " at ", staged,

@@ -31,7 +31,7 @@ table_info` + `SELECT DISTINCT`:
 | layers carrying `wsg`/`species`/`scenario` (floodplains#30) | **276 of 276** |
 | distinct values per key column per layer | **exactly 1**, every layer |
 | `data_type` split | 246 `features`, 30 `attributes` |
-| groups carrying foreign layers | **bulk (14), kisp (9), morr (25)** — all whole-network; the other 21 rostered groups have none |
+| groups carrying foreign layers | **bulk (14), kisp (9), morr (25)** — all whole-network; the other **20** rostered groups have none |
 | multi-layer fresh `vectortranslate`, two runs, pin set | **byte-identical** (UFRA landcover, 5 layers incl. one aspatial) |
 | same, pin unset | **differ** — the cold arm can still fire |
 | `vectortranslate` preserves | `data_type='attributes'`, layer schema (identical `ogrinfo -so`), `gpkg_extensions` (4), rtree indexes (16 tables) |
@@ -251,11 +251,11 @@ a sandbox, so the foreign-layer paths need no new harness.
 - [x] `uv run scripts/style_drift-check.py` and `uv run scripts/style_determinism-check.py`.
 - [x] `bash scripts/catalogue_release-check.sh` — synthetic trees, unaffected by layer
       contents, but it pins the `--only` path these bytes travel.
-- [ ] `/code-check branch` before the PR, three rounds minimum.
+- [x] `/code-check branch` before the PR, three rounds minimum.
 
 ## Validation (workflow)
 
-- [ ] Tests pass
-- [ ] `/code-check branch` clean (three rounds minimum)
-- [ ] PWF checkboxes match landed work
+- [x] Tests pass
+- [x] `/code-check branch` clean (three rounds minimum)
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion

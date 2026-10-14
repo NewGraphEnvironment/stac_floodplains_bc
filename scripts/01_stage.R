@@ -458,10 +458,18 @@ for (wsg in wsgs) {
     # Both refusals BEFORE the census, so a group whose target has no landcover at all stops
     # here rather than printing twenty "matches no item" lines and then stopping anyway.
     #
-    # Two arms per file, and the second is not the first restated. An empty own set is
-    # NEEXDZII's shape — its layers carry `wsg = BULK`, since it is a subset of BULK that
-    # config/regions/skeena.yml excludes from the roster — and it makes every assertion
-    # below vacuous. A set holding only ASPATIAL tables passes that arm and then dies three
+    # Two arms per file, and the second is not the first restated.
+    #
+    # An empty own set makes every assertion below vacuous. Its LIVE shape is a species or
+    # scenario the bundle does not carry — an upstream re-key, or an `area.yml` naming a
+    # target that was never modelled — which is what the mutation testing for this arm
+    # actually used (`species='xx'` on every floodplain layer). Not a foreign `wsg`, although
+    # an earlier version of this comment said so and cited NEEXDZII: that case cannot reach
+    # here, because the group-level `wsg` refusal above fires before the target loop runs at
+    # all, and NEEXDZII is excluded from every roster by config/regions/skeena.yml besides.
+    # A guard's recorded instance has to be one that can actually reach it.
+    #
+    # A set holding only ASPATIAL tables passes that first arm and then dies three
     # steps later inside 04_gpkg_style.py ("declares no feature layers in gpkg_contents"),
     # under a message about styling for a cause that is here.
     for (sel in list(list(f = "floodplain.gpkg", own = own_fp, keys = keys_fp,

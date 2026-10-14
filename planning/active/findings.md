@@ -98,7 +98,8 @@ Foreign layers (key matches no rostered item) exist in **3 of 24** groups, all w
 | kisp | 4 (`ch_*`) | 5 | 9 |
 | morr | 9 (`co_*` incl. `co_ff04_by_gnis_name`, `ch_*`) | 16 (incl. six `classified_*_patches`) | 25 |
 
-The other 21 rostered groups have none. 218 layers kept, 58 dropped.
+The other **20** rostered groups have none (23 rostered minus the three above). 218 layers
+kept, 58 dropped.
 
 ### The key asymmetry is a property of the data
 
@@ -108,11 +109,18 @@ all three flood factors (ff02/ff04/ff06), so the match there is on `(wsg, specie
 Every own layer of `floodplain_landcover.gpkg` carries `scenario` == the item's scenario, so
 the match there is on all three. Keying `floodplain.gpkg` on scenario would drop ff02 and ff06.
 
-### neexdzii keeps zero layers, correctly
+### neexdzii keeps zero layers, correctly — but it is not the empty-own-set arm's instance
 
 Its layers' `wsg` column reads `BULK` — it is a subset of BULK and
-`config/regions/skeena.yml:29` excludes it from the roster, so it never stages. This is why
-the zero-layer stop in Phase 2 is a real guard and not a defensive one.
+`config/regions/skeena.yml:29` excludes it from the roster, so it never stages.
+
+**It is NOT the empty-own-set refusal's instance**, though it was recorded as one through
+rounds 1 and 2. A foreign `wsg` cannot reach that arm: the group-level `wsg` refusal runs
+before the target loop computes an own set at all, and NEEXDZII is unrostered besides. That
+arm's live shape is a species or scenario the bundle does not carry — an upstream re-key, or
+an `area.yml` naming a target that was never modelled — which is what its mutation test
+actually used (`species='xx'` on every floodplain layer). Round 3 caught this; it is the same
+class as round 2's finding 5, a guard with a recorded reason that does not hold.
 
 ## The writer: `vectortranslate`, one call, no append
 
