@@ -46,21 +46,30 @@ lookup misses, and admits any key `floodplains` writes.
 
 ## Phase 4: Verify on the real tree
 
-- [ ] `Rscript scripts/fp_provenance-check.R` — 0 failed, real-file arms running
-- [ ] `WSG=bulk Rscript scripts/test_pipeline.R` — `bulk_all_ff04`, seven-year span
-- [ ] `WSG=dunc Rscript scripts/test_pipeline.R` — `dunc_all_ff04`, new group, three-year span
-- [ ] `Rscript scripts/stage_years-check.R` and `uv run python scripts/prov_fields-check.py` — no regression
+- [x] `Rscript scripts/fp_provenance-check.R` — 0 failed, real-file arms running
+- [x] `Rscript scripts/stage_years-check.R`, `prov_fields-check.py`, `year_sets-check.py` — no regression
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` — `bulk_all_ff04`, seven-year span, PASS
+- [x] `WSG=morr Rscript scripts/test_pipeline.R` — `morr_all_ff04`, species `all` matched against
+      three network sections, PASS
+- [x] `WSG=ufra Rscript scripts/test_pipeline.R` — a species group, the control for the derived
+      target assertion (needs `ALLOW_DRIFT_SKEW=1`, pre-existing: #69)
+- [x] `WSG=dunc` — stages and COGs; refused at `item_create.py` on an upstream record defect,
+      filed as floodplains#133, not a #75 regression
+- [x] `test_pipeline.R`: derive the per-group target expectation from `area.yml` instead of
+      hardcoding MORR's retired two-item shape, which failed a build item_validate.py had passed
 
 ## Phase 5: Bookkeeping
 
-- [ ] `NEWS.md` Unreleased entry
-- [ ] File the once-per-group README issue with the measured ff04 figures; link it from #76
-- [ ] Edit #75's body: the groups are BULK/KISP/MORR (+DUNC), and "beside" holds for the live
+- [x] `NEWS.md` Unreleased entry
+- [x] File the once-per-group README issue with the measured ff04 figures; link it from #76 (#79)
+- [x] Edit #75's body: the groups are BULK/KISP/MORR (+DUNC), and "beside" holds for the live
       catalogue but not for the build
+- [x] File floodplains#133 — `dunc` cannot publish: no link log row and `inputs$link$sha` null
+      on every `all2` section, so the `processing:software` link entry is half-present
 
 ## Validation
 
-- [ ] Tests pass
+- [x] Tests pass
 - [ ] `/code-check` clean (once over the branch with `/code-check branch`)
-- [ ] PWF checkboxes match landed work
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion

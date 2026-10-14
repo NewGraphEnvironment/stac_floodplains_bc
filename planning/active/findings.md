@@ -168,3 +168,49 @@ floodplain".)
 | Error | Resolution |
 |-------|------------|
 | `curl` to `https://images.a11s.one/collections/stac-floodplains-bc/items` timed out at 40 s | Read the published item JSONs from the bucket instead (`https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/<id>.json`), which is public for GetObject |
+
+## Verification — the real tree, 2026-10-14
+
+| run | result |
+|---|---|
+| `Rscript scripts/fp_provenance-check.R` | **81 assertions, 0 failed, 1 skipped**. The skip is the pre-existing stale `neexdzii` fold pin (upstream re-ran 2026-10-13); before this change the script *halted* on the real `bulk` file |
+| `uv run python scripts/prov_fields-check.py` | 44 assertions, 0 failed |
+| `uv run python scripts/year_sets-check.py` | 16 assertions, 0 failed |
+| `Rscript scripts/stage_years-check.R` | 14 assertions, 0 failed — including **"a three-year item's `meta.json` is byte-identical to the pre-change build"**, so no staged output moved |
+| `WSG=bulk Rscript scripts/test_pipeline.R` | **PASS.** `bulk_all_ff04` ff02 610.91 / ff04 659.99 / ff06 698.94 km² (floodplains#125's log says 660.0), seven-year span, 12/12 provenance fields, 25 style rows over three GeoPackages, RAT in all 8 COGs |
+| `WSG=morr Rscript scripts/test_pipeline.R` | `morr_all_ff04` ff04 479.32 km² (#125: 479.3), three-year span, 12/12 fields, network matched on `inputs$species: all` against three sections — then failed `test_pipeline.R`'s own stale MORR literal (below) |
+| `WSG=dunc Rscript scripts/test_pipeline.R` | stages, tags, COGs and styles; refused at `item_create.py` on an **upstream** record defect (below) |
+
+### Two defects the verification found, neither in #75's change
+
+**1. `test_pipeline.R` hardcoded MORR's retired two-target shape.**
+`stopifnot("morr must stage morr_co_ff04 + morr_ch_ff06" = setequal(names(items), c("morr_co_ff04", "morr_ch_ff06")))`
+failed a build `item_validate.py` had already passed. Fixed by deriving the expectation from
+`area.yml` — the property is "a group stages exactly the targets its area.yml declares", which holds
+for every group and cannot be contradicted by the roster it is about. An expectation naming ids
+could only be contradicted by the roster; one derived from the roster can only be contradicted by
+the stage.
+
+**2. `dunc` cannot publish — an upstream record defect, filed as floodplains#133.**
+`item_create.py` refuses a half-present `processing:software` `link` entry (version with no commit),
+which is #74's biconditional working correctly. Two facts combine:
+
+- DUNC's `link_log` is `null`, with `link_log_note: "no log row for DUNC in schema 'fresh'"` — a
+  modelled absence, correctly honoured by `fp_prov_leaf`. `link_sha` is read from
+  `link_log$link_sha`, so a null log means no commit.
+- `inputs$link$sha` is **null on every `all2` section** (`sha_source: unresolved_version_mismatch`),
+  while every species section on the same group resolved to `git` with a real sha. So there is no
+  second source to fall back to.
+
+| area | `network[all2]` `inputs$link` | `network[<sp><n>]` |
+|---|---|---|
+| `dunc` | `0.50.0`, sha null, `unresolved_version_mismatch` | — |
+| `bulk` / `kisp` / `morr` | same | sha `2b5a435d…`, `git` |
+
+BULK, KISP and MORR publish anyway because their `link_log` is present and supplies the commit.
+DUNC is the one group where both sources are empty at once. Not a blocker for #75.
+
+### A wrapper's exit is not the work
+
+Both failing smoke tests returned **exit 0** from the backgrounded wrapper, because the command
+ended `; echo DONE`. The failures were only visible in the log. Read the log, not the status.

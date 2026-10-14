@@ -195,7 +195,7 @@ schema, before a real full publish.
 ```
 Rscript scripts/test_pipeline.R            # defaults to UFRA
 WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
-WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
+WSG=bulk Rscript scripts/test_pipeline.R   # whole-network group: species `all`, 7-year span
 ```
 
 ## Classified year sets

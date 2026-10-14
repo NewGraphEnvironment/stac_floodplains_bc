@@ -26,3 +26,13 @@
   that asserts no length, and "MORR publishes two" is still true of the live catalogue (the
   build no longer stages them, which is #76's boundary). README.md / index.html are rendered
   artifacts and are not edited here.
+- Phase 4-5: verified on the real tree. `bulk_all_ff04` (ff04 659.99), `morr_all_ff04`
+  (479.32) and the `ufra_ch_ff04` control all PASS end to end through `item_validate.py`;
+  both whole-network figures match floodplains#125's own run log. Four guard-check scripts
+  green (81/44/16/14 assertions, 0 failed).
+- Two defects found by the verification, neither in #75's change: `test_pipeline.R` hardcoded
+  MORR's retired two-target shape (fixed by deriving it from `area.yml`), and `dunc` cannot
+  publish because neither its link log nor `inputs$link$sha` carries a commit — filed as
+  floodplains#133.
+- Filed #79 (once-per-group ff04 total) and cross-linked it from #76; corrected #75's body.
+- Next: `/code-check branch`, archive, PR.

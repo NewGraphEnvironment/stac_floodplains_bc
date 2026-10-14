@@ -19,6 +19,44 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
+### The provenance reader checks that each item finds its scenario, not the key's shape (#75)
+
+Nothing published changes. This unblocks publishing whole-network floodplains, which was frozen
+on it (floodplains#125).
+
+`scripts/fp_provenance.R` refused any `floodplain` / `landcover` section key in the producer's
+`provenance.json` that did not match `^[a-z]{2}_ff[0-9]{2}$`, and it scanned **every** key in the
+section rather than the one being looked up. So a single unrecognised sibling stopped the whole
+watershed group, including targets whose own key was fine. Measured 2026-10-14: `all_ff02`,
+`all_ff04` and `all_ff06` keys exist on disk now in `bulk`, `kisp`, `morr` and `dunc`, and
+`Rscript scripts/fp_provenance-check.R` halted on the real `bulk` file — so that script's own
+producer-file arms had no coverage at all.
+
+A record says what produced a file at a point in time; it does not decide what may be published.
+The check now asks whether **the item finds its key** — the item's own `scenario` must be present
+in any of those two sections that has keys at all — and the refusal names the key and the keys
+present. The re-keying failure the old whitelist existed for (`ch_ff04` → `ff04`, which makes
+every lookup miss and publishes seven nulls on every item at once) is still refused, because
+every item's own lookup misses. A key naming a scenario this repo does not publish is no longer
+examined, which is what lets upstream model scenarios we never emit an item for. An absent or
+empty section stays the forward-only state and still degrades to `NULL`.
+
+Two consequences for anyone reading the record:
+
+- **The species slot is two to four letters, and `all` is not a fish.** It is the producer's
+  reserved token for the whole stream network at order ≥ 2 with no access filter, attributed by
+  `blue_line_key` (floodplains#104/#125). It renders as "whole network" in the coverage table and
+  the map popups; `wct` is also labelled, ahead of any item carrying it.
+- **The `network` section is matched on its recorded `inputs$species`**, which the whole-network
+  mode made load-bearing rather than merely principled: a group carrying both `co3` and `all2`
+  cannot be keyed by a derived `paste0(species, min_order)`.
+
+Proof is in `scripts/fp_provenance-check.R` (81 assertions): two must-fail arms re-keying
+`landcover` and `floodplain`, and controls for `all_*` / `wct_*` siblings beside a `co_ff04` item,
+a whole-network record read end to end, the forward-only state, and a section that reads back as a
+JSON array. `scripts/stage_years-check.R` reports a three-year item's `meta.json` byte-identical
+to the pre-change build.
+
 ### Item field names moved off the `nge:` prefix (#74)
 
 Every custom item property is renamed. **A saved filter or script that names an old property

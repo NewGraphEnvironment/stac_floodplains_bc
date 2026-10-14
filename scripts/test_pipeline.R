@@ -13,7 +13,7 @@
 #
 #   Rscript scripts/test_pipeline.R            # defaults to UFRA
 #   WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
-#   WSG=morr Rscript scripts/test_pipeline.R   # multi-target group: stages 2 items
+#   WSG=bulk Rscript scripts/test_pipeline.R   # whole-network group: species `all`, 7-year span
 #
 # Requires: R (sf/yaml/jsonlite/drift), uv (Python env from pyproject.toml/uv.lock —
 # `uv run` auto-syncs it), and the source data under $FLOODPLAINS_DATA. No AWS creds needed.
@@ -68,7 +68,7 @@ if (system("uv run python scripts/item_create.py") != 0) {
 # --- VALIDATE -------------------------------------------------------------
 # The same gate catalogue_release.sh runs, so the smoke test exercises it rather
 # than a separate code path. --expect defaults to the staged meta.json count, which
-# is 1 here (2 for MORR), so a partially-built group still fails.
+# is the number of targets the group's area.yml declares, so a partially-built group still fails.
 message("\n=== VALIDATE ===")
 # `--partial`, for the reason catalogue_release.sh passes it under --only (#26): the
 # deprecation check's last arm asks about ids ABSENT from the tree, and a one-group tree
@@ -340,7 +340,8 @@ for (mp in meta_paths) {
   # — checking only one would let a regression in the other pass green. Passes today.
   #
   # Only `wsg` is asserted, not `species`/`scenario`: 01_stage.R copies the whole-WSG gpkgs into
-  # EACH item dir, so a multi-target group (MORR) ships the other species' layers too — `wsg` is
+  # EACH item dir, so a multi-target group ships the other species' layers too — and a
+  # whole-network group ships the retired species layers beside its own — `wsg` is
   # the one key that is item-invariant under that copy.
   #
   # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
@@ -438,11 +439,28 @@ for (mp in meta_paths) {
   items[[meta$item_id]] <- meta
 }
 
-# MORR is the multi-species fixture: it must stage exactly its two declared items.
-if (wsg == "morr") {
-  stopifnot("morr must stage morr_co_ff04 + morr_ch_ff06" =
-              setequal(names(items), c("morr_co_ff04", "morr_ch_ff06")))
-}
+# A group must stage exactly the targets its area.yml declares — every group, derived, not a
+# literal naming one.
+#
+# This was `wsg == "morr"` asserting `morr_co_ff04 + morr_ch_ff06`, because MORR was the only
+# multi-target group and those were its two items. Upstream retired MORR's `targets:` block
+# under floodplains#125, so it now falls back to the single `all_ff04` item — and the literal
+# failed a build that was correct, after item_validate.py had already passed it (#75). An
+# expectation that names ids cannot be contradicted by the roster it is about; one derived from
+# the roster can only be contradicted by the stage.
+#
+# It is read from area.yml here rather than taken from 01_stage.R's loop variable, which holds
+# whichever group the loop saw last. A declared target that staged nothing (no rasters upstream)
+# fails here by design: the stage prints SKIPPED and moves on, and a smoke test that accepted a
+# silently smaller build would be checking only what was built.
+area_cfg <- yaml::read_yaml(file.path(CONFIG_DIR, wsg, "area.yml"))
+declared <- area_cfg$targets
+if (is.null(declared)) declared <- list(list(scenario = area_cfg$primary_scenario))
+want <- paste0(wsg, "_", vapply(declared, function(t) t$scenario, character(1)))
+stopifnot("the group staged other than the targets its area.yml declares" =
+            setequal(names(items), want))
+message("targets: ", length(want), " declared in area.yml, all staged (",
+        paste(want, collapse = ", "), ")")
 
 # --- Summary --------------------------------------------------------------
 message("\n=== SUMMARY ===")
