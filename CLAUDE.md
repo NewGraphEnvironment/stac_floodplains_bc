@@ -144,10 +144,17 @@ key and belong to it. Not a property of the annual span: `ufra` (three-year) has
 `item_validate.check_layer_styles` filter to `features`, so they are inert there; since #80
 `test_pipeline.R` filters on `data_type IN ('features','attributes')` instead and asserts the
 item key on them too, because the geometry filter it used before excluded exactly the layers
-staging now selects. What still has no cover is a **new** aspatial family: the
+staging now selects. A **new** aspatial family has no automatic cover at all: the
 "matches no style rule" refusal runs after the `features` filter, so one would ship
-undescribed — which is why `01_stage.R` names the aspatial tables it staged, per item, on
-every run. A consumer opening the file still sees two tables nothing here documents (#65).
+undescribed — which is why `01_stage.R` names every aspatial table it staged, per item, on
+every run, **across both bundles** rather than only the landcover one. Every `attributes`
+layer upstream is in the landcover bundle today (30 of 30, measured), so scanning that file
+alone was right about the data and wrong about the question: `floodplain.gpkg` is the bundle
+with no other cover, because `04_gpkg_style.py` maps every layer of it to one style
+unconditionally. The same run also names any staged layer matching no known family, on a
+pattern anchored at both ends — unanchored, `<sp>_ff04_reach_summary` would read as a known
+`<sp>_ff0N` layer. A consumer opening the file still sees two tables nothing here
+documents (#65).
 
 **The twelve provenance fields are published under standard or descriptive names, and the COG
 tags are not** (#74). `processing:datetime`, one `processing:software` map holding `link`

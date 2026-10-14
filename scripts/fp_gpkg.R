@@ -114,9 +114,13 @@ gpkg_layer_keys <- function(src) {
   # Named explicitly, because the data.frame() below would otherwise raise "arguments imply
   # differing number of rows: 0, 1" — R recycles a length-1 column against a length-0 one
   # rather than yielding a 0-row frame (code-check-r.md) — and that message names neither the
-  # file nor the condition.
+  # file nor the condition. The message says st_layers() and not gpkg_contents, because that
+  # is where this list came from and the two differ: GDAL lists tables gpkg_contents does not
+  # register (`layer_styles` is one, verified on a styled file). This arm has NOT been fired —
+  # dropping the last table makes GDAL refuse to open the file at all — so it is a cheap
+  # precondition that refuses rather than passes, not a tested guard.
   if (!length(layers)) {
-    stop("gpkg_layer_keys: ", src, " declares no layers in gpkg_contents", call. = FALSE)
+    stop("gpkg_layer_keys: st_layers() reports no layers in ", src, call. = FALSE)
   }
   # `data_type` from gpkg_contents, not from the geometry type sf reports. Two reasons, both
   # measured. A `transition_*` layer is declared `Unknown (any)` and reports an EMPTY
@@ -239,9 +243,13 @@ gpkg_copy_layers <- function(src, dst, layers) {
   # here instead.
   #
   # Flag-then-raise rather than a stop() inside the handler: the warning comes up through sf's
-  # C++ frames, and aborting from the handler longjmps past their destructors. The tryCatch is
-  # INSIDE withCallingHandlers so the warning is seen before the error unwinds; nesting them
-  # the other way loses it (code-check-r.md, "tryCatch() nests its handlers").
+  # C++ frames, and aborting from the handler longjmps past their destructors. The nesting of
+  # the two handlers does NOT matter — measured both ways, `withCallingHandlers(tryCatch(…))`
+  # and `tryCatch(withCallingHandlers(…))` each capture the warning and the error. What
+  # matters is that the warning is taken by a CALLING handler: a `tryCatch(warning =)` would
+  # take the warning and return instead, discarding the call (code-check-r.md,
+  # "tryCatch(warning = ) DISCARDS the value the expression produced"), which is the trap an
+  # earlier probe in this branch actually fell into.
   gdal_warning <- NULL
   gdal_error <- NULL
   withCallingHandlers(

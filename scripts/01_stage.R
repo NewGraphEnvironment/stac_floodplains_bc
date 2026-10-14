@@ -254,8 +254,27 @@ for (wsg in wsgs) {
     skipped <- c(skipped, wsg)
     next
   }
-  keys_fp <- gpkg_layer_keys(gpkg_src[["floodplain"]])
-  keys_lc <- gpkg_layer_keys(gpkg_src[["landcover"]])
+  # A bundle that cannot be READ is a group SKIP, for the same reason a missing one is: a
+  # truncated, locked or mid-write file is the "$FLOODPLAINS_DATA is stale or mid-recompute"
+  # state, and a raise here would sit upstream of `ALLOW_SKIPPED` exactly as the existence
+  # check used to. Round 1 fixed the existence arm and left this one in the same position.
+  #
+  # Only the READ is skippable. What the keys SAY is a different question and still refuses
+  # below: a file we could read, whose layers carry no usable key or another group's, is a
+  # contract break rather than a gap, and the two must not share a disposition.
+  keys <- lapply(gpkg_src, function(p) {
+    tryCatch(gpkg_layer_keys(p), error = function(e) conditionMessage(e))
+  })
+  unreadable <- vapply(keys, is.character, logical(1))
+  if (any(unreadable)) {
+    message("SKIPPED ", toupper(wsg), " — could not read ",
+            paste(basename(gpkg_src[unreadable]), collapse = " / "), ": ",
+            paste(unlist(keys[unreadable]), collapse = "; "))
+    skipped <- c(skipped, wsg)
+    next
+  }
+  keys_fp <- keys[["floodplain"]]
+  keys_lc <- keys[["landcover"]]
 
   # REFUSED, not reported, and the two arms refuse for different reasons.
   #
@@ -481,9 +500,18 @@ for (wsg in wsgs) {
     # can catch a NEW one: 04_gpkg_style.py's "matches no style rule" refusal runs after a
     # filter to feature layers, so an aspatial family never reaches it. A line per item is
     # what makes that hole legible until #65 closes it.
+    #
+    # BOTH bundles, not just the landcover one. Every `attributes` layer upstream is in the
+    # landcover bundle today (measured: 30 of 30), so scanning only that one was right about
+    # the data and wrong about the question — `floodplain.gpkg` is a file this repo now
+    # SELECTS layers into, and it is the bundle with no cover at all, because
+    # 04_gpkg_style.py maps every layer of it to one style unconditionally.
+    #
     # `%in%`, not `==`, for the same NA reason as the features filter above: `==` would print
     # a phantom NA in the report.
-    aspatial <- keys_lc$layer[keys_lc$layer %in% own_lc & keys_lc$data_type %in% "attributes"]
+    aspatial <- c(
+      keys_fp$layer[keys_fp$layer %in% own_fp & keys_fp$data_type %in% "attributes"],
+      keys_lc$layer[keys_lc$layer %in% own_lc & keys_lc$data_type %in% "attributes"])
     if (length(aspatial)) {
       message("  ", item_id, ": ", length(aspatial),
               " aspatial table(s) staged, undescribed here (#65): ",
@@ -495,10 +523,17 @@ for (wsg in wsgs) {
     # 04_gpkg_style.py maps every layer of that file to one style unconditionally — a
     # catch-all that was sound while the layers were inherited from upstream and is a
     # selection we make now.
+    # ANCHORED AT BOTH ENDS. `^<sp>_ff[0-9]{2}` alone matches `bt_ff04_reach_summary`, so a
+    # new upstream family in floodplain.gpkg would read as a known one and this report —
+    # the only cover that file has — would stay silent on exactly what it is for. The
+    # optional `_by_<something>` tail is the producer's two existing breakdowns
+    # (`_by_blue_line_key` on 18 of 23 groups, `_by_gnis_name` upstream on MORR's coho).
+    # Same at the other end for the landcover families, whose names carry a year or a span.
     unfamiliar <- c(
-      setdiff(own_fp, grep(paste0("^", sp_prefix, "_ff[0-9]{2}"), own_fp, value = TRUE)),
-      setdiff(own_lc, grep("^(classified|transition|patch_watercourse|composition)_",
-                           own_lc, value = TRUE))
+      grep(paste0("^", sp_prefix, "_ff[0-9]{2}(_by_[a-z0-9_]+)?$"), own_fp,
+           value = TRUE, invert = TRUE),
+      grep("^(classified|transition|patch_watercourse|composition)_[a-z0-9_]+_[0-9]{4}(_[0-9]{4})?(_patches)?$",
+           own_lc, value = TRUE, invert = TRUE)
     )
     if (length(unfamiliar)) {
       message("  ", item_id, ": ", length(unfamiliar), " staged layer(s) match this item's ",

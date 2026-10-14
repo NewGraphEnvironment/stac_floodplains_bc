@@ -172,8 +172,10 @@ were downgraded.
 | kisp `floodplain.gpkg` | 18.8 MB | 13.2 MB |
 | ufra `floodplain_landcover.gpkg` (no foreign layers) | 19.1 MB | 17.8 MB (repack only) |
 
-Every item's `file:checksum` for both assets moves, including the 21 groups with no foreign
-layers, because the file is rewritten rather than copied. `catalogue_release.sh` syncs without
+Every item's `file:checksum` for both assets moves, including the **20** groups with no
+foreign layers (23 rostered minus bulk/kisp/morr — an earlier draft of this line said 21,
+counting the 24 upstream area dirs rather than the roster), because the file is rewritten
+rather than copied. `catalogue_release.sh` syncs without
 `--size-only`, so changed bytes re-upload; nothing refuses a moved checksum.
 
 ## Errors Encountered

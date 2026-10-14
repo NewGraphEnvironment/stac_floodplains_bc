@@ -187,12 +187,13 @@ makes network writes — and it leaves a `PARTIAL_STAGE` marker that `catalogue_
 to publish past as a collection; the one-group tree it leaves is exactly what
 `catalogue_release.sh --only <item_id>` republishes, one item at a time and never `collection.json`. It builds and
 validates every item that group stages (a group may declare more than one
-`(species, scenario)` target). It also asserts the attribute contract:
-every layer of all three published GeoPackages carries a `wsg` column matching the item. Only
-`wsg` is asserted, not `species`/`scenario` — the whole-WSG bundles are copied into each item dir,
-so a multi-target group ships the other species' layers too and `wsg` is the one key invariant
-under that copy. Use it after any change to the scripts, the floodplains data layout, or the STAC
-schema, before a real full publish.
+`(species, scenario)` target). It also asserts the attribute contract: every layer of all three
+published GeoPackages carries `wsg`, `species` and `scenario` matching the item — all three
+since #80, which made the bundles item-scoped writes rather than whole-group copies and so made
+the stronger assertion available. `floodplain.gpkg` is checked against the item's ff set rather
+than its single scenario, because its ff02/ff06 delineations each record their own flood factor.
+Use it after any change to the scripts, the floodplains data layout, or the STAC schema, before
+a real full publish.
 
 ```
 Rscript scripts/test_pipeline.R            # defaults to UFRA

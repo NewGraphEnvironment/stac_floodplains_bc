@@ -175,13 +175,18 @@ different md5. So the published `file:checksum` depended on `st_layers()` order,
 implementation detail, and `gpkg_determinism-check.R` (which orders by `table_name`) had been
 proving the reproducibility of a file the stage does not write. `gpkg_copy_layers()` now sorts
 internally, with `method = "radix"` so the order is C-locale bytes rather than the operator's
-`LC_COLLATE`. The determinism arms' md5s now equal the staged files' md5s exactly
-(`7152a8bde62f…`, `c74432f94f21…`).
+`LC_COLLATE`. The determinism arms' md5s now equal the staged files' md5s exactly —
+`7152a8bde62f…` and `c74432f94f21…`, measured on a tree that had been through `01_stage.R`
+**only**. Not through `04_gpkg_style.py`: that step embeds a `layer_styles` table afterwards,
+so a styled file's bytes necessarily differ from a fresh translation of the same layers (round
+2 measured `846f3700…` / 2,691,072 B fresh against `ea5791b4…` / 2,707,456 B styled, on
+`larl_bt_ff04/floodplain.gpkg`). The claim is about the writer; the styled layer on top of it
+is what `style_determinism-check.py` pins.
 
 | finding | fix | proof |
 |---|---|---|
 | 1 warning guard unreachable, layer name lost | capture the error too, join both into one message | the message now contains `nope_missing` |
-| 2a a documented skip became a hard stop (bundle check hoisted above the no-rasters skip, upstream of `PARTIAL_STAGE` and `ALLOW_SKIPPED`) | missing bundle is a group **SKIP**, recorded in `skipped` | full run, one group's bundle removed: `PARTIAL_STAGE written — 22 target(s) skipped`, and `ALLOW_SKIPPED=1` reaches its own branch with no marker. (The earlier `WSG_ONLY` attempt could never reach it: `01_stage.R:174` writes the marker for `WSG_ONLY`, so the block short-circuits — pre-existing and documented.) |
+| 2a a documented skip became a hard stop (bundle check hoisted above the no-rasters skip, upstream of `PARTIAL_STAGE` and `ALLOW_SKIPPED`) | missing bundle is a group **SKIP**, recorded in `skipped` | see the round 2 correction below — the proof as first written misdescribed its own mutation |
 | 2b a skipped target's layers reported as upstream's retired targets | own sets and the group claim computed **before** the raster skip, from declared targets | sandbox with `rasters/` removed: `SKIPPED`, and no "match no target" line at all |
 | 3 the layer-set arm derived its expectation from the selector it checks | expectation re-derived in SQL (a second implementation), **plus** an absolute floor of layer names built from `meta.json` and the item id | selector made to drop every `classified_*`: the SQL arm fires. Source *and* selector both missing `classified_bt_ff04_2020`, so the SQL arm agrees: the floor arm fires |
 | 4 `NA` `data_type` made the all-aspatial refusal pass vacuously (`x[c(TRUE,NA)]` yields an NA element) | `%in% "features"` / `%in% "attributes"` | gpkg_contents rows deleted for the feature layers: the refusal fires, naming all four |
@@ -195,3 +200,57 @@ no `provenance.json` — they are a reference-PDF folder and a log folder, with 
 
 Re-validated after the fixes: roster-wide 23 staged / 0 skipped, independent audit 46/46 and
 23/23 at 642.9 MB, `WSG=morr` PASS end to end, determinism 3 arms MATCH and all 3 DIFFER cold.
+
+### Code-check round 2 — 7 findings, no bugs, and four of my own claims corrected
+
+Reviewer report: `planning/active/review-round2.md`. Asked for the MECHANISM behind round 1
+rather than more instances, it named two, and both are properties of what #80 did rather than
+of how it was written:
+
+- **M1 — a statement hoisted across a control-flow boundary keeps its old reasoning about what
+  that boundary can still excuse.** #80 moved per-target work to group scope, above the
+  no-rasters `next` and above the `PARTIAL_STAGE` / `ALLOW_SKIPPED` interlock. Round 1's 2a and
+  2b are the same fence crossed in opposite directions, and round 1's finding 1 is the same
+  shape inside one expression — the `stop()` sat below the point the raise unwound.
+- **M2 — a check whose reference is produced by the thing it checks.** Turning the copy into a
+  write made the staged bundles *outputs*. Round 1's finding 3 and the layer-order defect are
+  the same shape; the unfired zero-layer precondition is the degenerate case.
+
+**Four claims in my own records were wrong. All four are corrected.**
+
+1. The 2a proof said "one group's bundle removed" produced `22 target(s) skipped`. It cannot —
+   the code prints the count, and that run used a two-group data tree, a different mutation.
+   **Re-taken honestly** on a full 26-dir tree with exactly LARL's landcover removed:
+   `22 staged, 1 skipped`, `PARTIAL_STAGE written — 1 target(s) skipped`, marker contents
+   `larl`; and with `ALLOW_SKIPPED=1`, `publishing without 1 skipped target(s)` and no marker.
+2. "The determinism arms' md5s now equal the staged files' md5s" holds only before
+   `04_gpkg_style.py` runs, which embeds `layer_styles` afterwards. Qualified in place with
+   round 2's measurement of the difference.
+3. "The 21 groups with no foreign layers" is **20** — 23 rostered minus three. I had counted
+   the 24 upstream area dirs. `NEWS.md` had it right; `findings.md` did not.
+4. **The working `data/` tree still carried round 1's planted mutation** — `meta.json` naming
+   three years against a landcover holding two — so the next run would have gone red on a
+   defect I planted. Cleared by a fresh full stage and verified CONSISTENT. This is the hazard
+   `planning.md` names for reviewers patching a tree mid-run, arriving from my own mutation
+   testing instead of from an agent's.
+
+| finding | fix | proof |
+|---|---|---|
+| 1 the two key READS and the two key refusals sit in the position round 1 fixed for the existence check, so an unreadable bundle in one group aborts the roster above `ALLOW_SKIPPED` | a bundle that cannot be **read** is a group SKIP; what the keys **say** still refuses, because a gap and a contract break must not share a disposition | bundle overwritten with `garbage`: `SKIPPED LARL — could not read floodplain.gpkg: Open failed.`, 0 staged / 1 skipped |
+| 2 `scripts/README.md` carried the whole-copy premise **and** the retired "only `wsg` is asserted" claim — a tenth copy in a nine-copy sweep, in the paragraph describing the very guard this branch strengthened | rewritten | — |
+| 3 the aspatial report read only the landcover bundle, so `floodplain.gpkg` — the file with no other cover — had none; and the family pattern was unanchored at the end, so `<sp>_ff04_reach_summary` read as a known family | report **both** bundles; anchor both patterns at both ends | a `bt_ff04_reach_summary` table registered `attributes` in LARL's floodplain.gpkg is now caught by **both** reports — the exact hypothetical round 2 walked through seven surfaces and found published, unstyled, unreported and undescribed |
+| 4 the ff-set rule was implemented three times in one file and two copies had **already drifted** (one case-folding `wsg`, one not); the `source("fp_gpkg.R")` added for #80 was dead after round 1 removed its callers | one `want_scen_for()` above both uses, case-folded; dead `source()` removed | — |
+| 5 the round-1 fix recorded a **false reason for itself** — "nesting them the other way loses it". Measured both nestings: each captures warning and error | comment corrected to the real constraint: the warning must be taken by a *calling* handler, not a `tryCatch`, which would discard the call | both nestings measured `warning TRUE, error TRUE` |
+| 6 the one arm that can see a lost layer family disabled itself with a silent `next` on a missing source, while every other line of the file reads `$FLOODPLAINS_DATA` unguarded | skips out loud | — |
+| 7 the new precondition's message named `gpkg_contents` while the list came from `st_layers()`, which lists unregistered tables | message corrected, and the arm recorded as **unfired** rather than tested | — |
+
+Round 2 also re-derived every shipped prose number independently and found them all correct,
+and verified `sort(method = "radix")` is C-locale.
+
+#### Re-validated after round 2, on a clean tree
+
+Roster-wide 23 staged / 0 skipped; independent audit 46/46 and 23/23 at 642.9 MB;
+`WSG=morr` PASS end to end; determinism 3 arms MATCH and all 3 DIFFER cold;
+`stage_years-check.R` 14/0/0; `fp_provenance-check.R` 87/0/0; `prov_fields-check.py` 44/0;
+`year_sets-check.py` 16/0; `catalogue_release-check.sh` ALL PASS; `style_drift-check.py` and
+`style_determinism-check.py` both byte-identical; `attribution_drift-check.py` matches.

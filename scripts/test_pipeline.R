@@ -21,10 +21,6 @@
 library(jsonlite)
 library(yaml)
 library(sf)   # explicit: the gpkg attribute checks below must not rely on 01_stage.R's attach
-# Explicit for the same reason (#80): the layer-set arm calls gpkg_layer_keys() and
-# gpkg_own_layers(), and relying on 01_stage.R having sourced them would make this test
-# pass or fail on whether an earlier block happened to run.
-source(file.path("scripts", "fp_gpkg.R"))
 
 wsg <- tolower(Sys.getenv("WSG", unset = "ufra"))
 
@@ -368,6 +364,15 @@ for (mp in meta_paths) {
   # name — verified on a styled file here; and a `transition_*` layer is declared
   # `Unknown (any)` and reports an EMPTY geomtype rather than NA, so a geometry test gives a
   # different answer depending on which emptiness it checks.
+  # The ff-set rule, in ONE place, used by the per-layer arm and the set arm alike.
+  want_scen_for <- function(gp) {
+    if (gp == "floodplain.gpkg") {
+      unique(c(meta$scenario, paste0(sub("_ff.*$", "", meta$scenario),
+                                     "_ff", c("02", "04", "06"))))
+    } else {
+      meta$scenario
+    }
+  }
   keyed_layers <- function(gpkg) {
     sf::st_read(gpkg, quiet = TRUE,
                 query = paste("SELECT table_name FROM gpkg_contents",
@@ -401,13 +406,15 @@ for (mp in meta_paths) {
       # record their own flood factor and the item publishes all three. Asserted the same
       # way the stage selects, so this test cannot be weaker than the thing it checks — a
       # single-scenario assertion here would reject the ff02 layer the stage correctly keeps.
-      want_scen <- if (gp == "floodplain.gpkg") {
-        unique(c(meta$scenario, paste0(sub("_ff.*$", "", meta$scenario),
-                                       "_ff", c("02", "04", "06"))))
-      } else {
-        meta$scenario
-      }
-      if (!identical(k$wsg[1], meta$wsg) || !identical(k$species[1], meta$species) ||
+      #
+      # `want_scen_for()` is defined once, above, and used by BOTH arms. It was written out
+      # twice at first and the two copies had already drifted — this one compared `wsg`
+      # case-sensitively while the other case-folded, which is the shape of defect that
+      # "two lists that happen to agree" names. Case-folded here too, because the column
+      # holds `MORR` and nothing guarantees `meta$wsg` always will.
+      want_scen <- want_scen_for(gp)
+      if (!identical(toupper(k$wsg[1]), toupper(meta$wsg)) ||
+            !identical(k$species[1], meta$species) ||
             !k$scenario[1] %in% want_scen) {
         stop("layer '", lyr, "' in ", gp, " is keyed ",
              paste(k$wsg[1], k$species[1], k$scenario[1], sep = "/"),
@@ -430,17 +437,17 @@ for (mp in meta_paths) {
   # defect. (It did, in the first version of this test.) So the expectation is re-derived here
   # in SQL, a second implementation of the same rule over the same bytes.
   lst <- function(x) if (length(x)) paste(x, collapse = ", ") else "<none>"
-  want_scen_for <- function(gp) {
-    if (gp == "floodplain.gpkg") {
-      unique(c(meta$scenario, paste0(sub("_ff.*$", "", meta$scenario),
-                                     "_ff", c("02", "04", "06"))))
-    } else {
-      meta$scenario
-    }
-  }
   for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg")) {
     src_gpkg <- file.path(fp_data, meta$wsg_lower, gp)
-    if (!file.exists(src_gpkg)) next
+    # OUT LOUD. This is the one arm that can see a layer family the stage LOST, and a silent
+    # `next` would retire it on any machine without the source tree while every other line of
+    # this file still reads $FLOODPLAINS_DATA unguarded — so the skip would be invisible and
+    # selective. Same idiom as gpkg_determinism-check.R's missing-source arm.
+    if (!file.exists(src_gpkg)) {
+      message("  NOT CHECKED: ", gp, " layer set for ", meta$item_id,
+              " — no source at ", src_gpkg)
+      next
+    }
     src_lyrs <- sf::st_read(src_gpkg, quiet = TRUE,
                             query = paste("SELECT table_name FROM gpkg_contents",
                                           "WHERE data_type IN ('features','attributes')",
