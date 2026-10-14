@@ -93,6 +93,18 @@ group. MORR carries two (`morr_co_ff04` + `morr_ch_ff06`), and the collection mi
 so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
 extents (ff04 = functional floodplain, ff06 = valley bottom).
 
+**`<sp>` is not two letters, and `all` is not a fish** (#75). The producer's species slot takes
+two to four lowercase letters (its own validator is `^[a-z]{2,4}$`), and `all` is the reserved
+token for the whole stream network at order >= 2 with no access filter, attributed by
+`blue_line_key` (floodplains#104/#125). Nothing here parses a species out of an id or a scenario:
+the id is `paste0(wsg, "_", scenario)`, `flood_factor` comes off `_ff(\d+)$`, and the gpkg layer
+prefix off `sub("_ff.*$", "", scenario)`. The one place that *had* a two-letter assumption was the
+provenance reader's key-shape whitelist, which is why the check there is now on the item rather
+than on the key (below). `SPECIES` in `scripts/readme_functions.R` is a label lookup, not a guard —
+a miss renders the raw code, so a new species shows up as itself rather than as an empty cell.
+The roster is upstream: `config/regions/*.yml` names the groups and each `config/<wsg>/area.yml`
+names its targets, so which scenarios publish is **not** a decision this repo records.
+
 Assets per item: **one COG per classified year** + a transition COG, plus **three**
 GeoPackages —
 `floodplain_landcover.gpkg`, `floodplain.gpkg` (ff02/ff04/ff06 delineations), and
@@ -151,6 +163,20 @@ preflight against the validator's copies — four publish-side copies that canno
 one another, joined by nothing else. It also enumerates what bash would expand inside that
 preflight's inline `python3 -c` argument, which has twice been the defect itself. None of them runs from `run_pipeline.sh`: like `fp_provenance-check.R`
 they exercise guards a normal build never trips.
+
+**A provenance record says what produced a file; it does not decide what may be published** (#75).
+`fp_prov_sections()` selects the `floodplain` and `landcover` sections by the item's own
+`scenario`, and what it checks is that **the item finds its key**: the scenario must be present in
+any of those two sections that has keys at all, refused by name against the keys present. The
+failure that check exists for is a re-keying (`ch_ff04` -> `ff04`), which makes every lookup miss
+and publishes seven nulls on every item at once — a uniform loss a cross-item check cannot see, and
+one every item's own miss still catches. It replaced a whitelist of the key's *shape*
+(`^[a-z]{2}_ff[0-9]{2}$`), which was the wrong subject twice over: it refused `all_ff04` and every
+three-letter species, and because it scanned every sibling rather than the key being looked up, one
+unrecognised key stopped a whole group even for a target whose own key was fine. An absent or empty
+section stays the forward-only state and still degrades to NULL. The `network` section is matched
+on its recorded `inputs$species` instead, which the whole-network mode made load-bearing — a group
+carrying both `co3` and `all2` cannot be keyed by a derived `paste0(species, min_order)`.
 
 **The provenance floor is a literal a human sets** (#32): `PROVENANCE_FLOOR` in
 `catalogue_release.sh`, passed to `item_validate.py --expect-provenance` on a full release, is the

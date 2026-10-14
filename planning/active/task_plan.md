@@ -36,10 +36,13 @@ lookup misses, and admits any key `floodplains` writes.
 
 ## Phase 3: `all` end to end, and the prose that states a two-letter species
 
-- [ ] `scripts/readme_functions.R` `SPECIES`: add `all = "whole network"`, `wct = "westslope cutthroat trout"`
-- [ ] Correct the `<wsg>_<sp>_ff0N` prose in `CLAUDE.md`, `README.Rmd`, `scripts/README.md`,
-      `scripts/item_create.py`, `scripts/item_unregister.sh`; leave `NEWS.md` history alone
-- [ ] Register the new check arms in `scripts/README.md`
+- [x] `scripts/readme_functions.R` `SPECIES`: add `all = "whole network"`, `wct = "westslope cutthroat trout"`
+- [x] Say in `CLAUDE.md` that `<sp>` is two to four letters and `all` is the whole-network token,
+      and that the roster is upstream. The `<wsg>_<sp>_ff0N` placeholders in `README.Rmd`,
+      `item_create.py`, `item_unregister.sh` and `catalogue_release.sh` assert no length and
+      stay; `README.md`/`index.html` are rendered artifacts (release step 6), not edited here
+- [x] Describe the per-item scenario check in `CLAUDE.md`'s Collection model
+- [x] Register the new check arms in `scripts/README.md`
 
 ## Phase 4: Verify on the real tree
 

@@ -371,6 +371,18 @@ producer's own `$FLOODPLAINS_DATA/{bulk,neexdzii}/provenance.json` when present,
 when not. Exit status is the number of failed assertions. Run it whenever the reader or the
 upstream writer changes; it is the only exercise of the reader that needs no stage.
 
+The section headed **"the item's own scenario key (#75)"** is the one whose *passing* direction is
+the subject. Its two must-fail arms re-key a section (`co_ff04` -> `ff04`) in `landcover` and in
+`floodplain` and grep for that arm's own message; its controls prove what the retired key-shape
+whitelist refused — `all_*` and `wct_*` siblings beside `co_ff04` do not stop the `co_ff04` item,
+and a whole-network record (`network[all2]` with `inputs$species: all`, floodplain keyed
+`all_ff02/04/06`) reads end to end through `fp_prov_item()` and `fp_prov_span()`. Two further
+controls hold the line on either side of it: an absent section is still the forward-only state and
+does **not** stop, and a section that reads back as a JSON array is refused before `[[scenario]]`
+can report a schema break as "subscript out of bounds". A real-file arm that *halts* rather than
+failing is the tell that the reader has stopped on a key: measured 2026-10-14, the whole script
+halted on the real `bulk` file, so its producer-file arms had no coverage at all.
+
 ## Attribution drift check
 
 ```bash

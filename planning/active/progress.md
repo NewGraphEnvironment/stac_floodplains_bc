@@ -19,3 +19,10 @@
 - Mutation evidence, measured before the fix: the old whitelist stopped with "not scenario ids
   of the form" on the `co_ff04` item of a doc carrying `all_*` siblings, and halted the whole
   check script on the real `bulk` file. Both new controls fail under it.
+- Phase 3: `SPECIES` gains `all = "whole network"` and `wct`. CLAUDE.md gains two paragraphs —
+  the species slot is two to four letters with `all` reserved for the whole network, and the
+  per-item scenario check replacing the key-shape whitelist. `scripts/README.md` registers the
+  new arms. The `<wsg>_<sp>_ff0N` prose turned out NOT to be wrong: `<sp>` is a placeholder
+  that asserts no length, and "MORR publishes two" is still true of the live catalogue (the
+  build no longer stages them, which is #76's boundary). README.md / index.html are rendered
+  artifacts and are not edited here.
