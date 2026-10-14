@@ -215,3 +215,41 @@ DUNC is the one group where both sources are empty at once. Not a blocker for #7
 
 Both failing smoke tests returned **exit 0** from the backgrounded wrapper, because the command
 ended `; echo DONE`. The failures were only visible in the log. Read the log, not the status.
+
+## The code-check loop, and what actually terminated it
+
+Five rounds. Rounds 2, 3 and 4 each found a defect **inside the previous round's fix** — the
+trap#28 shape, where a fix written under the same assumption reproduces the defect one axis over.
+
+| round | findings | inside previous fix? | the axis it moved along |
+|---|---|---|---|
+| 1 | 3 | — | a copied count, a derived pointer, a partial-matching read |
+| 2 | 5 | yes (the `AREA` override crashed on recordless areas) | the override's own new reachable states |
+| 3 | 3 | yes (three new `$` reads added 12 lines under the comment banning `$`) | `area.yml`, the publish path |
+| 4 | 2 | yes (the roster reads left on `$` under a "`[[` throughout" comment) | `config/regions/*.yml`, one level up |
+
+**The mechanism**, as round 2 named it: *a fact about the upstream population, copied into this
+repo as a statement, with nothing that re-derives it and a quiet failure direction.* Remedies:
+derive it, gate it with an ordered skip, or compare against a floor instead of pinning a value.
+
+**What terminated it was the enumeration's axis, not its size.** Round 3 enumerated 49 members and
+still missed round 4's instance, because it keyed the set on **variable name** (`area`, `area_cfg`,
+`tgt`, `doc`, `raw`, `prov`) — and the next instance was a new name, `rc`. An enumeration keyed on
+names cannot be complete by construction. Re-stated on what the variable **holds**:
+
+```
+step 1  variables bound to yaml::read_yaml / jsonlite::read_json of a producer path   14
+step 2  `$` accesses on any of them                                                    0
+```
+
+`got$...` survives step 2's grep and is out of the set **on inspection**: `got` is
+`fp_prov_item()`'s return, `setNames(out, PROV_FIELDS)`, whose names a `stopifnot` in this repo
+pins, so no upstream rename reaches them. That distinction — out of the set by argument rather than
+by exclusion from a pattern — is the thing the name-keyed enumeration could not make.
+
+Both `$` -> `[[` conversions are no-ops on current data, measured: 23 `area.yml` (69 keys) and 4
+region files (8 keys), zero disagreements. They differ only on the hazard shape.
+
+**Cost:** five reviewer agents, roughly 1.1M subagent tokens, past the `agent-operations.md` §2
+bound of about five per task. Recorded here rather than left implicit, because the thing that
+bought the last two rounds was a defect on the live publish path that four earlier readings missed.

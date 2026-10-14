@@ -134,18 +134,26 @@ message("classes.json: ", nrow(classes), " land-cover classes from drift ",
 region_files <- list.files(file.path(CONFIG_DIR, "regions"),
                            pattern = "\\.yml$", full.names = TRUE)
 wsg_region <- list()
+# `[[` here too, and this is the level with the LARGER blast radius: `$watershed_groups`
+# partial-matches a retired roster key. Measured — a region file carrying
+# `watershed_groups_retired: [MORR, KISP]` and no live `watershed_groups:` returns those two
+# from `rc$watershed_groups` and NULL from `rc[["watershed_groups"]]`, so the `$` form would
+# stage whole RETIRED watershed groups, and `wsgs <- names(wsg_region)` below carries them
+# into every downstream gate. Found one round after the same fix was applied to area.yml and
+# missed here, because that round enumerated the hazard by VARIABLE NAME rather than by what
+# the variable holds: a parsed file this repo does not own.
 for (rf in region_files) {
   rc <- yaml::read_yaml(rf)
   # A missing `region:` would make `wsg_region[[g]] <- NULL` silently drop the group.
-  if (is.null(rc$region) || !nzchar(rc$region)) {
+  if (is.null(rc[["region"]]) || !nzchar(rc[["region"]])) {
     stop("Region config ", rf, " has no `region:` field")
   }
-  for (g in tolower(rc$watershed_groups)) {
-    if (!is.null(wsg_region[[g]]) && wsg_region[[g]] != rc$region) {
+  for (g in tolower(rc[["watershed_groups"]])) {
+    if (!is.null(wsg_region[[g]]) && wsg_region[[g]] != rc[["region"]]) {
       warning("WSG '", g, "' listed in regions '", wsg_region[[g]], "' and '",
-              rc$region, "' — keeping '", wsg_region[[g]], "'")
+              rc[["region"]], "' — keeping '", wsg_region[[g]], "'")
     } else {
-      wsg_region[[g]] <- rc$region
+      wsg_region[[g]] <- rc[["region"]]
     }
   }
 }
@@ -223,8 +231,14 @@ for (wsg in wsgs) {
 
   for (tgt_i in seq_along(targets)) {
     tgt <- targets[[tgt_i]]
-    scenario <- tgt[["scenario"]]                   # e.g. co_ff04, ch_ff06, all_ff04
-    species <- tgt[["species"]]
+    # The guard runs BEFORE the two extractions, so it is first in fact and not only in its
+    # comment: a bare-scalar target entry (`targets:\n  - co_ff04`, parsed as character) makes
+    # `tgt[["scenario"]]` raise "subscript out of bounds" with no file, wsg or index, and the
+    # named stop() below would never print.
+    if (!is.list(tgt)) {
+      stop("config/", wsg, "/area.yml: target ", tgt_i, " is ", class(tgt)[1],
+           ", not a mapping of `species:` and `scenario:`.", call. = FALSE)
+    }
     # Asserted here, where the roster is read, because every downstream symptom is quiet.
     # `paste0(wsg, "_", NULL)` is "bulk_", not an error, and `file.path(src, "rasters", NULL)`
     # is the area's `rasters/` parent — which EXISTS, so the "no rasters, skip" branch below
@@ -244,6 +258,8 @@ for (wsg in wsgs) {
              "`.", call. = FALSE)
       }
     }
+    scenario <- tgt[["scenario"]]                   # e.g. co_ff04, ch_ff06, all_ff04
+    species <- tgt[["species"]]
     item_id <- paste0(wsg, "_", scenario)
 
     src_rasters <- file.path(src_wsg, "rasters", scenario)

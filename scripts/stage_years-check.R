@@ -68,7 +68,8 @@ region_files <- list.files(file.path(dirname(FP), "config", "regions"),
 AREA_REGION <- NULL
 for (rf in region_files) {
   rc <- yaml::read_yaml(rf)
-  if (AREA %in% tolower(rc$watershed_groups)) { AREA_REGION <- rc$region; break }
+  # `[[`: a retired roster key would otherwise set AREA_REGION and suppress the skip arm below.
+  if (AREA %in% tolower(rc[["watershed_groups"]])) { AREA_REGION <- rc[["region"]]; break }
 }
 if (!dir.exists(src_area) || !file.exists(src_cfg)) {
   cat("  skip  every case (no upstream tree at ", FP, ")\n", sep = "")
