@@ -12,3 +12,13 @@
 - Created branch `80-stage-each-item-s-geopackages-with-only` off main.
 - Scaffolded the PWF baseline from the approved plan.
 - Next: Phase 1 — the writer in `scripts/fp_gpkg.R`.
+
+### Phase 1 — the writer (done)
+
+- `scripts/fp_gpkg.R`: `gpkg_layer_keys()`, `gpkg_own_layers()`, `gpkg_copy_layers()`, plus
+  the multi-layer measurement in the SCOPE header.
+- Plan review 1 landed mid-phase (`review-1.md`). Fourteen findings adopted, two of them
+  changing Phase 1 itself: the scenario-set key for `floodplain.gpkg` (G2) and the
+  once-per-group key reading (O8) are in the helpers as written. Re-verified G2's keep-set
+  equality claim independently (24 of 24 areas identical) before adopting it.
+- Next: Phase 2 — `01_stage.R`.

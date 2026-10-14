@@ -73,26 +73,30 @@ Two notes the plan depends on:
 
 `scripts/fp_gpkg.R`
 
-- [ ] Add `gpkg_copy_layers(src, dst, layers)`: unlink `dst`, then one
-      `sf::gdal_utils("vectortranslate", source = src, destination = dst, options = layers)`.
-      **Two guards on the call, both measured necessary.** Given a layer name the source does
-      not hold, `gdal_utils()` only **warns** (`GDAL Error 1: Couldn't fetch requested layer`)
-      and leaves a 65,536-byte file that `st_layers()` cannot even open — so wrap it in
-      `withCallingHandlers(warning = )` and stop on any warning (`code-check-spatial.md`,
-      "`sf::gdal_utils()` does not raise when GDAL cannot open the source"), **and** assert
-      afterwards that `sf::st_layers(dst)$name` is `setequal()` to `layers`. The written file
-      is the thing to test, not the call's return.
-- [ ] Add `gpkg_item_layers(src, wsg, species, scenario = NULL)`: for every layer
-      `sf::st_layers(src)$name`, read its key with
-      `SELECT DISTINCT wsg, species, scenario FROM "<layer>"` and classify it **own** /
-      **foreign** / **unattributable** (missing a key column, or not exactly one distinct
-      value per column — the measurement says neither happens today, so this arm is what
-      would surface it changing). Return all three vectors; the caller decides.
-      Layer names are interpolated into SQL, so they go through `"` quoting exactly as
-      `test_pipeline.R:374` already does.
-- [ ] Extend the file's `SCOPE OF THE GUARANTEE` header with the multi-layer measurement
-      above, replacing the "rewriting into an existing gpkg is not reproducible" bound's
-      implication that multi-layer is out of reach — the bound itself stays true and stays.
+- [x] Add `gpkg_layer_keys(src)`: one row per layer with its own `wsg`/`species`/`scenario`
+      and a `status` of `ok` / `nokey` (a key column absent) / `multi` (0 or >1 distinct key
+      rows). Read **once per group**, not once per target (review O8) — the bundles are
+      group-level files and the census needs every target's verdict against one reading.
+      `nokey` and `multi` are refusing statuses, not reported ones (review G4): report-and-drop
+      is the direction that ships.
+- [x] Add `gpkg_own_layers(keys, wsg, species, scenarios)`. `scenarios` is a SET, so
+      `floodplain.gpkg` is keyed on `scenario ∈ {<sp>_ff02/04/06} ∪ {item scenario}` — the
+      vector `01_stage.R` already builds as `needed` — and the landcover bundle on the item's
+      single scenario. Species-only gives identical keep sets on all 24 areas (measured) and
+      is still wrong one axis down (review G2). `wsg` compared case-folded.
+- [x] Add `gpkg_copy_layers(src, dst, layers)`: unlink `dst`, then one
+      `sf::gdal_utils("vectortranslate", options = c("-f", "GPKG", layers))`.
+      **Two guards, because the two failure modes signal differently.** `gdal_utils()` raises
+      on a non-zero `GDALVectorTranslate` return, but a layer name the source lacks returns
+      **zero** and only **warns** (`GDAL Error 1: Couldn't fetch requested layer`), leaving a
+      65,536-byte file `st_layers()` cannot open — so flag-then-raise on any warning (not a
+      `stop()` inside the handler, which would longjmp past sf's C++ destructors) **and**
+      `setequal()` the written layer names against the requested set.
+- [x] Document that `dst` is unlinked (review O12): `stage_years-check.R` hands the stage
+      symlinks to the producer's real `.gpkg` files, so a swapped argument deletes upstream data.
+- [x] Extend the `SCOPE OF THE GUARANTEE` header with the multi-layer measurement. The
+      existing bound (a rewrite into an existing gpkg is not reproducible) stays true and stays:
+      one call into an absent file is the *included* case, not an exception to it.
 
 ## Phase 2 — staging writes the filtered bundles
 
@@ -101,9 +105,15 @@ Two notes the plan depends on:
 - [ ] For each of the two bundles, classify the source layers and write only the own set:
       `floodplain.gpkg` keyed on `(wsg, species)`, `floodplain_landcover.gpkg` on
       `(wsg, species, scenario)`. State the asymmetry and its measurement in the comment.
+- [ ] **Stop** when any layer's status is `nokey`/`multi`, or when any layer's `wsg` is not
+      the group's. The `wsg` arm is review **B1**: a foreign wsg has never been seen and would
+      mean the producer merged two groups into one area dir, and `test_pipeline.R:373-380` is
+      the repo's only guard in that direction — filtering would remove such a layer before
+      that assertion could see it, trading a stop for a census line.
 - [ ] **Stop** when the own set is empty for a rostered item (`neexdzii`'s shape), naming the
-      keys looked for and the keys found. A filter that removed everything makes every later
-      assertion in the loop vacuous.
+      keys looked for and the keys found, **and** when it holds no `features` layer (review
+      G3): `04_gpkg_style.py:153-156` would otherwise raise three steps later under a message
+      about styling. Both stops fire **before** the census (review O9).
 - [ ] **Stop** when the item's headline-scenario layer or any of `<sp>_ff02/04/06` is not in
       the own set. This is the existing assertion at `:385-391`, moved onto the staged file so
       it asserts what ships.
@@ -112,15 +122,29 @@ Two notes the plan depends on:
       (`:504-528`): a per-item `message()` plus one end-of-run count line naming the items.
       Not a stop: 3 of 24 rostered groups legitimately carry retired-species layers until
       floodplains#131, so a stop blocks every release. Not a silence either — #75's decision
-      is explicit that a layer matching no item surfaces as a decision.
+      is explicit that a layer matching no item surfaces as a decision. Computed **once per
+      group** from the single key reading, against the group's whole target set (review O8):
+      computed per target, a 2-target group double-counts and can call a layer foreign that a
+      sibling target owns — dormant while every `area.yml` is `targets:`-free, which is the
+      shape #75 spent four rounds on.
 - [ ] Also report the **aspatial** tables kept per item. They ship (`patch_watercourse_*`,
       `composition_*`) and nothing here describes them (#65/#70); `04_gpkg_style.py`'s
       `feature_layers()` filters them out, so its "matches no style rule" stop cannot see a
-      new aspatial family. One line per item is what makes that hole visible.
+      new aspatial family. One line per item is what makes that hole visible. Also report any
+      **kept** layer whose name matches no known family (review G5) — the name-vs-key
+      cross-check in the opposite direction from the staged-copy assertion below, and the only
+      cover `floodplain.gpkg` has, since `04_gpkg_style.py:57` is a catch-all.
 - [ ] Point `fp_gpkg` at the **staged** copy (`:381`) so `read_area_km2()`, the footprint
       geometry and the EPSG all describe the published bytes — the rationale already written
       at `:361-368` for the transition extraction and at `:417-419` for the metrics. Requires
-      the write to precede the area reads, which it does.
+      the write to precede the area reads, which it does. **The stronger reason is review O7:**
+      pointed at the staged copy, the existing `needed`-layer assertion becomes a
+      *name-vs-key cross-check* — a layer named `ch_ff02` whose `species` column says `co` is
+      dropped by the filter and then stops the stage by name. Its message must name the staged
+      path and separate "absent upstream" from "dropped by the filter".
+- [ ] Keep the `file.copy()`-returns-FALSE reasoning at `:340-342` (review O11): the raster
+      copy at `:334` still depends on it. Move one copy and state that `gdal_utils` is the
+      different case, with the inverted-return detail.
 
 ## Phase 3 — the guards
 
@@ -129,14 +153,28 @@ Two notes the plan depends on:
       explaining why only `wsg` was assertable (it is the thing this issue removed). Keep the
       `feature_layers()` filter's reason intact, and keep asserting the zero-layer case.
       `transition_vector.gpkg` stays on the single-layer assertion it has.
+- [ ] `scripts/test_pipeline.R:358-361` — replace the geometry-based `feature_layers()` filter
+      with `gpkg_contents.data_type IN ('features','attributes')` for the two bundles (review
+      **AC19**). The geometry filter excludes exactly the aspatial tables the stage now
+      *selects*, so a tightened assertion would leave them unchecked; `data_type` also excludes
+      `layer_styles` without naming it, because `04_gpkg_style.py:21-26` records that it gets no
+      `gpkg_contents` row. Verified: `st_read(query = "SELECT table_name, data_type FROM
+      gpkg_contents")` works. The floodplain arm asserts `scenario ∈` the item's ff set, so the
+      test is not weaker than the stage.
 - [ ] `scripts/test_pipeline.R` — assert the staged bundles hold **no** layer outside the
       item's own set. The positive check above is satisfied by a subset; this is the arm that
       fails on the defect as it exists today.
-- [ ] `scripts/gpkg_determinism-check.R` — extend to the multi-layer bundles. Build each of
-      the two filtered bundles twice through `gpkg_copy_layers()`, 1.2 s apart, from the
-      staged tree, and compare md5. `NO_PIN=1` must still make them **differ** — measured
-      above that it does, so the cold arm is not decoration. Keep the existing
-      `transition_vector` arm.
+- [ ] `scripts/gpkg_determinism-check.R` — extend to the multi-layer bundles, reading the
+      **upstream** source, not the staged copy (review **AC20**). `:28` reads
+      `data/stac/<item>/floodplain_landcover.gpkg`, which after this change is itself a
+      vectortranslate output, so extending it there would prove "re-translating our own output
+      is stable" rather than "translating the producer's file is stable" — and the second is
+      the property whose failure churns 46 published checksums. Add the upstream arm, skipping
+      out loud when `$FLOODPLAINS_DATA` is absent (the idiom at `stage_years-check.R:74-78`);
+      keep the staged arm so the check still runs without the source tree. Keep the 1.2 s
+      sleep. `NO_PIN=1` must still make them **differ**.
+- [ ] `scripts/gpkg_determinism-check.R:10` and `scripts/style_determinism-check.py:18` both
+      suggest `ITEM=bulk_co_ff04`, a retired id. Stale already, fixed in passing.
 - [ ] Restore the defect and prove the new guards fire: stage a group with foreign layers
       (`WSG=morr` or `WSG=bulk`) with the filter bypassed, and confirm the two
       `test_pipeline.R` arms go red.
@@ -153,12 +191,25 @@ Two notes the plan depends on:
       what the landcover bundle holds does not.
 - [ ] `scripts/item_create.py:409-421` — the two GeoPackage asset titles/descriptions now
       describe an item-scoped file.
+- [ ] `scripts/catalogue_release.sh:597-598` — "the largest asset is an upstream gpkg copied
+      verbatim, so a COG-only republish leaves its checksum identical" is now false, and it is
+      *reasoning* rather than decoration (review G6). After this change no published asset is a
+      verbatim upstream copy, and both GeoPackage checksums are a function of the R-side GDAL
+      (3.8.5 here, not the 3.12+ uv GDAL that writes the COGs), so a rebuild on a
+      differently-linked machine churns 2 assets x 23 items.
+- [ ] `scripts/01_stage.R:337-342` and `:378-380`, `scripts/README.md:30` and `:293-294`,
+      `scripts/item_validate.py:1498-1501` ("nine invisible layers per item" — 3-4 now),
+      `scripts/readme_functions.R:518`, `README.Rmd:138` — each states or reasons from the
+      whole-copy premise this issue overturns.
 - [ ] `CLAUDE.md` — the Collection model's "Assets per item" paragraph, the
       `floodplain_landcover.gpkg also ships a table this repo does not describe` paragraph
-      (the per-area counts move), and `01_stage.R`'s entry under Layout: this repo now writes
-      three GeoPackages, not one.
-- [ ] `NEWS.md` — one entry, with the measured size deltas and the fact that every item's
-      `file:checksum` for these two assets moves.
+      (the per-area counts move — and it is about **two** tables, `composition_*` too, in 5 of
+      23 groups), `transition_vector.gpkg`'s "~14% of the bundle's bytes" ratio, and
+      `01_stage.R`'s entry under Layout: this repo now writes three GeoPackages, not one.
+- [ ] `NEWS.md` — one entry, with the measured size deltas, the fact that every item's
+      `file:checksum` for these two assets moves, and one line tying #76: the live orphans are
+      the last whole-group GeoPackages in the catalogue after this lands, so #76 finishes what
+      #80 starts.
 
 ## Out of scope, named
 
@@ -174,6 +225,18 @@ Two notes the plan depends on:
 
 ## Validation
 
+Cheapest first, per review AC21. `stage_years-check.R` already drives the real `01_stage.R` in
+a sandbox, so the foreign-layer paths need no new harness.
+
+- [ ] `AREA=ufra Rscript scripts/stage_years-check.R` — its `PIN_META_SHA256` is the only
+      byte-pin on `meta.json` in the repo, and ufra has no foreign layers, so this is the
+      existence proof that reading areas from the staged copy moved no published number.
+- [ ] `AREA=morr` and `AREA=bulk Rscript scripts/stage_years-check.R` — the 25- and
+      14-foreign-layer paths through the real call site.
+- [ ] `WSG=larl Rscript scripts/test_pipeline.R` — the minimal keep set (3 + 4, no
+      `_by_blue_line_key`, no aspatial table), where a too-aggressive filter shows first.
+- [ ] Roster-wide: every item's staged layer names are a subset of the upstream names, and the
+      three ff layers plus the item's transition layer are present.
 - [ ] `WSG=bulk Rscript scripts/test_pipeline.R` — the group whose defect the issue names;
       asserts stage → tag → COG → STAC → validate end to end, and the two new layer arms.
 - [ ] `WSG=morr Rscript scripts/test_pipeline.R` — the heaviest foreign set (25 layers) and
