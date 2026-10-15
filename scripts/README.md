@@ -46,13 +46,14 @@ The order also decides whether the labels ship at all. `03`'s `CreateCopy` is wh
 sidecar into the COG's own `GDAL_METADATA` tag; run in the other order the labels would sit in a
 file the S3 sync excludes and geoserv's titiler could not fetch.
 
-Two of the three GeoPackages are `file.copy()`d from upstream and never rewritten here, so their
-bytes — and therefore their checksums — are exactly upstream's. **`transition_vector.gpkg` is
-written here** (#23), which is why `01_stage.R` pins `OGR_CURRENT_DATE` via `fp_gpkg.R`: GDAL
-otherwise stamps wall-clock time into `gpkg_contents.last_change`, and that one asset's checksum
-would churn on every rebuild while every other asset's stayed stable — reading as "checksums are
+**All three GeoPackages are written here** — `transition_vector.gpkg` since #23, the other two
+since #80, which replaced whole-file copies of the group's bundle with per-item writes. No
+published asset is a verbatim upstream copy any more, so every one of their checksums is a
+function of the R-side GDAL. That is why `01_stage.R` pins `OGR_CURRENT_DATE` via `fp_gpkg.R`:
+GDAL otherwise stamps wall-clock time into `gpkg_contents.last_change`, and those checksums would
+churn on every rebuild while every other asset's stayed stable — reading as "checksums are
 unreliable" when the cause is a single unpinned writer. `gpkg_determinism-check.R` proves the pin
-holds, and its `NO_PIN=1` cold path proves the check can fail.
+over all three, and its `NO_PIN=1` cold path proves the check can fail.
 
 `file:checksum` is a multihash (`1220` + sha256), not a bare digest. The STAC schema only checks the
 string is hex, so it accepts a bare digest and cannot catch a checksum of the wrong bytes; both are
