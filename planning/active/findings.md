@@ -187,6 +187,74 @@ That is the refusal doing exactly its job on producer bytes rather than in a san
 why the numbers above carry a timestamp. It also means the floor cannot be re-taken until the
 Columbia run finishes — which is the state, not a defect.
 
+## /code-check round 2, and the mechanism
+
+Round 2 named the mechanism behind round 1's four findings, and it is the right one: **fidelity
+to `01_stage.R` was established by enumerating the conditions the build applies and then
+validating against the only producer tree that exists — a tree on which each arm's
+distinguishing case is unreachable.** Every condition was individually right while its order,
+its disposition and its subject went unexercised. `code-check.md`'s "a fixture that cannot reach
+the failure mode", with the live tree as the fixture.
+
+Its five findings, all reproduced before acting:
+
+1. **[bug] The `_mirror` arm could not fire.** `area[["targets"]]` appears as a COMMENT in both
+   files (`01_stage.R:222`, `prov_census-measure.R:200`) — comments whose whole purpose is to
+   explain why `$` must not be used, so a regression would never delete them. Rewriting either
+   file's code to `area$targets` left 49 assertions, 0 failed. This is round 1's finding 3 one
+   axis over, in the sibling arm added by the same commit.
+2. **[fragile] The paste-block strip was whole-line.** Deleting the `cat()` and adding a
+   TRAILING `# for prov_fields-check.py` passed.
+3. **[fragile] The hoist stopped one arm short.** `01_stage.R` skips a group whose bundle cannot
+   be READ (`:265-275`), above the target loop, and this script does not open the bundles — so a
+   target-level refusal can belong to a group the build would have skipped, and the banner
+   asserted "a build of this tree stops on the first of them". Now "stops on the first of them
+   or skips its group", with the consequence named in the header. Not fixed by sniffing the
+   SQLite header, which would be a proxy for "GDAL can read it".
+4. **[fragile] Two of 23 line citations were wrong** — `01_stage.R:338-356` for two assertions
+   the first of which is at `:328`, and `fp_provenance.R:588` for a filter at `:589`.
+5. **[fragile] `scripts/README.md`'s "three rostered targets ... today"** was undated, unlike the
+   `CLAUDE.md` and `NEWS.md` copies, and already two.
+
+### The fix for 1 and 2 recurred the mechanism once more
+
+The first fix stripped whole-line comments for R and whole-line comments for shell. The shell
+half was then defeated by the same trailing-comment shape the R half had just been fixed for:
+`| python3 -c '...'  # was: | python3 scripts/only_preflight.py` passed the arm whose whole
+subject is which of those two the release runs. So both sides now go through ONE helper,
+`_code_only()`, quote-aware, with `word_start=True` for shell because `${tag#v}` appears seven
+times in `catalogue_release.sh` and a naive cut would truncate real code. Unit-checked on eight
+lines including both defeats and that expansion.
+
+### Termination: the enumeration
+
+The mechanism is "a token pinned by a text search that also appears in prose". Its candidate set
+is every source-text read in `prov_fields-check.py`, which is eight, enumerated mechanically
+(`grep -n "read_text()\|literal(\|_code_only(\|re.search"`), not recalled:
+
+| arm | reads | cannot be satisfied by prose because |
+|---|---|---|
+| item_create.py publish map (x2) | `ast.literal_eval` of a module-level assign | AST — comments are not nodes |
+| 02_raster_tag.py field list | same | same |
+| only_preflight.py maps (x3) | `import` | runtime values, not text |
+| the release runs the preflight module | shell text | `_code_only(word_start=True)` |
+| PROVENANCE_FLOOR bounds the census | `^PROVENANCE_FLOOR=([0-9]+)$`, `re.M` | anchored: a `#` line cannot match |
+| measure script parses its literals | R text | `_code_only` |
+| measure script prints three destinations | R text | `_code_only` |
+| the roster mirror (three expressions) | R text, both files | `_code_only` + the whole assignment, not the subscript |
+
+Checked after: `grep -n "in _release\b\|in _measure\b"` returns nothing — no text-presence test
+reads raw source any more. Six mutations fire, each on its own arm's message, control 0 failed:
+
+| mutation | arm |
+|---|---|
+| `01_stage.R` code -> `area$targets` | mirror |
+| measure script code -> `area$targets` | mirror |
+| the anchored `classified_` pattern unanchored | mirror |
+| `dir.exists(src_rasters)` removed | mirror |
+| destination moved to a trailing comment | paste block |
+| preflight inlined, module named only in a comment | the release runs it |
+
 ## Errors Encountered
 
 | Error | Resolution |

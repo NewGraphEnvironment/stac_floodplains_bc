@@ -370,9 +370,10 @@ no network, no database. It walks the roster the way `01_stage.R` does and drive
 `fp_provenance.R`, so the numbers come from the code the build reads provenance with rather than
 from a second implementation of it — and it mirrors the build's **selection in the build's
 order**, which is load-bearing: `01_stage.R`'s no-rasters skip sits above its first `fp_prov_*`
-call, so a target with no rasters never reaches the reader. Three rostered targets are in exactly
-that state today (`kotl`/`larl`/`sloc` declare `all_ff04` while their records hold only `bt_*`),
-and reading them raises.
+call, so a target with no rasters never reaches the reader. Rostered targets sit in exactly that
+state whenever a group's config is converted ahead of its run — `kotl`, `larl` and `sloc` at
+2026-10-15T17:37Z, two of them an hour later as the Columbia run landed — and reading one raises,
+so the issue's stated walk order would print no census on a tree a build is perfectly happy with.
 
 **It refuses rather than print a short census**, because its output becomes a release gate and a
 count low for any reason other than the data would be pasted into the floor and then satisfied by

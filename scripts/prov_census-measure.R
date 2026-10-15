@@ -53,7 +53,10 @@
 #   - it does not open the GeoPackages. Existence is checked, because the build skips a whole
 #     group on a missing bundle; readability is not, because the build's key arms need
 #     `sf`/GDAL (~15 s over the roster, measured) and that is the dependency separating "runs
-#     where a build cannot" from "needs the build env".
+#     where a build cannot" from "needs the build env". So a group whose bundle cannot be READ
+#     is a build SKIP this script cannot see, and a target-level refusal below may belong to a
+#     group the build would never have reached — conservative, which is why the refusal says
+#     "stops or skips its group" rather than claiming the stronger one.
 #   - it does not compare `drift_version` against the installed `drift`, which `ALLOW_DRIFT_SKEW`
 #     governs, for the same reason: the comparison needs `drift` installed.
 #   - it mirrors the roster walk rather than sharing one, which is the thing this repo normally
@@ -249,7 +252,7 @@ for (wsg in wsgs) {
 
   for (tgt_i in seq_along(targets)) {
     tgt <- targets[[tgt_i]]
-    # The same two assertions 01_stage.R:338-356 makes where the roster is read, because every
+    # The same two assertions 01_stage.R:328-353 makes where the roster is read, because every
     # downstream symptom is quiet: `paste0(wsg, "_", NULL)` is "bulk_", not an error.
     bad_field <- NULL
     if (!is.list(tgt)) {
@@ -307,7 +310,7 @@ for (wsg in wsgs) {
                                 c(sprintf("classified_%d.tif", years), "transition.tif"))
       fp_prov_rasters_current(src_wsg, raster_paths, wsg_prov, species, scenario, item_id)
       # `transition.tif` is the one source raster nothing above can miss for us.
-      # fp_prov_rasters_current() filters to `file.exists()` (fp_provenance.R:588), so an
+      # fp_prov_rasters_current() filters to `file.exists()` (fp_provenance.R:589), so an
       # absent one is silently not mtime-checked, and the classified set came from
       # list.files() so it exists by construction. 01_stage.R:443 stops the build on it
       # ("Missing source raster"), which is why a target without one must not be counted as
@@ -345,9 +348,16 @@ if (length(no_region)) {
                                  ": no `region:` field — 01_stage.R stops on this"))
 }
 if (length(failures)) {
+  # "stops or skips the group", not "stops": 01_stage.R SKIPS a group whose bundle it cannot
+  # READ (:265-275, above the target loop), and this script does not open the bundles — so a
+  # target-level failure here can belong to a group the build would have skipped before
+  # reaching it, and the refusal is then conservative rather than a description of the build.
+  # Both halves are live states and they coincide during exactly the upstream-run-in-flight
+  # condition this script carries a timestamp for, so the message must not claim the stronger
+  # one. Refusing either way is right: the census would be of a set nobody can reconstruct.
   cat("\nNO CENSUS: ", length(failures), " read(s) failed. A build of this tree stops on the ",
-      "first of them,\nso any count printed here would describe nothing that gets published.\n",
-      sep = "")
+      "first of them\nor skips its group, so any count printed here would describe nothing ",
+      "that gets published.\n", sep = "")
   for (f in failures) cat("  - ", f, "\n", sep = "")
   cat("\nFix the record upstream (or this reader, if the producer's shape moved) and re-run.\n")
   quit(status = 1)

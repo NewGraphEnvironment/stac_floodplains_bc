@@ -59,3 +59,12 @@
 - **Two targets of one group with the same scenario** would count an item twice in the census and
   once in the floor, with the accounting identity still satisfied. Refused by id now.
 - Fixed en route: two citations of `01_stage.R:375` for a skip that is at `:380`.
+
+### /code-check branch, round 2 (5 findings, all 5 real, all 5 fixed)
+- The mechanism is named in `findings.md`: fidelity was established against the one tree that
+  exists, on which each arm's distinguishing case is unreachable.
+- Two findings were inside round 1's fixes, and the fix for them recurred the mechanism once
+  more on the shell side — so both languages now go through one quote-aware `_code_only()`.
+- Terminated by enumeration, not by a quiet round: all eight source-text reads in
+  `prov_fields-check.py` tabulated with why each cannot be satisfied by prose, `grep` showing no
+  raw-text presence test remains, and six mutations firing on their own arms' messages.

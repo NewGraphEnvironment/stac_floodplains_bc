@@ -272,16 +272,20 @@ over `bt_*` records are skipped rather than read, where reading them raises. It 
 census, non-zero — on any failed read, and on a run that stages nothing, since a floor of 0 was
 once true and is also what a reader that found nothing produces. An absent `provenance.json` is
 not a failure but the forward-only state, and such an item is what the floor's denominator counts.
-**The literals still are not re-taken** (above). Measured through it 2026-10-15: 23 rostered
-targets, 20 staging, floor 20, `link_run_uid` 18, `link_config_sha256`/`link_sha` 19, the other
-nine 20 — a different shape again from 2026-10-14's 23/21, because the Fraser and Peace runs
-landed and the three unconverted Columbia groups now skip instead of counting. That the
+**The literals still are not re-taken** (above). Measured through it 2026-10-15T17:37Z: 23
+rostered targets, 20 staging, floor 20, `link_run_uid` 18, `link_config_sha256`/`link_sha` 19,
+the other nine 20 — a different shape again from 2026-10-14's 23/21, because the Fraser and Peace
+runs landed and the three unconverted Columbia groups now skip instead of counting. That the
 denominator moves between builds is the reason the number is re-taken per build rather than
 carried, and a `columbia` run was in flight while that was measured, which is what the printed
 timestamp and producer HEAD exist to say — 20 minutes later the same command REFUSED, because
 that run had written KOTL's `all_ff04` rasters and not yet stamped its landcover section, so a
 skipped target became a would-stage one whose record does not describe it (the state a build
-stops on too). **It is the pre-flight, not the authority**:
+stops on too). Measured
+again at 18:16Z, after KOTL finished: 21 staged, floor 21, `link_config_sha256`/`link_sha` 20. So
+the same command over one tree gave 20/20, then a refusal, then 21/21 inside 40 minutes — which is
+the whole argument for an exact literal re-taken per build rather than carried between releases.
+**It is the pre-flight, not the authority**:
 `item_validate.py` prints the same twelve counts from the published items, in the same format, and
 the build's line is what a release sets the literals from. It mirrors `01_stage.R`'s roster walk
 rather than sharing one (#90), with three static arms in `prov_fields-check.py` holding the

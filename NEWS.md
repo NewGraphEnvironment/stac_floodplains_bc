@@ -48,8 +48,11 @@ must bound every count, and the measure script must parse its field list out of 
 still name all three destinations. It mirrors `01_stage.R`'s roster walk rather than sharing one;
 #90 tracks extracting an `fp_roster.R`, and three static arms hold the mirror in place until then.
 
-Measured through it 2026-10-15: 23 rostered targets, 20 staging, floor 20, `link_run_uid` 18,
-`link_config_sha256`/`link_sha` 19, with a `columbia` run in flight upstream. **The literals are
+Measured through it three times on 2026-10-15 with a `columbia` run landing upstream: 20 staged
+and floor 20 at 17:37Z; a **refusal** at 17:58Z, because that run had written KOTL's `all_ff04`
+rasters and not yet stamped its landcover section; 21 staged and floor 21 at 18:16Z. One tree,
+one command, 40 minutes — which is the argument for re-taking an exact literal per build instead
+of carrying it between releases. **The literals are
 unchanged** — and a build of that tree does not finish: DUNC stages carrying `link_version` with
 `link_sha` null, two fields of one `processing:software` entry, so `item_create.py` raises on it.
 floodplains#133 gates the whole build rather than Columbia's items alone. The literals are
