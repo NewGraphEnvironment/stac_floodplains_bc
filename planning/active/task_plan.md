@@ -18,9 +18,9 @@ over (airvine, 2026-10-15).
 
 ## Phase 1: Empty the deprecation literals, before the build
 
-- [ ] `DEPRECATED_ITEMS = set()` — `scripts/item_create.py:91`
-- [ ] `EXPECTED_DEPRECATED = set()` — `scripts/item_validate.py:258`
-- [ ] Keep both comment blocks; record that the marker self-cleared
+- [x] `DEPRECATED_ITEMS = set()` — `scripts/item_create.py:91`
+- [x] `EXPECTED_DEPRECATED = set()` — `scripts/item_validate.py:258`
+- [x] Keep both comment blocks; record that the marker self-cleared
 
 ## Phase 2: Rebuild, and take the numbers from the build
 

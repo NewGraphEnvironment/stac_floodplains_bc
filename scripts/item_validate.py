@@ -255,13 +255,21 @@ def check_collection_metadata(doc: dict) -> list[str]:
 # The items published as over-mapped (#26). Duplicated from item_create.py's DEPRECATED_ITEMS
 # rather than imported, for the reasons given above PROV_PROPERTIES: importing that
 # module runs the whole build, and a guard that reads the value it checks is x == x.
-EXPECTED_DEPRECATED = {"mcgr_ch_ff04", "pine_bt_ff04"}
+#
+# EMPTY since v2.0.0 (#89): the whole-network cutover rebuilt every rostered group on
+# `flooded` 0.7.0, so `mcgr_ch_ff04` and `pine_bt_ff04` are not in any build and nothing is
+# below MIN_FLOODED_VERSION. Two of this guard's five arms go vacuous with an empty set, and
+# the two that matter do not: a marker on an item NOT named here is still refused, and an
+# unmarked item whose `flooded` entry is below the floor or unreadable is still refused. The
+# second is now the only thing standing between the catalogue and an unmarked over-mapped
+# item, which is exactly the direction #26 was written for.
+EXPECTED_DEPRECATED: set[str] = set()
 
 # The `flooded` release that fixed the bankfull units defect. The guards below turn on whether
 # an item was built at or above it — not on whether it carries a version at all, which is a
 # PROXY: an item rebuilt on 0.4.0 carries a version, is still over-mapped, and would pass a
-# presence check unmarked. Not live today (all 21 carry 0.5.0), which is exactly when a proxy
-# is cheapest to replace with the property.
+# presence check unmarked. Not live today (all 23 carry flooded 0.7.0), which is exactly when
+# a proxy is cheapest to replace with the property.
 MIN_FLOODED_VERSION = (0, 5, 0)
 
 
@@ -343,7 +351,7 @@ def check_deprecated(base: Path, partial: bool = False) -> list[str]:
         # BOTH directions. The self-clear alone is `marked -> not rebuilt`; the converse,
         # `not rebuilt -> marked`, is the one #26 exists to enforce, and nothing else covers
         # it: an unmarked item with no provenance adds zero to the provenance floor's count,
-        # so an exact floor of 21 is satisfied by 21 provenanced items whatever ships beside
+        # so an exact floor of N is satisfied by N provenanced items whatever ships beside
         # them. Without this, a 24th over-mapped item ships looking current and every guard
         # stays green.
         # Read through the map, not by key: since #74 the version lives inside
@@ -2071,11 +2079,17 @@ def main() -> int:
         print("deprecation: --partial, so ids named in the literal but absent from this tree "
               "are not asserted; every other arm ran, including marked iff not built on "
               f"flooded >= {'.'.join(map(str, MIN_FLOODED_VERSION))}")
-    else:
+    elif EXPECTED_DEPRECATED:
         print(f"deprecation: exactly {len(EXPECTED_DEPRECATED)} item(s) published "
               f"deprecated ({', '.join(sorted(EXPECTED_DEPRECATED))}), each declaring the "
               f"version extension, and every item is marked iff its flooded version is "
               f"below {'.'.join(map(str, MIN_FLOODED_VERSION))} or unreadable")
+    else:
+        # An empty literal is the post-cutover state, not a disabled guard — say which arms
+        # still ran, because "exactly 0 item(s) published deprecated ()" reads as neither.
+        print(f"deprecation: no item is expected deprecated, and none is marked; every item "
+              f"carries a flooded version at or above "
+              f"{'.'.join(map(str, MIN_FLOODED_VERSION))}")
     print(f"licence: {EXPECTED_LICENSE} with rel=license + rel=derived_from links, "
           f"{len(EXPECTED_PROVIDERS)} providers, sci:citation verbatim; no item's "
           f"{PROV_PROPERTIES['landcover_collection']} or "

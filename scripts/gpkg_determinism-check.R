@@ -24,11 +24,12 @@
 suppressMessages(library(sf))
 source(file.path("scripts", "fp_gpkg.R"))   # the real writers, not copies of them
 
-# Smallest staged item by default. It survives floodplains#125 because SLOC is one of the six
-# groups still on `primary_scenario: bt_ff04` upstream — unlike the `ufra` defaults
-# test_pipeline.R and stage_years-check.R carried, which silently stopped staging at all (#76).
-# When SLOC flips, this becomes `sloc_all_ff04` and the default has to move with it.
-item <- Sys.getenv("ITEM", unset = "sloc_bt_ff04")
+# Smallest staged item by default. SLOC flipped to the whole network in the Columbia run of
+# 2026-10-15, so the default moved with it (#89) — exactly as the note this comment replaces
+# said it would have to. The failure mode the note existed for is the one the `ufra` defaults
+# in test_pipeline.R and stage_years-check.R hit: an id nothing stages any more, which stops
+# the script rather than checking anything (#76).
+item <- Sys.getenv("ITEM", unset = "sloc_all_ff04")
 # Strict truthiness: nzchar() would read NO_PIN=0 as enabled, so an operator turning the
 # cold path OFF would turn it on and get "PASS (cold path)" for what they think is a warm
 # check. Same form as ALLOW_SKIPPED in 01_stage.R.
