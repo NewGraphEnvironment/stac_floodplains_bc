@@ -898,18 +898,57 @@ fi
 # the whole shape of a guard that cannot fail. A HEAD per id, which is cheap, and it also
 # catches a sync that died partway in the normal path.
 if [ -z "$ONLY" ]; then
-  absent=""
-  for id in $local_ids; do
+  # The set this iterates is the COLLECTION'S OWN `rel: item` links, read out of the document
+  # about to be published — not `$STAC_DIR/*.json`. The two agree only because item_create.py
+  # writes links and files in one run, and nothing read that back: item_validate.py checks the
+  # item COUNT, never the links against the files. An id the collection links whose document is
+  # absent is exactly what kills a reload-from-S3, so it is the links that have to be the
+  # question. Asserted equal to the file set as well, since a disagreement either way is a
+  # broken build.
+  linked_ids=$(python3 -c "
+import json, posixpath, sys
+d = json.load(open(sys.argv[1]))
+out = set()
+for l in d.get('links') or []:
+    if l.get('rel') == 'item':
+        b = posixpath.basename(l.get('href') or '')
+        out.add(b[:-5] if b.endswith('.json') else b)
+print('\n'.join(sorted(out)))" "$STAC_DIR/collection.json") && links_read=1 \
+    || { echo "  could not read the rel:item links out of the built collection.json" >&2
+         fail=1; links_read=""; linked_ids=""; }
+  # Compared whether or not the set is EMPTY. Guarding the compare on `-n "$linked_ids"` let a
+  # collection that links NOTHING pass silently while the build held items — a guard failing
+  # toward pass, and the state a dropped link block would produce.
+  if [ -n "$links_read" ] && [ "$linked_ids" != "$local_ids" ]; then
+    echo "  the built collection.json links a different item set than this build holds:" >&2
+    comm -3 <(printf '%s\n' "$linked_ids") <(printf '%s\n' "$local_ids") | sed 's/^/    /' >&2 || true
+    fail=1
+  fi
+  absent=""; unread=""
+  for id in $linked_ids; do
     code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
-    case "$code" in 200) ;; *) absent="$absent $id($code)" ;; esac
+    # 404/403 is "no document"; anything else is a read that did not complete, and those have
+    # different remedies. Collapsing them is the mistake the retirement witness 400 lines above
+    # refuses to make, and that this file states the rule against three times — and here it
+    # would print an alarming and false claim about a reload deleting the collection.
+    case "$code" in
+      200) ;;
+      404|403) absent="$absent $id($code)" ;;
+      *)       unread="$unread $id($code)" ;;
+    esac
   done
   if [ -n "$absent" ]; then
     echo "  the bucket has no document for item(s) this collection links:$absent" >&2
     echo "  A reload-from-S3 would delete the collection's rows and then fail on these." >&2
     fail=1
-  else
-    echo "bucket documents: all $(printf '%s\n' "$local_ids" | grep -c . || true) linked item(s) present"
   fi
+  if [ -n "$unread" ]; then
+    echo "  could not read the bucket document for item(s):$unread" >&2
+    echo "  Not the same as absent, and not assumed to be: retry before concluding anything." >&2
+    fail=1
+  fi
+  [ -n "$absent$unread" ] \
+    || echo "bucket documents: all $(printf '%s\n' "$linked_ids" | grep -c . || true) linked item(s) present"
 fi
 
 # Asset probe: catches "the JSON is live but its COG never uploaded", which no amount

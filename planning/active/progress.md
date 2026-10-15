@@ -54,3 +54,18 @@
   13 remaining runs, and the `stage_years-check.R` note under its "Left" list is done.
 - #79 closed by construction (option 1, structural). #76's body rewritten: the per-group
   framing corrected, the decisions and the mechanism recorded, blockers listed.
+
+### /code-check branch — five rounds
+
+- 25 reviewer findings, 7 more found by walking the classes myself. Two could damage a bucket
+  with no rollback: `item_retract_s3.sh --yes collection` deleting the published
+  `collection.json`, and `--skip-sync` publishing a collection linking objects never uploaded.
+- Five mechanisms named. Four closed here; mechanism E's two pre-existing members filed as #87.
+- One reviewer finding **disproved** on measurement (bash retains the export attribute, so the
+  `COLLECTION=` pass-through is redundant rather than load-bearing) — its missing assertion was
+  added anyway.
+- One instrument retired from the completeness claim: `case 20-assertions` cannot be both
+  complete and precise, because it reads source templates while the suite asserts on rendered
+  output. Scoped to verbatim duplicates, with `BLIND_FLOOR = 42` recording the gap. The mutation
+  table is class D's terminator.
+- 222 assertions, 41 cases, 42 guards mutated.

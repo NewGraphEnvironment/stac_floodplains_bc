@@ -159,7 +159,12 @@ json.dump(_b, open(os.path.join(stac, "bbbb_ch_ff04.json"), "w"))
 json.dump({"type": "Collection", "stac_version": "1.0.0", "id": coll, "description": "fixture",
            "license": "CC-BY-4.0", "extent": {},
            "sci:citation": "fixture citation",
-           "links": [{"rel": "license",
+           # rel:item links, because that is what item_create.py writes and what step 5's
+           # bucket read-back and rtj's reload-from-S3 both read. Without them the read-back
+           # iterated an empty set and reported "all 0 linked item(s) present".
+           "links": [{"rel": "item", "href": f"{s3}/aaaa_ch_ff04.json"},
+                     {"rel": "item", "href": f"{s3}/bbbb_ch_ff04.json"},
+                     {"rel": "license",
                       "href": "https://creativecommons.org/licenses/by/4.0/"},
                      {"rel": "derived_from",
                       "href": "https://example.invalid/collections/src"}]},
@@ -319,6 +324,13 @@ case "$url" in
     # An id the BUILD has and the BUCKET does not: a sync that never ran, or ran partway.
     # The read-back in step 5 is the only thing that looks for it.
     for _b in ${FAKE_BUCKET_MISSING:-}; do [ "$_rel" = "$_b.json" ] && _hit=""; done
+    # An arbitrary status, so "the bucket has no document" and "the probe did not complete"
+    # can be told apart — they have different remedies and this file refuses to conflate them.
+    for _b in ${FAKE_BUCKET_HTTP:-}; do
+      case "$_b" in
+        "${_rel%.json}="*) if [ -n "$w" ]; then printf '%s' "${_b#*=}"; exit 0; fi ;;
+      esac
+    done
     for _b in ${FAKE_BUCKET_ONLY_IDS:-}; do [ "$_rel" = "$_b.json" ] && _hit=1; done
     for _b in ${FAKE_BUCKET_GARBLED:-}; do [ "$_rel" = "$_b.json" ] && _hit=1; done
     [ -n "$_hit" ] || { [ -z "$w" ] || { printf '404'; exit 0; }; }
@@ -424,6 +436,7 @@ LIVE_FINAL=""
 GONE=""
 BUCKETONLY=""
 BUCKETMISSING=""
+BUCKETHTTP=""
 GARBLED=""
 STALE=""
 LIVEV=""
@@ -441,7 +454,7 @@ run_release() {
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_IDS_FINAL="$LIVE_FINAL" \
       FAKE_GONE_IDS="$GONE" FAKE_BUCKET_ONLY_IDS="$BUCKETONLY" FAKE_BUCKET_GARBLED="$GARBLED" \
-      FAKE_BUCKET_MISSING="$BUCKETMISSING" \
+      FAKE_BUCKET_MISSING="$BUCKETMISSING" FAKE_BUCKET_HTTP="$BUCKETHTTP" \
       FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
@@ -450,6 +463,20 @@ run_release() {
   RC=$?
   set -e
 }
+
+# The fixture collection links its items, so a case that removes an item from the BUILD has to
+# remove its link too — item_create.py would not have written one. Without this a case models a
+# tree no build produces, and step 5's link/file equality arm refuses it on the fixture's own
+# inconsistency rather than on whatever the case is about.
+coll_unlink() { python3 -c 'import json,sys
+p=sys.argv[1]; d=json.load(open(p))
+d["links"]=[l for l in d["links"] if not (l.get("rel")=="item" and sys.argv[2] in (l.get("href") or ""))]
+json.dump(d,open(p,"w"))' "$STAC/collection.json" "$1"; }
+coll_relink() { python3 -c 'import json,sys
+p=sys.argv[1]; d=json.load(open(p))
+if not any(l.get("rel")=="item" and sys.argv[2] in (l.get("href") or "") for l in d["links"]):
+    d["links"].insert(0,{"rel":"item","href":sys.argv[3]+"/"+sys.argv[2]+".json"})
+json.dump(d,open(p,"w"))' "$STAC/collection.json" "$1" "$S3_BASE"; }
 
 FAILS=0
 pass() { echo "  ok    $1"; }
@@ -500,6 +527,12 @@ n_partial_flag() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--partial
 # a syntax error inside refused() rather than a failing assertion.
 n_delete()     { n=$(grep -c "pgstac.delete_item(" "$SSHIN" 2>/dev/null) || n=0; printf '%s\n' "$n"; }
 deleted_ids()  { sed -n "s/.*pgstac\.delete_item('\([^']*\)'.*/\1/p" "$SSHIN" 2>/dev/null | sort -u; }
+# The SECOND argument, which decides which collection the row is deleted from.
+# item_unregister.sh defaults COLLECTION to the production collection and the release does not
+# export it, so the whole scoping is one env assignment on the invocation line — and removing
+# it left this suite fully green, because deleted_ids() throws the argument away. pgstac's
+# one-arg delete_item is unscoped across every collection in that database.
+deleted_colls() { sed -n "s/.*pgstac\.delete_item('[^']*', *'\([^']*\)'.*/\1/p" "$SSHIN" 2>/dev/null | sort -u; }
 
 # "Touched nothing" has to mean the DESTRUCTIVE transport too, not only aws. The retirement
 # step goes over ssh, so a refusal that fired after a delete had already landed would have
@@ -689,6 +722,7 @@ LIVEDEP=""
 # build — which is exactly a retraction, and only --allow-retract permits one.
 echo "case 9m: retracting a marked item does not falsely fail the release (--allow-retract)"
 mv "$STAC/bbbb_ch_ff04.json" "$WORK/bbbb.json.bak"
+coll_unlink bbbb_ch_ff04        # a build that dropped the item would not link it either
 LIVEDEP="bbbb_ch_ff04"          # live still serves it marked; this build no longer has it
 run_release --allow-retract
 expect_eq "exit 0" "$RC" 0
@@ -696,6 +730,7 @@ expect_out "release completed" "RELEASE COMPLETE"
 expect_out "the surviving marker set is the build's, not the API's" "deprecation markers served: NONE"
 LIVEDEP=""
 mv "$WORK/bbbb.json.bak" "$STAC/bbbb_ch_ff04.json"
+coll_relink bbbb_ch_ff04
 
 echo "case 10: HEAD not exactly at a tag is refused"
 tgit commit -q --no-verify --allow-empty -m "past the tag"
@@ -941,7 +976,8 @@ echo "case 20-assertions: no expect_out pattern can be satisfied by another arm'
 # scripts emit, and a pattern reachable from more than one is a defect here rather than a
 # judgement call. The allowlist carries a reason per entry; it is not a place to park a
 # failure.
-ambig=$(python3 - "$0" "$REPO/scripts/catalogue_release.sh" "$REPO/scripts/item_retract_s3.sh" <<'PYEOF'
+ambig=$(python3 - "$0" "$REPO/scripts/catalogue_release.sh" "$REPO/scripts/item_retract_s3.sh" \
+  "$REPO/scripts/item_unregister.sh" <<'PYEOF'
 import re, sys
 check, scripts = sys.argv[1], sys.argv[2:]
 # Shared on purpose, with the reason:
@@ -954,8 +990,9 @@ allow = {
     # none of the other two can fire
     "full release",
     # two spellings of one outcome: the step-7 retirement failure and the general fail gate
-    # both mean the release did not complete, and the case asserting it also pins n_delete
-    # and the absence of the step-6 banner
+    # both mean "the release did not complete". Six cases assert it, and each pairs it with
+    # something specific to its own arm (a named message, n_delete, or the step-6 banner's
+    # absence), so the shared phrase is never the only evidence
     "RELEASE INCOMPLETE",
 }
 pats = set(re.findall(r'expect_out\s+"[^"]*"\s+"([^"]*)"', open(check).read()))
@@ -972,12 +1009,46 @@ for path in scripts:
         if re.search(r"\b(echo|printf)\b", ls):
             msgs.append((path.split("/")[-1], n, line))
 bad = []
+# LITERAL matching, and the limit is stated rather than papered over.
+#
+# This catches one thing precisely: two emitted messages that share a pattern VERBATIM. It
+# found four of those and they were real. It cannot do more, and the attempt is instructive —
+# most messages are assembled from a literal plus expansions, so a pattern reading
+# "the bucket answers 404 for" appears in no source line at all, the line being
+# "the bucket answers $code for". 40 of 77 patterns are invisible to it for that reason.
+#
+# A variable-aware version was measured and rejected. Templating the pattern still missed
+# every case where the LITERAL is in the pattern and the VARIABLE in the code
+# (`version is '8.8.8'` against `version is '$live_version'`), and longest-common-substring
+# matching trades one error for the other: at thresholds 8 to 20 it reports 29 to 61 of 73
+# patterns ambiguous — nearly all falsely, because sibling messages share long runs — while
+# still leaving 6 to 13 blind. An allowlist of forty-five entries is not a guard.
+#
+# The reason it cannot work is worth keeping: this scanner reads source TEMPLATES while the
+# suite asserts on RENDERED output. Those are two artefacts that must agree with nothing
+# joining them — the first mechanism in findings.md — so the instrument built to close that
+# mechanism is an instance of it, one level up.
+#
+# **Class D's terminator is the mutation table, not this case.** Disabling an arm and watching
+# its case go red is exactly the question "can this assertion be satisfied by something else",
+# answered on rendered output by running the thing. Every arm this branch adds has a row.
+# This case stays because a verbatim duplicate is cheap to catch and did happen four times;
+# BLIND_FLOOR records how much it does NOT cover, as a number a human sets, so the gap is
+# auditable instead of implied.
+blind = []
 for p_ in sorted(pats):
     if p_ in allow:
         continue
-    hits = [f"{f}:{n}" for f, n, l in msgs if p_ in l]
+    hits = sorted({f"{f}:{n}" for f, n, l in msgs if p_ in l})
     if len(hits) > 1:
         bad.append(f"{p_!r} reachable from {len(hits)}: {' '.join(hits[:4])}")
+    elif not hits:
+        blind.append(p_)
+BLIND_FLOOR = 42     # re-taken 2026-10-15 after cases 20p/20q; may shrink, must not grow unnoticed
+if len(blind) > BLIND_FLOOR:
+    bad.append(f"{len(blind)} pattern(s) invisible to this scanner (floor {BLIND_FLOOR}) — "
+               f"raise it deliberately or assert on something literal: "
+               + " ".join(repr(b) for b in blind[:6]))
 print("\n".join(bad))
 PYEOF
 )
@@ -1000,7 +1071,14 @@ for path in sys.argv[1:]:
         if line.lstrip().startswith("#"):
             continue
         code = line.split(" # ", 1)[0]
-        if re.search(r"\|\s*(grep\s+-[a-zA-Z]*[qm]|head\s+-n?\s*1\b)", code):
+        # Widened: the first pattern caught `| grep -q` and `| head -1` and missed
+        # `| grep -E -q`, `| grep --quiet`, `| grep -F -m 1`, `| grep --max-count=1`,
+        # bare `| head`, `| head -2`, `| sed 1q` and `| awk 'NR==1{...exit}'` — eight of
+        # fifteen shapes, all measured. Zero members today either way; the point is reach.
+        if re.search(r"\|\s*grep\b[^|]*(\s-[a-zA-Z]*[qm]\b|--quiet|--max-count)", code) \
+           or re.search(r"\|\s*head\b", code) \
+           or re.search(r"\|\s*sed\b[^|]*\b[0-9]+q\b", code) \
+           or re.search(r"\|\s*awk\b[^|]*\bexit\b", code):
             bad.append(f"{path.split('/')[-1]}:{n}: {code.strip()[:70]}")
 print("\n".join(bad))
 PYEOF
@@ -1153,6 +1231,8 @@ echo "case 20m: --skip-sync is refused on a build that ADDS an item"
 LIVE="aaaa_ch_ff04"          # the build also holds bbbb_ch_ff04, so bbbb is being added
 run_release --skip-sync;                            refused "--skip-sync with an added item"
 expect_out "names the added id" "cannot publish a build that ADDS items"
+expect_eq "and lists it under that heading" \
+  "$(awk '/cannot publish a build that ADDS items/{f=1;next} f&&/bbbb_ch_ff04/{print "yes";exit}' "$OUT")" yes
 expect_eq "and no collection.json was copied" \
   "$(n_cp "$STAC/collection.json" "s3://$BUCKET/collection.json")" 0
 
@@ -1165,8 +1245,35 @@ BUCKETMISSING="bbbb_ch_ff04"
 run_release
 expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "names the item with no document" "no document for item(s) this collection links"
+expect_out "and the id is in that line" "bbbb_ch_ff04(404)"
 expect_out "and says what a reload would do" "delete the collection"
 BUCKETMISSING=""
+
+echo "case 20p: a collection that links an item the build does not hold is refused"
+# The link set and the file set must be the same set. They agree only because item_create.py
+# writes both in one run, and nothing read that back — item_validate.py checks the item COUNT,
+# never the links against the files. A link with no document behind it is what kills a
+# reload-from-S3, so it is the pairing that has to be asserted, not either side alone.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+coll_relink dddd_ch_ff04        # linked, never built
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the disagreement" "links a different item set than this build holds"
+expect_out "and names the id" "dddd_ch_ff04"
+coll_unlink dddd_ch_ff04
+
+echo "case 20q: a bucket probe that did not complete is not reported as a missing document"
+# The same split the retirement witness makes, in the arm added in round 5. A 503 SlowDown is
+# not "there is no document here", and saying so would print an alarming and false claim about
+# a reload deleting the collection's rows.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+BUCKETHTTP="bbbb_ch_ff04=503"
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "says the read did not complete" "could not read the bucket document"
+expect_eq "and does NOT claim the document is missing" \
+  "$(grep -c 'has no document for item' "$OUT" || true)" 0
+BUCKETHTTP=""
 
 echo "case 21a: the positive control — the retirement runs, and deletes exactly its literal"
 # Without this, every refusal above is a grep that has never been shown to match.
@@ -1180,6 +1287,7 @@ expect_eq "exit 0" "$RC" 0
 expect_out "release completed" "RELEASE COMPLETE"
 expect_eq "exactly one delete" "$(n_delete)" 1
 expect_eq "and it is the retired id" "$(deleted_ids)" "aaaa_co_ff04"
+expect_eq "scoped to THIS collection, not the production default" "$(deleted_colls)" "$COLL"
 expect_out "step 6 actually ran" "=== 6: RETIRE ==="
 expect_out "and so did step 7" "=== 7: VERIFY RETIREMENT ==="
 LIVE_AFTER=""; LIVE_FINAL=""; GONE=""
@@ -1346,7 +1454,7 @@ echo "case 22c: an item the bucket collection.json still links is refused"
 # reload-from-S3 DELETEs the collection before it discovers that a linked href 404s.
 python3 -c 'import json,sys
 p = sys.argv[1]; d = json.load(open(p))
-d["links"].append({"rel": "item", "href": sys.argv[2] + "/cccc_ch_ff04.json"})
+d["links"].append({"rel": "item", "href": sys.argv[2] + "/cccc_ch_ff04.json"})   # removed again by 22e
 json.dump(d, open(p, "w"))' "$STAC/collection.json" "$S3_BASE"
 GONE="cccc_ch_ff04"
 retract_s3 --yes cccc_ch_ff04
@@ -1355,16 +1463,24 @@ expect_out "names the collection link" "still links it"
 expect_eq "nothing removed" "$(n_rm)" 0
 
 echo "case 22d: an item this build still produces is refused"
+# Guard 3 (the build cross-check) is only reachable while the bucket collection and the build
+# DISAGREE — in any consistent state guard 2 fires first, because anything the build holds the
+# collection links. That is worth knowing rather than working around: guard 3 exists for the
+# half-published state an interrupted release leaves, and this is that state.
 GONE="bbbb_ch_ff04"       # gone from the API, but $STAC still holds bbbb_ch_ff04.json
+coll_unlink bbbb_ch_ff04  # ...and the published collection no longer links it, so guard 2 passes
 retract_s3 --yes bbbb_ch_ff04
 expect_eq "refused" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "names the build" "this build still produces it"
 expect_eq "nothing removed" "$(n_rm)" 0
+coll_relink bbbb_ch_ff04
 
 echo "case 22e: the positive control — gone from the API, unlinked, unbuilt, so it goes"
 python3 -c 'import json,sys
 p = sys.argv[1]; d = json.load(open(p))
-d["links"] = [l for l in d["links"] if l.get("rel") != "item"]
+# Only the one 22c added. Stripping EVERY rel:item would leave the fixture collection
+# linking nothing for any later full release, which is now a refusal.
+d["links"] = [l for l in d["links"] if not (l.get("rel") == "item" and "cccc_ch_ff04" in (l.get("href") or ""))]
 json.dump(d, open(p, "w"))' "$STAC/collection.json"
 GONE="cccc_ch_ff04"
 retract_s3 --yes cccc_ch_ff04

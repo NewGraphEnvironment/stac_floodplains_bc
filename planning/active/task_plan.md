@@ -159,7 +159,7 @@ Not listed when the phases were written; recorded here as landed work.
       rather than a skip
 - [x] mutation table: every new arm, defect restored, arm red
 - [x] Tests pass
-- [ ] `/code-check branch` clean
+- [x] `/code-check branch` clean
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
 

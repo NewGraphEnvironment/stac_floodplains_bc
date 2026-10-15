@@ -673,3 +673,88 @@ All five of round 4's items, plus two more that only the widened scans could see
 the tree, so for about two minutes it saw a file mid-edit. It handled that correctly — snapshotted
 with `cp -r`, reviewed the snapshot, and said so — but the convention is not to edit files a long
 review is reading, and I had been holding to that until this round.
+
+## Code-check round 5 — seven findings, one disproved, and the limit of a static scanner
+
+| # | finding | verdict |
+|---|---|---|
+| R5-1 | the in-band delete's collection scoping is unpinned — removing `COLLECTION="$COLLECTION"` left the suite green | **mechanism disproved, remedy real.** Its claim was "the whole invariant is one env assignment on the invocation line". Measured: **bash retains the export attribute through reassignment** — `COLLECTION=x bash -c 'COLLECTION="${COLLECTION:-y}"; bash -c "echo \$COLLECTION"'` prints `x` — so an operator's `COLLECTION=throwaway` reaches `item_unregister.sh` whether or not the release passes it, and with nobody setting it both sides default to the same literal. The pass-through is belt-and-braces. **But nothing asserted the scoping at all**, which was worth fixing: `deleted_colls()` now reads the second argument of `delete_item` and case 21a pins it to the harness collection |
+| R5-2 | `--skip-sync` with a **changed** existing item is still permitted | **real, and pre-existing.** Filed rather than fixed — see below |
+| R5-3 | `case 20-assertions` is blind for 40 of its 76 patterns, so vacuous for those | **real, and it ended the attempt to make it complete** |
+| R5-4 | the read-back iterated `local_ids` while its message claimed "every id the collection **links**" | **real.** The two agree only because `item_create.py` writes links and files in one run, and nothing read that back — `item_validate.py` checks the item count, never the links against the files. Now reads the `rel: item` hrefs out of the built `collection.json`, asserts that set equals the file set, and HEADs the links |
+| R5-5 | the read-back collapsed every non-200 into "the bucket has no document … a reload would delete the collection's rows" | **real.** The collapse this file states the rule against three times, and here it would print an alarming false claim. Split into 404/403 vs anything else |
+| R5-6 | `20-pipes` missed 8 of 15 early-exit shapes | **real**, zero members today. Widened |
+| R5-7 | cases 20m/20n asserted the heading only, not the id — the shape round 5 had just fixed in 20b | **real.** Both now assert the id under its heading |
+
+### Two fixture defects the new read-back exposed
+
+The fixture `collection.json` carried **no `rel: item` links**, so the first version of the
+read-back reported "all 0 linked item(s) present" — a guard iterating an empty set. Adding the
+links then made two existing cases contradict themselves: 9m removed an item from the build while
+the collection still linked it, and 22d's target was still linked. Both now keep the fixture
+self-consistent via `coll_unlink`/`coll_relink`.
+
+22d's adjustment is worth recording as a fact about the code rather than the test:
+**`item_retract_s3.sh`'s guard 3 is only reachable while the bucket collection and the build
+disagree** — in any consistent state guard 2 fires first, because anything the build holds the
+collection links. Guard 3 exists for the half-published state an interrupted release leaves, and
+that is now what 22d constructs.
+
+### `case 20-assertions`: the attempt at completeness, and why it stopped
+
+A variable-aware matcher was built and **rejected on measurement**. Templating the pattern still
+missed every case where the literal is in the pattern and the variable in the code
+(`version is '8.8.8'` against `version is '$live_version'`), leaving 37 blind. Longest-common-
+substring matching trades one error for the other:
+
+| threshold | ambiguous | blind |
+|---|---|---|
+| 8 | 61 | 6 |
+| 10 | 50 | 7 |
+| 12 | 45 | 8 |
+| 16 | 32 | 10 |
+| 20 | 29 | 13 |
+
+of 73 patterns. Nearly all the "ambiguous" are false, because sibling messages share long runs.
+An allowlist of forty-five entries is not a guard.
+
+**The reason it cannot work is the point:** this scanner reads source **templates** while the suite
+asserts on **rendered** output. Those are two artefacts that must agree with nothing joining them —
+mechanism A — so the instrument built to close that mechanism is an instance of it, one level up.
+
+So the case is scoped to what it does precisely (a verbatim duplicate between two emitted
+messages: four found, all real), and `BLIND_FLOOR = 42` records what it does **not** cover as a
+number a human sets. It earned its keep immediately: adding cases 20p and 20q pushed the count to
+42 and the floor **refused the growth** rather than absorbing it.
+
+**Class D's terminator is the mutation table, not that case.** Disabling an arm and watching its
+case go red asks exactly "can this assertion be satisfied by something else", on rendered output,
+by running the thing. Every arm this branch adds has a row.
+
+## Mutation table, part 7
+
+| # | guard disabled | case that went red |
+|---|---|---|
+| M28 | the explicit `COLLECTION=` pass-through to `item_unregister.sh` | **none — and correctly so**, see R5-1: the environment carries it |
+| M29 | the link/file equality arm | 20p |
+| M30 | the absent-vs-unread split | 20q |
+| M31 | the read-back iterating the links rather than the files | **implied by M29**: once equality holds the two sets are identical, so which is iterated cannot matter. Recorded as implied, not covered |
+| planted | a verbatim duplicate of two assertion patterns | `20-assertions` |
+
+### Mechanism E's residue, filed as #87
+
+Closed on this branch: the version stamp (read back from the API), `collection.json` written last
+(asserted by line number), the delete after the `fail` gate, and — new — every id the published
+collection links getting a HEAD with the link set asserted equal to the file set.
+
+Open and **pre-existing**, so filed rather than folded in:
+
+- **`--skip-sync` with a changed existing item.** The flag means "the bytes are already up"; a
+  changed document makes that false, and no full-release path reads a bucket item document's
+  bytes. `--only --skip-sync` has the same shape.
+- **Every asset href a published item carries.** Step 2 before step 3 is the guarantee; it is read
+  back for one asset of one item. ~230 hrefs on a 23-item release rest on `set -e`.
+
+Both are instances of the same enumeration, which is what #87 asks for and what makes E closable
+rather than a list of patches: *every bucket object this release's documents reference, against
+what the release actually reads back.*
