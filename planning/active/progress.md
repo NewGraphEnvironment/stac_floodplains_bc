@@ -17,3 +17,16 @@
 - Created branch `76-retire-the-per-species-floodplain-items` off main.
 - Scaffolded the PWF baseline with the reviewed phases.
 - Next: Phase 1, the harness knobs without which the new arms cannot be proven.
+
+### Phase 1 — harness knobs
+
+- `ssh` shim now appends its stdin to `$SSHIN` instead of `/dev/null`: `item_unregister.sh`
+  names its ids only inside the SQL it pipes, so without this a destructive call left no trace
+  in `$LOG` and `n_delete()` would have counted zero however many items a run destroyed.
+- `FAKE_GONE_IDS`, matched **before** the blanket `printf '200'` — every `-w '%{http_code}'`
+  call took that branch, so a retired id could only ever read 200.
+- `FAKE_LIVE_IDS_FINAL`: a third search stage, because a retirement release searches three
+  times and a two-stage knob would hand the post-delete set to the compare that precedes the delete.
+- `refused()` now also requires `n_delete() == 0`. It asserted only `rc != 0 && n_aws == 0`, so a
+  refusal firing *after* a delete had landed would have passed it.
+- Existing suite re-run: ALL PASS.

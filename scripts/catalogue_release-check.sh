@@ -106,7 +106,9 @@ BUCKET=check-bucket
 COLL=check-collection
 S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.py emits
 STAC="$WORK/stac"; RAW="$WORK/raw"; BIN="$WORK/bin"; LOG="$WORK/shim.log"; OUT="$WORK/out.txt"
+SSHIN="$WORK/ssh_stdin.log"   # what the register/unregister scripts PIPE, which $LOG cannot hold
 mkdir -p "$STAC" "$RAW" "$BIN"
+: > "$SSHIN"   # so n_delete() has a file to read before the first run_release
 
 # --- fixture ---------------------------------------------------------------------------
 # Two items; every asset exists on disk under <id>/ named as its href basename, one strictly
@@ -171,10 +173,14 @@ cat > "$BIN/aws" <<'SHIM'
 #!/bin/bash
 . "$(dirname "$0")/_log" aws "$@"
 SHIM
+# The payload, not just the argv. item_unregister.sh names its ids in the SQL it pipes in,
+# never on the command line, so a `delete_item` is invisible in $LOG and n_delete() below
+# would count zero however many items a run destroyed. Appended to its own file because the
+# SQL is multi-line and $LOG is one line per invocation.
 cat > "$BIN/ssh" <<'SHIM'
 #!/bin/bash
 . "$(dirname "$0")/_log" ssh "$@"
-cat > /dev/null      # the register scripts pipe their payload in; consume it
+cat >> "$SSH_STDIN_LOG"
 SHIM
 cat > "$BIN/uv" <<'SHIM'
 #!/bin/bash
@@ -204,9 +210,15 @@ for a in "$@"; do
 done
 case "$url" in
   */search)
+    # Three stages, because a retirement release searches three times: the preflight, the
+    # post-register membership compare, and the post-delete re-read. A two-stage knob gated on
+    # mere existence would hand the post-delete set to the compare that runs BEFORE the delete,
+    # so phase A would see the retraction it is supposed to precede.
+    _n=0; [ -e "$COUNTER" ] && _n=$(grep -c . "$COUNTER" || true)
     ids="$FAKE_LIVE_IDS"
-    if [ -e "$COUNTER" ] && [ -n "${FAKE_LIVE_IDS_AFTER:-}" ]; then ids="$FAKE_LIVE_IDS_AFTER"; fi
-    touch "$COUNTER"
+    if [ "$_n" -ge 1 ] && [ -n "${FAKE_LIVE_IDS_AFTER:-}" ]; then ids="$FAKE_LIVE_IDS_AFTER"; fi
+    if [ "$_n" -ge 2 ] && [ -n "${FAKE_LIVE_IDS_FINAL:-}" ]; then ids="$FAKE_LIVE_IDS_FINAL"; fi
+    echo x >> "$COUNTER"
     # Echo `properties.deprecated` back from the BUILT tree, so step 5's marker read-back has
     # a positive control at all (#26). Serving ids only made it a NONE == NONE tautology that
     # no fixture could break — the same trap this harness already documents for the version
@@ -229,6 +241,15 @@ feats = [{"id": i, "properties": ({"deprecated": True} if i in marked else {})} 
 print(json.dumps({"features": feats}))' "$ids" "$STAC_DIR"
     exit 0 ;;
 esac
+# FAKE_GONE_IDS before the blanket 200, not after: every -w '%{http_code}' call took this
+# branch, so the release's "is the retired id gone" probe could only ever read 200 and the
+# assertion could not fail. The list is ids, matched against the url's last segment.
+for _g in ${FAKE_GONE_IDS:-}; do
+  case "$url" in
+    */items/"$_g") if [ -n "$w" ]; then printf '404'; exit 0; fi
+                   echo "curl shim: $_g is gone" >&2; exit 22 ;;
+  esac
+done
 if [ -n "$w" ]; then printf '200'; exit 0; fi
 # Serve the fixture collection with one field broken on request. The licence knobs break
 # exactly ONE field each, deliberately: a case that broke all three could pass on the
@@ -304,6 +325,8 @@ chmod +x "$BIN"/aws "$BIN"/ssh "$BIN"/uv "$BIN"/curl
 # --- runner ----------------------------------------------------------------------------
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 LIVE_AFTER=""
+LIVE_FINAL=""
+GONE=""
 STALE=""
 LIVEV=""
 BUCKETV=""
@@ -313,11 +336,13 @@ LIVEDEP=""
 BUCKETSHAPE=""
 RC=0
 run_release() {
-  : > "$LOG"; rm -f "$WORK/search_count"
+  : > "$LOG"; : > "$SSHIN"; rm -f "$WORK/search_count"
   set +e
   ( cd "$TREPO" && PATH="$BIN:$PATH" SHIM_LOG="$LOG" COUNTER="$WORK/search_count" \
+      SSH_STDIN_LOG="$SSHIN" \
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
-      FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_ITEM_STALE="$STALE" \
+      FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_IDS_FINAL="$LIVE_FINAL" \
+      FAKE_GONE_IDS="$GONE" FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
       FAKE_LIVE_DEPRECATED="$LIVEDEP" FAKE_BUCKET_ITEM_SHAPE="$BUCKETSHAPE" \
@@ -359,9 +384,22 @@ n_floor_flag() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--expect-pr
 # from the argv log rather than from reading the script.
 n_partial_flag() { awk -F'\t' '$1=="uv" { for (i=1;i<=NF;i++) if ($i=="--partial") n++ } END { print n+0 }' "$LOG"; }
 
+# Every pgstac delete this run asked for, read from the SQL payload rather than the argv:
+# item_unregister.sh interpolates the ids into `pgstac.delete_item('<id>', '<collection>')`
+# and passes `psql -f -`, so the ids never appear on a command line at all.
+# `|| n=0` on the assignment, not `|| true` inside the substitution: `grep -c` prints 0 and
+# exits 1 when it matches nothing, and exits 2 printing nothing when the file is absent. A
+# bare `|| true` leaves the absent case substituting the empty string, and `[ "" -eq 0 ]` is
+# a syntax error inside refused() rather than a failing assertion.
+n_delete()     { n=$(grep -c "pgstac.delete_item(" "$SSHIN" 2>/dev/null) || n=0; printf '%s\n' "$n"; }
+deleted_ids()  { sed -n "s/.*pgstac\.delete_item('\([^']*\)'.*/\1/p" "$SSHIN" 2>/dev/null | sort -u; }
+
+# "Touched nothing" has to mean the DESTRUCTIVE transport too, not only aws. The retirement
+# step goes over ssh, so a refusal that fired after a delete had already landed would have
+# satisfied the old two-term conjunction while 17 items were gone.
 refused() { # desc — the last run must have exited non-zero having touched nothing
-  if [ "$RC" -ne 0 ] && [ "$(n_aws)" -eq 0 ]; then pass "$1"
-  else fail "$1 (rc=$RC, aws calls=$(n_aws))"; fi
+  if [ "$RC" -ne 0 ] && [ "$(n_aws)" -eq 0 ] && [ "$(n_delete)" -eq 0 ]; then pass "$1"
+  else fail "$1 (rc=$RC, aws calls=$(n_aws), deletes=$(n_delete))"; fi
 }
 coll_version() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("version", "MISSING"))' "$STAC/collection.json"; }
 coll_hash()    { shasum -a 256 "$STAC/collection.json" | awk '{print $1}'; }

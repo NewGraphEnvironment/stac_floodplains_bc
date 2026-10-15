@@ -31,12 +31,12 @@ half is a separate script, and why the delete is safe to put inside the release 
 `scripts/catalogue_release-check.sh` runs a committed, tagged copy of `scripts/` against shimmed
 `aws`/`ssh`/`uv`/`curl`. Three limitations block the mutation table; fix them first.
 
-- [ ] a `FAKE_GONE_IDS` knob, honoured **before** the blanket `printf '200'` at `:232` and in the
+- [x] a `FAKE_GONE_IDS` knob, honoured **before** the blanket `printf '200'` at `:232` and in the
       `*/items/*` branch, so a retired id can be made to 404
-- [ ] `n_delete()` — count `delete_item` payloads in the `ssh` shim log — and add it to `refused()`
+- [x] `n_delete()` — count `delete_item` payloads in the `ssh` shim log — and add it to `refused()`
       (`:362-365`), which today asserts only `RC != 0 && n_aws == 0` and so would pass a refusal that
       fired *after* a destructive ssh call. Add it to case 3's existing refusals too.
-- [ ] a third live-id stage beside `FAKE_LIVE_IDS` / `FAKE_LIVE_IDS_AFTER` (`:206-208`): the
+- [x] a third live-id stage beside `FAKE_LIVE_IDS` / `FAKE_LIVE_IDS_AFTER` (`:206-208`): the
       two-phase design makes three searches, so without it phase A already sees the retracted set
 
 ## Phase 2: Tests — the new arms, failing
