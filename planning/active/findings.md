@@ -582,3 +582,38 @@ by appending a piped `grep -q`: the case goes red.
 M20 came back STILL GREEN on its first run, for the same reason M15 did: the arm had no fixture.
 Rather than add a knob, the fix routes an unreadable body to the unread-probe arm — which is both
 more accurate and what makes the two witnesses identical — and `GARBLED` then reaches it.
+
+## Class D, enumerated here (not by a reviewer) — and made self-policing
+
+Class D is "a fixture or assertion that cannot reach the state under test". It had bitten five
+times by the end of round 3 and had never been walked. Walking it mechanically — every
+`expect_out` pattern against every message the two scripts emit — found **9 ambiguous patterns of
+71**, four of them real:
+
+| pattern | why it was wrong |
+|---|---|
+| `RETIRE` | case 21a's "the retirement is reported", satisfied by any of **seventeen** messages containing `RETIRED_ITEMS`. The positive control again, the same place round 1's F3 landed |
+| `already retired by an earlier run` | case 20d's, and the could-not-read arm's own prose contained the phrase — the identical collision that made case 20c pass vacuously, re-created two arms away |
+| `Could not read` | case 20L's, printed by eight other arms, several reachable in a preflight |
+| `could not read` | case 22a3's, printed by seven |
+
+Fixed by asserting what only the arm under test prints — `=== 6: RETIRE ===`, `verdict '`,
+`did not complete` — and by rewording the one prose collision, as was done for 20c. Three more
+(`do not combine`, `permanent`, `full release`) were tightened although not reachable today.
+
+**Then the class was made self-policing**, because it is the only mechanism whose instances live
+in the harness itself and so cannot be caught by reviewing the scripts. `case 20-assertions`
+matches every `expect_out` pattern against every emitted message and refuses any reachable from
+more than one, with a three-entry allowlist that carries a reason per entry. Proven by putting
+the loose `RETIRE` pattern back: the case goes red.
+
+That gives each of the four mechanisms a terminating instrument rather than a judgement:
+
+| class | closed by |
+|---|---|
+| A — two artefacts that must agree | the members walked and fixed; the two bucket witnesses made structurally identical; the unchecked arm count removed rather than corrected |
+| B — a guard scoped to the symptom | identity checks on both witnesses; the NEWS match delimited |
+| C — early-exiting consumer under `pipefail` | **static** `case 20-pipes` over both scripts |
+| D — a fixture or assertion that cannot reach its state | **static** `case 20-assertions` over the harness |
+
+plus `case 20-sorts` for the collation class, which is A's one mechanically-checkable member.

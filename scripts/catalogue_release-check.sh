@@ -921,6 +921,50 @@ PYEOF
 expect_eq "every sort invocation is collation-pinned" "$(printf '%s\n' "$unpinned" | grep -c . || true)" 0
 [ -z "$unpinned" ] || printf '        | %s\n' "$unpinned"
 
+echo "case 20-assertions: no expect_out pattern can be satisfied by another arm's message"
+# The fourth mechanism, and the only one whose instances live in THIS file: an assertion loose
+# enough that a different code path satisfies it. It has bitten three times — case 21a's
+# "the retirement is reported" matched any of seventeen messages containing RETIRED_ITEMS; case
+# 20c's "was never published" was printed by the could-not-read arm it was NOT testing; case
+# 20d's phrase appeared in that same arm's prose. Each time the case went on passing.
+#
+# So it is self-policed: every expect_out pattern is matched against every message the two
+# scripts emit, and a pattern reachable from more than one is a defect here rather than a
+# judgement call. The allowlist carries a reason per entry; it is not a place to park a
+# failure.
+ambig=$(python3 - "$0" "$REPO/scripts/catalogue_release.sh" "$REPO/scripts/item_retract_s3.sh" <<'PYEOF'
+import re, sys
+check, scripts = sys.argv[1], sys.argv[2:]
+# Shared on purpose, with the reason:
+allow = {
+    # the --only and full-release completion lines are two spellings of one outcome
+    "RELEASE COMPLETE",
+    # the two bucket witnesses are deliberately identical, and no case drives both scripts
+    "not a STAC Item with that id",
+    # "full release" appears in three remedies; the case asserting it drives --only, where
+    # none of the other two can fire
+    "full release",
+}
+pats = set(re.findall(r'expect_out\s+"[^"]*"\s+"([^"]*)"', open(check).read()))
+msgs = []
+for path in scripts:
+    for n, line in enumerate(open(path), 1):
+        ls = line.strip()
+        if ls.startswith("echo ") and "#" != ls[:1]:
+            msgs.append((path.split("/")[-1], n, line))
+bad = []
+for p_ in sorted(pats):
+    if p_ in allow:
+        continue
+    hits = [f"{f}:{n}" for f, n, l in msgs if p_ in l]
+    if len(hits) > 1:
+        bad.append(f"{p_!r} reachable from {len(hits)}: {' '.join(hits[:4])}")
+print("\n".join(bad))
+PYEOF
+)
+expect_eq "every expect_out pattern is unique to the arm it tests" "$(printf '%s\n' "$ambig" | grep -c . || true)" 0
+[ -z "$ambig" ] || printf '        | %s\n' "$ambig"
+
 echo "case 20-pipes: no early-exiting consumer sits downstream of a pipe"
 # The third mechanism, closed the same way as the collation one: by having no members, checked
 # mechanically. `grep -q`, `grep -m` and `head -1` all stop reading at their answer, and under
@@ -1009,7 +1053,7 @@ echo "case 20h: --only and a non-empty literal do not combine"
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 set_retired aaaa_co_ff04
 run_release --only aaaa_ch_ff04;                    refused "--only with a non-empty literal"
-expect_out "says they do not combine" "do not combine"
+expect_out "says they do not combine" "--only and a non-empty RETIRED_ITEMS"
 reset_tree
 
 echo "case 20i: a literal entry that is not an item id is refused"
@@ -1044,7 +1088,9 @@ LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 GARBLED="aaaa_co_ff04"
 set_retired aaaa_co_ff04; set_news aaaa_co_ff04
 run_release;                                        refused "unreadable bucket copy"
-expect_out "says it could not read it" "Could not read"
+# "Could not read" alone is printed by eight other arms of this script, several of them
+# reachable in a preflight. The witness is the only one that prints its verdict.
+expect_out "says it could not read it" "verdict '"
 expect_eq "and does NOT claim it was never published" \
   "$(grep -c 'never published' "$OUT" || true)" 0
 GARBLED=""
@@ -1072,7 +1118,8 @@ expect_eq "exit 0" "$RC" 0
 expect_out "release completed" "RELEASE COMPLETE"
 expect_eq "exactly one delete" "$(n_delete)" 1
 expect_eq "and it is the retired id" "$(deleted_ids)" "aaaa_co_ff04"
-expect_out "the retirement is reported" "RETIRE"
+expect_out "step 6 actually ran" "=== 6: RETIRE ==="
+expect_out "and so did step 7" "=== 7: VERIFY RETIREMENT ==="
 LIVE_AFTER=""; LIVE_FINAL=""; GONE=""
 reset_tree
 
@@ -1141,7 +1188,7 @@ echo "case 21g: --allow-retract and a non-empty literal are refused"
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
 set_retired aaaa_co_ff04; set_news aaaa_co_ff04
 run_release --allow-retract;                        refused "--allow-retract with a literal"
-expect_out "says they do not combine" "do not combine"
+expect_out "says they do not combine" "--allow-retract and a non-empty RETIRED_ITEMS"
 expect_out "says which arms the flag waives" "waives the containment"
 reset_tree
 
@@ -1219,7 +1266,7 @@ GARBLED="cccc_ch_ff04"
 mkdir -p "$WORK/nostac"
 RETRACT_STAC_DIR="$WORK/nostac" retract_s3 --yes cccc_ch_ff04
 expect_eq "refused" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
-expect_out "says the read did not complete" "could not read"
+expect_out "says the read did not complete" "did not complete"
 expect_eq "and nothing was removed" "$(n_rm)" 0
 expect_eq "and it is not read as a wrong-identity document" \
   "$(grep -c 'not a STAC Item' "$OUT" || true)" 0
@@ -1229,7 +1276,7 @@ echo "case 22b: --yes is required at all"
 GONE="cccc_ch_ff04"
 retract_s3 cccc_ch_ff04
 expect_eq "refused without --yes" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
-expect_out "says the delete is permanent" "permanent"
+expect_out "says the delete is permanent" "Refusing without --yes"
 expect_eq "nothing removed" "$(n_rm)" 0
 
 echo "case 22c: an item the bucket collection.json still links is refused"

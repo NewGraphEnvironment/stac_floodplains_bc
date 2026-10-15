@@ -519,7 +519,7 @@ print('MATCH' if d.get('type') == 'Feature' and d.get('id') == sys.argv[1] else 
         exit 1 ;;
       *)
         echo "Could not read $id.json from the bucket (HTTP '$code', verdict '${ident:-none}')." >&2
-        echo "This arm decides whether $id was already retired by an earlier run of this" >&2
+        echo "This arm decides whether $id was already removed by an earlier run of this" >&2
         echo "release, or had no document here at all, and those have different remedies — so" >&2
         echo "a read it could not complete is refused rather than guessed. Retry." >&2
         exit 1 ;;
