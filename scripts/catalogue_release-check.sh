@@ -1061,7 +1061,7 @@ echo "case 20-pipes: no early-exiting consumer sits downstream of a pipe"
 # `set -o pipefail` the writer's SIGPIPE then becomes the pipeline's status — so the test
 # reports the writer's death as its own verdict once the text passes the pipe buffer (64 KiB,
 # measured on this machine). A here-string has no writer to kill. No fixture can reach this:
-# the harness payloads are hundreds of bytes, and NEWS.md is 39,573 B against that 64 KiB.
+# the harness payloads are hundreds of bytes, and NEWS.md is 47,156 B against that 64 KiB.
 piped=$(python3 - "$REPO/scripts/catalogue_release.sh" "$REPO/scripts/item_retract_s3.sh" \
   "$REPO/scripts/item_unregister.sh" <<'PYEOF'
 import re, sys

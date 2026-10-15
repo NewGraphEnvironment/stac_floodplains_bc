@@ -526,9 +526,11 @@ for (wsg in wsgs) {
     # what makes that hole legible until #65 closes it.
     #
     # BOTH bundles, not just the landcover one. Every `attributes` layer in the two bundles
-    # staged from is in the landcover one (measured on the v2.0.0 tree: 68 of 68; upstream's
-    # aquatic_network.gpkg holds 23 more that nothing here reads), so scanning only one was
-    # right about
+    # staged from is in the landcover one (measured on the v2.0.0 tree over the 23 ROSTERED
+    # groups: 66 of 66, floodplain.gpkg none; aquatic_network.gpkg holds 23 more that nothing
+    # here reads). A glob over every directory in $FLOODPLAINS_DATA says 68 instead, because
+    # `lit` and `neexdzii` are upstream and off the roster — the scope is the roster, as it is
+    # everywhere else here. So scanning only one bundle was right about
     # the data and wrong about the question — `floodplain.gpkg` is a file this repo now
     # SELECTS layers into, and it is the bundle with no cover at all, because
     # 04_gpkg_style.py maps every layer of it to one style unconditionally.

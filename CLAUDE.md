@@ -148,11 +148,13 @@ keeps the retired layers until floodplains#131 prunes them, and only DUNC (never
 clean. A refusal would be overridden every release, and an always-set override stops being
 read. A layer of another **watershed group** is refused, because
 `test_pipeline.R`'s per-layer `wsg` assertion reads the staged copy and so could never see one
-again. Measured on the v2.0.0 build, the two bundles on both sides: 1602.6 -> 1035.3 MiB over the
-23 rostered groups, MORR -69% (110.9 -> 34.0 MiB). `transition_vector.gpkg` is a further
-89.3 MiB and is NOT in that comparison — it was never a whole-file copy, so putting it on
-the "after" side alone would understate #80's saving by its own size. Re-taken at each full
-build; the figures before it were 827 -> 643 MiB over a roster that was mostly species items.
+again. Measured on the v2.0.0 build, decimal MB, the two bundles on both sides, over the 23
+**rostered** groups (not every directory in `$FLOODPLAINS_DATA` — `lit` and `neexdzii` are
+upstream and off the roster): 1680.4 -> 1085.6 MB, a saving of 594.8 MB, MORR -69%
+(116.3 -> 35.6 MB). `transition_vector.gpkg` is a further 93.6 MB and is NOT in that
+comparison — it was never a whole-file copy, so putting it on the "after" side alone would
+understate #80's saving by its own size. Re-taken at each full build; #80 measured
+826.9 -> 642.9 MB on the same scope and units, over a roster that was mostly species items.
 
 **`floodplain_landcover.gpkg` also ships two tables this repo does not describe.** On the
 v2.0.0 build **all 23 items** carry both a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` and a
@@ -170,9 +172,10 @@ staging now selects. A **new** aspatial family has no automatic cover at all: th
 "matches no style rule" refusal runs after the `features` filter, so one would ship
 undescribed — which is why `01_stage.R` names every aspatial table it staged, per item, on
 every run, **across both bundles** rather than only the landcover one. Every `attributes`
-layer in the two bundles this repo stages from is in the landcover one (68 of 68, measured on
-the v2.0.0 tree; upstream's `aquatic_network.gpkg` holds 23 more that nothing here reads), so
-scanning that file alone was right about the data and wrong about the question: `floodplain.gpkg` is the bundle
+layer in the two bundles this repo stages from is in the landcover one (66 of 66, measured on
+the v2.0.0 tree over the 23 **rostered** groups; `floodplain.gpkg` has none, and upstream's
+`aquatic_network.gpkg` holds 23 more that nothing here reads), so scanning that file alone was
+right about the data and wrong about the question: `floodplain.gpkg` is the bundle
 with no other cover, because `04_gpkg_style.py` maps every layer of it to one style
 unconditionally. The same run also names any staged layer matching no known family, on a
 pattern anchored at both ends — unanchored, `<sp>_ff04_reach_summary` would read as a known

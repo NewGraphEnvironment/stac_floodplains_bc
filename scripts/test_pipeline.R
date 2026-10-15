@@ -309,8 +309,10 @@ for (mp in meta_paths) {
   }
   # The three styles must be present under their own keys and carry roles: ["style"].
   # `floodplain` and `transition_vector` are already asset keys, so a stem-keyed style
-  # would replace a data asset and leave the count unchanged -- the same trap the
-  # transition_vector comment below describes.
+  # would REPLACE a data asset -- the same trap the transition_vector comment below
+  # describes. The count check above does fire on it (one key overwrites another, so the
+  # total drops by one); what it cannot say is WHICH key went, and a count that is merely
+  # short sends the reader looking for a missing asset rather than a colliding one.
   for (skey in c("style_floodplain", "style_classified", "style_transition")) {
     if (is.null(item_assets[[skey]])) {
       stop("style asset '", skey, "' missing from ", basename(item_json))
@@ -322,9 +324,10 @@ for (mp in meta_paths) {
   }
   # The transition COG and the transition gpkg must BOTH be present under distinct keys.
   # `transition_2017_2023` is the COG key and is also the stem of the gpkg's old proposed
-  # filename, so keying the vector by its stem would silently replace the raster and still
-  # leave the item's other assets (10 on a three-year item, 14 on an annual-span one).
-  # Assert both survive.
+  # filename, so keying the vector by its stem would replace the raster. The count check
+  # above catches that the item is one short (9 or 13 against the 10 or 14 a three-year or
+  # annual-span item carries), but not that the raster is what went -- these two assertions
+  # are what name it. Assert both survive.
   for (akey in c(paste0("transition_", meta$transition_span[[1]], "_",
                         meta$transition_span[[2]]), "transition_vector")) {
     if (is.null(item_assets[[akey]])) stop("asset '", akey, "' missing from ", basename(item_json))

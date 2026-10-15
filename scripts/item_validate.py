@@ -2069,8 +2069,8 @@ def main() -> int:
     # Before the provenance arms, because it is the cheap one and because a stray prefix makes
     # every count below describe a shape nobody declared. Also before check_deprecated, which
     # reads the flooded version out of `processing:software` and takes a malformed one as
-    # absent — so without this first, a software map of the wrong TYPE reports 21 items as
-    # unmarked-and-not-rebuilt instead of the one shape message that names the cause.
+    # absent — so without this first, a software map of the wrong TYPE reports all 23 items
+    # as unmarked-and-not-rebuilt instead of the one shape message that names the cause.
     bad_prefixes = check_field_prefixes(args.base)
     if bad_prefixes:
         print(f"FAILED: {len(bad_prefixes)} field-name problem(s)", file=sys.stderr)

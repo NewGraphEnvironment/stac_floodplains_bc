@@ -522,7 +522,7 @@ if [ "$n_retired" -gt 0 ]; then
     code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
     ident=""
     if [ "$code" = 200 ]; then
-      # Only now the body, which is 5.6-18.3 MB per item on the v2.0.0 build (measured; it
+      # Only now the body, which is 5.6-18.2 MB per item on the v2.0.0 build (measured; it
       # was 4-9 MB before the whole network widened every item). Bounded by construction:
       # $not_live is EMPTY on any release where every id in the literal is still live, i.e.
       # every release except a re-run. Do not "optimise" this back to a HEAD — that is the
@@ -726,7 +726,7 @@ else
       # A here-string, not a pipe. `grep -q` exits at its first match, and under `set -o
       # pipefail` the writer's SIGPIPE becomes the test's answer once the text exceeds the pipe
       # buffer — measured at 64 KiB on this machine. NEWS.md is 47,156 B on the v2.0.0
-      # commit and its top section 36,128 B, so this is not reachable yet; it is 1.8x of
+      # commit and its top section 36,129 B, so this is not reachable yet; it is 1.8x of
       # margin on a file that only grows — it was 2.2x before this release's own entry — and
       # the failure would read as "the id is not named" for an id that is.
       # This file already documents the trap for `grep -m1` a few lines up.

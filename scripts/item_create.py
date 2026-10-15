@@ -723,7 +723,7 @@ collection.add_link(pystac.Link(
 ))
 
 # Summaries let a client discover the queryable values without downloading items —
-# which matters here because the items are 5.6-18.3 MB each. Derived from the built items
+# which matters here because the items are 5.6-18.2 MB each. Derived from the built items
 # rather than hardcoded, so adding a scenario upstream cannot leave this stale.
 collection.summaries = pystac.Summaries({
     "scenario": sorted({i.properties["scenario"] for i in items}),
