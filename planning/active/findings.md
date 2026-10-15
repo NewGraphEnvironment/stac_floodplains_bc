@@ -100,6 +100,74 @@ cannot be told from a measurement that worked. Nothing staged is now its own ref
 resolved `$FLOODPLAINS_DATA`: the same stance `item_validate.py` takes on a wrong `--base` rather
 than reporting `valid: 0` and exiting 0.
 
+## Plan review (Plan agent, unnamed, returned 14 min after spawn)
+
+Findings verified before acting, both directions. Three were load-bearing:
+
+**1. The staged census and the published one differ by construction, in one place — and today's
+tree cannot build.** `link_version` and `link_sha` publish as one `processing:software` entry, so
+`prov_present()` (`item_validate.py:604-613`) reads both from that single value, and
+`item_create.py:506-521` **raises** `SystemExit` on a half-present entry rather than writing
+`+<sha>`. Verified against the record: `data/dunc/provenance.json` carries
+`inputs.link.version: 0.50.0` with `link_log: null` (`link_log_note: "no log row for DUNC in
+schema 'fresh'"`), so DUNC stages `link_version` with a value and `link_sha` null. DUNC stages —
+config in `columbia.yml`, both bundles, seven classified rasters — so **`run_pipeline.sh` aborts
+on `dunc_all_ff04`, whichever region a release is for**. #89's "DUNC is not a gate" is true of
+the catalogue and false of the build; its body is corrected. The pairing is asserted in
+`prov_fields-check.py`, where `PROV_SOFTWARE` lives, rather than copied into R.
+
+**2. `!length(years)` was swallowing a build abort.** `01_stage.R:375` skips only when the
+raster *directory* is absent. A directory holding none or one `classified_*.tif` reaches
+`fp_years_reconcile()` at `:410`, which stops — and `01_stage.R` has no per-area `tryCatch`, so
+the build stops. The draft treated that as a skip, which is the dangerous direction the script
+exists to argue against: a census for a tree that cannot build. Split: `!dir.exists()` is the
+skip, anything else goes to the reader arms. (Today both coincide — none of the three skipped
+groups has an `all_ff04` raster directory at all.)
+
+**3. `fp_prov_span()` was never called**, so six enumerable build-abort states were invisible and
+the "year set taken from disk, unchecked" count was not produced. Now called in the build's own
+order (`span -> years -> reconcile -> rasters_current -> item`), which also means the first
+refusal an operator sees is the one the build would show them. `TRANSITION_SPAN` is parsed out of
+`01_stage.R` by the same helper as `PROV_FIELDS`, never copied.
+
+Also accepted: the paste block moved to column 0 (an indented `PROV_CENSUS = {` is an
+`IndentationError` to `prov_fields-check.py`'s `literal()`, and the floor is grepped with an
+anchored `^PROVENANCE_FLOOR=`); group-level skips and failures now name their target ids and
+feed a per-item accounting identity asserted before any number prints; `WSG_ONLY` refuses
+outright, since it would stage one group against a full-roster census; a region file with no
+`region:` is a recorded failure, as it stops the build; `git rev-parse --short HEAD` beside
+`describe`, which yields no sha when HEAD is on a tag; the `ALLOW_SKIPPED` banner no longer
+over-promises (it waives the `PARTIAL_STAGE` marker and nothing else — not step 0's refusal of a
+build missing a live item).
+
+Declined, each named in the script: reading the GeoPackages' layer keys (needs `sf`/GDAL, the
+dependency separating "runs where a build cannot" from "needs the build env" — 0.6 s for BULK's
+two bundles, so it is affordable and still the wrong trade); comparing `drift_version` against
+the installed `drift` (needs `drift`); deriving `prov_fields-check.py`'s fixture from
+`PROV_CENSUS` (the user chose otherwise at the plan gate, and it would make that file's census
+arm assert the literal against itself); per-group count accumulation (a failure discards the
+census, so nothing leaks — the accounting identity covers the interim).
+
+**One correction to the review, and one to this branch's own comment.** The review's "kotl has
+`all_*` floodplain sections" and the earlier probe's "kotl's floodplain holds only `bt_*`" are
+both right, 14 minutes apart: a `run_region.R columbia` run was in flight (`pgrep`: started
+17:14:55Z, `run_area.R kotl 1,2,3`), and KOTL's record gained `network/all2` and
+`floodplain/all_ff0*` between the two reads. The caveat the issue asked for is therefore not
+hypothetical — it happened during the work. The script's header says so.
+
+## The new arms fire (mutation table, 2026-10-15)
+
+Run over a copy of `scripts/` so the working tree was never patched. Control: 49 assertions,
+0 failed.
+
+| mutation | arm that fired |
+|---|---|
+| `PROV_CENSUS["link_sha"] = 20` beside `link_version` 21 | "equal census counts" |
+| `PROVENANCE_FLOOR=17` under a census of 21 | "bounds every per-field census count" |
+| `PROV_FIELDS <- c(...)` appended to the measure script | "parses its literals out of 01_stage.R" |
+| `prov_fields-check.py` dropped from the paste block | "...does not name [...]" |
+| the raster-skip expression reworded in the measure script | "no longer share" |
+
 ## Errors Encountered
 
 | Error | Resolution |

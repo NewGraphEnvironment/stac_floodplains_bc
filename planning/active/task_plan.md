@@ -93,15 +93,15 @@ so it cannot escape).
 
 ## Phase 3 — say what it is, where it is read
 
-- [ ] `scripts/README.md`: its own short section beside the three check-script sections, stating
+- [x] `scripts/README.md`: its own short section beside the three check-script sections, stating
       in as many words that it **produces** an expectation rather than asserting one, so a passing
       run is never read as a gate. The three numbers it feeds, and that it needs
       `$FLOODPLAINS_DATA` but no build.
-- [ ] `CLAUDE.md`: name it in the `PROVENANCE_FLOOR` / `PROV_CENSUS` paragraphs as where the
+- [x] `CLAUDE.md`: name it in the `PROVENANCE_FLOOR` / `PROV_CENSUS` paragraphs as where the
       re-taken numbers come from. The stale-literal paragraph stays as written — this issue does
       not re-take them.
-- [ ] `NEWS.md`: an entry under `## Unreleased`.
-- [ ] Issue #89, step 3: drop the "until that exists, read it off `01_stage.R`'s output" clause and
+- [x] `NEWS.md`: an entry under `## Unreleased`.
+- [x] Issue #89, step 3: drop the "until that exists, read it off `01_stage.R`'s output" clause and
       name the script. Body edited, not appended.
 
 ## Phase 4 — reconcile with `prov_fields-check.py`
@@ -110,9 +110,9 @@ so it cannot escape).
 builds an 18 + 3 + 2 item fixture to match. Re-taking the census turns that red, which is correct
 but says nothing about the second and third hardcodes.
 
-- [ ] The measure script's paste-ready block names **all three** destinations, including
+- [x] The measure script's paste-ready block names **all three** destinations, including
       `prov_fields-check.py`'s fixture populations, so a re-take cannot move two of three.
-- [ ] `prov_fields-check.py` gains a comment naming `prov_census-measure.R` as the producer of the
+- [x] `prov_fields-check.py` gains a comment naming `prov_census-measure.R` as the producer of the
       numbers it asserts, and a static arm that the measure script carries no copy of the field
       list — the same instrument it already uses to join the four publish-side copies of the field
       map.

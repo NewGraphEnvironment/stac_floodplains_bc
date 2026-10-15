@@ -27,6 +27,34 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
+### The floor and the census are produced, not hand-derived (#82)
+
+`scripts/prov_census-measure.R` prints `PROVENANCE_FLOOR`, `PROV_CENSUS` and
+`prov_fields-check.py`'s fixture populations from `$FLOODPLAINS_DATA`, with no build. It is a
+**measurement, not a gate** — the one script in `scripts/` not named `-check`, because every
+`*-check` there asserts an expectation and this one makes one. It walks the roster the way
+`01_stage.R` does and drives `fp_provenance.R`, so the numbers come from the code the build reads
+provenance with; it mirrors the build's selection in the build's order, so a target with no
+rasters is skipped rather than read, as `01_stage.R` skips it. It refuses with no census and a
+non-zero exit on any failed read, and on a run that stages nothing, because a floor of 0 was once
+true and is also what a reader that found nothing produces. An absent record is not a failure but
+the forward-only state.
+
+It is the **pre-flight, not the authority**: `item_validate.py` prints the same twelve counts
+from the published items as its `census:` line, which this script also emits in that exact
+format, so the two can be diffed. `prov_fields-check.py` gains three arms over the literals
+themselves — fields sharing one `processing:software` entry must carry equal counts, the floor
+must bound every count, and the measure script must parse its field list out of `01_stage.R` and
+still name all three destinations. It mirrors `01_stage.R`'s roster walk rather than sharing one;
+#90 tracks extracting an `fp_roster.R`, and three static arms hold the mirror in place until then.
+
+Measured through it 2026-10-15: 23 rostered targets, 20 staging, floor 20, `link_run_uid` 18,
+`link_config_sha256`/`link_sha` 19, with a `columbia` run in flight upstream. **The literals are
+unchanged** — and a build of that tree does not finish: DUNC stages carrying `link_version` with
+`link_sha` null, two fields of one `processing:software` entry, so `item_create.py` raises on it.
+floodplains#133 gates the whole build rather than Columbia's items alone. The literals are
+re-taken on the build each release is cut from, which is what the script is for.
+
 ### The release retires the items it replaces, in band (#76)
 
 Nothing published changes yet. No `*_all_ff04` item is live, and a full release is blocked

@@ -249,6 +249,41 @@ field and not per section**, because per section is false on the published catal
 carries values, which is modelled upstream (a block whose schema predates link#262), so an
 all-or-nothing section arm would refuse three live items.
 
+**A build of today's tree aborts, so no release can be cut from it** — the mechanism, measured
+2026-10-15 (#82), is sharper than "DUNC is blocked". DUNC stages (config in `columbia.yml`, both
+bundles, seven rasters) carrying `inputs.link.version` with `link_log: null`, so `link_version`
+stages with a value and `link_sha` stages null; those two publish as ONE `processing:software`
+entry and `item_create.py` **raises** on a half-present entry rather than writing `+<sha>`. So
+floodplains#133 gates the whole build, not just Columbia's items, and #89's "DUNC is not a gate"
+is true of the catalogue and false of the build. It is also the one way a staged census and a
+published one differ by construction, which is why `prov_fields-check.py` now refuses a
+`PROV_CENSUS` whose paired fields disagree.
+
+**`scripts/prov_census-measure.R` is what produces both numbers** (#82), and it is a
+**measurement, not a gate** — the one script here not named `-check`, because every `*-check`
+asserts an expectation and this one makes one. It needs `$FLOODPLAINS_DATA` and no build: it walks
+the roster the way `01_stage.R` does and drives `fp_provenance.R`, so the numbers come from the
+code the build reads provenance with rather than from a second implementation, and it prints all
+three literals that move together (the floor, the census, and `prov_fields-check.py`'s fixture
+populations) because #75 found two of the three stale. It mirrors the build's selection **in the
+build's order**, which is load-bearing rather than tidy: the no-rasters skip sits above
+`01_stage.R`'s first `fp_prov_*` call, so the three Columbia groups still declaring `all_ff04`
+over `bt_*` records are skipped rather than read, where reading them raises. It refuses — no
+census, non-zero — on any failed read, and on a run that stages nothing, since a floor of 0 was
+once true and is also what a reader that found nothing produces. An absent `provenance.json` is
+not a failure but the forward-only state, and such an item is what the floor's denominator counts.
+**The literals still are not re-taken** (above). Measured through it 2026-10-15: 23 rostered
+targets, 20 staging, floor 20, `link_run_uid` 18, `link_config_sha256`/`link_sha` 19, the other
+nine 20 — a different shape again from 2026-10-14's 23/21, because the Fraser and Peace runs
+landed and the three unconverted Columbia groups now skip instead of counting. That the
+denominator moves between builds is the reason the number is re-taken per build rather than
+carried, and a `columbia` run was in flight while that was measured, which is what the printed
+timestamp and producer HEAD exist to say. **It is the pre-flight, not the authority**:
+`item_validate.py` prints the same twelve counts from the published items, in the same format, and
+the build's line is what a release sets the literals from. It mirrors `01_stage.R`'s roster walk
+rather than sharing one (#90), with three static arms in `prov_fields-check.py` holding the
+mirrored expressions in place.
+
 `--only` cannot meet a full-tree expectation, so its preflight compares against the live item
 instead, in two arms. **Values**, from the API, per field, with both sides canonicalised to the
 staged names — a scan for either naming scheme alone would compare a renamed build against a

@@ -32,3 +32,16 @@
 - Added a guard the plan did not have: nothing staged is now its own refusal. The skip arms were
   printing `PROVENANCE_FLOOR=0` and exiting 0, and 0 is both a legitimate past value and what a
   reader that found nothing produces.
+
+### Phases 3 and 4, and the plan review folded in
+- The review landed mid-Phase 4 and moved Phase 1 as well: see `findings.md` for the three
+  load-bearing findings (the `processing:software` pairing and today's aborting build; the
+  no-rasters skip swallowing a build stop; `fp_prov_span()` never called), what was declined and
+  why, and the mutation table for the five new arms.
+- Docs: `scripts/README.md` gains its own section naming it a measurement and the pre-flight
+  rather than the authority; `CLAUDE.md` and `NEWS.md` likewise, plus the aborting-build finding.
+- Issues: #90 filed for the `fp_roster.R` extraction the mirror defers (the number was written
+  only after filing). #89's body corrected in two places — its DUNC bullet, which was wrong about
+  the build, and step 3, which now names the build's own `census:` line as the authority.
+- `prov_fields-check.py`: three arms over the literals, a comment naming the producer, and a note
+  that the all-absent fixture population stays even though the live catalogue no longer has one.
