@@ -6,7 +6,7 @@
 `check_checksums` gained the two-population partition: fixed asset keys compared across
 items, `classified_*` keys checked per item against the ALLOWED_YEAR_SETS literal, plus an
 arm comparing an item's published classified assets against the COGs actually in its
-directory. Those arms are reached only after ~670 MB of real hashing on a real build, and
+directory. Those arms are reached only after ~1.3 GB of real hashing on a real build, and
 one of them is dropped under `--partial` — so a full-tree run is a bad place to find out
 whether any of them works.
 

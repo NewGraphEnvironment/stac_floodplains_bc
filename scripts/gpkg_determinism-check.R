@@ -27,8 +27,8 @@ source(file.path("scripts", "fp_gpkg.R"))   # the real writers, not copies of th
 # Smallest staged item by default. SLOC flipped to the whole network in the Columbia run of
 # 2026-10-15, so the default moved with it (#89) — exactly as the note this comment replaces
 # said it would have to. The failure mode the note existed for is the one the `ufra` defaults
-# in test_pipeline.R and stage_years-check.R hit: an id nothing stages any more, which stops
-# the script rather than checking anything (#76).
+# in test_pipeline.R and stage_years-check.R CARRIED, before #76 moved both to `bulk`: an id
+# nothing stages any more, which stops the script rather than checking anything.
 item <- Sys.getenv("ITEM", unset = "sloc_all_ff04")
 # Strict truthiness: nzchar() would read NO_PIN=0 as enabled, so an operator turning the
 # cold path OFF would turn it on and get "PASS (cold path)" for what they think is a warm

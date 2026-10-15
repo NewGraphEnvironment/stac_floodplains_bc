@@ -15,7 +15,7 @@
 # so both are skipped under --only, out loud. The item must already be live: a new item
 # needs the collection's extent/summaries/links updated, which only a full release does.
 # Validation still covers the whole tree on disk, so with a full 23-item build present
-# --only re-hashes ~640 MB of assets; correct, just slow. Proven by
+# --only re-hashes that item's assets; correct, just slow. Proven by
 # scripts/catalogue_release-check.sh, which runs this script against shims.
 #
 # Requires: data/stac (built by run_pipeline.sh), AWS credentials, SSH to geopro.
@@ -360,7 +360,7 @@ done | LC_ALL=C sort)
 n_local=$(printf '%s\n' "$local_ids" | grep -c . || true)
 [ "$n_local" -ge 1 ] || { echo "No item JSON in $STAC_DIR." >&2; exit 1; }
 
-# Fail before the sync if the host is unreachable, rather than after 700 MB is up.
+# Fail before the sync if the host is unreachable, rather than after ~1.3 GB is up.
 ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" true 2>/dev/null \
   || { echo "Cannot ssh to $HOST — see rtj#193 for key authorization." >&2; exit 1; }
 
@@ -522,10 +522,11 @@ if [ "$n_retired" -gt 0 ]; then
     code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
     ident=""
     if [ "$code" = 200 ]; then
-      # Only now the body, which is 4-9 MB per item (bulk_co_ff04.json is 8,587,448 bytes,
-      # measured). Bounded by construction: $not_live is EMPTY on any release where every id in
-      # the literal is still live, i.e. every release except a re-run. Do not "optimise" this
-      # back to a HEAD — that is the defect above.
+      # Only now the body, which is 5.6-18.3 MB per item on the v2.0.0 build (measured; it
+      # was 4-9 MB before the whole network widened every item). Bounded by construction:
+      # $not_live is EMPTY on any release where every id in the literal is still live, i.e.
+      # every release except a re-run. Do not "optimise" this back to a HEAD — that is the
+      # defect above. NOTE the --max-time 60 below is now against an 18 MB body.
       ident=$(curl -sf --max-time 60 "$S3_BASE/$id.json" 2>/dev/null \
         | python3 -c "import sys, json
 try:
@@ -683,7 +684,8 @@ else
   # The FIRST section heading, whatever it is: an "## Unreleased" above the version entry
   # is exactly the state this gate exists to refuse, and a grep for '^## v' would skip it.
   # Here-string for the same SIGPIPE reason as the id scan below; `grep -m1` exits early too,
-  # and $news is the whole file (39,573 B measured, against a 64 KiB pipe buffer).
+  # and $news is the whole file (47,156 B on the v2.0.0 commit, against a 64 KiB pipe
+  # buffer — 1.39x, so re-measure this one as NEWS.md grows).
   if ! news_top=$(grep -m1 -E '^## ' <<<"$news"); then
     echo "NEWS.md in $tag has no '## ' heading — the release entry goes at the top." >&2
     exit 1
@@ -723,9 +725,10 @@ else
       # so none of them can carry a regex metacharacter into this pattern.
       # A here-string, not a pipe. `grep -q` exits at its first match, and under `set -o
       # pipefail` the writer's SIGPIPE becomes the test's answer once the text exceeds the pipe
-      # buffer — measured at 64 KiB on this machine. NEWS.md is 39,573 B today and its top
-      # section 29,165 B, so this is not reachable yet; it is 2.2x of margin on a file that
-      # only grows, and the failure would read as "the id is not named" for an id that is.
+      # buffer — measured at 64 KiB on this machine. NEWS.md is 47,156 B on the v2.0.0
+      # commit and its top section 36,128 B, so this is not reachable yet; it is 1.8x of
+      # margin on a file that only grows — it was 2.2x before this release's own entry — and
+      # the failure would read as "the id is not named" for an id that is.
       # This file already documents the trap for `grep -m1` a few lines up.
       grep -qE "(^|[^A-Za-z0-9_-])$id([^A-Za-z0-9_-]|\$)" <<<"$news_entry" \
         || unnamed="$unnamed $id"

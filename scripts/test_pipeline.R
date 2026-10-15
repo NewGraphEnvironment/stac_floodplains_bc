@@ -323,7 +323,8 @@ for (mp in meta_paths) {
   # The transition COG and the transition gpkg must BOTH be present under distinct keys.
   # `transition_2017_2023` is the COG key and is also the stem of the gpkg's old proposed
   # filename, so keying the vector by its stem would silently replace the raster and still
-  # leave 7 assets. Assert both survive.
+  # leave the item's other assets (10 on a three-year item, 14 on an annual-span one).
+  # Assert both survive.
   for (akey in c(paste0("transition_", meta$transition_span[[1]], "_",
                         meta$transition_span[[2]]), "transition_vector")) {
     if (is.null(item_assets[[akey]])) stop("asset '", akey, "' missing from ", basename(item_json))

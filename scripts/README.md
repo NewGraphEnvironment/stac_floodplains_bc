@@ -59,10 +59,13 @@ over all three, and its `NO_PIN=1` cold path proves the check can fail.
 string is hex, so it accepts a bare digest and cannot catch a checksum of the wrong bytes; both are
 asserted in `item_validate.py` instead. Verifying re-reads every asset — that is the cost
 of the guard actually guarding something. The two GeoPackage bundles are the bulk of it:
-1124.6 MB across the 23 rostered groups, measured on the v2.0.0 build, down 478 MB from the
-whole-file copies #80 retired (1602.6 MB). Both numbers rose against the 643/827 measured
-2026-10-14, because that roster was mostly species items and the whole network is a larger
-extent. The tree total also carries the COGs and is re-taken at a full build.
+1035.3 MiB across the 23 rostered groups, measured on the v2.0.0 build, down 567.2 MiB from
+the whole-file copies #80 retired (1602.6 MiB). Both sides are the same two files;
+`transition_vector.gpkg` adds 89.3 MiB and is excluded, because it was never a whole-file
+copy and counting it only on the "after" side would understate the saving. Both numbers rose
+against the 643/827 measured 2026-10-14, because that roster was mostly species items and the
+whole network is a larger extent. All staged assets together are 1338.3 MB, which is what
+the re-read actually costs; it is re-taken at a full build.
 
 ## Release — `catalogue_release.sh`
 
@@ -272,7 +275,7 @@ Use it after any change to the scripts, the floodplains data layout, or the STAC
 a real full publish.
 
 ```
-Rscript scripts/test_pipeline.R            # defaults to UFRA
+Rscript scripts/test_pipeline.R            # defaults to bulk
 WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
 WSG=bulk Rscript scripts/test_pipeline.R   # whole-network group: species `all`, 7-year span
 ```

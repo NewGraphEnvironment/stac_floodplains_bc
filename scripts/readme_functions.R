@@ -327,7 +327,7 @@ fp_readme_geom <- function(features) {
 #' Watershed-group polygons for exactly the groups the collection publishes
 #'
 #' `bcdata` + `bcmaps` only — no `fwapgr` dependency (airvine, 2026-09-04). Simplified, because
-#' the unsimplified 22 groups are ~6 MB and this is both a committed cache and an embedded map
+#' the unsimplified 23 groups are ~6 MB and this is both a committed cache and an embedded map
 #' layer. The SET of groups comes from the API call, so the map cannot show a group the
 #' collection does not publish.
 fp_readme_wsg <- function(wsg_codes, dTolerance = 200) {

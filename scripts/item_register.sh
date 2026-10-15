@@ -34,7 +34,8 @@ COLLECTION="${COLLECTION:-stac-floodplains-bc}"
 # Compact each item to one NDJSON line, single-threaded and to a local temp file.
 # Two reasons this is not piped straight into ssh: a compaction failure on file 12
 # of 17 then fails before any byte reaches the droplet, and we need the line count
-# below. Items here are 3-9 MB each (~94 MB total) — big enough that correctness
+# below. Items here are 5.6-18.3 MB each (252.6 MB total, measured on the v2.0.0 build) —
+# big enough that correctness
 # of the transfer is not something to assume.
 TMP=$(mktemp -t stac_items.XXXXXX)
 trap 'rm -f "$TMP"' EXIT

@@ -8,7 +8,7 @@
 That retired the guard this repo leaned on hardest — set equality over the `nge:` key set —
 and replaced it with a declared-key arm, a per-field census, a biconditional on the processing
 extension, and a prefix table. None of those is reached by a normal build: the census and the
-floor are release-only, and the COG-tag arms sit behind ~670 MB of real hashing.
+floor are release-only, and the COG-tag arms sit behind ~1.3 GB of real hashing.
 
 Each case builds a tiny synthetic `data/stac`-shaped tree. The COG arms write real
 single-pixel GeoTIFFs with real GDAL tags, because `check_cog_tags` opens the file.

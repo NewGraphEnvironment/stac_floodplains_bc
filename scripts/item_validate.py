@@ -1324,7 +1324,8 @@ def check_pixel_values(base: Path) -> list[str]:
             # catalogue_release.sh's gate, which is meant to be runnable from a machine
             # that does not hold the source tree, so a hard 2 GB floor would OOM after the
             # entire build had already succeeded. Blockwise gives the identical answer
-            # across all four COGs at 0.85 GB, and 0.34 GB under GDAL_CACHEMAX=64 — the
+            # across the four COGs of a three-year item at 0.85 GB, and 0.34 GB under
+            # GDAL_CACHEMAX=64 (an annual-span item carries eight) — the
             # remainder is GDAL's own block cache, which sizes itself to a fraction of
             # available RAM rather than being a floor.
             with rasterio.open(local) as ds:
@@ -2010,7 +2011,7 @@ def main() -> int:
                 # Both checks run before either can `continue`, so a wrong licence and a
                 # half-applied version stamp are reported together rather than one release
                 # apart. And both run HERE rather than after the count check below: that
-                # would put them behind check_checksums' ~670 MB re-read, which
+                # would put them behind check_checksums' ~1.3 GB re-read, which
                 # short-circuits on any asset drift and would make a restore-the-bug proof
                 # for these guards meaningless (#46).
                 coll_problems = check_collection_metadata(doc)
@@ -2088,7 +2089,7 @@ def main() -> int:
 
     # --- deprecation: are the over-mapped items marked, and only them? (#26) ---
     # Here rather than after check_checksums, for the same reason as the premise check above:
-    # behind the 670 MB re-read, any asset drift short-circuits it and a restore-the-bug proof
+    # behind the ~1.3 GB re-read, any asset drift short-circuits it and a restore-the-bug proof
     # for this guard proves nothing (#46).
     bad_dep = check_deprecated(args.base, partial=args.partial)
     if bad_dep:
@@ -2120,7 +2121,7 @@ def main() -> int:
 
     # --- file extension: do the published checksums describe the bytes we ship? ---
     #
-    # This re-reads every asset (~670 MB, ~2.5s). That cost buys the only thing the
+    # This re-reads every asset (~1.3 GB on the v2.0.0 build). That cost buys the only thing the
     # schema cannot give us: the file extension's pattern is `^[a-f0-9]+$`, so a bare
     # sha256 with no multihash prefix validates cleanly, and so does a well-formed
     # checksum of the wrong bytes. A guard that only checked the field was present

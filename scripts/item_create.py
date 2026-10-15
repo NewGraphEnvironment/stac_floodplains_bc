@@ -723,15 +723,17 @@ collection.add_link(pystac.Link(
 ))
 
 # Summaries let a client discover the queryable values without downloading items —
-# which matters here because the items are 3-9 MB each. Derived from the built items
+# which matters here because the items are 5.6-18.3 MB each. Derived from the built items
 # rather than hardcoded, so adding a scenario upstream cannot leave this stale.
 collection.summaries = pystac.Summaries({
     "scenario": sorted({i.properties["scenario"] for i in items}),
     "species": sorted({i.properties["species"] for i in items}),
     "region": sorted({i.properties["region"] for i in items}),
-    # A Set of Values, not a Range Object. Flood factor is discrete (2/4/6) and today
-    # only 4 and 6 exist — a range would advertise flood_factor=5 as available, and a
-    # client building a filter list from this summary would offer it and get nothing.
+    # A Set of Values, not a Range Object. Flood factor is discrete (2/4/6) and since
+    # v2.0.0 only 4 is published — a range would advertise flood_factor=3 and 5 as
+    # available, and a client building a filter list from this summary would offer them
+    # and get nothing. The set is derived, so it widens on its own if a group ever
+    # declares an ff02 or ff06 target again.
     "flood_factor": sorted({i.properties["flood_factor"] for i in items}),
 })
 for item in items:

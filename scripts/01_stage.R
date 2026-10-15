@@ -525,8 +525,10 @@ for (wsg in wsgs) {
     # filter to feature layers, so an aspatial family never reaches it. A line per item is
     # what makes that hole legible until #65 closes it.
     #
-    # BOTH bundles, not just the landcover one. Every `attributes` layer upstream is in the
-    # landcover bundle today (measured: 30 of 30), so scanning only that one was right about
+    # BOTH bundles, not just the landcover one. Every `attributes` layer in the two bundles
+    # staged from is in the landcover one (measured on the v2.0.0 tree: 68 of 68; upstream's
+    # aquatic_network.gpkg holds 23 more that nothing here reads), so scanning only one was
+    # right about
     # the data and wrong about the question — `floodplain.gpkg` is a file this repo now
     # SELECTS layers into, and it is the bundle with no cover at all, because
     # 04_gpkg_style.py maps every layer of it to one style unconditionally.
