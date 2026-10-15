@@ -335,9 +335,11 @@ expect_clean("the release path runs it rather than an inline program",
 # `processing:software` entry, so `prov_present()` above reads both from that single value and
 # item_create.py REFUSES an item carrying one without the other rather than writing `+<sha>`
 # or a bare version. A census with unequal counts for two fields of one entry therefore
-# describes a tree whose build stops at item_create.py — DUNC is in exactly that state today
-# (`link_log: null`, `inputs.link.version` set; floodplains#133), so this arm is what stops
-# those numbers being pasted as an expectation.
+# describes a tree whose build stops at item_create.py. DUNC was in exactly that state
+# (`link_log: null`, `inputs.link.version` set; floodplains#133) from 2026-10-14 until the
+# Columbia run of 2026-10-15T18:38Z wrote it a `link_log`, which is how this arm came to be
+# written — it stays because the state recurs whenever upstream cannot resolve a sha, and a
+# census taken during one of those windows is what it stops being pasted.
 _uneven = [(entry, {f: PROV_CENSUS[f] for f in fields})
            for entry, fields in PROV_SOFTWARE.items()
            if len({PROV_CENSUS[f] for f in fields}) > 1]

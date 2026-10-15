@@ -249,15 +249,19 @@ field and not per section**, because per section is false on the published catal
 carries values, which is modelled upstream (a block whose schema predates link#262), so an
 all-or-nothing section arm would refuse three live items.
 
-**A build of today's tree aborts, so no release can be cut from it** — the mechanism, measured
-2026-10-15 (#82), is sharper than "DUNC is blocked". DUNC stages (config in `columbia.yml`, both
-bundles, seven rasters) carrying `inputs.link.version` with `link_log: null`, so `link_version`
-stages with a value and `link_sha` stages null; those two publish as ONE `processing:software`
-entry and `item_create.py` **raises** on a half-present entry rather than writing `+<sha>`. So
-floodplains#133 gates the whole build, not just Columbia's items, and #89's "DUNC is not a gate"
-is true of the catalogue and false of the build. It is also the one way a staged census and a
-published one differ by construction, which is why `prov_fields-check.py` now refuses a
-`PROV_CENSUS` whose paired fields disagree.
+**A half-present `processing:software` entry aborts the whole build, not just its own item** —
+measured 2026-10-15 (#82), and sharper than "DUNC is blocked". `link_version` comes from
+`inputs$link$version` and `link_sha` from `link_log$link_sha`, and the two publish as ONE
+`processing:software` entry, so `item_create.py` **raises** on an item carrying one without the
+other rather than writing `+<sha>`. DUNC stages (config in `columbia.yml`, both bundles, seven
+rasters) and was in exactly that state from 2026-10-14, so a rebuild aborted on it whichever
+region a release was for: floodplains#133 gated the whole build and not merely Columbia's items,
+which is what #89's "DUNC is not a gate" was wrong about. **The Columbia run of 2026-10-15
+cleared it** — measured 18:38Z, `network/all2` now carries a `link_log` with
+`link_sha 8215d2d0…`, the pair is even at 23, and a build no longer aborts (floodplains#133 is
+still open as written). The mechanism is kept because the state recurs whenever upstream cannot
+resolve a sha, and it is the one way a staged census and a published one differ by construction
+— which is why `prov_fields-check.py` refuses a `PROV_CENSUS` whose paired fields disagree.
 
 **`scripts/prov_census-measure.R` is what produces both numbers** (#82), and it is a
 **measurement, not a gate** — the one script here not named `-check`, because every `*-check`
@@ -267,8 +271,9 @@ code the build reads provenance with rather than from a second implementation, a
 three literals that move together (the floor, the census, and `prov_fields-check.py`'s fixture
 populations) because #75 found two of the three stale. It mirrors the build's selection **in the
 build's order**, which is load-bearing rather than tidy: the no-rasters skip sits above
-`01_stage.R`'s first `fp_prov_*` call, so the three Columbia groups still declaring `all_ff04`
-over `bt_*` records are skipped rather than read, where reading them raises. It refuses — no
+`01_stage.R`'s first `fp_prov_*` call, so a group whose config is converted ahead of its run is
+skipped rather than read, where reading it raises — three Columbia groups at 2026-10-15T17:37Z
+and none at 18:38Z, the count moving hourly while a run lands. It refuses — no
 census, non-zero — on any failed read, and on a run that stages nothing, since a floor of 0 was
 once true and is also what a reader that found nothing produces. An absent `provenance.json` is
 not a failure but the forward-only state, and such an item is what the floor's denominator counts.
@@ -282,9 +287,10 @@ timestamp and producer HEAD exist to say — 20 minutes later the same command R
 that run had written KOTL's `all_ff04` rasters and not yet stamped its landcover section, so a
 skipped target became a would-stage one whose record does not describe it (the state a build
 stops on too). Measured
-again at 18:16Z, after KOTL finished: 21 staged, floor 21, `link_config_sha256`/`link_sha` 20. So
-the same command over one tree gave 20/20, then a refusal, then 21/21 inside 40 minutes — which is
-the whole argument for an exact literal re-taken per build rather than carried between releases.
+again as the run landed: 21/21 at 18:16Z, 22/22 at 18:33Z, and 23 rostered / 23 staged / floor 23
+at 18:38Z with `link_run_uid` 18 and the other eleven 23. So the same command over one tree gave
+five different answers in an hour, one of them a refusal — which is the whole argument for an
+exact literal re-taken on the build a release is cut from rather than carried between releases.
 **It is the pre-flight, not the authority**:
 `item_validate.py` prints the same twelve counts from the published items, in the same format, and
 the build's line is what a release sets the literals from. It mirrors `01_stage.R`'s roster walk

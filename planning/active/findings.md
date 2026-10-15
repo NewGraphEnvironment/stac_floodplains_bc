@@ -255,6 +255,80 @@ reads raw source any more. Six mutations fire, each on its own arm's message, co
 | destination moved to a trailing comment | paste block |
 | preflight inlined, module named only in a comment | the release runs it |
 
+## /code-check round 3, and the third mechanism
+
+Round 3 attacked both enumerations and neither broke. It confirmed the source-text set is
+**exactly eight** (`prov_census-measure.R` reads source once, at `:94`, and only through an AST
+walk), ran **14 mutations and all 14 fired**, and measured `_code_only()` over all three files it
+is applied to: 0 over-strips, 0 surviving comments, the 26 surviving `#` all inside string
+literals or shell parameter expansions. Its one structural limit — per-line quote reset, so a
+multi-line string would mis-strip — it showed unreachable: no R line leaves a quote open, and
+`catalogue_release.sh`'s 18 that do sit far from the only 400-char window a shell arm reads.
+
+For the first mechanism it built a **38-row table from `01_stage.R` in file order**, cross-checked
+by grep for every `stop(`/`stopifnot`/`SKIPPED`/`warning(`/`next` between `:130` and `:721` plus
+every implicit raise from a called function, and `grep Sys.getenv` (exactly four env vars, no
+fifth). Every row is mirrored, or declined with the decline named in the header, and **every
+decline is in the direction where the build stages fewer items or stops outright** — which an
+exact-in-both-directions literal makes loud. No miss. Both walks measured identical on the real
+tree: same 23 groups, same order.
+
+Its one finding is a **third mechanism**: an undated count about the moving upstream tree,
+restated in several copies, where fixing one copy leaves the others. Round 2's finding (i) fixed
+`scripts/README.md`; the script header kept the undated form, and it had already gone false.
+
+### Enumeration for the third mechanism
+
+Candidate set: every count or temporal claim about the upstream tree in this branch's added
+prose, enumerated by grep over the diff rather than recalled —
+
+```bash
+git diff $(git merge-base origin/main HEAD)...HEAD -- scripts/ CLAUDE.md NEWS.md \
+  | grep -E "^\+" | grep -inE "\btoday\b|\bthree\b|\btwo\b|\bnow\b|\bcurrent\b|kotl|larl|sloc|dunc|mcgr|pine"
+```
+
+68 hits, of which 58 are structural counts about the CODE (three literals, two of three, three
+mirrored expressions) and are invariant. The ten that are claims about the tree:
+
+| claim | verdict |
+|---|---|
+| script header, "three rostered targets are in exactly that state" | **stale** — dated, and the whole series given |
+| script header, "DUNC is in exactly that state today" | **stale** — see below |
+| script header, "every skip happens to be a target — which it is today" | de-tensed to the condition |
+| script header, "the populations ... covers today" | de-tensed; it is about the fixture, not the tree |
+| `prov_fields-check.py`, "DUNC is in exactly that state today" | **stale** — see below |
+| `prov_fields-check.py`, "measured 2026-10-15 it is already empty" | dated already |
+| `CLAUDE.md`, "the three Columbia groups still declaring all_ff04" | **stale** — dated, both ends |
+| `CLAUDE.md`/`NEWS.md`, the 17:37Z census | dated already |
+| `CLAUDE.md`, "a build of today's tree aborts" | **falsified during the review** — below |
+| `NEWS.md`, "a build of that tree does not finish" | same |
+
+## The tree moved five times, and falsified one of this branch's own claims
+
+One command, one tree, five answers in 61 minutes while `run_region.R columbia` landed group by
+group:
+
+| UTC | result |
+|---|---|
+| 17:37 | floor 20, 20 staged, 3 skipped (`kotl`/`larl`/`sloc`) |
+| 17:58 | **refusal**, no census — KOTL's rasters written, its landcover section not yet stamped |
+| 18:16 | floor 21, 21 staged, 2 skipped |
+| 18:33 | floor 22, 22 staged, 1 skipped |
+| 18:38 | floor 23, 23 staged, none skipped; `link_run_uid` 18, the other eleven 23 |
+
+The last one **falsified a claim this branch had written into three files and an issue body**:
+that a build of the tree aborts because DUNC carries `link_version` without `link_sha`. Measured
+18:38Z, `data/dunc/provenance.json`'s `network/all2` now carries a `link_log` with
+`link_sha 8215d2d0…`, the pair is even at 23, and `item_create.py` no longer refuses it. The
+finding was true when measured (17:37-18:16Z) and the guard it produced stays, because the state
+recurs whenever upstream cannot resolve a sha — but every copy of the claim is corrected to say
+when it held, and floodplains#133 carries the measurement as a comment (still open; closing it is
+its owner's call). `link_log` carries no `run_uid` even now, which is the modelled
+`kotl`/`larl`/`sloc` shape and is why `link_run_uid` stays at 18.
+
+This is the rule about measurements carrying their timestamp, arriving as a correction to work in
+flight rather than as a convention to cite.
+
 ## Errors Encountered
 
 | Error | Resolution |

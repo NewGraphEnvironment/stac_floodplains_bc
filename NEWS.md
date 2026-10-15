@@ -48,15 +48,20 @@ must bound every count, and the measure script must parse its field list out of 
 still name all three destinations. It mirrors `01_stage.R`'s roster walk rather than sharing one;
 #90 tracks extracting an `fp_roster.R`, and three static arms hold the mirror in place until then.
 
-Measured through it three times on 2026-10-15 with a `columbia` run landing upstream: 20 staged
-and floor 20 at 17:37Z; a **refusal** at 17:58Z, because that run had written KOTL's `all_ff04`
-rasters and not yet stamped its landcover section; 21 staged and floor 21 at 18:16Z. One tree,
-one command, 40 minutes — which is the argument for re-taking an exact literal per build instead
-of carrying it between releases. **The literals are
-unchanged** — and a build of that tree does not finish: DUNC stages carrying `link_version` with
-`link_sha` null, two fields of one `processing:software` entry, so `item_create.py` raises on it.
-floodplains#133 gates the whole build rather than Columbia's items alone. The literals are
-re-taken on the build each release is cut from, which is what the script is for.
+Measured through it five times on 2026-10-15 while a `columbia` run landed upstream: floor 20 at
+17:37Z; a **refusal** at 17:58Z, because that run had written KOTL's `all_ff04` rasters and not
+yet stamped its landcover section; floor 21 at 18:16Z, 22 at 18:33Z, and 23 rostered / 23 staged
+/ floor 23 at 18:38Z with `link_run_uid` 18 and the other eleven 23. One tree, one command, five
+answers in an hour — which is the argument for re-taking an exact literal on the build a release
+is cut from instead of carrying it between releases.
+
+Two findings fell out of that, both recorded in `CLAUDE.md`: a **half-present
+`processing:software` entry aborts the whole build**, because `item_create.py` refuses an item
+carrying `link_version` without `link_sha` rather than writing `+<sha>` — so while DUNC was in
+that state a rebuild aborted on it whichever region a release was for, which is what #89's "DUNC
+is not a gate" was wrong about; and the Columbia run then **cleared** it, measured 18:38Z.
+**The literals here are unchanged either way**: they are re-taken on the build each release is
+cut from, which is what the script is for.
 
 ### The release retires the items it replaces, in band (#76)
 

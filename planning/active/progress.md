@@ -68,3 +68,15 @@
 - Terminated by enumeration, not by a quiet round: all eight source-text reads in
   `prov_fields-check.py` tabulated with why each cannot be satisfied by prose, `grep` showing no
   raw-text presence test remains, and six mutations firing on their own arms' messages.
+
+### /code-check branch, round 3 (1 finding, real, fixed) + a falsified claim
+- Round 3 attacked both enumerations and neither broke: the source-text set is exactly eight
+  (14 mutations, all firing), and a 38-row fidelity table from `01_stage.R` shows no miss, with
+  every decline in the direction where the build stages fewer items or stops.
+- Its finding is a third mechanism — an undated count restated in several copies, where round 2's
+  fix reached one of them. Enumerated by grep over the branch's added prose: 68 hits, 58
+  structural, 10 about the tree, 5 of those stale. All corrected.
+- While the review ran, the upstream Columbia run finished and **falsified this branch's own
+  DUNC claim**: `link_sha` now resolves from a log row, so a build no longer aborts. Corrected in
+  `CLAUDE.md`, `NEWS.md`, both scripts and #89's body; the measurement is a comment on
+  floodplains#133, which stays open for its owner.

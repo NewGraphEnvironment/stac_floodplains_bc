@@ -34,7 +34,9 @@
 # no publishable build can, and a build of such a tree stops at item_create.py rather than
 # producing a census at all. The pairing is asserted where the map lives, over the pasted
 # literal, by `prov_fields-check.py` — not copied into R, which would be a sixth copy of a
-# publish-side fact. DUNC is in exactly that state today (floodplains#133).
+# publish-side fact. DUNC was in exactly that state from 2026-10-14 until the Columbia run of
+# 2026-10-15 wrote it a `link_log` (floodplains#133, open as written); the arm stays because the
+# state is reachable whenever upstream cannot resolve a sha, not because one area had it.
 #
 # It needs `$FLOODPLAINS_DATA` and the config tree beside it, and nothing else: no stage, no
 # writes, no network, no database, and no `drift`/`sf`/GDAL — it runs on a machine that cannot
@@ -164,13 +166,14 @@ for (rf in region_files) {
 # --- Walk it ----------------------------------------------------------------------------
 # The build's SELECTION, in the build's ORDER, which is the one deviation from #82's spec and
 # is load-bearing rather than tidy. 01_stage.R's "no rasters" skip (:380) sits ABOVE its first
-# fp_prov_* call (:396), so a target with no rasters never reaches the reader. Three rostered
-# targets are in exactly that state (kotl/larl/sloc declare `all_ff04` while their landcover
-# sections hold only `bt_ff04` — KOTL's floodplain and network sections DO carry `all_*`, which
-# it gained mid-session from the run in flight), and walking the roster in the spec's order
-# raises on all three, printing NO census on a tree a build is perfectly happy with. Read
-# rather than skipped, they would also contribute part of a record and move the floor to a
-# number no build of this tree can produce.
+# fp_prov_* call (:380), so a target with no rasters never reaches the reader. A rostered target
+# sits in exactly that state whenever its group's config is converted ahead of its run: three
+# did at 2026-10-15T17:37Z (`kotl`, `larl`, `sloc`, declaring `all_ff04` over records holding
+# only `bt_ff04`), one did at 18:33Z and none at 18:38Z, as the Columbia run landed group by
+# group. Walking the roster in the spec's order raises on each of them, printing NO census on a
+# tree a build is perfectly happy with; read rather than skipped, they would also contribute
+# part of a record and move the floor to a number no build of that tree can produce. The count
+# is dated because it moves hourly during an upstream run — the state is what is permanent.
 #
 # A skip is therefore not a failure. It is recorded, named, and reported: the census then
 # describes exactly the set a build of this tree stages, which is the set the literals have to
@@ -183,8 +186,8 @@ skips <- character(0)        # display lines
 failures <- character(0)     # display lines, each carrying the reader's own message
 # Counted per ITEM, not inferred as roster minus staged: a skip or a read failure can land on a
 # whole GROUP (a missing bundle, an unreadable record) or on one TARGET, and the subtraction is
-# only right while every one of them happens to be a target — which it is today and will not
-# stay once an area.yml carries a `targets:` block again. The identity is asserted before any
+# only right while every skip happens to be a target, which is the case for every skip this
+# roster can produce until an `area.yml` carries a `targets:` block again. The identity is asserted before any
 # number is printed.
 n_targets <- 0L
 n_skipped <- 0L
@@ -452,8 +455,8 @@ cat("census: ", paste(sprintf("%s %d", PROV_FIELDS, counts[PROV_FIELDS]), collap
     "\n", sep = "")
 # The fixture's populations are the distinct ABSENCE PATTERNS, not the per-field counts: it
 # builds items, and an item is either whole, short of a field, or short of a section. Grouped
-# and named, so the fixture can be rewritten from this — the three populations
-# prov_fields-check.py covers today are a fact about the catalogue, not a constant. It keeps an
+# and named, so the fixture can be rewritten from this — the populations
+# prov_fields-check.py carries are a fact about the catalogue, not a constant. It keeps an
 # all-absent item whatever this says, because the NGE_PROVENANCE_NULL and conditional-extension
 # arms live only in that population.
 cat("# scripts/prov_fields-check.py — fixture populations\n")
