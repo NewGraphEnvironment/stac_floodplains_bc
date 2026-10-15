@@ -258,11 +258,14 @@ def check_collection_metadata(doc: dict) -> list[str]:
 #
 # EMPTY since v2.0.0 (#89): the whole-network cutover rebuilt every rostered group on
 # `flooded` 0.7.0, so `mcgr_ch_ff04` and `pine_bt_ff04` are not in any build and nothing is
-# below MIN_FLOODED_VERSION. Two of this guard's five arms go vacuous with an empty set, and
-# the two that matter do not: a marker on an item NOT named here is still refused, and an
-# unmarked item whose `flooded` entry is below the floor or unreadable is still refused. The
-# second is now the only thing standing between the catalogue and an unmarked over-mapped
-# item, which is exactly the direction #26 was written for.
+# below MIN_FLOODED_VERSION. Named rather than counted, because which arms go quiet is the
+# thing worth knowing. Vacuous over an empty set: `(EXPECTED_DEPRECATED & seen) - marked`
+# and `EXPECTED_DEPRECATED - seen`, both of which are set differences against it. Still
+# live: a `deprecated` value that is neither absent nor True, a half-applied version
+# extension, a marked item that has been rebuilt, a marker on an item NOT named here, and
+# an unmarked item whose `flooded` entry is below the floor or unreadable. That last one is
+# now the only thing between the catalogue and an unmarked over-mapped item, which is
+# exactly the direction #26 was written for.
 EXPECTED_DEPRECATED: set[str] = set()
 
 # The `flooded` release that fixed the bankfull units defect. The guards below turn on whether
@@ -270,6 +273,13 @@ EXPECTED_DEPRECATED: set[str] = set()
 # PROXY: an item rebuilt on 0.4.0 carries a version, is still over-mapped, and would pass a
 # presence check unmarked. Not live today (all 23 carry flooded 0.7.0), which is exactly when
 # a proxy is cheapest to replace with the property.
+#
+# This floor is about OVER-MAPPING only, and is deliberately not the version v2.0.0's geometry
+# is argued from. That argument is `flooded` 0.7.0's pinned DEM grid (floodplains#117 /
+# flooded#67), which is a later and separate property; an item rebuilt on 0.5.0 or 0.6.0 would
+# publish unmarked here and still be on the pre-#117 grid. Nothing in the build is, so raising
+# the floor would be an expectation with no instance behind it — but a future release that
+# finds a 0.5.0 item cannot read this guard as vouching for its grid.
 MIN_FLOODED_VERSION = (0, 5, 0)
 
 
@@ -1271,7 +1281,7 @@ def check_cog_rat(base: Path) -> list[str]:
 def check_pixel_values(base: Path) -> list[str]:
     """Every pixel value PRESENT in a raster must have a class.
 
-    This is the check the uniform 81-row scheme cannot give us any other way. The RAT is
+    This is the check the uniform 100-row scheme cannot give us any other way. The RAT is
     identical on every item by design, so no cross-item comparison can notice that the
     raster contains a code the table does not describe — which is what an upstream change
     to drift's encoding, or a class this repo has never seen, would look like.
@@ -1294,10 +1304,12 @@ def check_pixel_values(base: Path) -> list[str]:
         for key, asset in sorted(doc.get("assets", {}).items()):
             # Every COG, not only the transition. Restricting this to the transition
             # would be a scope that happens to fit today's data rather than a checked
-            # property: 01_stage.R drops code 0 from drift's table, so a classified raster
-            # carrying 0 — or any code a future drift adds — would ship with pixels
-            # nothing describes, while the RAT still has its 9 rows and every title still
-            # matches. The classified assets carry classification:classes too, so the same
+            # property: a classified raster carrying a code the table does not describe
+            # would ship with pixels nothing describes, while the RAT still had its full
+            # row count and every title still matched. That is not hypothetical — it is
+            # what #89 found, when 01_stage.R still dropped code 0 and the whole-network
+            # build turned out to hold 58,540 cells of it. Code 0 is in the table now, so
+            # the open case is a code a future drift adds. The classified assets carry classification:classes too, so the same
             # comparison resolves for them unchanged.
             if asset.get("type") != pystac.MediaType.COG:
                 continue
@@ -1742,7 +1754,7 @@ def check_layer_styles(base: Path) -> list[str]:
                             f"{', ...' if len(uncategorized) > 3 else ''}) — those "
                             f"features draw with no symbol")
                     # "At least one category is switched on" is a STYLE property only
-                    # where every category ships on. For `transition` 64 of 72 ship
+                    # where every category ships on. For `transition` 81 of 90 ship
                     # off by design, so requiring a drawn value there would assert a
                     # DATA property — that this watershed happened to lose trees — and
                     # refuse a correct release on a correct dataset.

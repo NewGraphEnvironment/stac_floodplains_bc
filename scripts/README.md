@@ -437,8 +437,8 @@ uv run python scripts/style_drift-check.py    # committed styles still match cla
 | Style | Applies to | Renderer |
 |---|---|---|
 | `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_blue_line_key` on 18 of 23 groups | single symbol, ColorBrewer Paired blue |
-| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` (upstream only — no published item carries a `_patches` layer since #80) | categorized on `class_name`, 9 io-lulc classes |
-| `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 72 pairs |
+| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` (upstream only — no published item carries a `_patches` layer since #80) | categorized on `class_name`, 10 io-lulc classes |
+| `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 90 pairs |
 
 All symbols ship at **50% opacity** — these layers are read over a basemap. Transition patches
 are coloured by **destination class**, the same choice the transition COG makes, so the raster and

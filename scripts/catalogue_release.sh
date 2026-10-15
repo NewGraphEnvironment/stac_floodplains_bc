@@ -1192,8 +1192,25 @@ if [ "$n_retired" -gt 0 ]; then
   # The 404 check below still covers every id in the literal, so nothing is taken on trust.
   to_delete=$(comm -12 <(printf '%s\n' "$retired_ids") <(printf '%s\n' "$live_ids") || true)
   if [ -n "$to_delete" ]; then
+    # `|| { ... exit 1; }` and not a bare call. item_unregister.sh sends one `DO $$...$$;`
+    # block per id to a single `psql -v ON_ERROR_STOP=1`, with no enclosing transaction, so
+    # an error on the twelfth id leaves eleven deleted and stops. Bare under `set -e` that
+    # killed this script before step 7 — the ONLY evidence the delete happened — and before
+    # the RELEASE INCOMPLETE block below that says the state is recoverable and how. The
+    # operator saw a psql error and nothing else, on the one genuinely half-finished state
+    # this script can reach. v2.0.0 is the first release to run it with a non-empty literal.
     COLLECTION="$COLLECTION" GEOSERV_HOST="$HOST" \
-      bash scripts/item_unregister.sh $to_delete
+      bash scripts/item_unregister.sh $to_delete \
+      || { echo "" >&2
+           echo "RELEASE INCOMPLETE — the catalogue was published and the retirement failed" >&2
+           echo "PART WAY THROUGH. item_unregister.sh deletes one id at a time under" >&2
+           echo "ON_ERROR_STOP with no transaction, so some of these may already be gone:" >&2
+           printf '  %s\n' $to_delete >&2
+           echo "No assets were deleted — no sync passes --delete, and item_retract_s3.sh is" >&2
+           echo "a separate later step you have not reached — so this is recoverable." >&2
+           echo "Re-run this release: it is idempotent, and the preflight tells an" >&2
+           echo "already-deleted id from a never-published one by the bucket copy." >&2
+           exit 1; }
   else
     echo "nothing to unregister — every id in RETIRED_ITEMS was already absent from the API"
   fi

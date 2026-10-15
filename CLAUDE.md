@@ -399,7 +399,7 @@ The route is: hand-write the PAM XML (stdlib `ElementTree`, in `02_raster_tag.py
 `SetCategoryNames` writes a sidecar on every GDAL tested up to 3.13, so neither is a shortcut.
 A sidecar is not an option here: `catalogue_release.sh` excludes `*.aux.xml` from the sync and
 geoserv's titiler sets `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff"`, so it could never
-fetch one. The transition raster's 81 `from -> to` combinations are coloured by destination class
+fetch one. The transition raster's 100 `from -> to` combinations are coloured by destination class
 with the no-change diagonal held back, because no-change is ~91% of valid cells.
 
 ## Catalog registration
