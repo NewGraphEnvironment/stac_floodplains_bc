@@ -70,6 +70,20 @@ Closes #79 by construction: a group can no longer carry both an `all_*` and a sp
 once a release has finished, so the coverage table's once-per-group total has no contradictory
 case to refuse.
 
+Two things the cutover release has to get right in **one** commit, because the clean-tree and
+exact-tag gates leave no room to fix them afterwards: `RETIRED_ITEMS` and the `NEWS.md` entry
+naming the same ids (the release refuses if they disagree), and the counts —
+`PROVENANCE_FLOOR` here, `PROV_CENSUS` in `item_validate.py`, and the 18/21/23 that
+`prov_fields-check.py` asserts against them. And `scripts/item_retract_s3.sh` is the step
+*after* the tag, so a release that fails has deleted no bytes.
+
+It will also be a **minor** bump, not `v2.0.0`, which stays reserved above for the release in
+which every published area carries corrected geometry. `pine_bt_ff04` keeps its per-species
+item (PINE is still `bt_ff04` upstream) and `mcgr_ch_ff04` cannot be re-run until
+floodplains#76 clears, so both stay `deprecated: true` through a release that nonetheless
+withdraws 17 public item ids. Recorded because the size of the change and the size of the bump
+disagree, and the reason is the reservation rather than an oversight.
+
 ### Each item's GeoPackages hold only that item's layers (#80)
 
 `floodplain.gpkg` and `floodplain_landcover.gpkg` were copied whole from the producer's

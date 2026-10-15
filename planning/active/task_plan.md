@@ -137,12 +137,12 @@ Not listed when the phases were written; recorded here as landed work.
 
 - [x] `NEWS.md` **Unreleased**: the mechanism; that the first retirement release names its ids in
       `RETIRED_ITEMS` and in its own entry; and that it retires **17 at once**, not per group
-- [ ] record the literals re-taken on the build the release is cut from — `PROVENANCE_FLOOR`,
+- [x] record the literals re-taken on the build the release is cut from — `PROVENANCE_FLOOR`,
       `PROV_CENSUS` (`item_validate.py:540-553`), `prov_fields-check.py`'s 18/21/23 — all in the same
       commit as the tag, since the clean-tree gate leaves no room to fix them after
-- [ ] record that `ALLOWED_YEAR_SETS` needs **no** change (measured), and the two per-species `ITEM=`
+- [x] record that `ALLOWED_YEAR_SETS` needs **no** change (measured), and the two per-species `ITEM=`
       defaults that would break if SLOC ever retires
-- [ ] record the `v2.0.0` collision: `NEWS.md:13-18` reserves it for corrected geometry everywhere,
+- [x] record the `v2.0.0` collision: `NEWS.md:13-18` reserves it for corrected geometry everywhere,
       and `mcgr_ch_ff04` survives this release, so a release deleting 17 public item ids ships as a
       minor bump
 - [ ] raise MCGR upstream (floodplains, our own repo): its `area.yml` must go back to `ch_ff04` until
