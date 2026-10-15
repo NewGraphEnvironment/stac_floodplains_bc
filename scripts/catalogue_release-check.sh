@@ -396,6 +396,13 @@ n_root_sync()  { awk -F'\t' -v r="$STAC" '$1=="aws" && $3=="sync" && $4==r' "$LO
 n_json_sweep() { awk -F'\t' '$1=="aws" && $3=="sync" { for (i=1;i<=NF;i++) if ($i=="--include" && $(i+1)=="*.json") print }' "$LOG" | grep -c . || true; }
 n_sync_to()    { awk -F'\t' -v d="$1" '$1=="aws" && $3=="sync" && $5==d' "$LOG" | grep -c . || true; }
 n_cp()         { awk -F'\t' -v s="$1" -v d="$2" '$1=="aws" && $3=="cp" && $4==s && $5==d' "$LOG" | grep -c . || true; }
+# The ORDER of the two JSON writes, as line numbers in the shim log. collection.json must be
+# the last JSON object the bucket receives: a sync pass that put it up and then failed would
+# leave it linking items that are not there, and rtj's reload-from-S3 DELETEs the collection
+# before it discovers that. Nothing else in this harness asserts an ordering, so these two
+# read line numbers rather than counts.
+line_json_sweep() { awk -F'\t' '$1=="aws" && $3=="sync" { for (i=1;i<=NF;i++) if ($i=="--include" && $(i+1)=="*.json") print NR }' "$LOG" | tail -1; }
+line_coll_cp()    { awk -F'\t' -v d="s3://$BUCKET/collection.json" '$1=="aws" && $3=="cp" && $5==d { print NR }' "$LOG" | tail -1; }
 n_aws_naming() { awk -F'\t' -v x="$1" '$1=="aws" && index($0, x)' "$LOG" | grep -c . || true; }
 n_load_coll()  { awk -F'\t' '$1=="ssh" && index($0, "load collections")' "$LOG" | grep -c . || true; }
 n_load_items() { awk -F'\t' '$1=="ssh" && index($0, "load items")' "$LOG" | grep -c . || true; }
@@ -448,6 +455,14 @@ expect_eq "one load items" "$(n_load_items)" 1
 expect_out "version gate passed on the tagged checkout" "release v$TVERSION: HEAD at v$TVERSION, tree clean, NEWS.md agrees"
 expect_eq "collection.json on disk is stamped" "$(coll_version)" "$TVERSION"
 expect_out "verify read the live version back" "live collection version: $TVERSION — matches the tag just released"
+# The JSON sync writes the items first and collection.json last, as two calls. One sync over
+# both parallelises them, so a partial failure can leave the bucket collection linking an
+# object that was never uploaded.
+expect_eq "the item sweep excludes collection.json" \
+  "$(awk -F'\t' '$1=="aws" && $3=="sync" { for (i=1;i<=NF;i++) if ($i=="--exclude" && $(i+1)=="collection.json") print }' "$LOG" | grep -c . || true)" 1
+expect_eq "one cp of collection.json on a FULL release" "$(n_cp "$STAC/collection.json" "s3://$BUCKET/collection.json")" 1
+expect_eq "and it lands after the item sweep" \
+  "$([ "$(line_coll_cp)" -gt "$(line_json_sweep)" ] && echo after)" after
 expect_out "verify read the bucket copy back" "bucket collection.json version: $TVERSION — agrees"
 expect_out "verify read the licence back from the API" "live collection licence: CC-BY-4.0, sci:citation and both links served as published"
 expect_out "verify read the licence back from the bucket" "bucket collection.json licence: agrees"
@@ -953,6 +968,76 @@ run_release --allow-retract
 expect_eq "exit 0" "$RC" 0
 expect_out "release completed" "RELEASE COMPLETE"
 expect_eq "the remainder is not deleted" "$(n_delete)" 0
+
+# --- case 22: the S3 half, which has no undo ---------------------------------------------
+# Driven directly rather than through the release: it is deliberately NOT part of a release
+# (a release that destroyed assets on a failure path would be the one direction with no
+# rollback), so there is no release run that would reach it.
+echo "case 22: item_retract_s3.sh refuses while anything still points at the item"
+retract_s3() { # args... -> same shims, same log
+  : > "$LOG"; : > "$SSHIN"; rm -f "$WORK/search_count"
+  set +e
+  ( cd "$TREPO" && PATH="$BIN:$PATH" SHIM_LOG="$LOG" COUNTER="$WORK/search_count" \
+      SSH_STDIN_LOG="$SSHIN" STAC_DIR="$STAC" BUCKET="$BUCKET" COLLECTION="$COLL" \
+      FAKE_LIVE_IDS="$LIVE" FAKE_GONE_IDS="$GONE" \
+      bash "$TREPO/scripts/item_retract_s3.sh" "$@" ) > "$OUT" 2>&1 < /dev/null
+  RC=$?
+  set -e
+}
+n_rm() { awk -F'\t' '$1=="aws" && $3=="rm"' "$LOG" | grep -c . || true; }
+# The TARGET, read from the shim's argv log rather than from stdout: the aws shim logs and
+# prints nothing, so a grep of the run's output could never see what was passed to it.
+n_rm_of() { awk -F'\t' -v u="$1" '$1=="aws" && $3=="rm" && $4==u' "$LOG" | grep -c . || true; }
+
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+GONE=""
+retract_s3 --yes aaaa_ch_ff04
+expect_eq "no --yes-less footgun: a live item is refused" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "says the API still serves it" "the API still answers"
+expect_eq "and nothing was removed" "$(n_rm)" 0
+
+echo "case 22b: --yes is required at all"
+GONE="cccc_ch_ff04"
+retract_s3 cccc_ch_ff04
+expect_eq "refused without --yes" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "says the delete is permanent" "permanent"
+expect_eq "nothing removed" "$(n_rm)" 0
+
+echo "case 22c: an item the bucket collection.json still links is refused"
+# The ordering hazard, and the reason this script exists as a separate step: rtj's
+# reload-from-S3 DELETEs the collection before it discovers that a linked href 404s.
+python3 -c 'import json,sys
+p = sys.argv[1]; d = json.load(open(p))
+d["links"].append({"rel": "item", "href": sys.argv[2] + "/cccc_ch_ff04.json"})
+json.dump(d, open(p, "w"))' "$STAC/collection.json" "$S3_BASE"
+GONE="cccc_ch_ff04"
+retract_s3 --yes cccc_ch_ff04
+expect_eq "refused" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the collection link" "still links it"
+expect_eq "nothing removed" "$(n_rm)" 0
+
+echo "case 22d: an item this build still produces is refused"
+GONE="bbbb_ch_ff04"       # gone from the API, but $STAC still holds bbbb_ch_ff04.json
+retract_s3 --yes bbbb_ch_ff04
+expect_eq "refused" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the build" "this build still produces it"
+expect_eq "nothing removed" "$(n_rm)" 0
+
+echo "case 22e: the positive control — gone from the API, unlinked, unbuilt, so it goes"
+python3 -c 'import json,sys
+p = sys.argv[1]; d = json.load(open(p))
+d["links"] = [l for l in d["links"] if l.get("rel") != "item"]
+json.dump(d, open(p, "w"))' "$STAC/collection.json"
+GONE="cccc_ch_ff04"
+retract_s3 --yes cccc_ch_ff04
+expect_eq "exit 0" "$RC" 0
+expect_out "retracted" "retracted: cccc_ch_ff04"
+expect_eq "both the prefix and the document" "$(n_rm)" 2
+# The trailing slash matters: `aws s3 rm s3://b/cccc_ch_ff04 --recursive` would also sweep
+# cccc_ch_ff04_something/ and every other key sharing the prefix, with no undo.
+expect_eq "the prefix carries its trailing slash" "$(n_rm_of "s3://$BUCKET/cccc_ch_ff04/")" 1
+expect_eq "and the document is removed by exact key" "$(n_rm_of "s3://$BUCKET/cccc_ch_ff04.json")" 1
+GONE=""
 
 # --- case 5: the checksum probe still bites under --only --------------------------------
 # Append to the largest asset AFTER the JSON was built: size on S3 (the shim serves the same

@@ -19,6 +19,57 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
+### The release retires the items it replaces, in band (#76)
+
+Nothing published changes yet. No `*_all_ff04` item is live, and a full release is blocked
+upstream by floodplains#125 (13 of the 23 rostered groups have no whole-network rasters on
+disk, measured 2026-10-14), floodplains#133 (DUNC) and MCGR's config state. This is the
+mechanism the cutover needs, proved against `catalogue_release-check.sh`.
+
+floodplains#125 retires the per-species items rather than re-running them, and the publish
+path had no way to do that. `--allow-retract` *permits* publishing past a live item absent
+from the build and never removes one: step 5 tolerated the leftover under the flag, so
+`RELEASE COMPLETE` printed with the retired items still live. Under floodplains#125 that
+leftover is a per-species floodplain served beside the group's whole-network one — different
+networks, and after floodplains#117 different DEM grids — with nothing in either item saying
+which is current. BULK's two disagree by 70% (659.99 vs 386.53 km², measured 2026-10-14).
+
+`RETIRED_ITEMS` in `scripts/catalogue_release.sh` is the exact set of live ids a release
+removes: a literal a human sets, the shape `PROVENANCE_FLOOR` already uses, empty between
+releases. Six arms refuse in step 0, before anything is written — the id is not also in the
+build; it is live, or else absent from the API and still in the bucket, which is a re-run and
+not a typo; the orphan set is contained in the literal unless `--allow-retract`; no live
+watershed group is left uncovered; every id is named in the tagged `NEWS.md` entry; and
+`--only` refuses a non-empty literal. Then step 6 unregisters them and step 7 requires the
+served set to equal the build, so the two-model state cannot survive a release.
+
+**The delete runs after every probe, not between register and verify.** There it would precede
+the asset, checksum, version, licence and deprecation read-backs, all of which fail the
+release and fall through — so a failed probe would have cost seventeen deleted item ids and a
+release reporting `INCOMPLETE`. And until `scripts/item_retract_s3.sh` is run, the retirement
+is reversible: no sync passes `--delete`, so `item_register.sh` can re-register a retired item
+from the bucket copy. That script is separate, needs `--yes`, and refuses while the API serves
+the item, while the bucket's `collection.json` still links it, or while the build still
+produces it.
+
+The JSON sync now writes `collection.json` **last**. It went up in the same parallelised
+`aws s3 sync` as every item document, so a pass that uploaded the collection and then failed
+left the bucket linking an object that does not exist — and rtj's reload-from-S3 deletes the
+collection's rows before it discovers the shortfall, which is how `stac-dem-bc` came to serve
+zero items. Latent on every release so far, since none added an item; the cutover adds 17.
+
+**The cutover is one release, not one per group.** `--only` cannot publish a never-live item,
+and `scripts/readme_functions.R` refuses any render where the API's item count and the bucket
+`collection.json`'s `rel: item` count disagree. So the first full release after upstream
+finishes retires all 17 per-species items and adds 17 whole-network ones, and
+`PROVENANCE_FLOOR`, `PROV_CENSUS` and `prov_fields-check.py`'s counts are re-taken in that
+same commit. `ALLOWED_YEAR_SETS` needs no change: both sanctioned sets keep users
+(`kotl_bt_ff04` stays annual, `bulk_all_ff04` is annual, and the three-year set has many).
+
+Closes #79 by construction: a group can no longer carry both an `all_*` and a species item
+once a release has finished, so the coverage table's once-per-group total has no contradictory
+case to refuse.
+
 ### Each item's GeoPackages hold only that item's layers (#80)
 
 `floodplain.gpkg` and `floodplain_landcover.gpkg` were copied whole from the producer's

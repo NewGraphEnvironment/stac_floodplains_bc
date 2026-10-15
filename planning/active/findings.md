@@ -337,3 +337,18 @@ independently pinned. Case 21f isolates it: `--allow-retract` skips the equality
 and `FAKE_GONE_IDS` makes the item endpoint answer 404, so the search still listing the id is
 the only thing wrong. Both arms stay, because they read different surfaces — the search index
 and the item endpoint — and nothing guarantees those agree.
+
+## Mutation table, part 2 — `item_retract_s3.sh` and the sync split
+
+| # | guard disabled | case that went red |
+|---|---|---|
+| R1 | the API-404 refusal | 22 |
+| R2 | the bucket `collection.json` `rel: item` refusal | 22c |
+| R3 | the still-built refusal | 22d |
+| R4 | the prefix's trailing slash (`s3://b/<id>/`, not `s3://b/<id>`) | 22e |
+| R5 | the `--yes` requirement | 22b |
+| R6 | the JSON sync split (one pass over items + collection) | case 2, 4 assertions |
+
+R4 is the one worth naming: without the trailing slash, `aws s3 rm s3://b/<id> --recursive`
+also sweeps every key sharing the prefix — `cccc_ch_ff04_anything/` — on a bucket with no
+versioning.

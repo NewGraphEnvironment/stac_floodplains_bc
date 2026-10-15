@@ -663,8 +663,23 @@ echo "=== 3: SYNC JSON ==="
 # After the assets, so a document never references an object that has not landed.
 # Also keeps the bucket authoritative: rtj's stac_register-all.sh still reloads this
 # collection from S3, and that must be a no-op rather than a silent revert.
+#
+# TWO calls, and the ORDER is the point: the items first, collection.json last, never one
+# sync over both. `aws s3 sync` parallelises its uploads and guarantees nothing about the
+# order within a pass, so a pass that happened to put collection.json up and then failed —
+# network, credentials, a Ctrl-C — left the bucket's collection linking item documents that
+# do not exist. rtj's reload-from-S3 reads exactly those `rel: item` hrefs, DELETEs every row
+# of the collection, and only then discovers one of them 404s: it aborts, and the collection
+# serves nothing. Its own script records that happening to stac-dem-bc.
+#
+# Latent on every release so far, because none of them ADDED an item — every href in the
+# collection already resolved. The release that completes floodplains#125 adds 17 at once,
+# which is the largest exposure this bucket has had, so the window is closed now rather than
+# discovered then. The --skip-sync path above already had this shape (one `cp` of the
+# collection); this makes the full path agree with it.
 aws s3 sync "$STAC_DIR" "s3://$BUCKET" \
-  --exclude '*' --include '*.json' --exclude '*/*'
+  --exclude '*' --include '*.json' --exclude '*/*' --exclude 'collection.json'
+aws s3 cp "$STAC_DIR/collection.json" "s3://$BUCKET/collection.json"
 
 fi
 

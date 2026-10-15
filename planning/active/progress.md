@@ -30,3 +30,13 @@
 - `refused()` now also requires `n_delete() == 0`. It asserted only `rc != 0 && n_aws == 0`, so a
   refusal firing *after* a delete had landed would have passed it.
 - Existing suite re-run: ALL PASS.
+
+### Phases 3-5 — the mechanism
+
+- `RETIRED_ITEMS` + six preflight arms; the delete placed after the `fail` gate; step 5 asks
+  containment and step 7 equality, which is what keeps the re-run possible.
+- `scripts/item_retract_s3.sh`: the irreversible half, `--yes` required, three refusals.
+- The JSON sync writes `collection.json` last, closing a window that existed on every release
+  so far and would first have mattered on the one that adds 17 items.
+- Mutation tables in `findings.md`: 10 release arms + 6 S3/sync guards, every one red.
+  Two first-round greens were the mutation patching inside a branch the case never enters.
