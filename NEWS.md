@@ -17,6 +17,14 @@ Recorded here because it is a decision (airvine, 2026-09-03) that previously exi
 in conversation — it was in neither #26, #19, any archived planning file, nor the project
 memory, and had to be recalled rather than read.
 
+> **The reservation stands; its blocker does not (2026-10-15).** The decision above is kept as
+> written, but the premise under it is false: floodplains#76's block is on the species
+> *accessible* network, and whole mode joins no access table. Both groups sit in their region
+> rosters with networks matching the bcfp reference (MCGR 2,833 km, PINE 5,768 km, measured
+> 2026-10-13), so the whole-network runs produce them alongside everything else. The cutover
+> therefore *is* the release this paragraph reserves `v2.0.0` for — see the entry below. Nothing
+> about the condition changed; it simply became reachable.
+
 ## Unreleased
 
 ### The release retires the items it replaces, in band (#76)
@@ -87,12 +95,20 @@ naming the same ids (the release refuses if they disagree), and the counts —
 `prov_fields-check.py` asserts against them. And `scripts/item_retract_s3.sh` is the step
 *after* the tag, so a release that fails has deleted no bytes.
 
-It will also be a **minor** bump, not `v2.0.0`, which stays reserved above for the release in
-which every published area carries corrected geometry. `pine_bt_ff04` keeps its per-species
-item (PINE is still `bt_ff04` upstream) and `mcgr_ch_ff04` cannot be re-run until
-floodplains#76 clears, so both stay `deprecated: true` through a release that nonetheless
-withdraws 17 public item ids. Recorded because the size of the change and the size of the bump
-disagree, and the reason is the reservation rather than an oversight.
+**It is the `v2.0.0` this file reserves**, and an earlier draft of this entry said the opposite
+from a stale premise. The reservation is for "the release in which every published area carries
+corrected geometry", and the only reason it was out of reach was that `mcgr_ch_ff04` and
+`pine_bt_ff04` were thought un-re-runnable. floodplains#76's own body records that the block
+never applied to the whole network — it is on the species *accessible* network, and whole mode
+joins no access table. Measured there 2026-10-13: MCGR 2,833 km and PINE 5,768 km in
+`fresh.streams`, equal to the bcfp reference. Both groups are in the Fraser and Peace region
+rosters, so the runs that produce every other group produce these two.
+
+So the cutover converts all 23 groups, every one on `flooded` 0.7.0's pinned grid
+(floodplains#117 / flooded#67), and `DEPRECATED_ITEMS` and `EXPECTED_DEPRECATED` **both go
+empty** — nothing is below `MIN_FLOODED_VERSION`, and the both-directions guard is satisfied by
+the empty set. A release that withdraws 17 public item ids and moves every published geometry is
+a major bump, and now nothing stands in the way of calling it one.
 
 ### Each item's GeoPackages hold only that item's layers (#80)
 

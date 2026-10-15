@@ -275,8 +275,11 @@ Loss/gain/net are computed from the transition layer during staging, so publishe
 directly to the model.
 
 **Two items publish `deprecated: true`** (#26) — `mcgr_ch_ff04` and `pine_bt_ff04`, which
-could not be re-run after the `flooded` bankfull units fix (blocked by floodplains#76) and so
-remain over-mapped. `DEPRECATED_ITEMS` in `item_create.py` is a literal a human sets, the same
+were over-mapped by the pre-fix `flooded` bankfull units and had not been re-run. **Not because
+they cannot be** — floodplains#76's body records that its block is on the species *accessible*
+network, which whole mode does not read; both groups are in their region rosters and the runs
+that produce every other group produce these two. So the marker is transitional, and the
+cutover empties the literal rather than moving it. `DEPRECATED_ITEMS` in `item_create.py` is a literal a human sets, the same
 shape as `PROVENANCE_FLOOR`, duplicated as `EXPECTED_DEPRECATED` in `item_validate.py`. The
 guard runs **both** directions: exactly that set is marked, and every item is marked *iff* its
 `processing:software` `flooded` entry is below 0.5.0 or unreadable — the version, not merely its
