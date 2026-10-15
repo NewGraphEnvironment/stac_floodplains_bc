@@ -90,8 +90,30 @@ ALLOW_RETRACT=""
 # Normalised at top level, not only inside the full-release branch that fills them: `set -u`
 # is on, and steps 6 and 7 below sit outside that branch, so an --only run would die on an
 # unbound variable rather than skip a retirement it has already refused to have.
-retired_ids=""
-n_retired=0
+# Normalised HERE, above the flag refusals below, not down in the preflight where it used to
+# sit. Those refusals tested `-n` on the RAW literal — which the rule on this very block
+# forbids, and which a literal of only whitespace makes wrong: empty in fact, non-empty to
+# `-n`. So --only was refused for a retirement that was not happening, under a message about
+# publishing a smaller collection. One-directional (it cannot let a retirement through) and
+# still a false refusal pointing at the wrong remedy.
+#
+# `grep -c .` over the normalised form is the only honest emptiness test for this literal.
+retired_ids=$(printf '%s\n' $RETIRED_ITEMS | grep . | LC_ALL=C sort -u || true)
+n_retired=$(printf '%s\n' "$retired_ids" | grep -c . || true)   # prints 0 and exits 1 when empty
+
+# The shape guard $ONLY gets below and item_unregister.sh gets before its SQL. Without it these
+# ids reach a URL and an `aws s3 rm` prefix unvalidated, and the failure is not a syntax error:
+# curl normalises dot segments, so an entry of `../collection.json` HEADs the bucket's own
+# collection document, reads 200, and is reported "already retired by an earlier run" — a
+# release that completes announcing a retirement it never performed. Checked before anything
+# reads one.
+for id in $retired_ids; do
+  case "$id" in
+    -*|*[!A-Za-z0-9_-]*)
+      echo "ERROR: RETIRED_ITEMS holds something that is not an item id: $id" >&2
+      exit 1 ;;
+  esac
+done
 SKIP_SYNC=""
 ONLY=""
 usage() {
@@ -138,7 +160,7 @@ fi
 # refusal and no mention of it, and the literal would still be sitting there for whoever cuts
 # the next release. A "skipped under --only" line would be the other option and is worse — it
 # teaches the operator that the combination is a supported no-op.
-if [ -n "$ONLY" ] && [ -n "$RETIRED_ITEMS" ]; then
+if [ -n "$ONLY" ] && [ "$n_retired" -gt 0 ]; then
   echo "--only and a non-empty RETIRED_ITEMS do not combine: a retirement publishes a" >&2
   echo "smaller COLLECTION, and --only never publishes the collection. Clear the literal" >&2
   echo "or cut a full release." >&2
@@ -156,7 +178,16 @@ fi
 # a group leaves the catalogue, which the group arm cannot distinguish from a short build, so it
 # is waived and nothing is deleted. Wanting both in one release means wanting the guards off for
 # the replacement too; cut two releases instead.
-if [ -n "$ALLOW_RETRACT" ] && [ -n "$RETIRED_ITEMS" ]; then
+# --skip-sync uploads NOTHING but collection.json on a full release (step 2+3 below). That is
+# safe only while every id the collection links is already in the bucket, which is true for a
+# republish and false the moment a build ADDS an item: the published collection would name
+# objects that were never uploaded, and a reload-from-S3 deletes the collection's rows before
+# discovering one 404s. Refused here rather than reported, because the combination has no
+# legitimate use — the whole point of the flag is "the bytes are already up".
+#
+# The orphan/added sets are not known until the preflight has read the live collection, so the
+# test itself lives there; this is only the note that it exists.
+if [ -n "$ALLOW_RETRACT" ] && [ "$n_retired" -gt 0 ]; then
   echo "--allow-retract and a non-empty RETIRED_ITEMS do not combine." >&2
   echo "The flag waives the containment, group-survival and served-equals-build arms — the" >&2
   echo "exact guards a retirement relies on — so the two together would delete every id in" >&2
@@ -420,27 +451,21 @@ EOF
   fi
 else
 orphans=$(comm -23 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") || true)
+added=$(comm -13 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") || true)
 
-# RETIRED_ITEMS, one per line and sorted, so every comparison below is a set operation on the
-# same shape as $live_ids and $local_ids. `grep -c .` over the normalised form, never
-# `[ -n "$RETIRED_ITEMS" ]` on the raw literal: a literal holding only whitespace is empty in
-# fact and non-empty to `-n`.
-retired_ids=$(printf '%s\n' $RETIRED_ITEMS | grep . | LC_ALL=C sort -u || true)
-n_retired=$(printf '%s\n' "$retired_ids" | grep -c . || true)   # prints 0 and exits 1 when empty
-
-# The shape guard $ONLY gets at the top of this script and item_unregister.sh gets before its
-# SQL. Without it these ids reach a URL and a prefix unvalidated, and the failure is not a
-# syntax error: curl normalises dot segments, so a literal entry of `../collection.json` HEADs
-# the BUCKET'"'"'S OWN collection.json, reads 200, and is reported "already retired by an earlier
-# run" — a release that completes announcing a retirement it never performed. Checked before any
-# of them is used.
-for id in $retired_ids; do
-  case "$id" in
-    -*|*[!A-Za-z0-9_-]*)
-      echo "ERROR: RETIRED_ITEMS holds something that is not an item id: $id" >&2
-      exit 1 ;;
-  esac
-done
+# --skip-sync + an item this build ADDS. The flag means "the bytes are already on S3", which a
+# new item makes false: step 2+3 would upload collection.json and nothing else, publishing a
+# document that links objects that do not exist. rtj's reload-from-S3 reads exactly those
+# links, DELETEs every row of the collection, then 404s and aborts — the stac-dem-bc outcome,
+# on a bucket with versioning Suspended. It also survives a FAILED release, because the
+# collection `cp` happens at step 2+3 and the probe that might notice is at step 5.
+if [ -n "$SKIP_SYNC" ] && [ -n "$added" ]; then
+  echo "--skip-sync cannot publish a build that ADDS items:" >&2
+  printf '  %s\n' $added >&2
+  echo "The flag uploads only collection.json on a full release, so the collection would link" >&2
+  echo "objects that were never sent. Run without --skip-sync." >&2
+  exit 1
+fi
 
 # --- what the literal names, checked before what the catalogue holds -------------------
 # Each arm names the id it refuses on. All of them run inside step 0, upstream of the
@@ -863,6 +888,28 @@ if [ -n "$surplus" ] && [ -z "$ALLOW_RETRACT" ]; then
   fail=1
 fi
 probe_item=$(head -1 <<<"$local_ids")
+fi
+
+# Every id the published collection links must have a document in the bucket. Until now
+# NOTHING checked this: step 5 compared ids against the API and probed one asset of one item,
+# and the only bucket reads in this script were collection.json, $ONLY.json and the retirement
+# witness. So the invariant the step-3 sync split rests on — "collection.json never links an
+# absent object" — was enforced by the ORDER of two statements and never read back, which is
+# the whole shape of a guard that cannot fail. A HEAD per id, which is cheap, and it also
+# catches a sync that died partway in the normal path.
+if [ -z "$ONLY" ]; then
+  absent=""
+  for id in $local_ids; do
+    code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
+    case "$code" in 200) ;; *) absent="$absent $id($code)" ;; esac
+  done
+  if [ -n "$absent" ]; then
+    echo "  the bucket has no document for item(s) this collection links:$absent" >&2
+    echo "  A reload-from-S3 would delete the collection's rows and then fail on these." >&2
+    fail=1
+  else
+    echo "bucket documents: all $(printf '%s\n' "$local_ids" | grep -c . || true) linked item(s) present"
+  fi
 fi
 
 # Asset probe: catches "the JSON is live but its COG never uploaded", which no amount

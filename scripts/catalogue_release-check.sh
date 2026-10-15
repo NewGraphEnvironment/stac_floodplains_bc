@@ -316,6 +316,9 @@ case "$url" in
   *.amazonaws.com/*)
     _rel="${url#*.amazonaws.com/}"; _hit=""
     [ -f "$FIXTURE_ROOT/$_rel" ] && _hit=1
+    # An id the BUILD has and the BUCKET does not: a sync that never ran, or ran partway.
+    # The read-back in step 5 is the only thing that looks for it.
+    for _b in ${FAKE_BUCKET_MISSING:-}; do [ "$_rel" = "$_b.json" ] && _hit=""; done
     for _b in ${FAKE_BUCKET_ONLY_IDS:-}; do [ "$_rel" = "$_b.json" ] && _hit=1; done
     for _b in ${FAKE_BUCKET_GARBLED:-}; do [ "$_rel" = "$_b.json" ] && _hit=1; done
     [ -n "$_hit" ] || { [ -z "$w" ] || { printf '404'; exit 0; }; }
@@ -420,6 +423,7 @@ LIVE_AFTER=""
 LIVE_FINAL=""
 GONE=""
 BUCKETONLY=""
+BUCKETMISSING=""
 GARBLED=""
 STALE=""
 LIVEV=""
@@ -437,6 +441,7 @@ run_release() {
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_IDS_FINAL="$LIVE_FINAL" \
       FAKE_GONE_IDS="$GONE" FAKE_BUCKET_ONLY_IDS="$BUCKETONLY" FAKE_BUCKET_GARBLED="$GARBLED" \
+      FAKE_BUCKET_MISSING="$BUCKETMISSING" \
       FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
@@ -899,22 +904,26 @@ echo "case 20-sorts: every id/group list compared in the release script is colla
 # exists to close: `grep -n '| *sort'` missed `sort -u <<<"$x"` because there is no pipe, and
 # the `grep -v 'LC_ALL=C sort'` filter dropped any whole LINE that also held a pinned sort —
 # while being dead anyway, since `| *sort` cannot match `| LC_ALL=C sort`. Both holes measured.
-unpinned=$(python3 - "$REPO/scripts/catalogue_release.sh" <<'PYEOF'
+unpinned=$(python3 - "$REPO/scripts/catalogue_release.sh" \
+  "$REPO/scripts/item_retract_s3.sh" "$REPO/scripts/item_unregister.sh" <<'PYEOF'
 import re, sys
 # Comments stripped at " # ", which is this file's convention, and deliberately NOT at a bare
 # "#": `${rel#*/}` and `${out##*$'\n'}` are parameter expansions, and cutting there would hide
 # real code. A `sort` mentioned in prose is not an invocation.
 bad = []
-for n, line in enumerate(open(sys.argv[1]), 1):
-    if line.lstrip().startswith("#"):
-        continue
-    code = line.split(" # ", 1)[0]
-    if "xargs bash scripts/item_register.sh" in code:
-        continue            # orders filenames for registration; nothing compares the result
-    for m in re.finditer(r"\bsort\b", code):
-        if code[max(0, m.start() - 10):m.start()].endswith("LC_ALL=C "):
+# Every script in the publish path, not just the release: a "no members" closure is only as
+# wide as the files read, and item_unregister.sh is the one that performs the delete.
+for path in sys.argv[1:]:
+    for n, line in enumerate(open(path), 1):
+        if line.lstrip().startswith("#"):
             continue
-        bad.append(f"{n}: {code.strip()[:80]}")
+        code = line.split(" # ", 1)[0]
+        if "xargs bash scripts/item_register.sh" in code:
+            continue        # orders filenames for registration; nothing compares the result
+        for m in re.finditer(r"\bsort\b", code):
+            if code[max(0, m.start() - 10):m.start()].endswith("LC_ALL=C "):
+                continue
+            bad.append(f"{path.split('/')[-1]}:{n}: {code.strip()[:70]}")
 print("\n".join(bad))
 PYEOF
 )
@@ -944,13 +953,23 @@ allow = {
     # "full release" appears in three remedies; the case asserting it drives --only, where
     # none of the other two can fire
     "full release",
+    # two spellings of one outcome: the step-7 retirement failure and the general fail gate
+    # both mean the release did not complete, and the case asserting it also pins n_delete
+    # and the absence of the step-6 banner
+    "RELEASE INCOMPLETE",
 }
 pats = set(re.findall(r'expect_out\s+"[^"]*"\s+"([^"]*)"', open(check).read()))
 msgs = []
 for path in scripts:
     for n, line in enumerate(open(path), 1):
         ls = line.strip()
-        if ls.startswith("echo ") and "#" != ls[:1]:
+        if ls.startswith("#"):
+            continue
+        # ANYWHERE in the line, and printf too. Matching only lines that START with `echo `
+        # left 72 of 227 emitting lines invisible — every `|| { echo … }` and `*) echo …;;`
+        # site, which is where the refusals live. Measured: a pattern shared by five
+        # `|| { echo }` sites went unflagged while the class was called closed.
+        if re.search(r"\b(echo|printf)\b", ls):
             msgs.append((path.split("/")[-1], n, line))
 bad = []
 for p_ in sorted(pats):
@@ -972,7 +991,8 @@ echo "case 20-pipes: no early-exiting consumer sits downstream of a pipe"
 # reports the writer's death as its own verdict once the text passes the pipe buffer (64 KiB,
 # measured on this machine). A here-string has no writer to kill. No fixture can reach this:
 # the harness payloads are hundreds of bytes, and NEWS.md is 39,573 B against that 64 KiB.
-piped=$(python3 - "$REPO/scripts/catalogue_release.sh" "$REPO/scripts/item_retract_s3.sh" <<'PYEOF'
+piped=$(python3 - "$REPO/scripts/catalogue_release.sh" "$REPO/scripts/item_retract_s3.sh" \
+  "$REPO/scripts/item_unregister.sh" <<'PYEOF'
 import re, sys
 bad = []
 for path in sys.argv[1:]:
@@ -997,7 +1017,13 @@ echo "case 20b: an orphan OUTSIDE the literal is refused, naming the one not acc
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 aaaa_st_ff04"
 set_retired aaaa_co_ff04; set_news aaaa_co_ff04
 run_release;                                        refused "unaccounted orphan"
-expect_out "names the unaccounted id" "aaaa_st_ff04"
+# The containment arm's OWN heading, not the id. Both it and the generic "these are LIVE but
+# absent from this build" listing above print the id, so asserting the id passed even with the
+# containment message deleted — proven by deleting it and watching 20a go red while 20b stayed
+# green. The id is still asserted, but under the heading that identifies the arm.
+expect_out "the containment arm is what refused" "not named in RETIRED_ITEMS:"
+expect_eq "and it listed the unaccounted id under that heading" \
+  "$(awk '/not named in RETIRED_ITEMS:/{f=1;next} f&&/aaaa_st_ff04/{print "yes";exit}' "$OUT")" yes
 reset_tree
 
 echo "case 20c: a literal id that was never published is refused"
@@ -1047,6 +1073,19 @@ LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
 set_retired aaaa_co_ff04            # NEWS left as the plain fixture entry
 run_release;                                        refused "NEWS does not name the retired id"
 expect_out "names the entry it is missing from" "does not mention"
+reset_tree
+
+echo "case 20w: a whitespace-only literal is empty in fact, so --only is not refused for it"
+# The flag refusals tested `-n` on the RAW literal, which the normalisation's own rule forbids.
+# `RETIRED_ITEMS="   "` retires nothing and was still enough to refuse --only, under a message
+# about publishing a smaller collection. One-directional and safe; a false refusal all the same,
+# pointing at a remedy that has nothing to do with the problem.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+set_retired "   "
+run_release --only aaaa_ch_ff04
+expect_eq "exit 0 — nothing is being retired" "$RC" 0
+expect_eq "and it was not refused over the literal" \
+  "$(grep -c 'RETIRED_ITEMS do not combine' "$OUT" || true)" 0
 reset_tree
 
 echo "case 20h: --only and a non-empty literal do not combine"
@@ -1105,6 +1144,29 @@ set_retired aaaa_co_ff04; set_news aaaa_co_ff04_v2    # a longer id, not this on
 run_release;                                        refused "NEWS names only a longer id"
 expect_out "names the entry it is missing from" "does not mention"
 reset_tree
+
+echo "case 20m: --skip-sync is refused on a build that ADDS an item"
+# On a full release --skip-sync uploads collection.json and nothing else, so a build with a new
+# item publishes a document linking objects that were never sent — and a reload-from-S3 deletes
+# the collection's rows before discovering one 404s. It survives a FAILED release too, because
+# the cp happens at step 2+3 and the nearest probe was at step 5.
+LIVE="aaaa_ch_ff04"          # the build also holds bbbb_ch_ff04, so bbbb is being added
+run_release --skip-sync;                            refused "--skip-sync with an added item"
+expect_out "names the added id" "cannot publish a build that ADDS items"
+expect_eq "and no collection.json was copied" \
+  "$(n_cp "$STAC/collection.json" "s3://$BUCKET/collection.json")" 0
+
+echo "case 20n: a collection linking a document the bucket does not hold fails the release"
+# The read-back for the invariant the step-3 sync split rests on. Until it existed, that
+# invariant was enforced by the ORDER of two statements and never checked: step 5 compared ids
+# against the API and probed one asset of one item, and no bucket read touched a per-item key.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+BUCKETMISSING="bbbb_ch_ff04"
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names the item with no document" "no document for item(s) this collection links"
+expect_out "and says what a reload would do" "delete the collection"
+BUCKETMISSING=""
 
 echo "case 21a: the positive control — the retirement runs, and deletes exactly its literal"
 # Without this, every refusal above is a grep that has never been shown to match.

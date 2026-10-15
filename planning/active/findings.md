@@ -617,3 +617,59 @@ That gives each of the four mechanisms a terminating instrument rather than a ju
 | D — a fixture or assertion that cannot reach its state | **static** `case 20-assertions` over the harness |
 
 plus `case 20-sorts` for the collation class, which is A's one mechanically-checkable member.
+
+## Code-check round 4 — a new bug outside all four mechanisms, and a fifth mechanism
+
+Round 4's verdict was **"the loop must continue"**, and it was right on both counts.
+
+| # | finding | verdict |
+|---|---|---|
+| R4-1 | **`--skip-sync` on a full release that ADDS items publishes a `collection.json` linking objects that were never uploaded** | **real bug.** That path's only S3 write is `aws s3 cp collection.json`; no item JSON is sent, nothing refused the combination, and — grep-verified — **no bucket read anywhere touched a per-item key**. It survives a *failed* release too: the `cp` is at step 2+3, the nearest probe at step 5, so `RELEASE INCOMPLETE` printed with the hazardous document already live. This is the exact window the step-3 sync split was added to close, reached by the one path the split does not cover |
+| R4-2 | `case 20-assertions`, the class-D terminator added in round 3, matched only lines whose stripped text *starts with* `echo ` | **real.** 155 of 227 emitting lines visible, **72 invisible** — every `\|\| { echo … }` and `*) echo …;;` site, which is where the refusals live. Proven by planting two patterns: one over bare `echo` sites was flagged, one over five `\|\| { echo }` sites was not. So the three-entry allowlist existed because three ambiguities were *visible*, not because the class was walked |
+| R4-3 | case 20b's `expect_out "aaaa_st_ff04"` was satisfied by the **generic** orphan listing, not the containment arm | **real, a live open D member.** Proven by deleting the containment message while keeping its `exit 1`: 20a went red, 20b stayed green on both assertions |
+| R4-4 | `:141` and `:159` tested `[ -n "$RETIRED_ITEMS" ]` on the raw literal — which the normalisation's own comment forbids | **real.** `RETIRED_ITEMS="   "` refuses `--only` under a message about publishing a smaller collection while `n_retired` is 0. One-directional and safe; a false refusal with the wrong remedy |
+| R4-5 | `20-sorts` / `20-pipes` scanned two files; `item_unregister.sh`, which performs the delete, was in neither | **real scope gap.** Zero members there at the time — but a "no members" closure is only as wide as the files read |
+
+### Mechanism E — an invariant established by construction, with no read-back
+
+Distinct from A: A is two artefacts with nothing joining them; **E is an invariant whose entire
+enforcement is the order of two statements**, voided silently by any path that omits one.
+
+Its open member was the one R4-1 exploits: "the bucket's `collection.json` never links an absent
+object" was enforced by `aws s3 sync` running before `aws s3 cp`, plus `set -e`, and **never read
+back**. Fixed in both directions — `--skip-sync` with a non-empty added set is refused, and step 5
+now HEADs `$S3_BASE/<id>.json` for **every** id the published collection links. The read-back is
+the part that matters: it also catches a sync that died partway in the normal path, which nothing
+did before.
+
+Its named sub-shape is worth keeping: **when a class is closed by a hand-written scanner, the
+class's boundary becomes the scanner's reach.** `20-sorts` was wrong twice in round 3;
+`20-assertions` was wrong on its first outing. Hence a planted-member row for each static case.
+
+### Round 5 fixes, and what widening the scanners then found
+
+All five of round 4's items, plus two more that only the widened scans could see:
+
+- `item_retract_s3.sh:88`'s `sort -u`, invisible until `20-sorts` walked the third file. It feeds
+  a `grep -qxF`, so order is irrelevant — **pinned anyway rather than allowlisted**, because an
+  exception is a hole and a pinned sort is one word.
+- `RELEASE INCOMPLETE` reachable from two emitters, invisible until the extractor saw `printf`
+  and non-leading `echo`. Allowlisted with its reason: two spellings of one outcome, and the case
+  asserting it also pins `n_delete` and the absence of the step-6 banner.
+
+## Mutation table, part 6 — round 4's fixes, and a row for every static case
+
+| # | guard disabled | case that went red |
+|---|---|---|
+| M24 | the `--skip-sync` + added-items refusal | 20m |
+| M25 | the per-id bucket read-back | 20n |
+| M26 | the containment arm's own heading | 20a, **20b** (which stayed green under this before) |
+| M27 | the hoisted normalisation (raw-literal test restored) | 20w |
+| planted | three unpinned `sort` shapes, incl. the two the old pattern missed | `20-sorts` |
+| planted | a piped `grep -q` | `20-pipes` |
+| planted | the loose `RETIRE` pattern | `20-assertions` |
+
+**Process note, recorded because it is my error:** I committed `e3769c0` while round 4 was reading
+the tree, so for about two minutes it saw a file mid-edit. It handled that correctly — snapshotted
+with `cp -r`, reviewed the snapshot, and said so — but the convention is not to edit files a long
+review is reading, and I had been holding to that until this round.

@@ -85,7 +85,7 @@ for l in d.get('links') or []:
     if l.get('rel') == 'item':
         h = l.get('href') or ''
         print(posixpath.basename(h)[:-5] if h.endswith('.json') else posixpath.basename(h))
-" | sort -u) \
+" | LC_ALL=C sort -u) \
   || { echo "Could not parse the bucket collection.json." >&2; exit 1; }
 
 refusals=0
