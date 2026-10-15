@@ -148,7 +148,9 @@ keeps the retired layers until floodplains#131 prunes them, and only DUNC (never
 clean. A refusal would be overridden every release, and an always-set override stops being
 read. A layer of another **watershed group** is refused, because
 `test_pipeline.R`'s per-layer `wsg` assertion reads the staged copy and so could never see one
-again. Measured: 827 -> 643 MB over the 23 rostered groups, MORR -70%.
+again. Measured on the v2.0.0 build: 1602.6 -> 1124.6 MB over the 23 rostered groups, MORR -67%
+(110.9 -> 36.4 MB). Re-taken at each full build; the figures before it were 827 -> 643 MB
+over a roster that was mostly species items.
 
 **`floodplain_landcover.gpkg` also ships two tables this repo does not describe.** On the
 v2.0.0 build **all 23 items** carry both a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` and a
@@ -345,10 +347,13 @@ guard runs **both** directions: exactly that set is marked, and every item is ma
 presence, since
 an item rebuilt on 0.4.0 carries one and is still over-mapped — the converse matters because an unmarked over-mapped item adds
 nothing to the floor's count, so an exact floor of N is satisfied by N provenanced items
-whatever ships beside them. **Two of its five arms are vacuous over an empty literal and the two
-that matter are not**: a marker on an item the literal does not name is refused, and so is an
-unmarked item whose `flooded` entry is below the floor or unreadable — which is now the only
-thing between the catalogue and an unmarked over-mapped item. It also **self-clears**: a marked
+whatever ships beside them. **Two of its seven arms go vacuous over an empty literal and five do not** —
+the two are the set differences against the literal itself. Still live: a `deprecated` value
+that is neither absent nor true, a half-applied version extension, a marked item that has been
+rebuilt, a marker on an item the literal does not name, and an unmarked item whose `flooded`
+entry is below the floor or unreadable — the last being the only thing between the catalogue
+and an unmarked over-mapped item. `item_validate.py` names them at the literal; this is the
+second copy of that claim, and the first version of it got the count wrong in both. It also **self-clears**: a marked
 item carrying a current `flooded` entry has been rebuilt, and refusing it is what stops the
 marker outliving the defect. Under `--only` the release passes `--partial`, which drops exactly one arm — the one asking
 about ids **absent** from the tree, the normal state of a subset. A marker on an item *outside* the

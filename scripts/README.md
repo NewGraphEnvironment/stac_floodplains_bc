@@ -58,9 +58,11 @@ over all three, and its `NO_PIN=1` cold path proves the check can fail.
 `file:checksum` is a multihash (`1220` + sha256), not a bare digest. The STAC schema only checks the
 string is hex, so it accepts a bare digest and cannot catch a checksum of the wrong bytes; both are
 asserted in `item_validate.py` instead. Verifying re-reads every asset — that is the cost
-of the guard actually guarding something. The two GeoPackage bundles are the bulk of it: 643 MB
-across the 23 rostered groups, measured 2026-10-14, down 184 MB from the whole-file copies #80
-retired (827 MB). The tree total also carries the COGs and is re-taken at a full build.
+of the guard actually guarding something. The two GeoPackage bundles are the bulk of it:
+1124.6 MB across the 23 rostered groups, measured on the v2.0.0 build, down 478 MB from the
+whole-file copies #80 retired (1602.6 MB). Both numbers rose against the 643/827 measured
+2026-10-14, because that roster was mostly species items and the whole network is a larger
+extent. The tree total also carries the COGs and is re-taken at a full build.
 
 ## Release — `catalogue_release.sh`
 
@@ -436,7 +438,7 @@ uv run python scripts/style_drift-check.py    # committed styles still match cla
 
 | Style | Applies to | Renderer |
 |---|---|---|
-| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_blue_line_key` on 18 of 23 groups | single symbol, ColorBrewer Paired blue |
+| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_blue_line_key`, on all 23 groups | single symbol, ColorBrewer Paired blue |
 | `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` (upstream only — no published item carries a `_patches` layer since #80) | categorized on `class_name`, 10 io-lulc classes |
 | `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 90 pairs |
 

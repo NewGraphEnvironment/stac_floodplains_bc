@@ -274,7 +274,8 @@ fp_readme_props <- function(features) {
       gross_loss_ha       = fp_req(p, "gross_loss_ha", f$id),
       gross_gain_ha       = fp_req(p, "gross_gain_ha", f$id),
       net_ha              = fp_req(p, "net_ha", f$id),
-      # `deprecated` is absent on 21 of 23 items -- absence IS the answer here, unlike above.
+      # `deprecated` is absent on every item since v2.0.0 emptied the literal -- absence IS
+      # the answer here, unlike above, and stays readable if the literal ever fills again.
       deprecated          = isTRUE(p$deprecated)
     )
   })

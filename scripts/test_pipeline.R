@@ -525,7 +525,7 @@ for (mp in meta_paths) {
   # `from_class` and `to_class` columns itself. Comparing our decoded labels against those
   # strings is not circular: the two sides have different producers.
   #
-  # Compared as a SET over the codes actually present in the raster, not over the 81-row
+  # Compared as a SET over the codes actually present in the raster, not over the 100-row
   # scheme — the vector carries changed patches only, so the no-change diagonal is
   # legitimately absent from it and is excluded here rather than papered over.
   tr <- sf::st_read(file.path(item_dir, "transition_vector.gpkg"),

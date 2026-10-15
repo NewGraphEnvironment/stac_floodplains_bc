@@ -9,7 +9,7 @@
 #
 # --only <item_id> republishes one existing item: its assets, its JSON, its pgstac row.
 # It NEVER publishes collection.json — a partial build's collection describes only the
-# groups in that build, and registering it would replace the live 22-group collection
+# groups in that build, and registering it would replace the live 23-group collection
 # with a one-group one, with no rollback (bucket versioning is Suspended). The
 # PARTIAL_STAGE interlock and the live-vs-build comparison guard exactly that document,
 # so both are skipped under --only, out loud. The item must already be live: a new item
@@ -831,7 +831,7 @@ echo "=== 3: SYNC JSON ==="
 # serves nothing. Its own script records that happening to stac-dem-bc.
 #
 # Latent on every release so far, because none of them ADDED an item — every href in the
-# collection already resolved. The release that completes floodplains#125 adds 17 at once,
+# collection already resolved. The release that completed floodplains#125 added 23 at once,
 # which is the largest exposure this bucket has had, so the window is closed now rather than
 # discovered then. The --skip-sync path above already had this shape (one `cp` of the
 # collection); this makes the full path agree with it.
@@ -1204,8 +1204,22 @@ if [ "$n_retired" -gt 0 ]; then
       || { echo "" >&2
            echo "RELEASE INCOMPLETE — the catalogue was published and the retirement failed" >&2
            echo "PART WAY THROUGH. item_unregister.sh deletes one id at a time under" >&2
-           echo "ON_ERROR_STOP with no transaction, so some of these may already be gone:" >&2
-           printf '  %s\n' $to_delete >&2
+           echo "ON_ERROR_STOP with no transaction, so some ids are gone and some are not." >&2
+           # Say WHICH, rather than reprinting the whole literal. This is the state step 7
+           # exists to report and the one state it never runs in, so the read happens here
+           # instead; an operator told "some of these 23 may be gone" has to do it by hand
+           # against a catalogue that is already half changed. Best-effort: a failed read
+           # falls back to naming them all, which is the old behaviour and still true.
+           if post_ids=$(fetch_live_ids); then
+             gone=$(comm -23 <(printf '%s\n' "$to_delete") <(printf '%s\n' "$post_ids") || true)
+             left=$(comm -12 <(printf '%s\n' "$to_delete") <(printf '%s\n' "$post_ids") || true)
+             echo "already unregistered:$(printf ' %s' $gone)" >&2
+             echo "still served:$(printf ' %s' $left)" >&2
+           else
+             echo "could not re-read the collection; these were the ids it was asked to" >&2
+             echo "unregister, some of which may already be gone:" >&2
+             printf '  %s\n' $to_delete >&2
+           fi
            echo "No assets were deleted — no sync passes --delete, and item_retract_s3.sh is" >&2
            echo "a separate later step you have not reached — so this is recoverable." >&2
            echo "Re-run this release: it is idempotent, and the preflight tells an" >&2
@@ -1264,7 +1278,13 @@ if [ "$n_retired" -gt 0 ]; then
     echo "Do not run scripts/item_retract_s3.sh until the release reports COMPLETE." >&2
     exit 1
   fi
-  echo "retired $n_retired item(s); the collection now serves exactly this build"
+  # |$to_delete|, not $n_retired. The literal's size counts ids this run may have found
+  # already absent — the preflight's "already retired by an earlier run" path, which is the
+  # normal state of a re-run after a verify failure. Reporting the literal there would claim
+  # a delete that did not happen: the same untrue log line the comment above $to_delete
+  # refuses for item_unregister.sh.
+  echo "retired $(printf '%s\n' "$to_delete" | grep -c . || true) item(s) this run;" \
+       "the collection now serves exactly this build"
 fi
 
 echo ""

@@ -420,8 +420,9 @@ for (wsg in wsgs) {
 
     # The guard lives in fp_provenance.R so it can be fired against both known answers
     # without staging an area. Returns FALSE for the forward-only state (no landcover
-    # section, nothing to check the disk against) — only mcgr_ch_ff04 and pine_bt_ff04 are
-    # still in it, and both already publish `deprecated: true`.
+    # section, nothing to check the disk against). No rostered area is in that state as of
+    # v2.0.0 — all 23 carry a landcover section — so this path is now reached only by an
+    # area whose record predates the section, which is what forward-only means.
     if (!fp_years_reconcile(years, span_rec, TRANSITION_SPAN, item_id)) {
       message(item_id, ": no landcover provenance — year set taken from the ", length(years),
               " staged raster(s) (", paste(years, collapse = ", "),
@@ -550,7 +551,8 @@ for (wsg in wsgs) {
     # new upstream family in floodplain.gpkg would read as a known one and this report —
     # the only cover that file has — would stay silent on exactly what it is for. The
     # optional `_by_<something>` tail is the producer's two existing breakdowns
-    # (`_by_blue_line_key` on 18 of 23 groups, `_by_gnis_name` upstream on MORR's coho).
+    # (`_by_blue_line_key`, on all 23 groups since the whole-network runs; `_by_gnis_name`
+    # upstream on MORR's coho).
     # Same at the other end for the landcover families, whose names carry a year or a span.
     unfamiliar <- c(
       grep(paste0("^", sp_prefix, "_ff[0-9]{2}(_by_[a-z0-9_]+)?$"), own_fp,
