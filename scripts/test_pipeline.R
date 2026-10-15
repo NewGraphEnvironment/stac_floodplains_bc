@@ -22,13 +22,16 @@ library(jsonlite)
 library(yaml)
 library(sf)   # explicit: the gpkg attribute checks below must not rely on 01_stage.R's attach
 
-# BULK, not UFRA. The default has to be a group that actually STAGES, and since
-# floodplains#125 flipped every region to whole-network, 13 of the 23 rostered groups declare
-# `primary_scenario: all_ff04` while holding only their old species rasters — so 01_stage.R
-# skips their one target and this script stops at "no items staged for UFRA". Measured
-# 2026-10-14: only bulk, dunc, kisp and morr have a `rasters/all_ff04/`. A smoke test whose
-# documented invocation cannot run is not a smoke test, and the failure named the group rather
-# than the cause. bulk is the group scripts/README.md already uses for its worked examples.
+# BULK, not UFRA. The default has to be a group that actually STAGES. When this default moved,
+# floodplains#125 had flipped every region to whole-network but the runs had not caught up:
+# measured 2026-10-14, 13 of the 23 rostered groups declared `primary_scenario: all_ff04` while
+# holding only their old species rasters, only bulk, dunc, kisp and morr had a
+# `rasters/all_ff04/`, and 01_stage.R skipped the rest — so this script stopped at "no items
+# staged for UFRA". All 23 stage as of v2.0.0, so any of them would work today; bulk stays
+# because it is the group scripts/README.md already uses for its worked examples, and because
+# a default that only works while the roster is complete is the thing that broke last time.
+# A smoke test whose documented invocation cannot run is not a smoke test, and that failure
+# named the group rather than the cause.
 wsg <- tolower(Sys.getenv("WSG", unset = "bulk"))
 
 message("=== SMOKE TEST: ", toupper(wsg), " (local only, no S3) ===\n")
@@ -306,8 +309,10 @@ for (mp in meta_paths) {
   }
   # The three styles must be present under their own keys and carry roles: ["style"].
   # `floodplain` and `transition_vector` are already asset keys, so a stem-keyed style
-  # would replace a data asset and leave the count unchanged -- the same trap the
-  # transition_vector comment below describes.
+  # would REPLACE a data asset -- the same trap the transition_vector comment below
+  # describes. The count check above does fire on it (one key overwrites another, so the
+  # total drops by one); what it cannot say is WHICH key went, and a count that is merely
+  # short sends the reader looking for a missing asset rather than a colliding one.
   for (skey in c("style_floodplain", "style_classified", "style_transition")) {
     if (is.null(item_assets[[skey]])) {
       stop("style asset '", skey, "' missing from ", basename(item_json))
@@ -319,8 +324,10 @@ for (mp in meta_paths) {
   }
   # The transition COG and the transition gpkg must BOTH be present under distinct keys.
   # `transition_2017_2023` is the COG key and is also the stem of the gpkg's old proposed
-  # filename, so keying the vector by its stem would silently replace the raster and still
-  # leave 7 assets. Assert both survive.
+  # filename, so keying the vector by its stem would replace the raster. The count check
+  # above catches that the item is one short (9 or 13 against the 10 or 14 a three-year or
+  # annual-span item carries), but not that the raster is what went -- these two assertions
+  # are what name it. Assert both survive.
   for (akey in c(paste0("transition_", meta$transition_span[[1]], "_",
                         meta$transition_span[[2]]), "transition_vector")) {
     if (is.null(item_assets[[akey]])) stop("asset '", akey, "' missing from ", basename(item_json))
@@ -525,7 +532,7 @@ for (mp in meta_paths) {
   # `from_class` and `to_class` columns itself. Comparing our decoded labels against those
   # strings is not circular: the two sides have different producers.
   #
-  # Compared as a SET over the codes actually present in the raster, not over the 81-row
+  # Compared as a SET over the codes actually present in the raster, not over the 100-row
   # scheme — the vector carries changed patches only, so the no-change diagonal is
   # legitimately absent from it and is excluded here rather than papered over.
   tr <- sf::st_read(file.path(item_dir, "transition_vector.gpkg"),

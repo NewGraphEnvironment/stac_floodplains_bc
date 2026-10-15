@@ -1,8 +1,9 @@
 """item_create.py — build the stac-floodplains-bc collection + item JSON.
 
 One or more STAC items per watershed group — one per modelled (species, scenario)
-target (`<wsg>_<sp>_ff0N`, e.g. `morr_co_ff04` + `morr_ch_ff06` — both still live, though a
-rebuild now stages `morr_all_ff04` alone; #76). Item id is the key
+target (`<wsg>_<sp>_ff0N`). Since v2.0.0 every rostered group declares exactly one, the
+whole network, so the catalogue is one `<wsg>_all_ff04` per group; MORR was the group that
+had two and they were retired by that release (#76/#89). Item id is the key
 for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
   - geometry  = the item's headline-scenario floodplain footprint (from meta.json)
   - datetime  = 2017 -> 2023 land-cover-change span
@@ -79,16 +80,20 @@ PROCESSING_EXT = "https://stac-extensions.github.io/processing/v1.2.0/schema.jso
 CLASSES_PATH = RAW_DIR / "classes.json"
 
 # The items that could not be re-run after the `flooded` bankfull units fix, and so remain
-# over-mapped (#26; blocked upstream by floodplains#76 — MCGR is absent from `fresh`, PINE
-# diverges 10.8% from the bcfp reference). They publish marked rather than withheld: holding
-# the release for them would block 18 corrections indefinitely on a fix with no date.
+# over-mapped (#26). EMPTY since v2.0.0, and emptied by the mechanism rather than by tidying:
+# the whole-network cutover (#89) rebuilt every rostered group on `flooded` 0.7.0, so
+# `mcgr_ch_ff04` and `pine_bt_ff04` no longer exist in any build and nothing is below
+# MIN_FLOODED_VERSION. Keeping them named would have failed the release twice over —
+# item_validate.py refuses a marked id that has gained a `flooded` entry, and refuses an id
+# named here that the build does not produce. The marker self-cleared, which is what it was
+# built to do; floodplains#76's block never applied to the whole network (its own body
+# records the measurements are on the species *accessible* network).
 #
 # A LITERAL a human sets, the same shape and the same reason as PROVENANCE_FLOOR (#32) — an
 # expectation derived from the data cannot be contradicted by it. item_validate.py asserts
-# EXACTLY this set carries the marker, and refuses when an item in it has gained a
-# `flooded` software entry, so a rebuilt MCGR fails the release until the id is deleted here
-# rather than publishing as deprecated forever.
-DEPRECATED_ITEMS = {"mcgr_ch_ff04", "pine_bt_ff04"}
+# EXACTLY this set carries the marker, so a future over-mapped item is named here and the
+# guard's both-directions arm is what keeps the two copies honest. The empty set satisfies it.
+DEPRECATED_ITEMS: set[str] = set()
 
 # --- Licence and attribution (#47) ----------------------------------------------------
 #
@@ -526,18 +531,17 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         prov[SOFTWARE_PROPERTY] = software
     properties.update(prov)
 
-    # The two areas that could not be re-run publish MARKED (#26). Both already differ by
-    # carrying none of the twelve provenance fields while every rebuilt group carries a
-    # `flooded` software entry of 0.5.0 — but absence is not a statement, and since #74 it is
-    # absence on the wire as well as at the API (it was always absence at the API: pgstac
-    # drops a published null on output, #31/#36, measured). `deprecated` is the positive one.
+    # An area that could not be re-run publishes MARKED (#26). DEPRECATED_ITEMS is empty since
+    # v2.0.0 (#89), so this writes nothing today and the branch is kept for the next one rather
+    # than deleted — the guard it feeds in item_validate.py runs both directions and is what
+    # refuses an over-mapped item that ships unmarked.
     #
-    # Note the asymmetry that makes publishing it on two items and not twenty-one sound: the
-    # Version Extension defines `deprecated` with `default: false`, so for the other 21
-    # absence IS a statement, backed by the extension — unlike the provenance keys, where it
-    # is not. That asymmetry is also the cost #74 accepted: the explicit null used to say "we
-    # looked and there was none", and the positive statement now survives only on the COGs,
-    # as NGE_PROVENANCE_NULL, and here for these two items.
+    # The asymmetry that made publishing it on some items and not others sound: the Version
+    # Extension defines `deprecated` with `default: false`, so on an unmarked item absence IS
+    # a statement, backed by the extension — unlike the provenance keys, where it is not. That
+    # asymmetry is also the cost #74 accepted: the explicit null used to say "we looked and
+    # there was none", and the positive statement now survives only on the COGs, as
+    # NGE_PROVENANCE_NULL, and here whenever this set is non-empty.
     exts = [PROJECTION_EXT, FILE_EXT, CLASSIFICATION_EXT]
     # Declared IFF the item carries a processing: field (#74). Not a style choice: the Item
     # branch of the v1.2.0 schema is allOf[require_any_field, fields], so declaring it on the
@@ -675,8 +679,8 @@ collection = pystac.Collection(
     title="Floodplain Land-Cover Change in British Columbia",
     description=(
         "Floodplain land-cover classification and 2017-2023 transition for British "
-        "Columbia watershed groups. One or more items per watershed group (one per "
-        "modelled species/scenario): one raster per classified year, a transition raster, a "
+        "Columbia watershed groups. One item per watershed group, modelled over the whole "
+        "stream network: one raster per classified year, a transition raster, a "
         "land-cover GeoPackage, a floodplain delineation GeoPackage (ff02/ff04/ff06 "
         "extents), and the transition layer on its own for consumers that do not need "
         "the classified epochs. Floodplain area per flood-factor and tree loss/gain/net properties "
@@ -719,15 +723,17 @@ collection.add_link(pystac.Link(
 ))
 
 # Summaries let a client discover the queryable values without downloading items —
-# which matters here because the items are 3-9 MB each. Derived from the built items
+# which matters here because the items are 5.6-18.2 MB each. Derived from the built items
 # rather than hardcoded, so adding a scenario upstream cannot leave this stale.
 collection.summaries = pystac.Summaries({
     "scenario": sorted({i.properties["scenario"] for i in items}),
     "species": sorted({i.properties["species"] for i in items}),
     "region": sorted({i.properties["region"] for i in items}),
-    # A Set of Values, not a Range Object. Flood factor is discrete (2/4/6) and today
-    # only 4 and 6 exist — a range would advertise flood_factor=5 as available, and a
-    # client building a filter list from this summary would offer it and get nothing.
+    # A Set of Values, not a Range Object. Flood factor is discrete (2/4/6) and since
+    # v2.0.0 only 4 is published — a range would advertise flood_factor=3 and 5 as
+    # available, and a client building a filter list from this summary would offer them
+    # and get nothing. The set is derived, so it widens on its own if a group ever
+    # declares an ff02 or ff06 target again.
     "flood_factor": sorted({i.properties["flood_factor"] for i in items}),
 })
 for item in items:

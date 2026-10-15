@@ -9,13 +9,13 @@
 #
 # --only <item_id> republishes one existing item: its assets, its JSON, its pgstac row.
 # It NEVER publishes collection.json — a partial build's collection describes only the
-# groups in that build, and registering it would replace the live 22-group collection
+# groups in that build, and registering it would replace the live 23-group collection
 # with a one-group one, with no rollback (bucket versioning is Suspended). The
 # PARTIAL_STAGE interlock and the live-vs-build comparison guard exactly that document,
 # so both are skipped under --only, out loud. The item must already be live: a new item
 # needs the collection's extent/summaries/links updated, which only a full release does.
 # Validation still covers the whole tree on disk, so with a full 23-item build present
-# --only re-hashes ~640 MB of assets; correct, just slow. Proven by
+# --only re-hashes that item's assets; correct, just slow. Proven by
 # scripts/catalogue_release-check.sh, which runs this script against shims.
 #
 # Requires: data/stac (built by run_pipeline.sh), AWS credentials, SSH to geopro.
@@ -56,9 +56,11 @@ S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.p
 # v1.0.0; a full rebuild from today's producer tree carries bulk_all_ff04 and no longer
 # stages bulk_co_ff04 at all (floodplains#125 retired the targets: blocks), so the next
 # full release sets whatever its build prints in the same commit as its NEWS entry.
-# 21 of 23, measured on the build this release publishes: 2 items legitimately carry no
-# provenance at all. Exact in both directions, so this is the count and not a lower bound.
-PROVENANCE_FLOOR=21
+# 23 of 23, measured on the build this release publishes (v2.0.0, #89): every rostered group
+# carries a provenance record now. Exact in both directions, so this is the count and not a
+# lower bound. It was 21 of 23 at v1.1.0 — mcgr and pine carried none — and both gained one
+# when the whole-network runs produced them.
+PROVENANCE_FLOOR=23
 
 # What this release RETIRES (#76): the exact live item ids it removes from the catalogue.
 # A LITERAL set by a human, the same shape and for the same reasons as PROVENANCE_FLOOR
@@ -77,7 +79,11 @@ PROVENANCE_FLOOR=21
 # item id changes — and the arms below refuse unless the group survives in the build.
 # `--allow-retract` is for a REMOVAL, a group leaving the catalogue with nothing taking its
 # place, and it grants no delete.
-RETIRED_ITEMS=""
+# v2.0.0 (#89): the whole-network cutover. Every live id is replaced by its group's
+# <wsg>_all_ff04. 23 ids over 22 groups — MORR is the two-for-one case this mechanism
+# was built for. CLEAR THIS BACK TO "" in the commit after the release; a non-empty
+# literal on main is itself a failure, which catalogue_release-check.sh asserts.
+RETIRED_ITEMS="bowr_ch_ff04 bulk_co_ff04 fran_ch_ff04 kisp_ch_ff04 kotl_bt_ff04 larl_bt_ff04 lchl_ch_ff04 lnth_ch_ff04 lsal_ch_ff04 mcgr_ch_ff04 mork_ch_ff04 morr_ch_ff06 morr_co_ff04 necr_ch_ff04 pars_bt_ff04 pcea_bt_ff04 pine_bt_ff04 sloc_bt_ff04 tabr_ch_ff04 thom_ch_ff04 ufra_ch_ff04 unth_ch_ff04 will_ch_ff04"
 
 # The licence the collection must be SERVING when the release finishes (#47). A third
 # copy of item_create.py's COLLECTION_LICENSE and item_validate.py's EXPECTED_LICENSE, and
@@ -354,7 +360,7 @@ done | LC_ALL=C sort)
 n_local=$(printf '%s\n' "$local_ids" | grep -c . || true)
 [ "$n_local" -ge 1 ] || { echo "No item JSON in $STAC_DIR." >&2; exit 1; }
 
-# Fail before the sync if the host is unreachable, rather than after 700 MB is up.
+# Fail before the sync if the host is unreachable, rather than after ~1.3 GB is up.
 ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" true 2>/dev/null \
   || { echo "Cannot ssh to $HOST — see rtj#193 for key authorization." >&2; exit 1; }
 
@@ -516,10 +522,11 @@ if [ "$n_retired" -gt 0 ]; then
     code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
     ident=""
     if [ "$code" = 200 ]; then
-      # Only now the body, which is 4-9 MB per item (bulk_co_ff04.json is 8,587,448 bytes,
-      # measured). Bounded by construction: $not_live is EMPTY on any release where every id in
-      # the literal is still live, i.e. every release except a re-run. Do not "optimise" this
-      # back to a HEAD — that is the defect above.
+      # Only now the body, which is 5.6-18.2 MB per item on the v2.0.0 build (measured; it
+      # was 4-9 MB before the whole network widened every item). Bounded by construction:
+      # $not_live is EMPTY on any release where every id in the literal is still live, i.e.
+      # every release except a re-run. Do not "optimise" this back to a HEAD — that is the
+      # defect above. NOTE the --max-time 60 below is now against an 18 MB body.
       ident=$(curl -sf --max-time 60 "$S3_BASE/$id.json" 2>/dev/null \
         | python3 -c "import sys, json
 try:
@@ -586,11 +593,13 @@ if [ -n "$orphans" ]; then
   #
   # This is the ONLY arm that survives ALLOW_SKIPPED=1. That flag suppresses PARTIAL_STAGE
   # altogether (01_stage.R), so the interlock above is ABSENT rather than passing and a short
-  # build looks like a full one. Measured 2026-10-14, a full rebuild stages 10 of 23 groups;
-  # with ALLOW_SKIPPED set, the orphan set is 17 ids a human could fill into the literal in
-  # good faith, and every other arm would pass — publishing a collection that silently drops
-  # 13 watershed groups onto a bucket with no versioning. What refuses it is that `mcgr`,
-  # `ufra`, `will` and the rest appear in no build id at all.
+  # build looks like a full one. The worked case, measured 2026-10-14 while the upstream
+  # conversion was half done: a full rebuild staged 10 of 23 groups, so with ALLOW_SKIPPED
+  # set the orphan set was 17 ids a human could fill into the literal in good faith, every
+  # other arm would pass, and the collection would silently drop 13 watershed groups onto a
+  # bucket with no versioning. What refuses it is that `mcgr`, `ufra`, `will` and the rest
+  # appear in no build id at all. All 23 stage as of v2.0.0, so that exact shape is not
+  # reachable from today's tree — the arm is for the next partial conversion, not that one.
   if [ -z "$ALLOW_RETRACT" ]; then
     live_wsgs=$(fetch_live_wsgs) \
       || { echo "Could not read the live watershed groups — refusing to publish blind." >&2; exit 1; }
@@ -675,7 +684,8 @@ else
   # The FIRST section heading, whatever it is: an "## Unreleased" above the version entry
   # is exactly the state this gate exists to refuse, and a grep for '^## v' would skip it.
   # Here-string for the same SIGPIPE reason as the id scan below; `grep -m1` exits early too,
-  # and $news is the whole file (39,573 B measured, against a 64 KiB pipe buffer).
+  # and $news is the whole file (47,156 B on the v2.0.0 commit, against a 64 KiB pipe
+  # buffer — 1.39x, so re-measure this one as NEWS.md grows).
   if ! news_top=$(grep -m1 -E '^## ' <<<"$news"); then
     echo "NEWS.md in $tag has no '## ' heading — the release entry goes at the top." >&2
     exit 1
@@ -715,9 +725,11 @@ else
       # so none of them can carry a regex metacharacter into this pattern.
       # A here-string, not a pipe. `grep -q` exits at its first match, and under `set -o
       # pipefail` the writer's SIGPIPE becomes the test's answer once the text exceeds the pipe
-      # buffer — measured at 64 KiB on this machine. NEWS.md is 39,573 B today and its top
-      # section 29,165 B, so this is not reachable yet; it is 2.2x of margin on a file that
-      # only grows, and the failure would read as "the id is not named" for an id that is.
+      # buffer — measured at 64 KiB on this machine. NEWS.md is 47,156 B on the v2.0.0
+      # commit and its top section 36,129 B, so this is not reachable yet; it is 1.8x of
+      # margin on a file that only grows — it was 2.0x before this release's own entry
+      # (main's top section is 32,989 B), measured with the awk slice just below — and
+      # the failure would read as "the id is not named" for an id that is.
       # This file already documents the trap for `grep -m1` a few lines up.
       grep -qE "(^|[^A-Za-z0-9_-])$id([^A-Za-z0-9_-]|\$)" <<<"$news_entry" \
         || unnamed="$unnamed $id"
@@ -825,7 +837,7 @@ echo "=== 3: SYNC JSON ==="
 # serves nothing. Its own script records that happening to stac-dem-bc.
 #
 # Latent on every release so far, because none of them ADDED an item — every href in the
-# collection already resolved. The release that completes floodplains#125 adds 17 at once,
+# collection already resolved. The release that completed floodplains#125 added 23 at once,
 # which is the largest exposure this bucket has had, so the window is closed now rather than
 # discovered then. The --skip-sync path above already had this shape (one `cp` of the
 # collection); this makes the full path agree with it.
@@ -1186,8 +1198,39 @@ if [ "$n_retired" -gt 0 ]; then
   # The 404 check below still covers every id in the literal, so nothing is taken on trust.
   to_delete=$(comm -12 <(printf '%s\n' "$retired_ids") <(printf '%s\n' "$live_ids") || true)
   if [ -n "$to_delete" ]; then
+    # `|| { ... exit 1; }` and not a bare call. item_unregister.sh sends one `DO $$...$$;`
+    # block per id to a single `psql -v ON_ERROR_STOP=1`, with no enclosing transaction, so
+    # an error on the twelfth id leaves eleven deleted and stops. Bare under `set -e` that
+    # killed this script before step 7 — the ONLY evidence the delete happened — and before
+    # the RELEASE INCOMPLETE block below that says the state is recoverable and how. The
+    # operator saw a psql error and nothing else, on the one genuinely half-finished state
+    # this script can reach. v2.0.0 is the first release to run it with a non-empty literal.
     COLLECTION="$COLLECTION" GEOSERV_HOST="$HOST" \
-      bash scripts/item_unregister.sh $to_delete
+      bash scripts/item_unregister.sh $to_delete \
+      || { echo "" >&2
+           echo "RELEASE INCOMPLETE — the catalogue was published and the retirement failed" >&2
+           echo "PART WAY THROUGH. item_unregister.sh deletes one id at a time under" >&2
+           echo "ON_ERROR_STOP with no transaction, so some ids are gone and some are not." >&2
+           # Say WHICH, rather than reprinting the whole literal. This is the state step 7
+           # exists to report and the one state it never runs in, so the read happens here
+           # instead; an operator told "some of these 23 may be gone" has to do it by hand
+           # against a catalogue that is already half changed. Best-effort: a failed read
+           # falls back to naming them all, which is the old behaviour and still true.
+           if post_ids=$(fetch_live_ids); then
+             gone=$(comm -23 <(printf '%s\n' "$to_delete") <(printf '%s\n' "$post_ids") || true)
+             left=$(comm -12 <(printf '%s\n' "$to_delete") <(printf '%s\n' "$post_ids") || true)
+             echo "already unregistered:$(printf ' %s' $gone)" >&2
+             echo "still served:$(printf ' %s' $left)" >&2
+           else
+             echo "could not re-read the collection; these were the ids it was asked to" >&2
+             echo "unregister, some of which may already be gone:" >&2
+             printf '  %s\n' $to_delete >&2
+           fi
+           echo "No assets were deleted — no sync passes --delete, and item_retract_s3.sh is" >&2
+           echo "a separate later step you have not reached — so this is recoverable." >&2
+           echo "Re-run this release: it is idempotent, and the preflight tells an" >&2
+           echo "already-deleted id from a never-published one by the bucket copy." >&2
+           exit 1; }
   else
     echo "nothing to unregister — every id in RETIRED_ITEMS was already absent from the API"
   fi
@@ -1241,7 +1284,13 @@ if [ "$n_retired" -gt 0 ]; then
     echo "Do not run scripts/item_retract_s3.sh until the release reports COMPLETE." >&2
     exit 1
   fi
-  echo "retired $n_retired item(s); the collection now serves exactly this build"
+  # |$to_delete|, not $n_retired. The literal's size counts ids this run may have found
+  # already absent — the preflight's "already retired by an earlier run" path, which is the
+  # normal state of a re-run after a verify failure. Reporting the literal there would claim
+  # a delete that did not happen: the same untrue log line the comment above $to_delete
+  # refuses for item_unregister.sh.
+  echo "retired $(printf '%s\n' "$to_delete" | grep -c . || true) item(s) this run;" \
+       "the collection now serves exactly this build"
 fi
 
 echo ""

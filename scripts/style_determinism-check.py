@@ -54,10 +54,10 @@ def digest(p: pathlib.Path) -> str:
 
 def main() -> int:
     # Same default as gpkg_determinism-check.R — the smallest staged item — so the
-    # two siblings exercise the same tree unless told otherwise. Also the same caveat:
-    # it is a per-species id, and it only still stages because SLOC is one of the six
-    # groups upstream has not moved to `all_ff04` yet (#76).
-    item = os.environ.get("ITEM", "sloc_bt_ff04")
+    # two siblings exercise the same tree unless told otherwise. Moved with it at the
+    # whole-network cutover (#89): SLOC publishes `sloc_all_ff04` since v2.0.0, and a
+    # default naming an id nothing stages stops the script rather than checking anything.
+    item = os.environ.get("ITEM", "sloc_all_ff04")
     # Strict truthiness, matching gpkg_determinism-check.R: a bare presence test would
     # read NO_PIN=0 as enabled, so an operator turning the cold path OFF would turn it
     # on and get a cold-path PASS for what they believe is a warm check.

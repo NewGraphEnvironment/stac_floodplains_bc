@@ -213,7 +213,7 @@ def write_rat_sidecar(raster: Path, rows: list[tuple]) -> None:
         run will pass, because 03 reads the embedded copy. Reproducing a sidecar defect
         end to end needs a freshly staged raster, or a change to this function itself.
       * **A PAM sidecar takes precedence over an embedded RAT.** Measured with a 2-row
-        sidecar beside a 9-row embedded table: the sidecar wins. So a stale embedded table
+        sidecar beside a 10-row embedded table: the sidecar wins. So a stale embedded table
         cannot outrank the one written here, which is why re-running 02 is sufficient to
         correct a raster whose labels have changed.
 

@@ -58,9 +58,17 @@ over all three, and its `NO_PIN=1` cold path proves the check can fail.
 `file:checksum` is a multihash (`1220` + sha256), not a bare digest. The STAC schema only checks the
 string is hex, so it accepts a bare digest and cannot catch a checksum of the wrong bytes; both are
 asserted in `item_validate.py` instead. Verifying re-reads every asset — that is the cost
-of the guard actually guarding something. The two GeoPackage bundles are the bulk of it: 643 MB
-across the 23 rostered groups, measured 2026-10-14, down 184 MB from the whole-file copies #80
-retired (827 MB). The tree total also carries the COGs and is re-taken at a full build.
+of the guard actually guarding something. **What the re-read costs is 1338.3 MB** — every
+staged asset over the 23 rostered groups, measured on the v2.0.0 build: all three GeoPackages
+(1179.2 MB), the COGs (154.6 MB) and the styles (4.5 MB). Decimal MB throughout.
+
+The *saving* #80 bought is a different scope and must not be read off that total: the **two**
+bundles it rewrote are 1085.6 MB against 1680.4 MB of whole-file copies, down 594.8 MB.
+`transition_vector.gpkg`'s 93.6 MB is in the re-read cost and out of the saving, because it
+was never a whole-file copy and counting it on the "after" side alone would understate the
+saving by its own size. Both sides of the saving rose against #80's own 826.9 -> 642.9 MB,
+because that roster was mostly species items and the whole network is a larger extent. All
+of it is re-taken at a full build.
 
 ## Release — `catalogue_release.sh`
 
@@ -270,7 +278,7 @@ Use it after any change to the scripts, the floodplains data layout, or the STAC
 a real full publish.
 
 ```
-Rscript scripts/test_pipeline.R            # defaults to UFRA
+Rscript scripts/test_pipeline.R            # defaults to bulk
 WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
 WSG=bulk Rscript scripts/test_pipeline.R   # whole-network group: species `all`, 7-year span
 ```
@@ -436,9 +444,9 @@ uv run python scripts/style_drift-check.py    # committed styles still match cla
 
 | Style | Applies to | Renderer |
 |---|---|---|
-| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_blue_line_key` on 18 of 23 groups | single symbol, ColorBrewer Paired blue |
-| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` (upstream only — no published item carries a `_patches` layer since #80) | categorized on `class_name`, 9 io-lulc classes |
-| `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 72 pairs |
+| `styles/floodplain.qml` | every layer of `floodplain.gpkg` — `<sp>_ff02/04/06`, plus `_by_blue_line_key`, on all 23 groups | single symbol, ColorBrewer Paired blue |
+| `styles/classified.qml` | `classified_<sp>_<scen>_<year>` and its `_patches` variant in `floodplain_landcover.gpkg` (upstream only — no published item carries a `_patches` layer since #80) | categorized on `class_name`, 10 io-lulc classes |
+| `styles/transition.qml` | `transition` in `transition_vector.gpkg`, and `transition_<sp>_<scen>_<y1>_<y2>` | categorized on `transition`, 90 pairs |
 
 All symbols ship at **50% opacity** — these layers are read over a basemap. Transition patches
 are coloured by **destination class**, the same choice the transition COG makes, so the raster and
@@ -564,7 +572,7 @@ the collection id, or the licence each exits 1 naming the arm that fired.
 |----|----|----|
 | `WSG_ONLY=<wsg>` | Restricts `01_stage.R` to one group and drops a `PARTIAL_STAGE` marker. Used by the smoke test; `run_pipeline.sh` refuses to start if it is set, and `catalogue_release.sh` publishes the result only under `--only` | safe |
 | `NO_PIN=1` | Disables the GeoPackage timestamp pin in `gpkg_determinism-check.R` only — the cold path that proves the check can fail | safe (check only) |
-| `ITEM=<item_id>` | Which staged item `gpkg_determinism-check.R` exercises (default `sloc_bt_ff04`, the smallest) | safe |
+| `ITEM=<item_id>` | Which staged item `gpkg_determinism-check.R` and `style_determinism-check.py` exercise (default `sloc_all_ff04`, the smallest) | safe |
 | `AREA=<wsg>` | Which upstream area `stage_years-check.R` builds its sandbox from (default `bulk`). Its scenario comes from that area's own `primary_scenario`, and the mutated years from its own record, so `AREA=bulk` exercises the reconciliation guard against a whole-network annual span rather than only a three-year one. A group declaring `targets:` is skipped out loud — the arms drive one scenario. The `meta.json` digest pin is `ufra_ch_ff04`'s and now skips permanently — floodplains#125 moved ufra to `all_ff04`, so no build produces that item; see the comment beside the pin | safe (check only) |
 | `GEOSERV_HOST` | Overrides the catalog host (default `root@geopro`, the tailnet node name) | safe |
 | `ALLOW_SKIPPED=1` | Suppresses the `PARTIAL_STAGE` marker when a rostered group was skipped (not modelled yet) | **disables an interlock** |

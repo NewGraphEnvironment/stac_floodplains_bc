@@ -97,12 +97,27 @@ dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
 # table, and `data/stac` is off limits because catalogue_release.sh builds its item-id
 # list from `$STAC_DIR/*.json`, which would register a phantom item called `classes`.
 #
-# Code 0 is dropped. It is the SOURCE scheme's "No Data" marker, not a land cover: the
+# Code 0 is KEPT, and used to be dropped. The premise for dropping it was that the
 # published rasters declare nodata natively (255 on the classified, -2147483648 on the
-# transition) and never contain 0. Keeping it would put a class in the legend that cannot
-# occur, and would make the transition cross product 100 rows of which 19 are unreachable.
+# transition) and "never contain 0" — true while every item was one species' ACCESSIBLE
+# floodplain, and false since the whole-network cutover (#89). Measured on that build:
+# `kisp/rasters/all_ff04/classified_2020.tif` holds 58,540 cells of 0 among 3,555,686 valid
+# ones, and the species raster for the same group and year holds none — the whole network
+# reaches ground the accessible one did not, and io-lulc's 2020 composite has a gap there.
+# 0 is a value the data holds, so it is a value the labels have to describe.
+#
+# It was this repo's own guard that found it, not a consumer: `check_layer_styles` refused
+# the staged GeoPackage because one feature of `classified_all_ff04_2020` carries
+# class_name "No Data" and the style had no category for it, so it would have drawn with no
+# symbol. The raster side was worse and quieter — 58,540 cells with no RAT row at all.
+#
+# The dropped premise's second half does not survive either: "a transition cross product of
+# 100 rows of which 19 are unreachable" is the same objection that already applies to the
+# 81, of which KISP reaches 45. The transition RAT documents drift's ENCODING, not any
+# item's data (`02_raster_tag.transition_rat`), and item_validate.py checks the direction
+# that matters — every code present in a raster has a row — not the converse.
 classes <- drift::dft_class_table("io-lulc")
-classes <- classes[classes$code != 0, c("code", "class_name", "color", "description")]
+classes <- classes[, c("code", "class_name", "color", "description")]
 
 # Absolute floors, not derived from what we just read. A short or empty table is exactly
 # the uniform defect a cross-item check cannot see: every item would lose the same labels,
@@ -110,8 +125,8 @@ classes <- classes[classes$code != 0, c("code", "class_name", "color", "descript
 # an item carrying ZERO classes (measured). So the expectation is named here.
 stopifnot(
   "drift class table is empty" = nrow(classes) > 0,
-  "drift class table lost codes — expected the io-lulc 9" =
-    setequal(classes$code, c(1, 2, 4, 5, 7, 8, 9, 10, 11)),
+  "drift class table lost codes — expected the io-lulc 10, code 0 included" =
+    setequal(classes$code, c(0, 1, 2, 4, 5, 7, 8, 9, 10, 11)),
   "drift class table has a non-#RRGGBB colour" =
     all(grepl("^#[0-9A-Fa-f]{6}$", classes$color)),
   "drift class table has a blank class_name" = all(nzchar(trimws(classes$class_name)))
@@ -405,8 +420,9 @@ for (wsg in wsgs) {
 
     # The guard lives in fp_provenance.R so it can be fired against both known answers
     # without staging an area. Returns FALSE for the forward-only state (no landcover
-    # section, nothing to check the disk against) — only mcgr_ch_ff04 and pine_bt_ff04 are
-    # still in it, and both already publish `deprecated: true`.
+    # section, nothing to check the disk against). No rostered area is in that state as of
+    # v2.0.0 — all 23 carry a landcover section — so this path is now reached only by an
+    # area whose record predates the section, which is what forward-only means.
     if (!fp_years_reconcile(years, span_rec, TRANSITION_SPAN, item_id)) {
       message(item_id, ": no landcover provenance — year set taken from the ", length(years),
               " staged raster(s) (", paste(years, collapse = ", "),
@@ -509,8 +525,12 @@ for (wsg in wsgs) {
     # filter to feature layers, so an aspatial family never reaches it. A line per item is
     # what makes that hole legible until #65 closes it.
     #
-    # BOTH bundles, not just the landcover one. Every `attributes` layer upstream is in the
-    # landcover bundle today (measured: 30 of 30), so scanning only that one was right about
+    # BOTH bundles, not just the landcover one. Every `attributes` layer in the two bundles
+    # staged from is in the landcover one (measured on the v2.0.0 tree over the 23 ROSTERED
+    # groups: 66 of 66, floodplain.gpkg none; aquatic_network.gpkg holds 23 more that nothing
+    # here reads). A glob over every directory in $FLOODPLAINS_DATA says 68 instead, because
+    # `lit` and `neexdzii` are upstream and off the roster — the scope is the roster, as it is
+    # everywhere else here. So scanning only one bundle was right about
     # the data and wrong about the question — `floodplain.gpkg` is a file this repo now
     # SELECTS layers into, and it is the bundle with no cover at all, because
     # 04_gpkg_style.py maps every layer of it to one style unconditionally.
@@ -535,7 +555,8 @@ for (wsg in wsgs) {
     # new upstream family in floodplain.gpkg would read as a known one and this report —
     # the only cover that file has — would stay silent on exactly what it is for. The
     # optional `_by_<something>` tail is the producer's two existing breakdowns
-    # (`_by_blue_line_key` on 18 of 23 groups, `_by_gnis_name` upstream on MORR's coho).
+    # (`_by_blue_line_key`, on all 23 groups since the whole-network runs; `_by_gnis_name`
+    # upstream on MORR's coho).
     # Same at the other end for the landcover families, whose names carry a year or a span.
     unfamiliar <- c(
       grep(paste0("^", sp_prefix, "_ff[0-9]{2}(_by_[a-z0-9_]+)?$"), own_fp,

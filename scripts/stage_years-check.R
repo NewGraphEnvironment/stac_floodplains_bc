@@ -119,8 +119,9 @@ ITEM <- paste0(AREA, "_", SCEN)
 # stops. That is the access form fp_provenance.R bans by name, and a fixture builder reading the
 # producer's file is not exempt from it.
 `%||%` <- function(a, b) if (is.null(a)) b else a
-# The record's EXISTENCE first. 2 of the 23 rostered groups carry none (mcgr, pine — the two
-# DEPRECATED_ITEMS), which the new AREA override makes reachable: `AREA=mcgr` crashed in
+# The record's EXISTENCE first. No rostered group is in that state as of v2.0.0 — all 23 carry
+# a provenance.json — but 2 did when this was written (mcgr and pine, then the two
+# DEPRECATED_ITEMS), which the AREA override made reachable: `AREA=mcgr` crashed in
 # read_json with "cannot open the connection" and exit 1, which this suite's convention reads
 # as one failed assertion while printing no assertion line and naming no cause — in a script
 # that already skips out loud for four other states. Found by review inside the override's own

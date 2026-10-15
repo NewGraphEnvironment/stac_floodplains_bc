@@ -153,11 +153,11 @@ fp_readme_check_complete <- function(q, n_bucket) {
 
 #' One row per item, plus a total row
 #'
-#' `Floodplain (km²)` is the item's OWN scenario extent — ff04 for most, ff06 for `morr_ch_ff06`
-#' — so the `Scenario` column is load-bearing: the collection mixes flood factors, and a reader
-#' summing the column across scenarios would be summing different extents. The total therefore
-#' counts each watershed group's ff04 extent ONCE (MORR's two items share one physical
-#' floodplain) while the tree-change totals sum every item.
+#' `Floodplain (km²)` is the item's OWN scenario extent. Every item is ff04 since v2.0.0, but
+#' the `Scenario` column stays load-bearing: the moment any group publishes a second flood
+#' factor a reader summing the column would be summing different extents. The total therefore
+#' counts each watershed group's ff04 extent ONCE, so a group publishing two items over one
+#' physical floodplain is counted once, while the tree-change totals sum every item.
 fp_readme_rows <- function(props) {
   fp_readme_check_regions(props)
   rows <- props |>
@@ -274,7 +274,8 @@ fp_readme_props <- function(features) {
       gross_loss_ha       = fp_req(p, "gross_loss_ha", f$id),
       gross_gain_ha       = fp_req(p, "gross_gain_ha", f$id),
       net_ha              = fp_req(p, "net_ha", f$id),
-      # `deprecated` is absent on 21 of 23 items -- absence IS the answer here, unlike above.
+      # `deprecated` is absent on every item since v2.0.0 emptied the literal -- absence IS
+      # the answer here, unlike above, and stays readable if the literal ever fills again.
       deprecated          = isTRUE(p$deprecated)
     )
   })
@@ -326,7 +327,7 @@ fp_readme_geom <- function(features) {
 #' Watershed-group polygons for exactly the groups the collection publishes
 #'
 #' `bcdata` + `bcmaps` only — no `fwapgr` dependency (airvine, 2026-09-04). Simplified, because
-#' the unsimplified 22 groups are ~6 MB and this is both a committed cache and an embedded map
+#' the unsimplified 23 groups are ~6 MB and this is both a committed cache and an embedded map
 #' layer. The SET of groups comes from the API call, so the map cannot show a group the
 #' collection does not publish.
 fp_readme_wsg <- function(wsg_codes, dTolerance = 200) {

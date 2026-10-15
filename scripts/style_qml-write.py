@@ -18,8 +18,8 @@ wipes that palette. Tracked separately.
 Outputs (into styles/):
   floodplain.qml
       Single blue fill for every layer of floodplain.gpkg, which carry no class
-      attribute. Three or four per published item since #80 — `<sp>_ff02/04/06` plus, on
-      18 of 23 groups, `<sp>_ff04_by_blue_line_key`. Upstream also holds
+      attribute. Four per published item since the whole-network runs — `<sp>_ff02/04/06`
+      plus `<sp>_ff04_by_blue_line_key`, which all 23 groups now carry. Upstream also holds
       `<sp>_ff04_by_gnis_name` and other species' delineations (MORR's file has 13 layers),
       but staging selects by item key, so no published file carries them.
   classified.qml

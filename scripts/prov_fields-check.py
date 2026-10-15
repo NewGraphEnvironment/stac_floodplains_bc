@@ -8,7 +8,7 @@
 That retired the guard this repo leaned on hardest — set equality over the `nge:` key set —
 and replaced it with a declared-key arm, a per-field census, a biconditional on the processing
 extension, and a prefix table. None of those is reached by a normal build: the census and the
-floor are release-only, and the COG-tag arms sit behind ~670 MB of real hashing.
+floor are release-only, and the COG-tag arms sit behind ~1.3 GB of real hashing.
 
 Each case builds a tiny synthetic `data/stac`-shaped tree. The COG arms write real
 single-pixel GeoTIFFs with real GDAL tags, because `check_cog_tags` opens the file.
@@ -189,21 +189,22 @@ def without(*fields) -> dict:
 
 
 NONE_STAGED = {f: None for f in PROV_FIELDS}
-# The three populations the live catalogue actually carries, measured 2026-10-13: 18 items
-# with all twelve, 3 missing only link_run_uid, 2 with none. A fixture that covered only the
-# first two would never reach the all-absent arms, which is where the NGE_PROVENANCE_NULL
-# derivation and the conditional extension both live.
+# The populations the catalogue carries, re-taken on the v2.0.0 build (#89): 18 items with all
+# twelve, 5 missing only link_run_uid (kotl, larl, sloc, dunc, mcgr), and 0 with none. A
+# fixture that covered only the first two would never reach the all-absent arms, which is where
+# the NGE_PROVENANCE_NULL derivation and the conditional extension both live.
 #
 # WHEN THESE ARE RE-TAKEN (`prov_census-measure.R` prints them grouped and named), the
-# all-absent population STAYS, whatever the measurement says. Measured 2026-10-15 it is already
-# empty — mcgr and pine both carry records now, so every staged item carries something — and a
-# literal re-take would delete the only fixture that reaches those two arms. The populations are
-# here to exercise shapes the catalogue can hold, and the live count of each is the reason the
-# first two are sized as they are, not a reason to drop one to zero.
+# all-absent population STAYS, whatever the measurement says — which is exactly what happened
+# here: the live count went to zero when the whole-network runs gave mcgr and pine records, and
+# the two fixture items stay anyway, because a literal re-take would delete the only fixture
+# reaching those two arms. The populations exercise shapes the catalogue CAN hold; the live
+# count of each is the reason the first two are sized as they are, not a reason to drop one to
+# zero. So the fixture is 25 items and 23 traced, where the catalogue is 23 and 23.
 def catalogue() -> list[dict]:
     items = [{"item_id": f"full{i:02d}_ch_ff04"} for i in range(18)]
     items += [{"item_id": f"part{i:02d}_bt_ff04", "staged": without("link_run_uid")}
-              for i in range(3)]
+              for i in range(5)]
     items += [{"item_id": f"none{i:02d}_ch_ff04", "staged": NONE_STAGED} for i in range(2)]
     return items
 
@@ -221,7 +222,7 @@ print("the literals")
 # that one command prints all three, which the static arm further down holds in place.
 expect_clean("PROV_CENSUS matches the live catalogue measured for this release",
              [] if (PROV_CENSUS["link_run_uid"] == 18
-                    and {PROV_CENSUS[f] for f in PROV_FIELDS if f != "link_run_uid"} == {21})
+                    and {PROV_CENSUS[f] for f in PROV_FIELDS if f != "link_run_uid"} == {23})
              else [f"PROV_CENSUS is {PROV_CENSUS}"])
 
 
@@ -426,12 +427,12 @@ expect_clean("...and mirrors the three roster expressions that decide what is co
 
 print("controls (a guard that has never passed is as untested as one that never fired)")
 b = tree(catalogue())
-problems, traced, seen, per_section, census = check_provenance(b, floor=21)
+problems, traced, seen, per_section, census = check_provenance(b, floor=23)
 expect_clean("the three live populations pass the census and the floor", problems)
-expect_clean("...with 21 of 23 carrying provenance",
-             [] if (traced, seen) == (21, 23) else [f"traced={traced} seen={seen}"])
+expect_clean("...with 23 of 25 carrying provenance",
+             [] if (traced, seen) == (23, 25) else [f"traced={traced} seen={seen}"])
 expect_clean("...and every section counted",
-             [] if per_section == {"network": 21, "floodplain": 21, "landcover": 21}
+             [] if per_section == {"network": 23, "floodplain": 23, "landcover": 23}
              else [str(per_section)])
 # The per-field counts come back whether or not they were asserted: they are what the next
 # release reads PROV_CENSUS from, so a release that cannot see them cannot set it.
@@ -471,7 +472,7 @@ expect_problem("an undeclared software entry name is refused", problems,
 shutil.rmtree(b)
 
 b = pathlib.Path(tempfile.mkdtemp(prefix="prov_fields_"))
-problems, *_ = check_provenance(b, floor=21)
+problems, *_ = check_provenance(b, floor=23)
 expect_problem("an empty tree is not a pass", problems, "was not actually checked against")
 shutil.rmtree(b)
 
@@ -482,9 +483,9 @@ print("the census: the arm that replaced set equality")
 # the same field, so nothing is left to compare against.
 b = tree([dict(kw, staged=without("link_run_uid", "landcover_key"))
           if "staged" not in kw else kw for kw in catalogue()])
-problems, *_ = check_provenance(b, floor=21)
+problems, *_ = check_provenance(b, floor=23)
 expect_problem("a field lost on every item is refused", problems,
-               "PROV_CENSUS says 21")
+               "PROV_CENSUS says 23")
 expect_clean("...and NOT on a rebuild, where no release expectation applies",
              check_provenance(b, floor=None)[0])
 shutil.rmtree(b)
@@ -493,10 +494,10 @@ shutil.rmtree(b)
 items = catalogue()
 items[0] = {"item_id": "full00_ch_ff04", "staged": without("landcover_key")}
 b = tree(items)
-problems, traced, *_ = check_provenance(b, floor=21)
-expect_problem("one field lost on ONE item is refused", problems, "PROV_CENSUS says 21")
+problems, traced, *_ = check_provenance(b, floor=23)
+expect_problem("one field lost on ONE item is refused", problems, "PROV_CENSUS says 23")
 expect_clean("...which the item-level floor cannot see on its own",
-             [] if traced == 21 else [f"traced={traced}"])
+             [] if traced == 23 else [f"traced={traced}"])
 shutil.rmtree(b)
 
 # A whole section lost on every item — passed every arm before #74, because the floor was
@@ -506,22 +507,22 @@ b = tree([dict(kw, staged=without("landcover_source", "landcover_collection",
                                   "landcover_item_hash", "drift_version",
                                   "produced_datetime"))
           if "staged" not in kw else kw for kw in catalogue()])
-problems, *_ = check_provenance(b, floor=21)
+problems, *_ = check_provenance(b, floor=23)
 expect_problem("a whole section lost on every item is refused", problems, "PROV_CENSUS says")
 shutil.rmtree(b)
 
 b = tree(catalogue() + [{"item_id": "zzzz_ch_ff04"}])
-problems, *_ = check_provenance(b, floor=21)
+problems, *_ = check_provenance(b, floor=23)
 expect_problem("a census behind the build is refused, naming the number to set", problems,
-               "set it to 22")
+               "set it to 24")
 shutil.rmtree(b)
 
 print("the floor, beside the census rather than derived from it")
 b = tree(catalogue())
-expect_problem("a floor behind the build is refused", check_provenance(b, floor=20)[0],
+expect_problem("a floor behind the build is refused", check_provenance(b, floor=22)[0],
                "the floor is behind the build")
-expect_problem("a floor ahead of the build is refused", check_provenance(b, floor=22)[0],
-               "the release floor is 22")
+expect_problem("a floor ahead of the build is refused", check_provenance(b, floor=24)[0],
+               "the release floor is 24")
 shutil.rmtree(b)
 
 # --- the prefix table ------------------------------------------------------------------

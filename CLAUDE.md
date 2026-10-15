@@ -89,21 +89,26 @@ provenance would reduce `landcover_key`'s fold to one file's `years` agreeing wi
 file's `classified_content_sha256`. `TRANSITION_SPAN` stays a literal and is the anchor — the
 year set is data, the span is a contract.
 
-**One item per `(watershed group, species, scenario)` target**, id `<wsg>_<sp>_ff0N` — *not* one per
-group. MORR carries two LIVE (`morr_co_ff04` + `morr_ch_ff06`) but stages one: upstream retired its
-`targets:` block under floodplains#125, so a rebuild produces `morr_all_ff04` and those two survive
-as live orphans until a release names them in `RETIRED_ITEMS` (#76 built the mechanism; the cutover
-release exercises it). **That cutover is one release, not one per group**, however the issue is
-phrased: `--only` cannot publish a never-live item, and `readme_functions.R` refuses any render
-where the API's item count and the bucket `collection.json`'s `rel: item` count disagree — so the
-first full release after floodplains#125 retires all 17 per-species items and adds 17 whole-network
-ones at once, with `PROVENANCE_FLOOR` and `PROV_CENSUS` re-taken in the same commit. Measured
-2026-10-14 it could not be cut: 13 of the 23 rostered groups declared `all_ff04` and held only
-their old species rasters, so a rebuild skipped them. **Re-measured 2026-10-15T18:42Z through
-`scripts/prov_census-measure.R` (#82): all 23 stage, none skipped, floor 23** — so that blocker is
-gone and whether one remains is a question for that command, not for this file. The collection mixes flood factors,
-so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
-extents (ff04 = functional floodplain, ff06 = valley bottom).
+**One item per `(watershed group, species, scenario)` target**, id `<wsg>_<sp>_ff0N`. Since
+v2.0.0 (#89) every rostered group declares exactly one such target and it is the whole network,
+so in practice the catalogue is **one item per group**, `<wsg>_all_ff04`. The per-target shape is
+the model and not a historical note: a group that declares two targets again publishes two items,
+which is why nothing here derives an id from a group.
+
+**The cutover was one release, not one per group** — `v2.0.0`, which retired all 23 live
+per-species ids and added 23 whole-network ones in one upsert, with `PROVENANCE_FLOOR`,
+`PROV_CENSUS` and the deprecation literals re-taken in the same commit. It had to be one:
+`--only` cannot publish a never-live item (DUNC had never been published), and
+`readme_functions.R` refuses any render where the API's item count and the bucket
+`collection.json`'s `rel: item` count disagree. MORR was the two-for-one case `RETIRED_ITEMS`
+was built for — two live items (`morr_co_ff04` + `morr_ch_ff06`), one replacing them — which is
+why the group-survival arm is written over watershed groups and not over item counts.
+
+**The collection no longer mixes flood factors**: every item is `ff04` (functional floodplain),
+so `summaries.flood_factor` is `[4]` and a cross-group aggregate no longer has differing extents
+to sum. That is a property of today's roster, not a guarantee — the moment any group declares an
+`ff06` target the old advice applies again, which is why `flood_factor` is still published per
+item and the README still names it as the column to filter on.
 
 **`<sp>` is not two letters, and `all` is not a fish** (#75). The producer's species slot takes
 two to four lowercase letters (its own validator is `^[a-z]{2,4}$`), and `all` is the reserved
@@ -137,19 +142,29 @@ keyed differently for a reason that is a property of the data: `floodplain.gpkg`
 delineations each record their OWN flood factor in `scenario` and the item publishes all
 three, so that file is keyed on the item's ff set, while every own layer of
 `floodplain_landcover.gpkg` carries the item's scenario. A layer whose key names no target of
-the group is **reported, not refused**: three groups carry one on every run until
-floodplains#131, so a refusal would be overridden every release and an always-set override
-stops being read. A layer of another **watershed group** is refused, because
+the group is **reported, not refused**: measured on the v2.0.0 build, **22 of the 23 groups**
+carry them on every run — every group that has ever published a species item, since upstream
+keeps the retired layers until floodplains#131 prunes them, and only DUNC (never published) is
+clean. A refusal would be overridden every release, and an always-set override stops being
+read. A layer of another **watershed group** is refused, because
 `test_pipeline.R`'s per-layer `wsg` assertion reads the staged copy and so could never see one
-again. Measured: 827 -> 643 MB over the 23 rostered groups, MORR -70%.
+again. Measured on the v2.0.0 build, decimal MB, the two bundles on both sides, over the 23
+**rostered** groups (not every directory in `$FLOODPLAINS_DATA` — `lit` and `neexdzii` are
+upstream and off the roster): 1680.4 -> 1085.6 MB, a saving of 594.8 MB, MORR -69%
+(116.3 -> 35.6 MB). `transition_vector.gpkg` is a further 93.6 MB and is NOT in that
+comparison — it was never a whole-file copy, so putting it on the "after" side alone would
+understate #80's saving by its own size. Re-taken at each full build; #80 measured
+826.9 -> 642.9 MB on the same scope and units, over a roster that was mostly species items.
 
-**`floodplain_landcover.gpkg` also ships two tables this repo does not describe.** 18 of 23
-areas carry a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` table and 5 a
+**`floodplain_landcover.gpkg` also ships two tables this repo does not describe.** On the
+v2.0.0 build **all 23 items** carry both a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` and a
 `composition_<sp>_<scen>_<y1>_<y2>`, both written by the producer and registered
-`data_type='attributes'` rather than `features` — measured 2026-09-05 and re-measured
-2026-10-14. They are **published**: #80 selects them deliberately, since they carry the item's
-key and belong to it. Not a property of the annual span: `ufra` (three-year) has a
-`patch_watercourse` and `kotl` (annual) does not. `04_gpkg_style.py` and
+`data_type='attributes'` rather than `features`. That is a change: measured 2026-09-05 and
+again 2026-10-14 it was 18 of 23 with a `patch_watercourse` and 5 with a `composition`, and
+the whole-network runs write both for every group. They are **published**: #80 selects them
+deliberately, since they carry the item's key and belong to it. It was never a property of the
+annual span either — `ufra` (three-year) had a `patch_watercourse` and `kotl` (annual) did
+not. `04_gpkg_style.py` and
 `item_validate.check_layer_styles` filter to `features`, so they are inert there; since #80
 `test_pipeline.R` filters on `data_type IN ('features','attributes')` instead and asserts the
 item key on them too, because the geometry filter it used before excluded exactly the layers
@@ -157,8 +172,10 @@ staging now selects. A **new** aspatial family has no automatic cover at all: th
 "matches no style rule" refusal runs after the `features` filter, so one would ship
 undescribed — which is why `01_stage.R` names every aspatial table it staged, per item, on
 every run, **across both bundles** rather than only the landcover one. Every `attributes`
-layer upstream is in the landcover bundle today (30 of 30, measured), so scanning that file
-alone was right about the data and wrong about the question: `floodplain.gpkg` is the bundle
+layer in the two bundles this repo stages from is in the landcover one (66 of 66, measured on
+the v2.0.0 tree over the 23 **rostered** groups; `floodplain.gpkg` has none, and upstream's
+`aquatic_network.gpkg` holds 23 more that nothing here reads), so scanning that file alone was
+right about the data and wrong about the question: `floodplain.gpkg` is the bundle
 with no other cover, because `04_gpkg_style.py` maps every layer of it to one style
 unconditionally. The same run also names any staged layer matching no known family, on a
 pattern anchored at both ends — unanchored, `<sp>_ff04_reach_summary` would read as a known
@@ -231,17 +248,13 @@ so every release records the count beside its NEWS entry: below is a reader that
 nobody updated.
 
 **Its per-field sibling is `PROV_CENSUS` in `item_validate.py`** (#74), the same literal shape,
-asserted whenever the floor is: how many items carry a value for **each** field. The literal reads
-`link_run_uid` 18 and the other eleven 21, which was true of the build it was taken from and is
-**stale against the current roster**: measured 2026-10-14 through this repo's own reader over all
-23 rostered targets, the census is `link_run_uid` 17, `link_config_sha256` 20, `link_sha` 20, the
-other nine 21, with `PROVENANCE_FLOOR` 21 still exact. The whole delta is DUNC, which joined
-`columbia.yml` upstream carrying `link_log: null`, so it drops all three log-sourced fields. **It
-is deliberately not re-measured here** (#75): DUNC could not publish at all while
-floodplains#133 held (it cleared on 2026-10-15, below), so a release cut then would have failed
-one step earlier, and writing 17/20/20 would have encoded a broken record as the expectation. The literals are re-taken on the build the next full
-release is cut from — which is what an exact literal is for, and the refusal is the mechanism
-working. It exists because omitting absent keys retired set
+asserted whenever the floor is: how many items carry a value for **each** field. Re-taken at
+v2.0.0 (#89) on the build that release was cut from. Do not read its value out of this file —
+read the literal, and set a new one from the build. The history is the reason the rule exists:
+between 2026-10-13 and 2026-10-15 the same reader over the same tree gave 21/21, then 17/20/20
+when DUNC joined `columbia.yml` carrying `link_log: null`, then five different answers in one
+hour while a `columbia` run landed, one of them a refusal. A number carried between releases
+describes a tree nobody has. It exists because omitting absent keys retired set
 equality over the key set, which had been catching a reader that silently found nothing and a
 reader that kept one section and lost another. It is also strictly stronger than what it
 replaced: a whole section lost on every item used to pass every arm, because the item-level floor
@@ -329,25 +342,32 @@ layer names are deliberately year-free so QGIS `path|layername=` styles survive 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace
 directly to the model.
 
-**Two items publish `deprecated: true`** (#26) — `mcgr_ch_ff04` and `pine_bt_ff04`, which
-were over-mapped by the pre-fix `flooded` bankfull units and had not been re-run. **Not because
-they cannot be** — floodplains#76's body records that its block is on the species *accessible*
-network, which whole mode does not read; both groups are in their region rosters and the runs
-that produce every other group produce these two. So the marker is transitional, and the
-cutover empties the literal rather than moving it. `DEPRECATED_ITEMS` in `item_create.py` is a literal a human sets, the same
+**No item publishes `deprecated: true`, and the literals are empty** (#26, emptied at v2.0.0 by
+#89). `mcgr_ch_ff04` and `pine_bt_ff04` carried the marker: over-mapped by the pre-fix `flooded`
+bankfull units and not re-run. The cutover rebuilt both on `flooded` 0.7.0 and retired the ids,
+so the marker **expired by its own mechanism** — which is the point of it, not a tidy-up.
+`DEPRECATED_ITEMS` in `item_create.py` is a literal a human sets, the same
 shape as `PROVENANCE_FLOOR`, duplicated as `EXPECTED_DEPRECATED` in `item_validate.py`. The
 guard runs **both** directions: exactly that set is marked, and every item is marked *iff* its
 `processing:software` `flooded` entry is below 0.5.0 or unreadable — the version, not merely its
 presence, since
 an item rebuilt on 0.4.0 carries one and is still over-mapped — the converse matters because an unmarked over-mapped item adds
-nothing to the floor's count, so an exact floor of 21 is satisfied by 21 provenanced items
-whatever ships beside them. It also **self-clears**: a marked item carrying a
-`flooded` entry has been rebuilt, and refusing it is what stops the marker outliving the
-defect. Under `--only` the release passes `--partial`, which drops exactly one arm — the one asking
+nothing to the floor's count, so an exact floor of N is satisfied by N provenanced items
+whatever ships beside them. **Two of its seven arms go vacuous over an empty literal and five do not** —
+the two are the set differences against the literal itself. Still live: a `deprecated` value
+that is neither absent nor true, a half-applied version extension, a marked item that has been
+rebuilt, a marker on an item the literal does not name, and an unmarked item whose `flooded`
+entry is below the floor or unreadable — the last being the only thing between the catalogue
+and an unmarked over-mapped item. `item_validate.py` names them at the literal; this is the
+second copy of that claim, and the first version of it got the count wrong in both. It also **self-clears**: a marked
+item carrying a current `flooded` entry has been rebuilt, and refusing it is what stops the
+marker outliving the defect. Under `--only` the release passes `--partial`, which drops exactly one arm — the one asking
 about ids **absent** from the tree, the normal state of a subset. A marker on an item *outside* the
 literal is still refused there, because that names an id the tree contains: letting it through
-would upsert a permanent false "stale" claim, the one direction with no rollback. Without
-`--partial` at all, #36's single-group path is dead for every group but those two.
+would upsert a permanent false "stale" claim, the one direction with no rollback. While the
+literal was non-empty, a run without `--partial` killed #36's single-group path for every group
+but those two; over an empty literal the arm it drops has nothing to say, and `--partial` is
+kept because the literal can fill again.
 
 **The collection is `CC-BY-4.0`, and the repo is MIT** (#47) — two licences over two different
 things, as in `stac_dem_bc` and `stac_uav_bc`. The products derive from Impact Observatory's
@@ -390,7 +410,7 @@ The route is: hand-write the PAM XML (stdlib `ElementTree`, in `02_raster_tag.py
 `SetCategoryNames` writes a sidecar on every GDAL tested up to 3.13, so neither is a shortcut.
 A sidecar is not an option here: `catalogue_release.sh` excludes `*.aux.xml` from the sync and
 geoserv's titiler sets `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff"`, so it could never
-fetch one. The transition raster's 81 `from -> to` combinations are coloured by destination class
+fetch one. The transition raster's 100 `from -> to` combinations are coloured by destination class
 with the no-change diagonal held back, because no-change is ~91% of valid cells.
 
 ## Catalog registration
@@ -455,7 +475,8 @@ any guard that needs the distinction must read the row — or the bucket — not
 read-back treats a build-null / served-absent pair as equal for this reason, and the shape arm
 above reads the bucket for the same one. **#74 resolved the question that measurement raised** by
 not publishing the null at all: the positive "we looked and there was none" statement now lives
-only on the COGs, as `NGE_PROVENANCE_NULL`, and on the two items `deprecated: true` marks.
+only on the COGs, as `NGE_PROVENANCE_NULL`, and on whatever items `deprecated: true` marks —
+none, since v2.0.0 emptied that literal.
 
 The bucket and the server itself are still managed in
 [`rtj`](https://github.com/NewGraphEnvironment/rtj), whose `stac_register-all.sh` can reload this
