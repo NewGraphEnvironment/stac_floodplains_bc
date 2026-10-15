@@ -854,6 +854,20 @@ echo "case 20: the literal is empty on main, and anchored so the harness can rea
 expect_eq "RETIRED_ITEMS is one bare empty literal in the real script" \
   "$(grep -c '^RETIRED_ITEMS=""$' "$REPO/scripts/catalogue_release.sh" || true)" 1
 
+# Static, and an ENUMERATION rather than a case. Round 2 found the one `| sort` the LC_ALL=C
+# sweep had missed — `build_wsgs`, feeding the `comm` in the arm that survives ALLOW_SKIPPED=1 —
+# and no behavioural case can reach it: the fixture's group codes are ASCII and collate
+# identically in every locale, and the measured direction is a spurious refusal rather than a
+# bad publish. So the class is closed by walking it instead. Every pipe into `sort` in the
+# release script must be collation-pinned, except the one that orders filenames for xargs,
+# where the order is cosmetic and nothing compares the result.
+echo "case 20-sorts: every id/group list compared in the release script is collation-pinned"
+unpinned=$(grep -n '| *sort' "$REPO/scripts/catalogue_release.sh" \
+  | grep -v 'LC_ALL=C sort' \
+  | grep -v 'xargs bash scripts/item_register.sh' || true)
+expect_eq "no bare '| sort' feeds a comparison" "$(printf '%s\n' "$unpinned" | grep -c . || true)" 0
+[ -z "$unpinned" ] || printf '        | %s\n' $unpinned
+
 echo "case 20a: an orphan with an empty literal is refused, and the message names the literal"
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
 run_release;                                        refused "orphan, empty literal"
@@ -928,6 +942,29 @@ LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 set_retired "../collection.json"
 run_release;                                        refused "literal holds a path, not an id"
 expect_out "says it is not an item id" "not an item id"
+reset_tree
+
+echo "case 20j: a literal naming a bucket object that is not a STAC Item is refused"
+# The reachable form of the class case 20i's shape guard only half-closed. `collection` passes
+# the charset guard, is absent from local_ids by construction (the build loop skips it), and
+# `$S3_BASE/collection.json` of course answers — so a HEAD-based witness reported it "already
+# retired by an earlier run" and the release completed announcing a retirement it never
+# performed. The witness now reads the body and asks the document who it is.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+set_retired collection; set_news collection
+run_release;                                        refused "literal names the collection document"
+expect_out "says it was never published" "was never published"
+expect_out "and says why: no Item with that id" "no STAC Item with that id"
+reset_tree
+
+echo "case 20k: the NEWS arm matches the id delimited, not as a substring"
+# `grep -qF "$id"` passed for any entry merely containing the text, so an entry naming only a
+# LONGER id satisfied the requirement that this id be recorded. Deleting a public item id with
+# no release note is the one direction a consumer has no way to discover.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04_v2    # a longer id, not this one
+run_release;                                        refused "NEWS names only a longer id"
+expect_out "names the entry it is missing from" "does not mention"
 reset_tree
 
 echo "case 21a: the positive control — the retirement runs, and deletes exactly its literal"

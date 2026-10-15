@@ -363,8 +363,10 @@ watershed group this build does not cover.
 
 **The delete runs after every probe, not between register and verify**, so a failed read-back costs
 a failed release and not the deleted ids as well. And until `item_retract_s3.sh` runs, it is
-reversible: no sync passes `--delete`, so `item_register.sh` can re-register a retired item from
-the bucket copy the build no longer holds. That script is the irreversible half, needs `--yes`, and
+reversible: no sync passes `--delete`, so a retired item's document is still in the bucket and its
+row can be put back — fetched to a local file first, since `item_register.sh` reads local paths,
+and followed by a re-run of the release, since the published `collection.json` no longer links it
+and an API/bucket disagreement is what a reload-from-S3 turns into an empty collection. That script is the irreversible half, needs `--yes`, and
 refuses while the API serves the item, while the bucket `collection.json` still links it, or while
 the build still produces it — the middle one because rtj's reload-from-S3 `DELETE`s a collection's
 rows before discovering a linked href 404s, which is how `stac-dem-bc` came to serve zero items.

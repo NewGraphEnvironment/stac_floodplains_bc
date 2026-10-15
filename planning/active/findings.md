@@ -452,3 +452,69 @@ the "fixture that cannot reach the failure mode" mechanism, arriving through a t
 because the condition was unreachable — the reviewer said so. With the faithful `aws s3 ls`, the
 mutant now reproduces the exact symptom: the "permanent" banner prints, nothing is deleted, and
 the script exits 1 silently.
+
+## Code-check round 2 — three findings, and the mechanism behind round 1
+
+Round 2 did what the convention asks for from round 3 on: it named the **mechanism** rather than
+more instances, and both mechanisms still had reachable members.
+
+**Shape A — two artefacts that must agree, with nothing mechanical joining them.** Round 1's F1
+(prose vs code), F3 (the harness stage counter vs the script's call sequence) and F5 (Python
+`sorted()` vs shell `sort`) are all this. Each round-1 fix closed its named instance without
+walking the class.
+
+**Shape B — a guard scoped to the symptom rather than the property.** F4 guarded the *character
+set* of a `RETIRED_ITEMS` entry because the symptom was `../collection.json`; the property wanted
+is "this is an item id of this collection".
+
+### The three findings
+
+| # | finding | verdict |
+|---|---|---|
+| R2-1 | the step-7 recovery text, and four copies of it, say to re-register "from the bucket copy with `item_register.sh`" | **real.** `item_register.sh` does `json.load(open(f))` over its argv — local paths only — so both the `s3://` and `https://` forms die with `FileNotFoundError`. It is the text printed with a half-done retirement in front of the operator, and the stated justification for `item_retract_s3.sh` being separate. Shape A, moved into the *recovery* path |
+| R2-2 | `build_wsgs` was still on a bare `sort -u`, feeding a `comm` against Python-sorted `live_wsgs` | **real.** And my own F5 comment claimed pinning `local_ids` "fixes every comparison in this script at once" — the over-claim is what hid it. It is the group arm, the one guard that survives `ALLOW_SKIPPED=1`. Direction measured by the reviewer: fails toward refusal, not pass |
+| R2-3 | `RETIRED_ITEMS="collection"` passes every arm and the release completes | **real.** It clears the charset guard, is absent from `local_ids` by construction, `$S3_BASE/collection.json` answers 200 so the witness reports "already retired by an earlier run", the NEWS `grep -qF` matches any entry containing the word, `to_delete` is empty and `$API/items/collection` 404s. F4's exact symptom with no dot segment. Nothing is deleted, so not a data hazard |
+
+### What the enumerations found that the reviewer did not
+
+Because two findings sat inside round 1's fixes, a quiet round could not end this loop — only
+walking the classes could. Three enumerations:
+
+**E1, every `sort` whose output is compared.** One member left (R2-2). Fixed, and then closed
+**statically** rather than behaviourally: no fixture can reach a collation difference, because the
+synthetic group codes are ASCII and collate identically in every locale. Case `20-sorts` greps the
+release script instead and refuses any `| sort` that is neither `LC_ALL=C`-pinned nor the one
+feeding `xargs` for registration order. Proven by removing the pin: the case goes red.
+
+**E2, every operator-facing message naming a remedy, against whether that remedy is available in
+the state that printed it.** The reviewer found one of three. The other two are mine:
+
+- the containment arm said "or re-run with `--allow-retract`" — **refused** when the literal is
+  non-empty, which is exactly a retirement release
+- the group arm said "or re-run with `--allow-retract` if the group really is leaving" — same,
+  and worse, because that flag would waive *this very arm*
+
+Both now branch on `n_retired` and say so. This is the class round 1's F1 belonged to, and it had
+three members, not one.
+
+**E3, every guard proving existence where identity is wanted.** Two members: the bucket witness
+(R2-3) and the NEWS arm's `grep -qF`, which matched a substring — so an entry naming only
+`bulk_all_ff04_v2` satisfied the requirement to record `bulk_all_ff04`. The witness now reads the
+body and requires `type == "Feature"` and a matching `id`, which subsumes the charset guard's
+whole purpose; the NEWS match is delimited. New cases 20j and 20k.
+
+### Also fixed: a dead condition I found myself, held until round 2 finished
+
+Step 7's equality arm carried `[ -z "$ALLOW_RETRACT" ]`, copied from the step-5 arm. The block is
+gated on a non-empty literal and the flag is refused alongside one, so the test could never be
+false. A condition that cannot be false reads as a live escape hatch on the one arm the retirement
+turns on. Now unconditional, and the comment says why. Not applied mid-review, because round 2 was
+reading that file and running the harness.
+
+## Mutation table, part 4 — round 2's fixes
+
+| # | guard disabled | case that went red |
+|---|---|---|
+| M16 | the bucket witness's identity check (→ existence) | 20j |
+| M17 | the NEWS delimited match (→ `grep -qF`) | 20k |
+| M18 | `build_wsgs`'s collation pin | **none** — unreachable behaviourally; closed by case `20-sorts` instead, which does go red |

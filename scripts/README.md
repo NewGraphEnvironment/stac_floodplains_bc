@@ -178,9 +178,20 @@ literal would delete every id in it with nothing left checking the result. The f
 nothing by itself; it only permits publishing past an orphan.
 
 Until step 5 runs, **the retirement is reversible**: no sync passes `--delete`, so each retired
-item's document is still in the bucket and `item_register.sh` can put its pgstac row back. That is
-why the asset delete is a separate script, needs `--yes`, and refuses while the API still serves
-the item, while the bucket `collection.json` still links it, or while this build still produces it.
+item's document is still in the bucket and its pgstac row can be put back. `item_register.sh`
+reads **local files**, so fetch it first and re-run the release afterwards — restoring the API row
+alone leaves the API serving an item the bucket's `collection.json` no longer links, which is the
+disagreement a reload-from-S3 turns into an empty collection:
+
+```bash
+aws s3 cp "s3://stac-floodplains-bc/<item-id>.json" "${TMPDIR:-/tmp}/"
+scripts/item_register.sh "${TMPDIR:-/tmp}/<item-id>.json"
+bash scripts/catalogue_release.sh      # re-run it, so bucket and API agree again
+```
+
+That is why the asset delete is a separate script, needs `--yes`, and refuses while the API still
+serves the item, while the bucket `collection.json` still links it, or while this build still
+produces it.
 
 ### Removal — a group leaving the catalogue
 

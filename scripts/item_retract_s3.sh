@@ -12,9 +12,16 @@
 #   * Bucket versioning is Suspended, so every delete here is permanent. A release that
 #     destroyed assets on a failure path would be the one direction with no rollback, and
 #     catalogue_release.sh refuses `--delete` on its own syncs for exactly that reason.
-#   * While these objects exist, the pgstac delete the release performed is REVERSIBLE:
-#     scripts/item_register.sh can re-register a retired item straight from
-#     s3://<bucket>/<id>.json, which the build no longer holds. That is the rollback for
+#   * While these objects exist, the pgstac delete the release performed is REVERSIBLE: the
+#     item's document is still at s3://<bucket>/<id>.json, which the build no longer holds, so
+#     it can be fetched and registered again. Not passed straight to the register script —
+#     item_register.sh reads LOCAL files (json.load(open(f)) over its argv), so a bucket URL
+#     dies with FileNotFoundError:
+#         aws s3 cp "s3://<bucket>/<id>.json" "${TMPDIR:-/tmp}/"
+#         scripts/item_register.sh "${TMPDIR:-/tmp}/<id>.json"
+#     and then RE-RUN THE RELEASE, because the collection.json it published no longer links
+#     that item: restoring the API row alone leaves the bucket and the API disagreeing, which
+#     is the state the reload below turns into an empty collection. That is the rollback for
 #     step 6, and running this script is what gives it up.
 #
 # Three refusals per id, each of which has to pass before anything is deleted:

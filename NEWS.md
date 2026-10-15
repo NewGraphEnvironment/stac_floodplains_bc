@@ -54,8 +54,9 @@ where it does not.
 the asset, checksum, version, licence and deprecation read-backs, all of which fail the
 release and fall through — so a failed probe would have cost seventeen deleted item ids and a
 release reporting `INCOMPLETE`. And until `scripts/item_retract_s3.sh` is run, the retirement
-is reversible: no sync passes `--delete`, so `item_register.sh` can re-register a retired item
-from the bucket copy. That script is separate, needs `--yes`, and refuses while the API serves
+is reversible: no sync passes `--delete`, so a retired item's document is still in the bucket and
+its row can be put back (fetched locally first — `item_register.sh` takes file paths — and
+followed by a re-run of the release, so the bucket and the API agree again). That script is separate, needs `--yes`, and refuses while the API serves
 the item, while the bucket's `collection.json` still links it, or while the build still
 produces it.
 
