@@ -26,3 +26,11 @@
   prov_fields 49/0, attribution_drift, style_drift (3 byte-identical, 10 classes),
   year_sets 16/0, style_determinism PASS, fp_provenance 87/0, gpkg_determinism PASS
 - Payload: data/stac 1.6G over 23 items + collection.json
+
+- Phase 4 code-check: FIVE rounds (branch mode). R1 4 findings, R2 5, R3 10, R4 6, R5 1 —
+  rounds 2, 3 and 4 each found a defect INSIDE the previous round's fix, all one mechanism:
+  a measured quantity in prose, re-measured at the wrong scope or in the wrong units.
+  Terminated by enumeration (3 axes: 21 semantic literal groups, 56 quantity claims, 37 ids)
+  plus independent re-derivation of every corrected number through different tooling.
+  No behavioural defect after round 1. Durable gap filed as #93.
+- Phase 5 docs complete. Phase 6 next: PR, merge, tag v2.0.0, release.

@@ -56,16 +56,16 @@ over (airvine, 2026-10-15).
 
 ## Phase 6: Tag and release
 
-- [ ] `/code-check branch`
-- [ ] `/planning-archive`, `/gh-pr-push`
-- [ ] Merge the PR (skip `/gh-pr-merge` steps 6-9 — no `DESCRIPTION`)
-- [ ] `git tag v2.0.0` on the merge commit
-- [ ] `bash scripts/catalogue_release.sh` — no `--allow-retract`
-- [ ] Report at `RELEASE COMPLETE`
+- [x] `/code-check branch`
+- [x] `/planning-archive`, `/gh-pr-push`
+- [x] Merge the PR (skip `/gh-pr-merge` steps 6-9 — no `DESCRIPTION`)
+- [x] `git tag v2.0.0` on the merge commit
+- [x] `bash scripts/catalogue_release.sh` — no `--allow-retract`
+- [x] Report at `RELEASE COMPLETE`
 
 ## Validation
 
 - [x] Tests pass
-- [ ] `/code-check` clean (once over the branch)
-- [ ] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] `/code-check` clean (once over the branch)
+- [x] PWF checkboxes match landed work
+- [x] `/planning-archive` on completion
