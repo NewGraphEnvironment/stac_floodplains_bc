@@ -97,12 +97,27 @@ dir.create(raw_dir, recursive = TRUE, showWarnings = FALSE)
 # table, and `data/stac` is off limits because catalogue_release.sh builds its item-id
 # list from `$STAC_DIR/*.json`, which would register a phantom item called `classes`.
 #
-# Code 0 is dropped. It is the SOURCE scheme's "No Data" marker, not a land cover: the
+# Code 0 is KEPT, and used to be dropped. The premise for dropping it was that the
 # published rasters declare nodata natively (255 on the classified, -2147483648 on the
-# transition) and never contain 0. Keeping it would put a class in the legend that cannot
-# occur, and would make the transition cross product 100 rows of which 19 are unreachable.
+# transition) and "never contain 0" — true while every item was one species' ACCESSIBLE
+# floodplain, and false since the whole-network cutover (#89). Measured on that build:
+# `kisp/rasters/all_ff04/classified_2020.tif` holds 58,540 cells of 0 among 3,555,686 valid
+# ones, and the species raster for the same group and year holds none — the whole network
+# reaches ground the accessible one did not, and io-lulc's 2020 composite has a gap there.
+# 0 is a value the data holds, so it is a value the labels have to describe.
+#
+# It was this repo's own guard that found it, not a consumer: `check_layer_styles` refused
+# the staged GeoPackage because one feature of `classified_all_ff04_2020` carries
+# class_name "No Data" and the style had no category for it, so it would have drawn with no
+# symbol. The raster side was worse and quieter — 58,540 cells with no RAT row at all.
+#
+# The dropped premise's second half does not survive either: "a transition cross product of
+# 100 rows of which 19 are unreachable" is the same objection that already applies to the
+# 81, of which KISP reaches 45. The transition RAT documents drift's ENCODING, not any
+# item's data (`02_raster_tag.transition_rat`), and item_validate.py checks the direction
+# that matters — every code present in a raster has a row — not the converse.
 classes <- drift::dft_class_table("io-lulc")
-classes <- classes[classes$code != 0, c("code", "class_name", "color", "description")]
+classes <- classes[, c("code", "class_name", "color", "description")]
 
 # Absolute floors, not derived from what we just read. A short or empty table is exactly
 # the uniform defect a cross-item check cannot see: every item would lose the same labels,
@@ -110,8 +125,8 @@ classes <- classes[classes$code != 0, c("code", "class_name", "color", "descript
 # an item carrying ZERO classes (measured). So the expectation is named here.
 stopifnot(
   "drift class table is empty" = nrow(classes) > 0,
-  "drift class table lost codes — expected the io-lulc 9" =
-    setequal(classes$code, c(1, 2, 4, 5, 7, 8, 9, 10, 11)),
+  "drift class table lost codes — expected the io-lulc 10, code 0 included" =
+    setequal(classes$code, c(0, 1, 2, 4, 5, 7, 8, 9, 10, 11)),
   "drift class table has a non-#RRGGBB colour" =
     all(grepl("^#[0-9A-Fa-f]{6}$", classes$color)),
   "drift class table has a blank class_name" = all(nzchar(trimws(classes$class_name)))

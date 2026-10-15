@@ -982,8 +982,13 @@ GDAL_METADATA_TAG = 42112
 # Absolute expected row counts, per asset kind. Named here rather than derived from
 # classes.json or from the item, because a derived expectation cannot fire: if the class
 # table went empty, the RAT, the STAC classes and the expectation would all go empty
-# together and every comparison would pass. 9 land-cover classes; 9x9 transitions.
-EXPECTED_RAT_ROWS = {"classified": 9, "transition": 81}
+# together and every comparison would pass. 10 land-cover classes; 10x10 transitions.
+#
+# 10 and not 9 since #89: code 0 ("No Data") used to be dropped from the class table on the
+# premise that the rasters never hold it, which the whole-network build disproved —
+# `kisp_all_ff04/classified_2020.tif` holds 58,540 of them. See the block above `classes <-`
+# in 01_stage.R.
+EXPECTED_RAT_ROWS = {"classified": 10, "transition": 100}
 
 # The layer styles embedded by 04_gpkg_style.py (#46). Absolute, like the RAT rows above:
 # an expectation derived from the file could not fire, because a GeoPackage that lost its
@@ -999,7 +1004,11 @@ EXPECTED_STYLE_ASSETS = {
     "style_classified": "classified.qml",
     "style_transition": "transition.qml",
 }
-EXPECTED_STYLE_CATEGORIES = {"classified": 9, "transition": 73}
+# 9 -> 10 and 73 -> 91 since #89, for the same reason as EXPECTED_RAT_ROWS above: code 0 is
+# back in the class table. The classified style is one category per class; the transition
+# style is the categories style_qml-write.py emits plus one catch-all. Both numbers are read
+# off the regenerated styles, not computed here — a count this file derives could not fire.
+EXPECTED_STYLE_CATEGORIES = {"classified": 10, "transition": 91}
 
 # The classified year sets this collection publishes (#61). A LITERAL a human sets, the
 # same shape and the same reason as DEPRECATED_ITEMS and PROVENANCE_FLOOR: the year set is

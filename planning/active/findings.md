@@ -29,6 +29,41 @@ literals set would fail `run_pipeline.sh` at its VALIDATE step — after the ful
 `floor=21` call sites assert against that tree. Changing the part-population to 5 makes the
 fixture 25 items / 23 provenanced, so every number derived from it moves too.
 
+## The build found a real defect here: class 0 was dropped from the class table
+
+`run_pipeline.sh` reached VALIDATE and refused:
+
+```
+FAILED: 1 layer-style problem(s)
+  kisp_all_ff04/floodplain_landcover.gpkg style for 'classified_all_ff04_2020' has no
+  category for 1 value(s) the layer holds (No Data) — those features draw with no symbol
+```
+
+Traced, not guessed:
+
+- `drift::dft_class_table("io-lulc")` returns **10** classes, code 0 "No Data" among them.
+  `data/raw/classes.json` had **9** — `01_stage.R:105` filtered `code != 0`.
+- The stated premise for that filter was that the published rasters "never contain 0".
+  Measured on this build: `kisp_all_ff04/classified_2020.tif` holds **58,540 cells of 0**
+  among 3,555,686 valid ones (1.65%). Exactly one raster in the catalogue, and exactly one
+  vector feature — scanned all 108 classified rasters and all 23 landcover bundles.
+- **The cause is the cutover itself.** The producer's `kisp/rasters/ch_ff04/classified_2020.tif`
+  — same group, same year, species-accessible extent — holds **no** zeros. The whole network
+  reaches ground the accessible network did not, and io-lulc's 2020 composite has a gap there.
+  So the premise was true of every build before this one.
+- Not upstream: the producer's raster is faithful to io-lulc, which defines 0 as No Data. The
+  drop was ours.
+
+The second half of the dropped premise does not survive either. "A transition cross product
+of 100 rows of which 19 are unreachable" is the objection that already applied to the 81, of
+which KISP reaches 45; the transition RAT documents drift's *encoding*, not an item's data,
+and `item_validate.py` checks that every code present in a raster has a row, not the converse.
+
+**Fix:** keep code 0. `classes.json` 10 classes, classified RAT 10 rows, transition RAT 100,
+`classification:classes` 10, `EXPECTED_RAT_ROWS` 10/100, and the three committed `styles/*.qml`
+regenerated (classified 10 categories, transition 90). Full COG rebuild, because the RAT is
+embedded by the `CreateCopy` in step 03.
+
 ## Errors Encountered
 
 | Error | Resolution |

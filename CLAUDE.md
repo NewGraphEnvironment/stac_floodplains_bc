@@ -142,19 +142,23 @@ keyed differently for a reason that is a property of the data: `floodplain.gpkg`
 delineations each record their OWN flood factor in `scenario` and the item publishes all
 three, so that file is keyed on the item's ff set, while every own layer of
 `floodplain_landcover.gpkg` carries the item's scenario. A layer whose key names no target of
-the group is **reported, not refused**: three groups carry one on every run until
-floodplains#131, so a refusal would be overridden every release and an always-set override
-stops being read. A layer of another **watershed group** is refused, because
+the group is **reported, not refused**: measured on the v2.0.0 build, **22 of the 23 groups**
+carry them on every run — every group that has ever published a species item, since upstream
+keeps the retired layers until floodplains#131 prunes them, and only DUNC (never published) is
+clean. A refusal would be overridden every release, and an always-set override stops being
+read. A layer of another **watershed group** is refused, because
 `test_pipeline.R`'s per-layer `wsg` assertion reads the staged copy and so could never see one
 again. Measured: 827 -> 643 MB over the 23 rostered groups, MORR -70%.
 
-**`floodplain_landcover.gpkg` also ships two tables this repo does not describe.** 18 of 23
-areas carry a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` table and 5 a
+**`floodplain_landcover.gpkg` also ships two tables this repo does not describe.** On the
+v2.0.0 build **all 23 items** carry both a `patch_watercourse_<sp>_<scen>_<y1>_<y2>` and a
 `composition_<sp>_<scen>_<y1>_<y2>`, both written by the producer and registered
-`data_type='attributes'` rather than `features` — measured 2026-09-05 and re-measured
-2026-10-14. They are **published**: #80 selects them deliberately, since they carry the item's
-key and belong to it. Not a property of the annual span: `ufra` (three-year) has a
-`patch_watercourse` and `kotl` (annual) does not. `04_gpkg_style.py` and
+`data_type='attributes'` rather than `features`. That is a change: measured 2026-09-05 and
+again 2026-10-14 it was 18 of 23 with a `patch_watercourse` and 5 with a `composition`, and
+the whole-network runs write both for every group. They are **published**: #80 selects them
+deliberately, since they carry the item's key and belong to it. It was never a property of the
+annual span either — `ufra` (three-year) had a `patch_watercourse` and `kotl` (annual) did
+not. `04_gpkg_style.py` and
 `item_validate.check_layer_styles` filter to `features`, so they are inert there; since #80
 `test_pipeline.R` filters on `data_type IN ('features','attributes')` instead and asserts the
 item key on them too, because the geometry filter it used before excluded exactly the layers

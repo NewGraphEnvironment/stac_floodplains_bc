@@ -8,18 +8,50 @@
   </flags>
   <renderer-v2 attr="class_name" enableorderby="0" forceraster="0" referencescale="-1" symbollevels="0" type="categorizedSymbol">
     <categories>
-      <category label="Water" render="true" symbol="0" type="string" value="Water" />
-      <category label="Trees" render="true" symbol="1" type="string" value="Trees" />
-      <category label="Flooded Vegetation" render="true" symbol="2" type="string" value="Flooded Vegetation" />
-      <category label="Crops" render="true" symbol="3" type="string" value="Crops" />
-      <category label="Built Area" render="true" symbol="4" type="string" value="Built Area" />
-      <category label="Bare Ground" render="true" symbol="5" type="string" value="Bare Ground" />
-      <category label="Snow/Ice" render="true" symbol="6" type="string" value="Snow/Ice" />
-      <category label="Clouds" render="true" symbol="7" type="string" value="Clouds" />
-      <category label="Rangeland" render="true" symbol="8" type="string" value="Rangeland" />
+      <category label="No Data" render="true" symbol="0" type="string" value="No Data" />
+      <category label="Water" render="true" symbol="1" type="string" value="Water" />
+      <category label="Trees" render="true" symbol="2" type="string" value="Trees" />
+      <category label="Flooded Vegetation" render="true" symbol="3" type="string" value="Flooded Vegetation" />
+      <category label="Crops" render="true" symbol="4" type="string" value="Crops" />
+      <category label="Built Area" render="true" symbol="5" type="string" value="Built Area" />
+      <category label="Bare Ground" render="true" symbol="6" type="string" value="Bare Ground" />
+      <category label="Snow/Ice" render="true" symbol="7" type="string" value="Snow/Ice" />
+      <category label="Clouds" render="true" symbol="8" type="string" value="Clouds" />
+      <category label="Rangeland" render="true" symbol="9" type="string" value="Rangeland" />
     </categories>
     <symbols>
       <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="0" type="fill">
+        <data_defined_properties>
+          <Option type="Map">
+            <Option name="name" type="QString" value="" />
+            <Option name="properties" />
+            <Option name="type" type="QString" value="collection" />
+          </Option>
+        </data_defined_properties>
+        <layer class="SimpleFill" enabled="1" id="{a07d8896-3cae-5089-9d68-6b72150ab28e}" locked="0" pass="0">
+          <Option type="Map">
+            <Option name="border_width_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0" />
+            <Option name="color" type="QString" value="0,0,0,255" />
+            <Option name="joinstyle" type="QString" value="bevel" />
+            <Option name="offset" type="QString" value="0,0" />
+            <Option name="offset_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0" />
+            <Option name="offset_unit" type="QString" value="MM" />
+            <Option name="outline_color" type="QString" value="35,35,35,255" />
+            <Option name="outline_style" type="QString" value="no" />
+            <Option name="outline_width" type="QString" value="0.26" />
+            <Option name="outline_width_unit" type="QString" value="MM" />
+            <Option name="style" type="QString" value="solid" />
+          </Option>
+          <data_defined_properties>
+            <Option type="Map">
+              <Option name="name" type="QString" value="" />
+              <Option name="properties" />
+              <Option name="type" type="QString" value="collection" />
+            </Option>
+          </data_defined_properties>
+        </layer>
+      </symbol>
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="1" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -50,7 +82,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="1" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="2" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -81,7 +113,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="2" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="3" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -112,7 +144,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="3" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="4" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -143,7 +175,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="4" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="5" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -174,7 +206,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="5" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="6" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -205,7 +237,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="6" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="7" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -236,7 +268,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="7" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="8" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
@@ -267,7 +299,7 @@
           </data_defined_properties>
         </layer>
       </symbol>
-      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="8" type="fill">
+      <symbol alpha="0.5" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="9" type="fill">
         <data_defined_properties>
           <Option type="Map">
             <Option name="name" type="QString" value="" />
