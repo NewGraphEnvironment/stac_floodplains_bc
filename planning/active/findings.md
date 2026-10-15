@@ -383,3 +383,17 @@ because what it pins is #61's "this issue changes code, not data" criterion agai
 **pre-change** build, and a pin re-taken from today's code would confirm today's code against
 itself — verification reading its own output. Re-taking it is a different, newly-named guard,
 and belongs with whoever lands ufra's whole-network run.
+
+## Visibility check (public repo), 2026-10-14
+
+`.claude/visibility` is `public`. `stac_dem_bc` and `stac_uav_bc` are PUBLIC, so naming the
+`stac-dem-bc` incident is fine. The operations repo that manages the bucket and server is
+**PRIVATE**, and `main` already names it in about a dozen tracked places including a full GitHub
+link (`CLAUDE.md`) and an issue citation inside an operator-facing error message
+(`catalogue_release.sh`) — the two forms the convention names outright.
+
+This branch adds more mentions in the same bare-name style, and **no** new link and **no** new
+issue citation (measured: `grep -c "rtj#"` over the branch's added lines is 0). Diverging inside a
+single paragraph of a file that names it three lines up would read worse than matching it, and
+rewriting a dozen pre-existing references does not belong in #76. Filed as #86 with the
+occurrence table, so the wording is settled once and applied in one pass.
