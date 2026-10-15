@@ -41,21 +41,21 @@ half is a separate script, and why the delete is safe to put inside the release 
 
 ## Phase 2: Tests — the new arms, failing
 
-- [ ] 20a orphans present, `RETIRED_ITEMS` empty, no `--allow-retract` → refused, no `aws`, no delete
-- [ ] 20b an orphan **not** in `RETIRED_ITEMS` → refused, naming the unintended id
-- [ ] 20c a literal id neither live nor in the bucket → refused ("never published — check the literal")
-- [ ] 20d a literal id not live but **present in the bucket** → *reported*, release proceeds
+- [x] 20a orphans present, `RETIRED_ITEMS` empty, no `--allow-retract` → refused, no `aws`, no delete
+- [x] 20b an orphan **not** in `RETIRED_ITEMS` → refused, naming the unintended id
+- [x] 20c a literal id neither live nor in the bucket → refused ("never published — check the literal")
+- [x] 20d a literal id not live but **present in the bucket** → *reported*, release proceeds
       (idempotency: the re-run after a verify failure must not refuse)
-- [ ] 20e a literal id present in the build → refused
-- [ ] 20f a live watershed group covered by no build item → refused (the `ALLOW_SKIPPED=1` arm)
-- [ ] 20g a `RETIRED_ITEMS` id absent from the tagged `NEWS.md` top section → refused
-- [ ] 20h `--only` with a non-empty `RETIRED_ITEMS` → refused at `:106-110`
-- [ ] 21a positive control: literal set == orphans, every group replaced → the delete runs (proved
+- [x] 20e a literal id present in the build → refused
+- [x] 20f a live watershed group covered by no build item → refused (the `ALLOW_SKIPPED=1` arm)
+- [x] 20g a `RETIRED_ITEMS` id absent from the tagged `NEWS.md` top section → refused
+- [x] 20h `--only` with a non-empty `RETIRED_ITEMS` → refused at `:106-110`
+- [x] 21a positive control: literal set == orphans, every group replaced → the delete runs (proved
       from the `ssh` shim argv log) and the release completes
-- [ ] 21b a probe fails before the delete → `RELEASE INCOMPLETE` with **zero** `delete_item` payloads
-- [ ] 21c phase B: a retired id still served after the delete → `RELEASE INCOMPLETE`
-- [ ] 21d empty literal, clean release → zero `delete_item` payloads, completion line unchanged
-- [ ] 21e `--allow-retract` remainder: an orphan outside the literal is permitted, gets **no** delete
+- [x] 21b a probe fails before the delete → `RELEASE INCOMPLETE` with **zero** `delete_item` payloads
+- [x] 21c phase B: a retired id still served after the delete → `RELEASE INCOMPLETE`
+- [x] 21d empty literal, clean release → zero `delete_item` payloads, completion line unchanged
+- [x] 21e `--allow-retract` remainder: an orphan outside the literal is permitted, gets **no** delete
       (this is harness case 9m's successor; 9m itself must be rewritten, not deleted)
 - [ ] 22 `item_retract_s3.sh` refuses while the id is still served or still linked from the bucket
       `collection.json`

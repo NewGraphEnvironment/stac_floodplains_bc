@@ -280,3 +280,21 @@ Both caused by the upstream flip, both reproduced:
 - The harness runs a committed, tagged copy of `scripts/` (`:99-102`), so mutating the literal per
   case needs `tgit commit -am` + `tgit tag -f`, the pattern cases 11 and 13 already use
   (`:554-558`, `:571-574`).
+
+## Red run, Phase 2 (2026-10-14)
+
+`bash scripts/catalogue_release-check.sh` with the cases in and no implementation:
+
+| case | red, and for the right reason |
+|---|---|
+| 20 | `grep -c '^RETIRED_ITEMS=""$'` is 0 — the literal does not exist |
+| 20a | reaches the real orphan block and prints the OLD message; the new one is absent |
+| 20b+ | `set_retired` aborts: "no RETIRED_ITEMS literal to set" |
+
+**One false pass caught by the red run itself.** Case 3f puts `PARTIAL_STAGE` back and nothing
+took it off again, so every new case — all full releases — was refused by the interlock
+*upstream of the whole preflight*, and `refused()` passed on the strength of a message about
+partial staging rather than about retirement. A guard failing toward pass, arriving through the
+fixture rather than the code. Fixed by clearing the marker at the top of the block, and it is
+the reason case 21a (the positive control) is not optional: without it every refusal above is a
+grep that has never been shown to match.

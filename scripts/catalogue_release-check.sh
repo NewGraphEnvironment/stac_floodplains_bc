@@ -134,10 +134,15 @@ def item(iid, sizes):
     # landcover:key is a value on both sides, so a PARTIAL loss is representable (case 15):
     # the shim can serve a live value for link:run_uid while the build still has
     # landcover:key.
+    # properties.wsg, because the "no group is lost" arm reads the watershed group as a
+    # published FACT on both sides — the live item's from a fielded search, the build's from
+    # this document — rather than parsing it out of the id. Derived from the id HERE, in a
+    # fixture builder, which is allowed to know that item_create.py writes
+    # `paste0(wsg, "_", scenario)`; the release script is not.
     doc = {"type": "Feature", "stac_version": "1.0.0", "id": iid, "collection": coll,
            "geometry": None,
            "properties": {"datetime": "2023-01-01T00:00:00Z", "link:run_uid": None,
-                          "landcover:key": "same"},
+                          "landcover:key": "same", "wsg": iid.split("_")[0].upper()},
            "links": [], "assets": assets}
     json.dump(doc, open(os.path.join(stac, iid + ".json"), "w"))
 item("aaaa_ch_ff04", {"classified_2017.tif": 3, "floodplain_landcover.gpkg": 40})
@@ -237,7 +242,19 @@ else:
         d = json.load(open(p))
         if d.get("type") == "Feature" and (d.get("properties") or {}).get("deprecated") is True:
             marked.add(d["id"])
-feats = [{"id": i, "properties": ({"deprecated": True} if i in marked else {})} for i in ids]
+# wsg beside the marker, from the build document where there is one and derived from the id
+# otherwise — which is how the real API answers, since item_create.py writes the id FROM the
+# wsg. Deriving it here is what lets a live-only id (no build file) model a LOST group.
+def wsg_of(i):
+    p = os.path.join(sys.argv[2], i + ".json")
+    if os.path.exists(p):
+        w = (json.load(open(p)).get("properties") or {}).get("wsg")
+        if w:
+            return w
+    return i.split("_")[0].upper()
+feats = [{"id": i, "properties": dict({"wsg": wsg_of(i)},
+                                      **({"deprecated": True} if i in marked else {}))}
+         for i in ids]
 print(json.dumps({"features": feats}))' "$ids" "$STAC_DIR"
     exit 0 ;;
 esac
@@ -297,6 +314,17 @@ case "$url" in
 esac
 rel="${url#*.amazonaws.com/}"
 f="$STAC_DIR/$rel"
+# The bucket is NOT the build, and the retirement preflight turns on exactly that difference:
+# an id absent from the API and still in the bucket was retired by an earlier run of this
+# release, while an id in neither was never published at all. The fixture serves both surfaces
+# out of one directory, so without this knob the second state is unrepresentable.
+for _b in ${FAKE_BUCKET_ONLY_IDS:-}; do
+  if [ "$rel" = "$_b.json" ]; then
+    printf '{"type":"Feature","id":"%s","properties":{"wsg":"%s"},"assets":{}}' \
+      "$_b" "$(printf '%s' "${_b%%_*}" | tr 'a-z' 'A-Z')"
+    exit 0
+  fi
+done
 [ -f "$f" ] || { echo "curl shim: no fixture for $url" >&2; exit 22; }
 if [ -n "$head" ]; then
   printf 'HTTP/1.1 200 OK\r\nContent-Length: %s\r\n\r\n' "$(wc -c < "$f" | tr -d ' ')"
@@ -327,6 +355,7 @@ LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 LIVE_AFTER=""
 LIVE_FINAL=""
 GONE=""
+BUCKETONLY=""
 STALE=""
 LIVEV=""
 BUCKETV=""
@@ -342,7 +371,7 @@ run_release() {
       SSH_STDIN_LOG="$SSHIN" \
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_IDS_FINAL="$LIVE_FINAL" \
-      FAKE_GONE_IDS="$GONE" FAKE_LIVE_ITEM_STALE="$STALE" \
+      FAKE_GONE_IDS="$GONE" FAKE_BUCKET_ONLY_IDS="$BUCKETONLY" FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
       FAKE_LIVE_DEPRECATED="$LIVEDEP" FAKE_BUCKET_ITEM_SHAPE="$BUCKETSHAPE" \
@@ -740,6 +769,164 @@ run_release --only aaaa_ch_ff04
 expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "names the stale property" "STALE property:datetime"
 STALE=""
+
+# --- cases 20-22: retirement (#76) ------------------------------------------------------
+# RETIRED_ITEMS is a literal inside the script, and the harness runs a COMMITTED, TAGGED copy
+# of scripts/ — the release's own clean-tree and exact-tag gates refuse anything else. So a
+# case that varies the literal has to rewrite it in that copy and re-tag, the way cases 11
+# and 13 already do for NEWS.md and for a dirty tree.
+set_retired() { # ids... -> rewrite the literal in the tagged copy, re-tag
+  python3 - "$TREPO/scripts/catalogue_release.sh" "$*" <<'PY'
+import re, sys
+p, v = sys.argv[1], sys.argv[2]
+s = open(p).read()
+s2, n = re.subn(r'(?m)^RETIRED_ITEMS=.*$', 'RETIRED_ITEMS="%s"' % v, s, count=1)
+assert n == 1, "no RETIRED_ITEMS literal to set"
+open(p, "w").write(s2)
+PY
+  tgit commit -q --no-verify -am "retired: $*" >/dev/null && tgit tag -f "v$TVERSION" >/dev/null
+}
+# The NEWS arm reads the TAGGED copy, so a case naming ids must put them there too.
+set_news() { # ids... -> a tagged NEWS.md whose top entry names them
+  { printf '# fixture\n\n## v%s (2026-01-01)\n\n- fixture release\n' "$TVERSION"
+    for i in "$@"; do printf -- '- retired `%s`\n' "$i"; done
+  } > "$TREPO/NEWS.md"
+  tgit commit -q --no-verify -am "news names the retired ids" >/dev/null && tgit tag -f "v$TVERSION" >/dev/null
+}
+reset_tree() { tgit tag -f "v$TVERSION" "$TSHA" >/dev/null; tgit reset -q --hard "$TSHA"; }
+
+# Case 3f put the marker back and nothing took it off again. Every case below is a FULL
+# release, and the interlock sits upstream of the whole preflight — so left in place it
+# refuses each one before the arm under test is reached, and refused() would have passed on
+# the strength of a message about partial staging. Exactly the "guard that fails toward pass"
+# shape, arriving through the fixture rather than the code.
+rm -f "$RAW/PARTIAL_STAGE"
+
+echo "case 20: the literal is empty on main, and anchored so the harness can read it"
+expect_eq "RETIRED_ITEMS is one bare empty literal in the real script" \
+  "$(grep -c '^RETIRED_ITEMS=""$' "$REPO/scripts/catalogue_release.sh" || true)" 1
+
+echo "case 20a: an orphan with an empty literal is refused, and the message names the literal"
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+run_release;                                        refused "orphan, empty literal"
+expect_out "names the literal" "not named in RETIRED_ITEMS"
+
+echo "case 20b: an orphan OUTSIDE the literal is refused, naming the one not accounted for"
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 aaaa_st_ff04"
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release;                                        refused "unaccounted orphan"
+expect_out "names the unaccounted id" "aaaa_st_ff04"
+reset_tree
+
+echo "case 20c: a literal id that was never published is refused"
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+set_retired zzzz_ch_ff04; set_news zzzz_ch_ff04
+run_release;                                        refused "literal names a never-published id"
+expect_out "says it was never published" "was never published"
+reset_tree
+
+echo "case 20d: a literal id gone from the API but still in the bucket is REPORTED, not refused"
+# The re-run after a verify failure. The delete already landed, so the id is not live; the
+# bucket copy is still there, because the S3 step is separate and later. Refusing here would
+# make a single verify failure cost a new commit, a new NEWS entry and a new tag.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+BUCKETONLY="aaaa_co_ff04"
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release
+expect_eq "exit 0" "$RC" 0
+expect_out "reports it as already retired" "already retired by an earlier run"
+expect_eq "and deletes nothing a second time" "$(n_delete)" 0
+BUCKETONLY=""
+reset_tree
+
+echo "case 20e: a literal id THIS BUILD also produces is refused"
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+set_retired bbbb_ch_ff04; set_news bbbb_ch_ff04
+run_release;                                        refused "literal names a built id"
+expect_out "says the build produces it" "THIS BUILD also produces"
+reset_tree
+
+echo "case 20f: a live watershed group no build item covers is refused"
+# The arm that survives ALLOW_SKIPPED=1, which suppresses PARTIAL_STAGE entirely: a short
+# build then looks full, and every other arm passes on a literal a human filled in honestly.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 cccc_ch_ff04"
+set_retired cccc_ch_ff04; set_news cccc_ch_ff04
+run_release;                                        refused "a group would be lost"
+expect_out "names the group, not the id" "CCCC"
+reset_tree
+
+echo "case 20g: a literal id the tagged NEWS.md does not mention is refused"
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+set_retired aaaa_co_ff04            # NEWS left as the plain fixture entry
+run_release;                                        refused "NEWS does not name the retired id"
+expect_out "names NEWS.md" "NEWS.md"
+reset_tree
+
+echo "case 20h: --only and a non-empty literal do not combine"
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+set_retired aaaa_co_ff04
+run_release --only aaaa_ch_ff04;                    refused "--only with a non-empty literal"
+expect_out "says they do not combine" "do not combine"
+reset_tree
+
+echo "case 21a: the positive control — the retirement runs, and deletes exactly its literal"
+# Without this, every refusal above is a grep that has never been shown to match.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+LIVE_AFTER="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"   # post-register: the delete has not run yet
+LIVE_FINAL="aaaa_ch_ff04 bbbb_ch_ff04"                # post-delete
+GONE="aaaa_co_ff04"
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release
+expect_eq "exit 0" "$RC" 0
+expect_out "release completed" "RELEASE COMPLETE"
+expect_eq "exactly one delete" "$(n_delete)" 1
+expect_eq "and it is the retired id" "$(deleted_ids)" "aaaa_co_ff04"
+expect_out "the retirement is reported" "RETIRE"
+LIVE_AFTER=""; LIVE_FINAL=""; GONE=""
+reset_tree
+
+echo "case 21b: a probe failing BEFORE the delete leaves nothing deleted"
+# The delete sits after every arm that sets fail=1, so the bad day is a failed release with
+# the catalogue untouched — not seventeen items gone and a release reporting INCOMPLETE.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+LIVE_AFTER="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+STALE=asset
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
+expect_eq "nothing was deleted" "$(n_delete)" 0
+STALE=""; LIVE_AFTER=""
+reset_tree
+
+echo "case 21c: a delete that did not take fails the release"
+# item_unregister.sh warns and exits 0 when it deletes nothing, and the release never parses
+# its NOTICEs — so the post-delete read-back is the ONLY evidence the delete happened.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+LIVE_AFTER="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+LIVE_FINAL="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"   # still served after the delete
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "names what is still served" "STILL SERVED"
+LIVE_AFTER=""; LIVE_FINAL=""
+reset_tree
+
+echo "case 21d: an ordinary release with an empty literal deletes nothing"
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+run_release
+expect_eq "exit 0" "$RC" 0
+expect_out "release completed" "RELEASE COMPLETE"
+expect_eq "no delete_item at all" "$(n_delete)" 0
+
+echo "case 21e: --allow-retract still permits an orphan OUTSIDE the literal, and never deletes it"
+# The other kind of retraction: a group leaving the catalogue with no replacement, which the
+# group arm refuses by design. The flag is what distinguishes the two, and it grants no delete.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 cccc_ch_ff04"
+run_release --allow-retract
+expect_eq "exit 0" "$RC" 0
+expect_out "release completed" "RELEASE COMPLETE"
+expect_eq "the remainder is not deleted" "$(n_delete)" 0
 
 # --- case 5: the checksum probe still bites under --only --------------------------------
 # Append to the largest asset AFTER the JSON was built: size on S3 (the shim serves the same
