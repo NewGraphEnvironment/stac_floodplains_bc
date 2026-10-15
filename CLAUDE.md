@@ -351,8 +351,11 @@ release unregisters exactly those in step 6 and step 7 then requires the served 
 build, so a group is never left serving both its whole-network item and the species one it
 replaced. `--allow-retract` is the other job, a group **leaving** the catalogue: it permits
 publishing past an orphan and removes nothing, so those stay live until an explicit
-`item_unregister.sh`. The literal says which, the flag says a smaller collection is intended, and
-neither alone retracts anything. Arms in step 0 refuse an orphan the literal does not name, an id
+`item_unregister.sh`. **The two are refused together**: the literal is what retracts (step 6 is
+gated on it alone), while the flag waives the containment, group-survival and served-equals-build
+arms — so the combination would delete every id in the literal with nothing checking the result,
+which is the most destructive configuration here and reached by passing a flag that reads like
+extra caution. Arms in step 0 refuse an orphan the literal does not name, an id
 the build still produces, an id that was never published (told from an already-retired one by the
 bucket copy, which is what keeps a re-run after a verify failure possible), and — the one arm that
 survives `ALLOW_SKIPPED=1`, where `PARTIAL_STAGE` is absent rather than passing — any live

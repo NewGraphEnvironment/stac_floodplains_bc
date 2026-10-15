@@ -174,9 +174,28 @@ cat > "$BIN/_log" <<'SHIM'
 nl=$'\n'
 { printf '%s' "$1"; shift; for a in "$@"; do printf '\t%s' "${a//$nl/ }"; done; printf '\n'; } >> "$SHIM_LOG"
 SHIM
+# Logs and exits 0, EXCEPT for `s3 ls --summarize`, which models the real exit status: aws
+# exits 1 when a prefix matches no objects, while still printing "Total Objects: 0". With a
+# blanket exit 0 that state was unreachable, so item_retract_s3.sh's guard against it could not
+# be tested — a mutation removing the guard left case 22e green. Measured against the real
+# bucket 2026-10-14: an absent prefix prints the two Total lines and exits 1.
 cat > "$BIN/aws" <<'SHIM'
 #!/bin/bash
 . "$(dirname "$0")/_log" aws "$@"
+if [ "${1:-}" = s3 ] && [ "${2:-}" = ls ]; then
+  for a in "$@"; do case "$a" in --summarize) sum=1 ;; s3://*) u="$a" ;; esac; done
+  [ -n "${sum:-}" ] || exit 0
+  rel="${u#s3://}"; rel="${rel#*/}"
+  n=0; bytes=0
+  if [ -n "$rel" ] && [ -d "$STAC_DIR/$rel" ]; then
+    for f in "$STAC_DIR/$rel"/*; do
+      [ -f "$f" ] || continue
+      n=$((n + 1)); bytes=$((bytes + $(wc -c < "$f")))
+    done
+  fi
+  printf '\nTotal Objects: %s\n   Total Size: %s\n' "$n" "$bytes"
+  [ "$n" -gt 0 ] || exit 1
+fi
 SHIM
 # The payload, not just the argv. item_unregister.sh names its ids in the SQL it pipes in,
 # never on the command line, so a `delete_item` is invisible in $LOG and n_delete() below
@@ -205,25 +224,39 @@ SHIM
 cat > "$BIN/curl" <<'SHIM'
 #!/bin/bash
 . "$(dirname "$0")/_log" curl "$@"
-url=""; w=""; head=""
+url=""; w=""; head=""; body=""; takebody=""
 for a in "$@"; do
   case "$a" in
     http*) url="$a" ;;
     -w) w=1 ;;
+    -d) takebody=1 ;;
     -*I*) head=1 ;;
+    *) [ -z "$takebody" ] || { body="$a"; takebody=""; } ;;
   esac
 done
 case "$url" in
   */search)
-    # Three stages, because a retirement release searches three times: the preflight, the
-    # post-register membership compare, and the post-delete re-read. A two-stage knob gated on
-    # mere existence would hand the post-delete set to the compare that runs BEFORE the delete,
-    # so phase A would see the retraction it is supposed to precede.
+    # Three stages of the live catalogue: the preflight, the post-register membership compare,
+    # and the post-delete re-read.
+    #
+    # Counted on the ID-ONLY search, not on every /search. A retirement release issues FIVE:
+    # fetch_live_ids three times, fetch_live_wsgs once in the preflight, and the deprecation
+    # read-back once in step 5 — each distinguishable by its `fields.include`. Counting all of
+    # them put FAKE_LIVE_IDS_FINAL on step 5'"'"'s compare, which runs BEFORE the delete, so
+    # case 21a modelled a catalogue that had lost the item already and its step-5 containment
+    # arm was never exercised at all. Measured: with the old counter, replacing that arm with
+    # equality left 21a — the positive control — fully green.
+    #
+    # The other two shapes read the CURRENT stage (one behind the id-only count) rather than
+    # advancing it: within one phase of a release every read sees the same catalogue.
     _n=0; [ -e "$COUNTER" ] && _n=$(grep -c . "$COUNTER" || true)
+    case "$body" in
+      *properties.wsg*|*properties.deprecated*) _stage=$((_n > 0 ? _n - 1 : 0)) ;;
+      *) _stage="$_n"; echo x >> "$COUNTER" ;;
+    esac
     ids="$FAKE_LIVE_IDS"
-    if [ "$_n" -ge 1 ] && [ -n "${FAKE_LIVE_IDS_AFTER:-}" ]; then ids="$FAKE_LIVE_IDS_AFTER"; fi
-    if [ "$_n" -ge 2 ] && [ -n "${FAKE_LIVE_IDS_FINAL:-}" ]; then ids="$FAKE_LIVE_IDS_FINAL"; fi
-    echo x >> "$COUNTER"
+    if [ "$_stage" -ge 1 ] && [ -n "${FAKE_LIVE_IDS_AFTER:-}" ]; then ids="$FAKE_LIVE_IDS_AFTER"; fi
+    if [ "$_stage" -ge 2 ] && [ -n "${FAKE_LIVE_IDS_FINAL:-}" ]; then ids="$FAKE_LIVE_IDS_FINAL"; fi
     # Echo `properties.deprecated` back from the BUILT tree, so step 5's marker read-back has
     # a positive control at all (#26). Serving ids only made it a NONE == NONE tautology that
     # no fixture could break — the same trap this harness already documents for the version
@@ -876,7 +909,7 @@ echo "case 20g: a literal id the tagged NEWS.md does not mention is refused"
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
 set_retired aaaa_co_ff04            # NEWS left as the plain fixture entry
 run_release;                                        refused "NEWS does not name the retired id"
-expect_out "names NEWS.md" "NEWS.md"
+expect_out "names the entry it is missing from" "does not mention"
 reset_tree
 
 echo "case 20h: --only and a non-empty literal do not combine"
@@ -884,6 +917,17 @@ LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 set_retired aaaa_co_ff04
 run_release --only aaaa_ch_ff04;                    refused "--only with a non-empty literal"
 expect_out "says they do not combine" "do not combine"
+reset_tree
+
+echo "case 20i: a literal entry that is not an item id is refused"
+# curl normalises dot segments, so `../collection.json` would HEAD the bucket's OWN
+# collection.json, read 200, and be reported "already retired by an earlier run" — a release
+# completing while announcing a retirement it never performed. Same shape guard $ONLY and
+# item_unregister.sh already carry, applied before any id reaches a URL or a prefix.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+set_retired "../collection.json"
+run_release;                                        refused "literal holds a path, not an id"
+expect_out "says it is not an item id" "not an item id"
 reset_tree
 
 echo "case 21a: the positive control — the retirement runs, and deletes exactly its literal"
@@ -917,7 +961,10 @@ run_release
 expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
 expect_eq "nothing was deleted" "$(n_delete)" 0
-expect_out "and step 6 was never reached" "$(printf 'RELEASE INCOMPLETE')"
+# The step 6 banner must be ABSENT. Re-grepping RELEASE INCOMPLETE here carried no information
+# about step 6 at all — it restated the assertion two lines up.
+expect_eq "step 6 was never reached" \
+  "$(grep -c '=== 6: RETIRE ===' "$OUT" || true)" 0
 LIVELIC=""; LIVE_AFTER=""
 reset_tree
 
@@ -934,23 +981,38 @@ expect_out "names what is still served" "STILL SERVED"
 LIVE_AFTER=""; LIVE_FINAL=""
 reset_tree
 
-echo "case 21f: under --allow-retract the still-served arm is the only guard left"
-# M9 of the mutation table: removing `rfail=1` from the still-served arm left case 21c green,
-# because the equality arm and the 404 loop both fire there too. --allow-retract skips the
-# equality arm by design (it exists for orphans the release takes no responsibility for), and
-# GONE makes the item endpoint answer 404 — so the search still listing the id is the only
-# thing wrong, and nothing else can catch it. The two arms read different surfaces, which is
-# why both exist: the search index and the item endpoint are not guaranteed to agree.
-LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 dddd_ch_ff04"
-LIVE_AFTER="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 dddd_ch_ff04"
-LIVE_FINAL="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 dddd_ch_ff04"   # the delete did not take
-GONE="aaaa_co_ff04"            # ...but the item endpoint says it did
+echo "case 21f: the per-id 404 probe catches what the membership arms cannot"
+# Step 7 reads two different surfaces, and this is the one only the item endpoint can see.
+# The search says the id is gone, so the still-served arm and the equality arm both PASS; the
+# item endpoint still answers 200 for it. pgstac's search index and its item endpoint are not
+# guaranteed to agree, and item_unregister.sh warns and exits 0 when it deletes nothing, so
+# this probe is the only thing standing between that disagreement and RELEASE COMPLETE.
+#
+# It replaces an earlier shape that isolated the still-served arm by passing --allow-retract
+# with a non-empty literal. That combination is now refused outright: the flag waives the
+# containment, group-survival and equality arms, which is the opposite of what a retirement
+# wants, so a test depending on it was testing a configuration the script must not accept.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+LIVE_AFTER="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+LIVE_FINAL="aaaa_ch_ff04 bbbb_ch_ff04"   # the search agrees the delete took...
+GONE=""                                  # ...and the item endpoint does not
 set_retired aaaa_co_ff04; set_news aaaa_co_ff04
-run_release --allow-retract
+run_release
 expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
-expect_out "the search still lists it" "RETIRED BUT STILL SERVED"
-expect_out "and the equality arm is not what caught it" "RETIRED BUT STILL SERVED"
-LIVE_AFTER=""; LIVE_FINAL=""; GONE=""
+expect_out "the item endpoint still answers for it" "still answers 200 from the API"
+expect_eq "the membership arms saw nothing wrong" \
+  "$(grep -c 'RETIRED BUT STILL SERVED' "$OUT" || true)" 0
+LIVE_AFTER=""; LIVE_FINAL=""
+reset_tree
+
+echo "case 21g: --allow-retract and a non-empty literal are refused"
+# The most destructive configuration available here, reached by passing a flag that reads like
+# extra caution: the literal performs the delete, and the flag turns off every arm that checks it.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release --allow-retract;                        refused "--allow-retract with a literal"
+expect_out "says they do not combine" "do not combine"
+expect_out "says which arms the flag waives" "waives the containment"
 reset_tree
 
 echo "case 21d: an ordinary release with an empty literal deletes nothing"

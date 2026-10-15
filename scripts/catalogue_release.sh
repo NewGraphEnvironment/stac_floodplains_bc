@@ -144,6 +144,27 @@ if [ -n "$ONLY" ] && [ -n "$RETIRED_ITEMS" ]; then
   echo "or cut a full release." >&2
   exit 1
 fi
+# ...and neither do these two, which is the less obvious one. `--allow-retract` waives exactly
+# the arms a retirement depends on: the containment arm, the step-5 surplus arm, step 7's
+# equality arm, and the "no live watershed group is lost" arm whose own comment calls it the only
+# guard that survives ALLOW_SKIPPED=1. A release carrying both would delete every id in the
+# literal with all four inert — the most destructive configuration available here, reached by
+# passing a flag that reads like extra caution.
+#
+# They are for two different jobs. The literal is a REPLACEMENT: these ids go and their groups
+# stay, which is checkable, so it is checked and the delete is performed. The flag is a REMOVAL:
+# a group leaves the catalogue, which the group arm cannot distinguish from a short build, so it
+# is waived and nothing is deleted. Wanting both in one release means wanting the guards off for
+# the replacement too; cut two releases instead.
+if [ -n "$ALLOW_RETRACT" ] && [ -n "$RETIRED_ITEMS" ]; then
+  echo "--allow-retract and a non-empty RETIRED_ITEMS do not combine." >&2
+  echo "The flag waives the containment, group-survival and served-equals-build arms — the" >&2
+  echo "exact guards a retirement relies on — so the two together would delete every id in" >&2
+  echo "the literal unchecked. The literal alone retracts; the flag alone retracts nothing." >&2
+  echo "For a replacement, drop the flag. For a group leaving with no replacement, clear the" >&2
+  echo "literal and keep the flag. For both, cut two releases." >&2
+  exit 1
+fi
 
 cd "$REPO"
 
@@ -287,9 +308,16 @@ fi
 # absent rather than passing. The live-vs-build comparison below is what covers it.
 [ -d "$RAW_DIR" ] || echo "note: no $RAW_DIR (release-only machine) — staging interlock not available"
 
+# LC_ALL=C, so this sorts the way the live side does. fetch_live_ids sorts in Python, which is
+# codepoint order; a shell `sort` follows LC_COLLATE, and step 7 compares the two as plain
+# strings. The two agree for id-shaped input on this machine (measured), so the exposure is a
+# release cut on a differently-configured host, where the mismatch would report "the retirement
+# did not take" AFTER the delete had run. Pinning the collation here fixes it for every
+# comparison in this script at once, including the `comm` calls, which need both sides ordered
+# the same way to mean anything.
 local_ids=$(for f in "$STAC_DIR"/*.json; do
   b=$(basename "$f" .json); [ "$b" = collection ] || echo "$b"
-done | sort)
+done | LC_ALL=C sort)
 n_local=$(printf '%s\n' "$local_ids" | grep -c . || true)
 [ "$n_local" -ge 1 ] || { echo "No item JSON in $STAC_DIR." >&2; exit 1; }
 
@@ -390,8 +418,22 @@ orphans=$(comm -23 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") ||
 # same shape as $live_ids and $local_ids. `grep -c .` over the normalised form, never
 # `[ -n "$RETIRED_ITEMS" ]` on the raw literal: a literal holding only whitespace is empty in
 # fact and non-empty to `-n`.
-retired_ids=$(printf '%s\n' $RETIRED_ITEMS | grep . | sort -u || true)
+retired_ids=$(printf '%s\n' $RETIRED_ITEMS | grep . | LC_ALL=C sort -u || true)
 n_retired=$(printf '%s\n' "$retired_ids" | grep -c . || true)   # prints 0 and exits 1 when empty
+
+# The shape guard $ONLY gets at the top of this script and item_unregister.sh gets before its
+# SQL. Without it these ids reach a URL and a prefix unvalidated, and the failure is not a
+# syntax error: curl normalises dot segments, so a literal entry of `../collection.json` HEADs
+# the BUCKET'"'"'S OWN collection.json, reads 200, and is reported "already retired by an earlier
+# run" — a release that completes announcing a retirement it never performed. Checked before any
+# of them is used.
+for id in $retired_ids; do
+  case "$id" in
+    -*|*[!A-Za-z0-9_-]*)
+      echo "ERROR: RETIRED_ITEMS holds something that is not an item id: $id" >&2
+      exit 1 ;;
+  esac
+done
 
 # --- what the literal names, checked before what the catalogue holds -------------------
 # Each arm names the id it refuses on. All of them run inside step 0, upstream of the

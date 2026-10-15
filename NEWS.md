@@ -39,9 +39,16 @@ removes: a literal a human sets, the shape `PROVENANCE_FLOOR` already uses, empt
 releases. Six arms refuse in step 0, before anything is written — the id is not also in the
 build; it is live, or else absent from the API and still in the bucket, which is a re-run and
 not a typo; the orphan set is contained in the literal unless `--allow-retract`; no live
-watershed group is left uncovered; every id is named in the tagged `NEWS.md` entry; and
-`--only` refuses a non-empty literal. Then step 6 unregisters them and step 7 requires the
-served set to equal the build, so the two-model state cannot survive a release.
+watershed group is left uncovered; every id is named in the tagged `NEWS.md` entry; and both
+`--only` and `--allow-retract` refuse a non-empty literal. Then step 6 unregisters them and step 7
+requires the served set to equal the build, so the two-model state cannot survive a release.
+
+`--allow-retract` is refused alongside the literal because it waives exactly the arms a
+retirement depends on — containment, group survival, and served-equals-build. The literal is what
+retracts and the flag retracts nothing, so the two together would have been the most destructive
+configuration available, reached by passing a flag that reads like extra caution. They are for two
+different jobs: a replacement, where the group survives and that is checkable, and a removal,
+where it does not.
 
 **The delete runs after every probe, not between register and verify.** There it would precede
 the asset, checksum, version, licence and deprecation read-backs, all of which fail the

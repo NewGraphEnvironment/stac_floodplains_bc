@@ -110,8 +110,15 @@ done
 # for a pgstac delete should see the byte total first.
 echo "deleting from s3://$BUCKET (region $REGION) — permanent, versioning is Suspended:"
 for id in ${OK_IDS:-}; do
+  # `|| summary=...` on the assignment. `aws s3 ls` exits 1 when a prefix matches NOTHING, and
+  # under `set -o pipefail` that status propagates through the pipe even though awk succeeded —
+  # so the assignment fails and `set -e` kills the script HERE, silently, because stderr is
+  # discarded. It would die after printing the "permanent" banner and before the
+  # `aws s3 rm .../$id.json` below, orphaning the root document in the bucket with no message.
+  # An empty prefix is not an error: it is the re-run this script is written to tolerate.
   summary=$(aws s3 ls "s3://$BUCKET/$id/" --recursive --region "$REGION" --summarize 2>/dev/null \
-    | awk '/Total Objects:/ {o=$3} /Total Size:/ {s=$3} END {printf "%s object(s), %s bytes", o+0, s+0}')
+    | awk '/Total Objects:/ {o=$3} /Total Size:/ {s=$3} END {printf "%s object(s), %s bytes", o+0, s+0}') \
+    || summary="no objects under this prefix (already removed, or never had any)"
   echo "  $id/        $summary"
   # :-absent covers a head-object that SUCCEEDS printing nothing as well as one that fails;
   # a bare `|| echo absent` leaves the first case rendering as "  $id.json     bytes".

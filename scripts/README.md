@@ -137,6 +137,7 @@ Two different jobs, and the one you want is decided by whether anything takes th
 | driven by | `RETIRED_ITEMS` in `catalogue_release.sh` | `--allow-retract` |
 | the release | unregisters them itself, in step 6, and step 7 requires the served set to equal the build | publishes past them; they stay live until you unregister them by hand |
 | refuses if | any retired group is not covered by another item in the build | — |
+| **never with** | `--allow-retract` — refused, because the flag waives the arms the literal depends on | a non-empty `RETIRED_ITEMS` — same refusal, read from the other side |
 
 **Both are release-first.** The bucket's `collection.json` must stop linking an item *before*
 its objects go, and the API must stop serving it before that:
@@ -161,15 +162,20 @@ bash scripts/run_pipeline.sh
 # 3. set RETIRED_ITEMS in scripts/catalogue_release.sh to exactly the live ids being replaced,
 #    name every one of them in the NEWS.md entry, and commit both with the version bump
 # 4. tag, then release: it validates, syncs, registers, verifies, THEN unregisters the
-#    retired ids and re-verifies that the collection serves exactly this build
-bash scripts/catalogue_release.sh --allow-retract
+#    retired ids and re-verifies that the collection serves exactly this build.
+#    NO --allow-retract. The literal is what retracts; the flag would waive the arms that
+#    check it, and the two are refused together for that reason.
+bash scripts/catalogue_release.sh
 # 5. only now the assets, which is the only irreversible step
 scripts/item_retract_s3.sh --yes <retired-id> [<retired-id>...]
 # 6. regenerate the README (release step 6) — AFTER the retirement, not before
 ```
 
-`--allow-retract` is still passed at step 4: the literal says *which* ids, the flag says the
-smaller collection is intended, and neither alone retracts anything.
+**`--allow-retract` is not passed at step 4, and must not be** — the two are refused together.
+The literal is what retracts: step 6 is gated on it alone. The flag waives the containment arm,
+the group-survival arm, step 5's surplus arm and step 7's equality arm, so passing it alongside a
+literal would delete every id in it with nothing left checking the result. The flag retracts
+nothing by itself; it only permits publishing past an orphan.
 
 Until step 5 runs, **the retirement is reversible**: no sync passes `--delete`, so each retired
 item's document is still in the bucket and `item_register.sh` can put its pgstac row back. That is

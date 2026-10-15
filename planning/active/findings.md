@@ -397,3 +397,58 @@ issue citation (measured: `grep -c "rtj#"` over the branch's added lines is 0). 
 single paragraph of a file that names it three lines up would read worse than matching it, and
 rewriting a dozen pre-existing references does not belong in #76. Filed as #86 with the
 occurrence table, so the wording is settled once and applied in one pass.
+
+## Code-check round 1 — six findings, all real, all fixed
+
+Each reproduced before being acted on.
+
+| # | finding | verdict |
+|---|---|---|
+| F1 | the **Replacement** recipe told the operator to pass `--allow-retract`, and the prose claimed "neither alone retracts anything" | **both false.** Step 6 is gated on `n_retired > 0` alone, so the literal alone retracts; and the flag waives the containment arm, the group arm, step 5's surplus arm and step 7's equality arm. The documented happy path for the cutover would have deleted 17 public ids with every new membership guard inert |
+| F2 | `item_retract_s3.sh`'s byte-count `summary=$(aws s3 ls … \| awk …)` under `set -o pipefail` | **real.** Measured against the real bucket: `aws s3 ls` on an absent prefix prints `Total Objects: 0` **and exits 1**. pipefail propagates it, the assignment fails, `set -e` exits — after the "permanent" banner and before the `<id>.json` delete, with stderr discarded. The re-run case the script is written to tolerate |
+| F3 | the stage knob counted every `POST /search`, and a retirement release makes **five**, not three | **real, and it made the positive control vacuous.** `FAKE_LIVE_IDS_FINAL` landed on step 5's compare, which runs *before* the delete, so case 21a modelled a catalogue that had already lost the item and never exercised step 5's containment arm |
+| F4 | `RETIRED_ITEMS` entries had no id-shape guard | **real.** curl normalises dot segments, so an entry of `../collection.json` HEADs the bucket's own `collection.json`, reads 200, and is reported "already retired by an earlier run" — a release completing while announcing a retirement it never performed |
+| F5 | step 7 compared Python `sorted()` against a shell `sort` as plain strings | **real fragility.** They agree for id-shaped input on this machine; the exposure is a release host with a different `LC_COLLATE`, where it would report "the retirement did not take" *after* the delete |
+| F6 | case 21b's "step 6 was never reached" re-grepped `RELEASE INCOMPLETE`; case 20g matched any message containing `NEWS.md` | **real.** Neither carried information about the thing it named |
+
+### Fixes
+
+- **F1:** `--allow-retract` and a non-empty `RETIRED_ITEMS` are now **refused together**, beside the
+  `--only` refusal — the flag waives precisely the arms the literal depends on, so the combination
+  is the most destructive configuration available here, reached by passing a flag that reads like
+  extra caution. The flag is gone from the Replacement recipe, and the false sentence is corrected
+  in `scripts/README.md`, `CLAUDE.md` and `NEWS.md`. New case 21g.
+- **F2:** `|| summary=…` on the assignment.
+- **F3:** the shim counts only the **id-only** search (the three shapes are distinguishable by
+  `fields.include`), and the `properties.wsg` / `properties.deprecated` reads take the current
+  stage rather than advancing it.
+- **F4:** the same `case` guard `$ONLY` and `item_unregister.sh` carry. New case 20i.
+- **F5:** `LC_ALL=C sort` for `local_ids`, which fixes every comparison in the script at once —
+  including the `comm` calls, which need both sides ordered the same way to mean anything.
+- **F6:** 21b asserts the step 6 banner is absent; 20g asserts the specific message.
+
+### The harness grew two capabilities, both because a guard was otherwise unreachable
+
+- `aws s3 ls --summarize` now models the real exit status (1 on an empty prefix, with the Total
+  lines still printed). With a blanket `exit 0`, F2's guard could not be tested at all.
+- The `-d` payload is captured, which is what lets the stage counter tell the three searches apart.
+
+## Mutation table, part 3 — round 1's fixes
+
+| # | guard disabled | case that went red |
+|---|---|---|
+| M11 | step 5's containment arm (→ equality) | **21a**, 21c, 21f |
+| M12 | the `--allow-retract` + literal refusal | 21g |
+| M13 | the `RETIRED_ITEMS` id-shape guard | 20i |
+| M14 | step 7's per-id 404 probe | 21f |
+| M15 | `item_retract_s3.sh`'s empty-prefix guard | 22e |
+
+**M11 is the one that matters.** It is the reviewer's own mutation, and before the F3 fix it left
+case 21a — the positive control — **fully green**, which is what proved the knob was feeding the
+wrong stage. After the fix the same mutation reddens 21a. A positive control that cannot fail is
+the "fixture that cannot reach the failure mode" mechanism, arriving through a test-harness knob.
+
+**M15 needed the shim fixed first.** It came back STILL GREEN not because the guard is weak but
+because the condition was unreachable — the reviewer said so. With the faithful `aws s3 ls`, the
+mutant now reproduces the exact symptom: the "permanent" banner prints, nothing is deleted, and
+the script exits 1 silently.
