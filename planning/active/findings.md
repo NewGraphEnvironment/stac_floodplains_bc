@@ -518,3 +518,67 @@ reading that file and running the harness.
 | M16 | the bucket witness's identity check (→ existence) | 20j |
 | M17 | the NEWS delimited match (→ `grep -qF`) | 20k |
 | M18 | `build_wsgs`'s collation pin | **none** — unreachable behaviourally; closed by case `20-sorts` instead, which does go red |
+
+## Code-check round 3 — four findings, one of them data loss, and a third mechanism
+
+Round 3 did **not** converge, correctly: two of its four findings sit inside round 2's fixes, and
+one is a member of a class round 2 declared complete at two members.
+
+| # | finding | verdict |
+|---|---|---|
+| R3-1 | `scripts/item_retract_s3.sh --yes collection` **deletes the published `collection.json`** | **real, and data loss.** All three guards miss: the API 404s `collection`, `$linked` holds item ids only, and the build cross-check catches it *by accident* — and that one is skipped whenever `data/stac` is absent, which is a **release-only machine, the machine this script exists for**. Reproduced by the reviewer in a scratch copy: `s3 rm s3://stac-floodplains-bc/collection.json`, rc 0, `retracted: collection`. The third member of round 2's Shape-B class, which I had called complete at two |
+| R3-2 | the round-2 bucket witness conflated "no such Item" with "could not read" | **real.** Measured over five responses — `type: Collection`, curl exit 7, a truncated body and an HTTP-200 S3 `SlowDown` document all produced the identical "never published … check the literal". This file states the opposite rule twice, for `fetch_live_version` and for the licence read-back. It matters because this arm's refusal costs a new commit, a NEWS entry and a tag |
+| R3-3 | case `20-sorts` asserted less than its comment claimed | **real, and it is the construct added to close Shape A/B being Shape B itself.** `sort -u <<<"$x"` missed (no pipe); a line holding both a pinned and a bare sort missed (the `grep -v` dropped the whole line) — and that filter was dead anyway, since `| *sort` cannot match `| LC_ALL=C sort` |
+| R3-4 | `grep -q` / `grep -m1` / `head -1` downstream of a pipe under `pipefail` | **real, none reachable today.** Threshold measured at 64 KiB; `NEWS.md` is 39,573 B and its top section 29,165 B — 1.6x and 2.2x of margin on a file that only grows. `item_retract_s3.sh`'s link check is the one that **fails toward pass** |
+
+### The third mechanism, and the two members the reviewer did not name
+
+**An early-exiting pipeline consumer under `set -o pipefail`.** `grep -q`, `grep -m` and `head -1`
+stop reading at their answer, so the writer's SIGPIPE becomes the pipeline's status and the test
+reports the writer's death as its own verdict. Invisible to the harness (payloads are hundreds of
+bytes), to a mutation table (there is no guard to disable), and to `bash -n`.
+
+Running the enumeration found **five** members, not three: the two the reviewer did not name are
+`catalogue_release.sh`'s `--only` liveness check and its `probe_item` pick, both pre-existing, both
+with ~300 B inputs, and both failing toward refusal. Converted anyway — a class is closed by having
+no members, and two left behind are what the next reader copies. That is the F5/`build_wsgs` lesson
+applied before it cost anything.
+
+Closed by `case 20-pipes`, a static scan of both scripts, because no fixture can reach it. Proven
+by appending a piped `grep -q`: the case goes red.
+
+### What else the enumerations turned up
+
+- **R3-2's fix made the two witnesses structurally identical** — the release preflight's and
+  `item_retract_s3.sh`'s guard 4 now run the same three-outcome `case`. They are the pair that must
+  agree about what the bucket says, and nothing but their shape joins them, which is Shape A's
+  definition.
+- **`NEWS.md`'s "Six arms refuse in step 0" was already wrong** (round 2 recorded it as
+  not-reported). The count is gone rather than corrected: a number in prose that nothing checks is
+  the same class, and the list reads fine without one.
+- **Case 20c was passing vacuously, and I found that by sending the probe at the shim by hand.**
+  The shim answered `200` to every `-w` HEAD, so the "never published" arm was unreachable — and
+  the could-not-read message it actually triggered happens to contain the phrase 20c greps for. Two
+  defects stacked: a fixture that cannot reach the state, and an assertion loose enough not to
+  notice. The shim now answers per key, and 20c asserts the specific message plus a negative that
+  it is *not* the could-not-read arm.
+- **The harness conflated the fixture root with the build dir.** Both were `$STAC_DIR`, so case
+  22a2 could not model a release-only machine: emptying the script's `data/stac` also emptied the
+  bucket. Split into `FIXTURE_ROOT` (what the harness serves) and `STAC_DIR` (an input to the
+  script under test).
+
+## Mutation table, part 5 — round 3's fixes
+
+| # | guard disabled | case that went red |
+|---|---|---|
+| M19 | `item_retract_s3.sh` guard 4 (identity) | 22a2 |
+| M20 | `item_retract_s3.sh` unread-probe refusal | 22a3 |
+| M21 | the witness's read-failure separation | 20L |
+| M22 | the witness's 404 arm | 20c |
+| M23 | the NEWS delimited match via here-string | 20k |
+| — | a piped `grep -q` appended to the release script | `20-pipes` |
+| — | three shapes of unpinned `sort` appended | `20-sorts` (all three caught, incl. the two the old pattern missed) |
+
+M20 came back STILL GREEN on its first run, for the same reason M15 did: the arm had no fixture.
+Rather than add a knob, the fix routes an unreadable body to the unread-probe arm — which is both
+more accurate and what makes the two witnesses identical — and `GARBLED` then reaches it.

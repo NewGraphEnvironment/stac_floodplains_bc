@@ -36,11 +36,13 @@ which is current. BULK's two disagree by 70% (659.99 vs 386.53 km², measured 20
 
 `RETIRED_ITEMS` in `scripts/catalogue_release.sh` is the exact set of live ids a release
 removes: a literal a human sets, the shape `PROVENANCE_FLOOR` already uses, empty between
-releases. Six arms refuse in step 0, before anything is written — the id is not also in the
-build; it is live, or else absent from the API and still in the bucket, which is a re-run and
-not a typo; the orphan set is contained in the literal unless `--allow-retract`; no live
-watershed group is left uncovered; every id is named in the tagged `NEWS.md` entry; and both
-`--only` and `--allow-retract` refuse a non-empty literal. Then step 6 unregisters them and step 7
+releases. Everything it is checked against refuses before a byte is written: each entry is
+id-shaped; the id is not also in the build; it names a STAC Item of this collection, which is
+either live or else absent from the API with its document still in the bucket (a re-run, told
+from a typo and from a read that failed, which are three outcomes and not two); the orphan set
+is contained in the literal unless `--allow-retract`; no live watershed group is left
+uncovered; every id is named in the tagged `NEWS.md` entry; and both `--only` and
+`--allow-retract` refuse a non-empty literal outright. Then step 6 unregisters them and step 7
 requires the served set to equal the build, so the two-model state cannot survive a release.
 
 `--allow-retract` is refused alongside the literal because it waives exactly the arms a

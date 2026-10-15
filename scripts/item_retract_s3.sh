@@ -97,7 +97,12 @@ for id in $ITEMS; do
        echo "  scripts/item_unregister.sh $id" >&2
        refusals=$((refusals + 1)); continue ;;
   esac
-  if printf '%s\n' "$linked" | grep -qxF -- "$id"; then
+  # A here-string, not a pipe into `grep -q`. grep exits at its first match, and under
+  # `set -o pipefail` the writer's SIGPIPE becomes the test's answer once the text passes the
+  # pipe buffer (64 KiB, measured). `$linked` is ~1 KB today so it is far off, but this is the
+  # one site in the family that fails toward PASS: the "still links it" refusal simply would
+  # not fire, and the hazard it guards is the one that empties the collection.
+  if grep -qxF -- "$id" <<<"$linked"; then
     echo "REFUSED $id: the bucket collection.json still links it as a rel=item." >&2
     echo "  Deleting it now would leave that document naming an object that 404s, and a" >&2
     echo "  reload-from-S3 DELETEs the collection before it finds out. Publish the release" >&2
@@ -108,6 +113,52 @@ for id in $ITEMS; do
     echo "REFUSED $id: $STAC_DIR/$id.json exists, so this build still produces it." >&2
     refusals=$((refusals + 1)); continue
   fi
+  # Guard 4, and it is the one that stops this script deleting the catalogue itself.
+  #
+  # `--yes collection` passed all three guards above: the API has no item called `collection`
+  # so it 404s, `$linked` holds item ids only, and guard 3 catches it ONLY by accident — and
+  # guard 3 is skipped whenever `data/stac` is absent, which is a release-only machine, the
+  # machine this script exists for. The delete that followed was
+  # `aws s3 rm s3://<bucket>/collection.json` on a bucket with versioning Suspended.
+  #
+  # The charset guard at the top cannot help: `collection` is a perfectly well-formed id-shaped
+  # token. The property wanted is "this names a STAC Item of this collection", so that is what
+  # is asked, the same way the release's preflight asks it. ABSENT is allowed — that is the
+  # re-run, and the asset prefix may still need clearing — but anything present must say it is
+  # the Item being retracted.
+  code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
+  case "$code" in
+    404|403) ;;        # nothing there: a re-run, or assets only. Fall through to the delete.
+    200)
+      ident=$(curl -sf --max-time 60 "$S3_BASE/$id.json" 2>/dev/null \
+        | python3 -c "import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print('UNREADABLE'); raise SystemExit(0)
+print('MATCH' if d.get('type') == 'Feature' and d.get('id') == sys.argv[1] else 'OTHER')" "$id" \
+        || true)
+      # Three outcomes, the same three the release's preflight witness distinguishes, and
+      # structurally the same `case` on purpose: these two are the pair that has to agree
+      # about what the bucket says, and nothing but their shape joins them.
+      case "$ident" in
+        MATCH) ;;
+        OTHER)
+          echo "REFUSED $id: s3://$BUCKET/$id.json is not a STAC Item with that id." >&2
+          echo "  This script deletes that key and this bucket has no undo, so it only ever" >&2
+          echo "  deletes a document that identifies itself as the item being retracted." >&2
+          echo "  'collection' reaches this arm." >&2
+          refusals=$((refusals + 1)); continue ;;
+        *)
+          echo "REFUSED $id: could not read s3://$BUCKET/$id.json (HTTP 200, body" >&2
+          echo "  unreadable). Refusing to delete on a probe that did not complete. Retry." >&2
+          refusals=$((refusals + 1)); continue ;;
+      esac ;;
+    *)
+      echo "REFUSED $id: could not read s3://$BUCKET/$id.json (HTTP '$code')." >&2
+      echo "  Refusing to delete on an unread probe. Retry." >&2
+      refusals=$((refusals + 1)); continue ;;
+  esac
   OK_IDS="${OK_IDS:-}$id "
 done
 

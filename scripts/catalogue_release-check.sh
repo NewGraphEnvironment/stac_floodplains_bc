@@ -224,6 +224,10 @@ SHIM
 cat > "$BIN/curl" <<'SHIM'
 #!/bin/bash
 . "$(dirname "$0")/_log" curl "$@"
+# FIXTURE_ROOT, not STAC_DIR: what the BUCKET serves is a property of the harness, while
+# STAC_DIR is an input to the script under test, and case 22a2 has to empty the second
+# without emptying the first — a release-only machine still has a populated bucket.
+FIXTURE_ROOT="${FIXTURE_ROOT:-$STAC_DIR}"
 url=""; w=""; head=""; body=""; takebody=""
 for a in "$@"; do
   case "$a" in
@@ -288,7 +292,7 @@ def wsg_of(i):
 feats = [{"id": i, "properties": dict({"wsg": wsg_of(i)},
                                       **({"deprecated": True} if i in marked else {}))}
          for i in ids]
-print(json.dumps({"features": feats}))' "$ids" "$STAC_DIR"
+print(json.dumps({"features": feats}))' "$ids" "$FIXTURE_ROOT"
     exit 0 ;;
 esac
 # FAKE_GONE_IDS before the blanket 200, not after: every -w '%{http_code}' call took this
@@ -300,6 +304,23 @@ for _g in ${FAKE_GONE_IDS:-}; do
                    echo "curl shim: $_g is gone" >&2; exit 22 ;;
   esac
 done
+# A -w probe of a BUCKET key has to answer for THAT key. The blanket 200 below made the
+# release's "was this id ever published" arm unreachable, and worse than unreachable: case 20c
+# went on passing, because the could-not-read message it actually triggered happens to contain
+# the phrase the case greps for. A fixture that cannot reach the state under test, and an
+# assertion loose enough not to notice — found by sending the probe at the shim by hand.
+#
+# Only when -w is set and the key is absent. The asset probe uses -I WITHOUT -w and parses
+# Content-Length from the head branch further down, which must keep working.
+case "$url" in
+  *.amazonaws.com/*)
+    _rel="${url#*.amazonaws.com/}"; _hit=""
+    [ -f "$FIXTURE_ROOT/$_rel" ] && _hit=1
+    for _b in ${FAKE_BUCKET_ONLY_IDS:-}; do [ "$_rel" = "$_b.json" ] && _hit=1; done
+    for _b in ${FAKE_BUCKET_GARBLED:-}; do [ "$_rel" = "$_b.json" ] && _hit=1; done
+    [ -n "$_hit" ] || { [ -z "$w" ] || { printf '404'; exit 0; }; }
+    ;;
+esac
 if [ -n "$w" ]; then printf '200'; exit 0; fi
 # Serve the fixture collection with one field broken on request. The licence knobs break
 # exactly ONE field each, deliberately: a case that broke all three could pass on the
@@ -327,10 +348,10 @@ print(json.dumps(d))' "$1" "$2" "$3"
 }
 case "$url" in
   */collections/$COLLECTION)   # the live collection read (the version gate + step 5)
-    force_fields "$STAC_DIR/collection.json" "${FAKE_LIVE_VERSION:-}" "${FAKE_LIVE_LICENCE:-}"
+    force_fields "$FIXTURE_ROOT/collection.json" "${FAKE_LIVE_VERSION:-}" "${FAKE_LIVE_LICENCE:-}"
     exit 0 ;;
   */items/*)   # the live item read-back: the fixture's own JSON, or a stale one (case 6)
-    f="$STAC_DIR/${url##*/}.json"
+    f="$FIXTURE_ROOT/${url##*/}.json"
     # Stale ONE asset, the first (classified_2017.tif), and leave the largest correct: a
     # read-back that compares only the probe asset (the largest, a byte-stable gpkg) is
     # exactly the false pass this case exists to catch. No /g, deliberately.
@@ -346,11 +367,21 @@ case "$url" in
     exit 0 ;;
 esac
 rel="${url#*.amazonaws.com/}"
-f="$STAC_DIR/$rel"
+f="$FIXTURE_ROOT/$rel"
 # The bucket is NOT the build, and the retirement preflight turns on exactly that difference:
 # an id absent from the API and still in the bucket was retired by an earlier run of this
 # release, while an id in neither was never published at all. The fixture serves both surfaces
 # out of one directory, so without this knob the second state is unrepresentable.
+# A 200 carrying a body that is not JSON: an S3 SlowDown/error document, or a truncated
+# transfer. The release's witness and item_retract_s3.sh's guard 4 must both treat that as
+# "could not read" and refuse, NOT as "no such item" — they have different remedies, and one
+# of them costs a new tag.
+for _b in ${FAKE_BUCKET_GARBLED:-}; do
+  if [ "$rel" = "$_b.json" ]; then
+    printf '<?xml version="1.0"?><Error><Code>SlowDown</Code></Error>'
+    exit 0
+  fi
+done
 for _b in ${FAKE_BUCKET_ONLY_IDS:-}; do
   if [ "$rel" = "$_b.json" ]; then
     printf '{"type":"Feature","id":"%s","properties":{"wsg":"%s"},"assets":{}}' \
@@ -389,6 +420,7 @@ LIVE_AFTER=""
 LIVE_FINAL=""
 GONE=""
 BUCKETONLY=""
+GARBLED=""
 STALE=""
 LIVEV=""
 BUCKETV=""
@@ -401,10 +433,11 @@ run_release() {
   : > "$LOG"; : > "$SSHIN"; rm -f "$WORK/search_count"
   set +e
   ( cd "$TREPO" && PATH="$BIN:$PATH" SHIM_LOG="$LOG" COUNTER="$WORK/search_count" \
-      SSH_STDIN_LOG="$SSHIN" \
+      SSH_STDIN_LOG="$SSHIN" FIXTURE_ROOT="$STAC" \
       STAC_DIR="$STAC" RAW_DIR="$RAW" BUCKET="$BUCKET" COLLECTION="$COLL" \
       FAKE_LIVE_IDS="$LIVE" FAKE_LIVE_IDS_AFTER="$LIVE_AFTER" FAKE_LIVE_IDS_FINAL="$LIVE_FINAL" \
-      FAKE_GONE_IDS="$GONE" FAKE_BUCKET_ONLY_IDS="$BUCKETONLY" FAKE_LIVE_ITEM_STALE="$STALE" \
+      FAKE_GONE_IDS="$GONE" FAKE_BUCKET_ONLY_IDS="$BUCKETONLY" FAKE_BUCKET_GARBLED="$GARBLED" \
+      FAKE_LIVE_ITEM_STALE="$STALE" \
       FAKE_LIVE_VERSION="$LIVEV" FAKE_BUCKET_VERSION="$BUCKETV" \
       FAKE_LIVE_LICENCE="$LIVELIC" FAKE_BUCKET_LICENCE="$BUCKETLIC" \
       FAKE_LIVE_DEPRECATED="$LIVEDEP" FAKE_BUCKET_ITEM_SHAPE="$BUCKETSHAPE" \
@@ -862,11 +895,54 @@ expect_eq "RETIRED_ITEMS is one bare empty literal in the real script" \
 # release script must be collation-pinned, except the one that orders filenames for xargs,
 # where the order is cosmetic and nothing compares the result.
 echo "case 20-sorts: every id/group list compared in the release script is collation-pinned"
-unpinned=$(grep -n '| *sort' "$REPO/scripts/catalogue_release.sh" \
-  | grep -v 'LC_ALL=C sort' \
-  | grep -v 'xargs bash scripts/item_register.sh' || true)
-expect_eq "no bare '| sort' feeds a comparison" "$(printf '%s\n' "$unpinned" | grep -c . || true)" 0
-[ -z "$unpinned" ] || printf '        | %s\n' $unpinned
+# PER OCCURRENCE, not per line. The first version of this guard was itself the mechanism it
+# exists to close: `grep -n '| *sort'` missed `sort -u <<<"$x"` because there is no pipe, and
+# the `grep -v 'LC_ALL=C sort'` filter dropped any whole LINE that also held a pinned sort —
+# while being dead anyway, since `| *sort` cannot match `| LC_ALL=C sort`. Both holes measured.
+unpinned=$(python3 - "$REPO/scripts/catalogue_release.sh" <<'PYEOF'
+import re, sys
+# Comments stripped at " # ", which is this file's convention, and deliberately NOT at a bare
+# "#": `${rel#*/}` and `${out##*$'\n'}` are parameter expansions, and cutting there would hide
+# real code. A `sort` mentioned in prose is not an invocation.
+bad = []
+for n, line in enumerate(open(sys.argv[1]), 1):
+    if line.lstrip().startswith("#"):
+        continue
+    code = line.split(" # ", 1)[0]
+    if "xargs bash scripts/item_register.sh" in code:
+        continue            # orders filenames for registration; nothing compares the result
+    for m in re.finditer(r"\bsort\b", code):
+        if code[max(0, m.start() - 10):m.start()].endswith("LC_ALL=C "):
+            continue
+        bad.append(f"{n}: {code.strip()[:80]}")
+print("\n".join(bad))
+PYEOF
+)
+expect_eq "every sort invocation is collation-pinned" "$(printf '%s\n' "$unpinned" | grep -c . || true)" 0
+[ -z "$unpinned" ] || printf '        | %s\n' "$unpinned"
+
+echo "case 20-pipes: no early-exiting consumer sits downstream of a pipe"
+# The third mechanism, closed the same way as the collation one: by having no members, checked
+# mechanically. `grep -q`, `grep -m` and `head -1` all stop reading at their answer, and under
+# `set -o pipefail` the writer's SIGPIPE then becomes the pipeline's status — so the test
+# reports the writer's death as its own verdict once the text passes the pipe buffer (64 KiB,
+# measured on this machine). A here-string has no writer to kill. No fixture can reach this:
+# the harness payloads are hundreds of bytes, and NEWS.md is 39,573 B against that 64 KiB.
+piped=$(python3 - "$REPO/scripts/catalogue_release.sh" "$REPO/scripts/item_retract_s3.sh" <<'PYEOF'
+import re, sys
+bad = []
+for path in sys.argv[1:]:
+    for n, line in enumerate(open(path), 1):
+        if line.lstrip().startswith("#"):
+            continue
+        code = line.split(" # ", 1)[0]
+        if re.search(r"\|\s*(grep\s+-[a-zA-Z]*[qm]|head\s+-n?\s*1\b)", code):
+            bad.append(f"{path.split('/')[-1]}:{n}: {code.strip()[:70]}")
+print("\n".join(bad))
+PYEOF
+)
+expect_eq "every early-exiting consumer reads a here-string" "$(printf '%s\n' "$piped" | grep -c . || true)" 0
+[ -z "$piped" ] || printf '        | %s\n' "$piped"
 
 echo "case 20a: an orphan with an empty literal is refused, and the message names the literal"
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
@@ -884,7 +960,10 @@ echo "case 20c: a literal id that was never published is refused"
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 set_retired zzzz_ch_ff04; set_news zzzz_ch_ff04
 run_release;                                        refused "literal names a never-published id"
-expect_out "says it was never published" "was never published"
+expect_out "says it was never published" "names an item that was never published"
+expect_out "and names the status the bucket gave" "the bucket answers 404"
+expect_eq "and it is NOT the could-not-read arm" \
+  "$(grep -c 'Could not read' "$OUT" || true)" 0
 reset_tree
 
 echo "case 20d: a literal id gone from the API but still in the bucket is REPORTED, not refused"
@@ -953,8 +1032,22 @@ echo "case 20j: a literal naming a bucket object that is not a STAC Item is refu
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 set_retired collection; set_news collection
 run_release;                                        refused "literal names the collection document"
-expect_out "says it was never published" "was never published"
-expect_out "and says why: no Item with that id" "no STAC Item with that id"
+expect_out "says it is not an item of this collection" "not an item of this collection"
+expect_out "and says what the bucket does hold there" "not a STAC Item with that id"
+reset_tree
+
+echo "case 20L: a bucket read that could not be completed is refused, not called 'never published'"
+# The arm exists so a re-run after a verify failure stays possible, and its refusal costs a new
+# commit, a new NEWS entry and a new tag. Conflating a timeout or an S3 error document with
+# "this was never published" sends the operator to that price for a retry.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+GARBLED="aaaa_co_ff04"
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release;                                        refused "unreadable bucket copy"
+expect_out "says it could not read it" "Could not read"
+expect_eq "and does NOT claim it was never published" \
+  "$(grep -c 'never published' "$OUT" || true)" 0
+GARBLED=""
 reset_tree
 
 echo "case 20k: the NEWS arm matches the id delimited, not as a substring"
@@ -1077,8 +1170,9 @@ retract_s3() { # args... -> same shims, same log
   : > "$LOG"; : > "$SSHIN"; rm -f "$WORK/search_count"
   set +e
   ( cd "$TREPO" && PATH="$BIN:$PATH" SHIM_LOG="$LOG" COUNTER="$WORK/search_count" \
-      SSH_STDIN_LOG="$SSHIN" STAC_DIR="$STAC" BUCKET="$BUCKET" COLLECTION="$COLL" \
-      FAKE_LIVE_IDS="$LIVE" FAKE_GONE_IDS="$GONE" \
+      SSH_STDIN_LOG="$SSHIN" FIXTURE_ROOT="$STAC" STAC_DIR="${RETRACT_STAC_DIR:-$STAC}" \
+      BUCKET="$BUCKET" COLLECTION="$COLL" \
+      FAKE_LIVE_IDS="$LIVE" FAKE_GONE_IDS="$GONE" FAKE_BUCKET_GARBLED="$GARBLED" \
       bash "$TREPO/scripts/item_retract_s3.sh" "$@" ) > "$OUT" 2>&1 < /dev/null
   RC=$?
   set -e
@@ -1094,6 +1188,42 @@ retract_s3 --yes aaaa_ch_ff04
 expect_eq "no --yes-less footgun: a live item is refused" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "says the API still serves it" "the API still answers"
 expect_eq "and nothing was removed" "$(n_rm)" 0
+
+echo "case 22a2: the irreversible script refuses to delete the collection document"
+# `--yes collection` cleared all three original guards: the API 404s it, $linked holds item ids
+# only, and the build cross-check caught it by accident AND is skipped when data/stac is absent
+# — a release-only machine, which is the machine this script is for. The delete that followed
+# was `aws s3 rm s3://<bucket>/collection.json`, on a bucket with no versioning.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+GONE="collection"
+# NO data/stac, which is the condition that matters: the build cross-check is the only one of
+# the original three that caught `collection`, and it is skipped exactly here. The bucket still
+# serves collection.json, because the shim reads it from $STAC_DIR of the SHIM, not of the
+# script under test.
+mkdir -p "$WORK/nostac"
+RETRACT_STAC_DIR="$WORK/nostac" retract_s3 --yes collection
+expect_eq "refused with no local build to lean on" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "says it is not an Item with that id" "not a STAC Item with that id"
+expect_eq "and nothing was removed" "$(n_rm)" 0
+expect_eq "and it was guard 4, not the build cross-check" \
+  "$(grep -c 'still produces it' "$OUT" || true)" 0
+GONE=""
+
+echo "case 22a3: a bucket read that did not complete refuses the delete too"
+# The same three-outcome split the release's witness makes. On the irreversible script the
+# stakes are the other way round: there is nothing to lose by refusing a retry, and no undo if
+# a half-read body is taken for a match.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
+GONE="cccc_ch_ff04"
+GARBLED="cccc_ch_ff04"
+mkdir -p "$WORK/nostac"
+RETRACT_STAC_DIR="$WORK/nostac" retract_s3 --yes cccc_ch_ff04
+expect_eq "refused" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "says the read did not complete" "could not read"
+expect_eq "and nothing was removed" "$(n_rm)" 0
+expect_eq "and it is not read as a wrong-identity document" \
+  "$(grep -c 'not a STAC Item' "$OUT" || true)" 0
+GARBLED=""; GONE=""
 
 echo "case 22b: --yes is required at all"
 GONE="cccc_ch_ff04"

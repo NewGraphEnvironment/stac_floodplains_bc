@@ -340,7 +340,12 @@ if [ -n "$ONLY" ]; then
   # never-published item needs the collection's extent/summaries/links updated, which only
   # a full release does. Passing this also makes live_ids provably non-empty, which is
   # what lets step 5 compare membership by plain string equality.
-  if ! printf '%s\n' "$live_ids" | grep -qxF -- "$ONLY"; then
+  # Here-string, closing the last two members of the early-exit class (see the NEWS scan
+  # below). Both of these are pre-existing and both carry tiny inputs — $live_ids is ~300 B
+  # against a 64 KiB pipe buffer — and both fail toward refusal, so neither was reachable or
+  # unsafe. Converted anyway: a class is closed by having no members, and the two left behind
+  # are what a later reader would copy.
+  if ! grep -qxF -- "$ONLY" <<<"$live_ids"; then
     echo "$ONLY is not live. --only republishes an EXISTING item; a new item needs a" >&2
     echo "full release, which updates the collection's extent, summaries and links." >&2
     exit 1
@@ -464,28 +469,61 @@ if [ "$n_retired" -gt 0 ]; then
   not_live=$(comm -23 <(printf '%s\n' "$retired_ids") <(printf '%s\n' "$live_ids") || true)
   already_retired=""
   for id in $not_live; do
-    # The BODY, and its id, not a 200 from a URL. A HEAD only proves something answers at that
-    # key, and the key is built from the literal — so an entry naming any object the bucket
-    # happens to hold was reported "already retired" and the release completed announcing a
-    # retirement it never performed. `collection` was the reachable case: it passes the shape
-    # guard, is absent from `local_ids` by construction, and `collection.json` of course
-    # answers 200. Asking the document who it is closes the whole class, including the
-    # `../collection.json` form the shape guard was added for, which is the difference between
-    # guarding the symptom and checking the property.
-    if curl -sf --max-time 60 "$S3_BASE/$id.json" 2>/dev/null \
-         | python3 -c "import sys, json
+    # THREE outcomes, not two, and this arm is the reason the distinction matters: it exists so
+    # a re-run after a verify failure is possible, and its refusal costs a new commit, a new
+    # NEWS entry and a new tag. Collapsing "the bucket holds no such Item" into "the bucket
+    # could not be read" would send an operator to that price for a timeout. This file states
+    # the rule twice already, for fetch_live_version and for the licence read-back: a failed
+    # read must not look like a known answer.
+    #
+    # The STATUS first, by HEAD, which is cheap. Then the BODY, and its id — because a 200 from
+    # a URL only proves something answers at that key, and the key is built from the literal.
+    # `collection` was the reachable case: it clears the shape guard, is absent from
+    # `local_ids` by construction, and `collection.json` of course answers 200, so a
+    # HEAD-based witness reported it "already retired" and the release completed announcing a
+    # retirement it never performed. Asking the document who it is closes that whole class,
+    # the `../collection.json` form included — the difference between guarding the symptom and
+    # checking the property.
+    #
+    # Branching on the probe's OUTPUT rather than its exit status, deliberately: the pipeline
+    # carries two statuses and `$( )` hides PIPESTATUS, so a value is the only thing that can
+    # tell python's verdict from curl's transport failure.
+    code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
+    ident=""
+    if [ "$code" = 200 ]; then
+      # Only now the body, which is 4-9 MB per item (bulk_co_ff04.json is 8,587,448 bytes,
+      # measured). Bounded by construction: $not_live is EMPTY on any release where every id in
+      # the literal is still live, i.e. every release except a re-run. Do not "optimise" this
+      # back to a HEAD — that is the defect above.
+      ident=$(curl -sf --max-time 60 "$S3_BASE/$id.json" 2>/dev/null \
+        | python3 -c "import sys, json
 try:
     d = json.load(sys.stdin)
 except Exception:
-    raise SystemExit(1)
-raise SystemExit(0 if d.get('type') == 'Feature' and d.get('id') == sys.argv[1] else 1)" "$id"; then
-      already_retired="$already_retired $id"
-    else
-      echo "RETIRED_ITEMS names an item that was never published: $id" >&2
-      echo "It is absent from the API, and the bucket holds no STAC Item with that id, so" >&2
-      echo "there is nothing to retire. Check the literal against what the collection serves." >&2
-      exit 1
+    print('UNREADABLE'); raise SystemExit(0)
+print('MATCH' if d.get('type') == 'Feature' and d.get('id') == sys.argv[1] else 'OTHER')" "$id" \
+        || true)
     fi
+    case "$code:$ident" in
+      200:MATCH)
+        already_retired="$already_retired $id" ;;
+      200:OTHER)
+        echo "RETIRED_ITEMS names something that is not an item of this collection: $id" >&2
+        echo "The bucket holds an object at $id.json, but it is not a STAC Item with that id." >&2
+        echo "Check the literal against what the collection actually serves." >&2
+        exit 1 ;;
+      404:*|403:*)
+        echo "RETIRED_ITEMS names an item that was never published: $id" >&2
+        echo "It is absent from the API and the bucket answers $code for $id.json, so there is" >&2
+        echo "nothing to retire. Check the literal against what the collection serves." >&2
+        exit 1 ;;
+      *)
+        echo "Could not read $id.json from the bucket (HTTP '$code', verdict '${ident:-none}')." >&2
+        echo "This arm decides whether $id was already retired by an earlier run of this" >&2
+        echo "release, or had no document here at all, and those have different remedies — so" >&2
+        echo "a read it could not complete is refused rather than guessed. Retry." >&2
+        exit 1 ;;
+    esac
   done
   if [ -n "$already_retired" ]; then
     echo "RETIRED_ITEMS: already retired by an earlier run of this release —$already_retired"
@@ -611,7 +649,9 @@ else
   fi
   # The FIRST section heading, whatever it is: an "## Unreleased" above the version entry
   # is exactly the state this gate exists to refuse, and a grep for '^## v' would skip it.
-  if ! news_top=$(printf '%s\n' "$news" | grep -m1 -E '^## '); then
+  # Here-string for the same SIGPIPE reason as the id scan below; `grep -m1` exits early too,
+  # and $news is the whole file (39,573 B measured, against a 64 KiB pipe buffer).
+  if ! news_top=$(grep -m1 -E '^## ' <<<"$news"); then
     echo "NEWS.md in $tag has no '## ' heading — the release entry goes at the top." >&2
     exit 1
   fi
@@ -648,8 +688,14 @@ else
       # the text: an id of `collection` matched every real entry, and `bulk_all_ff04` would
       # match an entry that only named `bulk_all_ff04_v2`. The ids are charset-guarded above,
       # so none of them can carry a regex metacharacter into this pattern.
-      printf '%s\n' "$news_entry" \
-        | grep -qE "(^|[^A-Za-z0-9_-])$id([^A-Za-z0-9_-]|\$)" || unnamed="$unnamed $id"
+      # A here-string, not a pipe. `grep -q` exits at its first match, and under `set -o
+      # pipefail` the writer's SIGPIPE becomes the test's answer once the text exceeds the pipe
+      # buffer — measured at 64 KiB on this machine. NEWS.md is 39,573 B today and its top
+      # section 29,165 B, so this is not reachable yet; it is 2.2x of margin on a file that
+      # only grows, and the failure would read as "the id is not named" for an id that is.
+      # This file already documents the trap for `grep -m1` a few lines up.
+      grep -qE "(^|[^A-Za-z0-9_-])$id([^A-Za-z0-9_-]|\$)" <<<"$news_entry" \
+        || unnamed="$unnamed $id"
     done
     if [ -n "$unnamed" ]; then
       echo "RETIRED_ITEMS names items the NEWS.md entry for v$VERSION does not mention:$unnamed" >&2
@@ -816,7 +862,7 @@ if [ -n "$surplus" ] && [ -z "$ALLOW_RETRACT" ]; then
   echo "  drop with: scripts/item_unregister.sh $(printf '%s ' $surplus)"
   fail=1
 fi
-probe_item=$(printf '%s\n' "$local_ids" | head -1)
+probe_item=$(head -1 <<<"$local_ids")
 fi
 
 # Asset probe: catches "the JSON is live but its COG never uploaded", which no amount
