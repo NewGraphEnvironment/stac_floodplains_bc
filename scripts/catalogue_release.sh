@@ -9,13 +9,13 @@
 #
 # --only <item_id> republishes one existing item: its assets, its JSON, its pgstac row.
 # It NEVER publishes collection.json — a partial build's collection describes only the
-# groups in that build, and registering it would replace the live 20-group collection
+# groups in that build, and registering it would replace the live 22-group collection
 # with a one-group one, with no rollback (bucket versioning is Suspended). The
 # PARTIAL_STAGE interlock and the live-vs-build comparison guard exactly that document,
 # so both are skipped under --only, out loud. The item must already be live: a new item
 # needs the collection's extent/summaries/links updated, which only a full release does.
-# Validation still covers the whole tree on disk, so with a full 20-item build present
-# --only re-hashes ~670 MB of assets; correct, just slow. Proven by
+# Validation still covers the whole tree on disk, so with a full 23-item build present
+# --only re-hashes ~640 MB of assets; correct, just slow. Proven by
 # scripts/catalogue_release-check.sh, which runs this script against shims.
 #
 # Requires: data/stac (built by run_pipeline.sh), AWS credentials, SSH to geopro.
@@ -60,6 +60,25 @@ S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.p
 # provenance at all. Exact in both directions, so this is the count and not a lower bound.
 PROVENANCE_FLOOR=21
 
+# What this release RETIRES (#76): the exact live item ids it removes from the catalogue.
+# A LITERAL set by a human, the same shape and for the same reasons as PROVENANCE_FLOOR
+# above — no env override, and the check harness reads this line with an anchored sed, so it
+# has to stay one bare assignment. EMPTY is the normal state; a non-empty literal shipped on
+# main is itself a failure, which catalogue_release-check.sh asserts.
+#
+# It exists because `--allow-retract` PERMITS publishing past a live item absent from the
+# build and never removes one: step 5 tolerated the leftover under the flag, so
+# RELEASE COMPLETE printed with the retired items still live. For floodplains#125 that is a
+# group serving two floodplains built on different networks and, after floodplains#117,
+# different DEM grids, with nothing in the items saying which is current. Naming the ids here
+# is what lets the release do the removal itself, in band, so it cannot be half-done.
+#
+# The two flags are not interchangeable. This literal is for a REPLACEMENT — a group whose
+# item id changes — and the arms below refuse unless the group survives in the build.
+# `--allow-retract` is for a REMOVAL, a group leaving the catalogue with nothing taking its
+# place, and it grants no delete.
+RETIRED_ITEMS=""
+
 # The licence the collection must be SERVING when the release finishes (#47). A third
 # copy of item_create.py's COLLECTION_LICENSE and item_validate.py's EXPECTED_LICENSE, and
 # deliberately so: those two check the bytes on disk, this one checks what a consumer is
@@ -68,6 +87,33 @@ EXPECT_LICENSE="CC-BY-4.0"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 ALLOW_RETRACT=""
+# Normalised at top level, not only inside the full-release branch that fills them: `set -u`
+# is on, and steps 6 and 7 below sit outside that branch, so an --only run would die on an
+# unbound variable rather than skip a retirement it has already refused to have.
+# Normalised HERE, above the flag refusals below, not down in the preflight where it used to
+# sit. Those refusals tested `-n` on the RAW literal — which the rule on this very block
+# forbids, and which a literal of only whitespace makes wrong: empty in fact, non-empty to
+# `-n`. So --only was refused for a retirement that was not happening, under a message about
+# publishing a smaller collection. One-directional (it cannot let a retirement through) and
+# still a false refusal pointing at the wrong remedy.
+#
+# `grep -c .` over the normalised form is the only honest emptiness test for this literal.
+retired_ids=$(printf '%s\n' $RETIRED_ITEMS | grep . | LC_ALL=C sort -u || true)
+n_retired=$(printf '%s\n' "$retired_ids" | grep -c . || true)   # prints 0 and exits 1 when empty
+
+# The shape guard $ONLY gets below and item_unregister.sh gets before its SQL. Without it these
+# ids reach a URL and an `aws s3 rm` prefix unvalidated, and the failure is not a syntax error:
+# curl normalises dot segments, so an entry of `../collection.json` HEADs the bucket's own
+# collection document, reads 200, and is reported "already retired by an earlier run" — a
+# release that completes announcing a retirement it never performed. Checked before anything
+# reads one.
+for id in $retired_ids; do
+  case "$id" in
+    -*|*[!A-Za-z0-9_-]*)
+      echo "ERROR: RETIRED_ITEMS holds something that is not an item id: $id" >&2
+      exit 1 ;;
+  esac
+done
 SKIP_SYNC=""
 ONLY=""
 usage() {
@@ -108,12 +154,54 @@ if [ -n "$ONLY" ] && [ -n "$ALLOW_RETRACT" ]; then
   echo "COLLECTION, and --only never publishes the collection." >&2
   exit 1
 fi
+# Refused rather than reported, and refused HERE, because every retirement arm below lives in
+# the full-release branch of the preflight. Under --only none of them runs: an operator who
+# sets the literal and then reaches for --only for an unrelated pilot would get no delete, no
+# refusal and no mention of it, and the literal would still be sitting there for whoever cuts
+# the next release. A "skipped under --only" line would be the other option and is worse — it
+# teaches the operator that the combination is a supported no-op.
+if [ -n "$ONLY" ] && [ "$n_retired" -gt 0 ]; then
+  echo "--only and a non-empty RETIRED_ITEMS do not combine: a retirement publishes a" >&2
+  echo "smaller COLLECTION, and --only never publishes the collection. Clear the literal" >&2
+  echo "or cut a full release." >&2
+  exit 1
+fi
+# ...and neither do these two, which is the less obvious one. `--allow-retract` waives exactly
+# the arms a retirement depends on: the containment arm, the step-5 surplus arm, step 7's
+# equality arm, and the "no live watershed group is lost" arm whose own comment calls it the only
+# guard that survives ALLOW_SKIPPED=1. A release carrying both would delete every id in the
+# literal with all four inert — the most destructive configuration available here, reached by
+# passing a flag that reads like extra caution.
+#
+# They are for two different jobs. The literal is a REPLACEMENT: these ids go and their groups
+# stay, which is checkable, so it is checked and the delete is performed. The flag is a REMOVAL:
+# a group leaves the catalogue, which the group arm cannot distinguish from a short build, so it
+# is waived and nothing is deleted. Wanting both in one release means wanting the guards off for
+# the replacement too; cut two releases instead.
+# --skip-sync uploads NOTHING but collection.json on a full release (step 2+3 below). That is
+# safe only while every id the collection links is already in the bucket, which is true for a
+# republish and false the moment a build ADDS an item: the published collection would name
+# objects that were never uploaded, and a reload-from-S3 deletes the collection's rows before
+# discovering one 404s. Refused here rather than reported, because the combination has no
+# legitimate use — the whole point of the flag is "the bytes are already up".
+#
+# The orphan/added sets are not known until the preflight has read the live collection, so the
+# test itself lives there; this is only the note that it exists.
+if [ -n "$ALLOW_RETRACT" ] && [ "$n_retired" -gt 0 ]; then
+  echo "--allow-retract and a non-empty RETIRED_ITEMS do not combine." >&2
+  echo "The flag waives the containment, group-survival and served-equals-build arms — the" >&2
+  echo "exact guards a retirement relies on — so the two together would delete every id in" >&2
+  echo "the literal unchecked. The literal alone retracts; the flag alone retracts nothing." >&2
+  echo "For a replacement, drop the flag. For a group leaving with no replacement, clear the" >&2
+  echo "literal and keep the flag. For both, cut two releases." >&2
+  exit 1
+fi
 
 cd "$REPO"
 
 # Fielded search, used by both the preflight and the verify. `fields.include` is
 # mandatory, not an optimization: an unfielded GET /items returns the full
-# unsimplified floodplain geometries — ~34 s and ~34 MB for 17 items, growing
+# unsimplified floodplain geometries — ~34 s and ~34 MB for 17 items (measured when the collection held 17), growing
 # linearly as groups are added, so it would eventually just time out. Fielded it is
 # 8 KB in 0.15 s.
 fetch_live_ids() {
@@ -121,6 +209,27 @@ fetch_live_ids() {
     -H 'Content-Type: application/json' \
     -d "{\"collections\":[\"$COLLECTION\"],\"limit\":1000,\"fields\":{\"include\":[\"id\"]}}" \
     | python3 -c "import sys,json; print('\n'.join(sorted(f['id'] for f in json.load(sys.stdin)['features'])))"
+}
+
+# The live watershed groups, one per line, for the "no group is lost" arm. A second fielded
+# search rather than widening fetch_live_ids, so an ordinary release — which never calls this
+# — makes exactly the requests it made before. `properties.wsg` is a published field on every
+# item (measured on larl_bt_ff04, 2026-10-14: "LARL"), which is why the arm reads it instead
+# of parsing a group out of an id: CLAUDE.md's rule is that nothing here takes an id apart,
+# and `wsg` is the fact itself rather than a reconstruction of it.
+fetch_live_wsgs() {
+  curl -sf --max-time 120 -X POST "$API_ROOT/search" \
+    -H 'Content-Type: application/json' \
+    -d "{\"collections\":[\"$COLLECTION\"],\"limit\":1000,\"fields\":{\"include\":[\"id\",\"properties.wsg\"]}}" \
+    | python3 -c "import sys,json
+feats = json.load(sys.stdin)['features']
+out = set()
+for f in feats:
+    w = (f.get('properties') or {}).get('wsg')
+    if not w:
+        raise SystemExit('live item %s serves no wsg' % f.get('id'))
+    out.add(w.upper())
+print('\n'.join(sorted(out)))"
 }
 
 # The live collection's version, or the literal MISSING when it carries none. MISSING is
@@ -230,9 +339,18 @@ fi
 # absent rather than passing. The live-vs-build comparison below is what covers it.
 [ -d "$RAW_DIR" ] || echo "note: no $RAW_DIR (release-only machine) — staging interlock not available"
 
+# LC_ALL=C, so this sorts the way the live side does. fetch_live_ids sorts in Python, which is
+# codepoint order; a shell `sort` follows LC_COLLATE, and step 7 compares the two as plain
+# strings. The two agree for id-shaped input on this machine (measured), so the exposure is a
+# release cut on a differently-configured host, where the mismatch would report "the retirement
+# did not take" AFTER the delete had run. Every other id or group list compared in this script
+# is pinned the same way — `retired_ids` below and `build_wsgs` in the group arm — because a
+# `comm` needs both sides ordered alike to mean anything. Enumerated rather than asserted: an
+# earlier version of this comment claimed pinning it HERE fixed every comparison at once, and
+# `build_wsgs` was still on a bare `sort`, feeding the one arm that survives ALLOW_SKIPPED=1.
 local_ids=$(for f in "$STAC_DIR"/*.json; do
   b=$(basename "$f" .json); [ "$b" = collection ] || echo "$b"
-done | sort)
+done | LC_ALL=C sort)
 n_local=$(printf '%s\n' "$local_ids" | grep -c . || true)
 [ "$n_local" -ge 1 ] || { echo "No item JSON in $STAC_DIR." >&2; exit 1; }
 
@@ -253,7 +371,12 @@ if [ -n "$ONLY" ]; then
   # never-published item needs the collection's extent/summaries/links updated, which only
   # a full release does. Passing this also makes live_ids provably non-empty, which is
   # what lets step 5 compare membership by plain string equality.
-  if ! printf '%s\n' "$live_ids" | grep -qxF -- "$ONLY"; then
+  # Here-string, closing the last two members of the early-exit class (see the NEWS scan
+  # below). Both of these are pre-existing and both carry tiny inputs — $live_ids is ~300 B
+  # against a 64 KiB pipe buffer — and both fail toward refusal, so neither was reachable or
+  # unsafe. Converted anyway: a class is closed by having no members, and the two left behind
+  # are what a later reader would copy.
+  if ! grep -qxF -- "$ONLY" <<<"$live_ids"; then
     echo "$ONLY is not live. --only republishes an EXISTING item; a new item needs a" >&2
     echo "full release, which updates the collection's extent, summaries and links." >&2
     exit 1
@@ -328,16 +451,176 @@ EOF
   fi
 else
 orphans=$(comm -23 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") || true)
+added=$(comm -13 <(printf '%s\n' "$live_ids") <(printf '%s\n' "$local_ids") || true)
+
+# --skip-sync + an item this build ADDS. The flag means "the bytes are already on S3", which a
+# new item makes false: step 2+3 would upload collection.json and nothing else, publishing a
+# document that links objects that do not exist. rtj's reload-from-S3 reads exactly those
+# links, DELETEs every row of the collection, then 404s and aborts — the stac-dem-bc outcome,
+# on a bucket with versioning Suspended. It also survives a FAILED release, because the
+# collection `cp` happens at step 2+3 and the probe that might notice is at step 5.
+if [ -n "$SKIP_SYNC" ] && [ -n "$added" ]; then
+  echo "--skip-sync cannot publish a build that ADDS items:" >&2
+  printf '  %s\n' $added >&2
+  echo "The flag uploads only collection.json on a full release, so the collection would link" >&2
+  echo "objects that were never sent. Run without --skip-sync." >&2
+  exit 1
+fi
+
+# --- what the literal names, checked before what the catalogue holds -------------------
+# Each arm names the id it refuses on. All of them run inside step 0, upstream of the
+# validator and of every byte written, so a wrong literal costs a message and nothing else.
+if [ "$n_retired" -gt 0 ]; then
+  # Already in the build: the id would be registered by step 4 and deleted by step 6 of the
+  # same run. Cheap, and it is the state an upstream un-retirement produces — a group whose
+  # area.yml went back to naming the species scenario after the literal was written.
+  also_built=$(comm -12 <(printf '%s\n' "$retired_ids") <(printf '%s\n' "$local_ids") || true)
+  if [ -n "$also_built" ]; then
+    echo "RETIRED_ITEMS names an item THIS BUILD also produces:" >&2
+    printf '  %s\n' $also_built >&2
+    echo "Registering and then deleting the same id in one release is not a retirement." >&2
+    exit 1
+  fi
+
+  # Not live. Two very different states, told apart by the BUCKET copy, which is the one
+  # independent witness available here — neither sync passes --delete and the S3 deletion is
+  # a separate, later, deliberate step, so a just-retired id still has its document in the
+  # bucket while a typo never had one.
+  #
+  # The distinction is what keeps the release idempotent (its header promises that). If both
+  # states refused, a verify failure AFTER the delete would make the re-run impossible: the
+  # ids are no longer live, so the literal could not be satisfied, and editing it costs a new
+  # commit, a new NEWS entry and a new tag because of the clean-tree and exact-tag gates.
+  not_live=$(comm -23 <(printf '%s\n' "$retired_ids") <(printf '%s\n' "$live_ids") || true)
+  already_retired=""
+  for id in $not_live; do
+    # THREE outcomes, not two, and this arm is the reason the distinction matters: it exists so
+    # a re-run after a verify failure is possible, and its refusal costs a new commit, a new
+    # NEWS entry and a new tag. Collapsing "the bucket holds no such Item" into "the bucket
+    # could not be read" would send an operator to that price for a timeout. This file states
+    # the rule twice already, for fetch_live_version and for the licence read-back: a failed
+    # read must not look like a known answer.
+    #
+    # The STATUS first, by HEAD, which is cheap. Then the BODY, and its id — because a 200 from
+    # a URL only proves something answers at that key, and the key is built from the literal.
+    # `collection` was the reachable case: it clears the shape guard, is absent from
+    # `local_ids` by construction, and `collection.json` of course answers 200, so a
+    # HEAD-based witness reported it "already retired" and the release completed announcing a
+    # retirement it never performed. Asking the document who it is closes that whole class,
+    # the `../collection.json` form included — the difference between guarding the symptom and
+    # checking the property.
+    #
+    # Branching on the probe's OUTPUT rather than its exit status, deliberately: the pipeline
+    # carries two statuses and `$( )` hides PIPESTATUS, so a value is the only thing that can
+    # tell python's verdict from curl's transport failure.
+    code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
+    ident=""
+    if [ "$code" = 200 ]; then
+      # Only now the body, which is 4-9 MB per item (bulk_co_ff04.json is 8,587,448 bytes,
+      # measured). Bounded by construction: $not_live is EMPTY on any release where every id in
+      # the literal is still live, i.e. every release except a re-run. Do not "optimise" this
+      # back to a HEAD — that is the defect above.
+      ident=$(curl -sf --max-time 60 "$S3_BASE/$id.json" 2>/dev/null \
+        | python3 -c "import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print('UNREADABLE'); raise SystemExit(0)
+print('MATCH' if d.get('type') == 'Feature' and d.get('id') == sys.argv[1] else 'OTHER')" "$id" \
+        || true)
+    fi
+    case "$code:$ident" in
+      200:MATCH)
+        already_retired="$already_retired $id" ;;
+      200:OTHER)
+        echo "RETIRED_ITEMS names something that is not an item of this collection: $id" >&2
+        echo "The bucket holds an object at $id.json, but it is not a STAC Item with that id." >&2
+        echo "Check the literal against what the collection actually serves." >&2
+        exit 1 ;;
+      404:*|403:*)
+        echo "RETIRED_ITEMS names an item that was never published: $id" >&2
+        echo "It is absent from the API and the bucket answers $code for $id.json, so there is" >&2
+        echo "nothing to retire. Check the literal against what the collection serves." >&2
+        exit 1 ;;
+      *)
+        echo "Could not read $id.json from the bucket (HTTP '$code', verdict '${ident:-none}')." >&2
+        echo "This arm decides whether $id was already removed by an earlier run of this" >&2
+        echo "release, or had no document here at all, and those have different remedies — so" >&2
+        echo "a read it could not complete is refused rather than guessed. Retry." >&2
+        exit 1 ;;
+    esac
+  done
+  if [ -n "$already_retired" ]; then
+    echo "RETIRED_ITEMS: already retired by an earlier run of this release —$already_retired"
+    echo "  (absent from the API, still in the bucket; the S3 objects are a separate step)"
+  fi
+fi
+
+# --- what the catalogue holds that this build does not ---------------------------------
 if [ -n "$orphans" ]; then
   echo "These items are LIVE but absent from this build:" >&2
   printf '  %s\n' $orphans >&2
-  if [ -z "$ALLOW_RETRACT" ]; then
-    echo "Fix upstream and rebuild, or re-run with --allow-retract if the removal" >&2
-    echo "is deliberate. To also drop them from the API afterwards:" >&2
-    echo "  scripts/item_unregister.sh $(printf '%s ' $orphans)" >&2
+  unaccounted=$(comm -23 <(printf '%s\n' "$orphans") <(printf '%s\n' "$retired_ids") || true)
+  if [ -n "$unaccounted" ] && [ -z "$ALLOW_RETRACT" ]; then
+    echo "These are LIVE, absent from this build, and not named in RETIRED_ITEMS:" >&2
+    printf '  %s\n' $unaccounted >&2
+    echo "Either name them in RETIRED_ITEMS — which makes the release delete them, and" >&2
+    echo "requires each one's watershed group to survive in this build — or, for a group" >&2
+    echo "leaving the catalogue with no replacement, use --allow-retract." >&2
+    # The second remedy is only REACHABLE with an empty literal, because the flag and a
+    # non-empty literal are refused together. Printing it unconditionally would send an
+    # operator mid-retirement to a flag that refuses, and the arm that fires next would be
+    # the refusal rather than the release.
+    if [ "$n_retired" -gt 0 ]; then
+      echo "  (this release already retires $n_retired item(s), and --allow-retract does not" >&2
+      echo "   combine with that — either add these ids to the literal, or retire them in a" >&2
+      echo "   separate release.)" >&2
+    fi
     exit 1
   fi
-  echo "--allow-retract set — publishing a smaller collection." >&2
+  [ -z "$unaccounted" ] || echo "--allow-retract set — publishing past $(printf '%s\n' "$unaccounted" | grep -c . || true) unretired orphan(s)." >&2
+
+  # The group arm. Gated on $orphans, which costs an ordinary release nothing and loses no
+  # coverage: if a live group has no item in the build then every one of its items is live
+  # and unbuilt, so $orphans cannot be empty while a group is missing.
+  #
+  # This is the ONLY arm that survives ALLOW_SKIPPED=1. That flag suppresses PARTIAL_STAGE
+  # altogether (01_stage.R), so the interlock above is ABSENT rather than passing and a short
+  # build looks like a full one. Measured 2026-10-14, a full rebuild stages 10 of 23 groups;
+  # with ALLOW_SKIPPED set, the orphan set is 17 ids a human could fill into the literal in
+  # good faith, and every other arm would pass — publishing a collection that silently drops
+  # 13 watershed groups onto a bucket with no versioning. What refuses it is that `mcgr`,
+  # `ufra`, `will` and the rest appear in no build id at all.
+  if [ -z "$ALLOW_RETRACT" ]; then
+    live_wsgs=$(fetch_live_wsgs) \
+      || { echo "Could not read the live watershed groups — refusing to publish blind." >&2; exit 1; }
+    build_wsgs=$(for f in "$STAC_DIR"/*.json; do
+      b=$(basename "$f" .json); [ "$b" = collection ] && continue
+      python3 -c "import sys,json
+w = (json.load(open(sys.argv[1])).get('properties') or {}).get('wsg')
+if not w: raise SystemExit('built item %s carries no wsg' % sys.argv[1])
+print(w.upper())" "$f"
+    done | LC_ALL=C sort -u) \
+      || { echo "Could not read the watershed groups out of this build." >&2; exit 1; }
+    lost=$(comm -23 <(printf '%s\n' "$live_wsgs") <(printf '%s\n' "$build_wsgs") || true)
+    if [ -n "$lost" ]; then
+      echo "These watershed groups are LIVE but no item in this build covers them:" >&2
+      printf '  %s\n' $lost >&2
+      echo "A retirement replaces a group's item; it does not drop the group. Fix upstream" >&2
+      echo "and rebuild — that is almost always a build that skipped a group, so check" >&2
+      echo "data/raw/PARTIAL_STAGE and whether ALLOW_SKIPPED was set when it was staged." >&2
+      # Same reachability point as the containment arm: --allow-retract is the remedy only
+      # when nothing is being retired, and this arm fires during a retirement too.
+      if [ "$n_retired" -gt 0 ]; then
+        echo "  (--allow-retract is NOT the way out here: it does not combine with the" >&2
+        echo "   $n_retired item(s) in RETIRED_ITEMS, and it would waive this very arm.)" >&2
+      else
+        echo "If the group really is leaving the catalogue, --allow-retract is the flag." >&2
+      fi
+      exit 1
+    fi
+    echo "watershed groups: $(printf '%s\n' "$build_wsgs" | grep -c . || true) in this build, every live group covered"
+  fi
 fi
 fi
 
@@ -391,7 +674,9 @@ else
   fi
   # The FIRST section heading, whatever it is: an "## Unreleased" above the version entry
   # is exactly the state this gate exists to refuse, and a grep for '^## v' would skip it.
-  if ! news_top=$(printf '%s\n' "$news" | grep -m1 -E '^## '); then
+  # Here-string for the same SIGPIPE reason as the id scan below; `grep -m1` exits early too,
+  # and $news is the whole file (39,573 B measured, against a 64 KiB pipe buffer).
+  if ! news_top=$(grep -m1 -E '^## ' <<<"$news"); then
     echo "NEWS.md in $tag has no '## ' heading — the release entry goes at the top." >&2
     exit 1
   fi
@@ -409,6 +694,42 @@ else
   [ "$stamped" = "$VERSION" ] \
     || { echo "collection.json reads back version '$stamped' after stamping $VERSION" >&2; exit 1; }
   echo "release v$VERSION: HEAD at $tag, tree clean, NEWS.md agrees, collection.json stamped"
+
+  # Every retired id has to be named in the release entry — the issue's own third work item
+  # ("record the retirement in the release notes for the version that carries it, listing the
+  # item ids removed"), asserted rather than remembered. Here and not in the orphan block,
+  # because $news is the TAGGED NEWS.md and the version gate is what reads it; a check from
+  # the working tree would pass on a file that was written and never added.
+  #
+  # The TOP section only, from the version heading to the next one: an id named in last
+  # release's entry is not this release documenting itself. Deleting a public item id is the
+  # least reversible thing this script does, and a release note is the only place a consumer
+  # can find out it happened.
+  if [ "$n_retired" -gt 0 ]; then
+    news_entry=$(printf '%s\n' "$news" | awk '/^## /{n++} n==1')
+    unnamed=""
+    for id in $retired_ids; do
+      # Delimited, not a substring. `grep -qF "$id"` passed for any entry merely CONTAINING
+      # the text: an id of `collection` matched every real entry, and `bulk_all_ff04` would
+      # match an entry that only named `bulk_all_ff04_v2`. The ids are charset-guarded above,
+      # so none of them can carry a regex metacharacter into this pattern.
+      # A here-string, not a pipe. `grep -q` exits at its first match, and under `set -o
+      # pipefail` the writer's SIGPIPE becomes the test's answer once the text exceeds the pipe
+      # buffer — measured at 64 KiB on this machine. NEWS.md is 39,573 B today and its top
+      # section 29,165 B, so this is not reachable yet; it is 2.2x of margin on a file that
+      # only grows, and the failure would read as "the id is not named" for an id that is.
+      # This file already documents the trap for `grep -m1` a few lines up.
+      grep -qE "(^|[^A-Za-z0-9_-])$id([^A-Za-z0-9_-]|\$)" <<<"$news_entry" \
+        || unnamed="$unnamed $id"
+    done
+    if [ -n "$unnamed" ]; then
+      echo "RETIRED_ITEMS names items the NEWS.md entry for v$VERSION does not mention:$unnamed" >&2
+      echo "Retiring an item deletes a public id. List every one in the release entry, in the" >&2
+      echo "tagged commit, or a consumer has no record that it was withdrawn." >&2
+      exit 1
+    fi
+    echo "retirement: $n_retired item(s) named in RETIRED_ITEMS and in the v$VERSION entry"
+  fi
 fi
 
 # --- Step 1: validation gate ----------------------------------------------
@@ -494,8 +815,23 @@ echo "=== 3: SYNC JSON ==="
 # After the assets, so a document never references an object that has not landed.
 # Also keeps the bucket authoritative: rtj's stac_register-all.sh still reloads this
 # collection from S3, and that must be a no-op rather than a silent revert.
+#
+# TWO calls, and the ORDER is the point: the items first, collection.json last, never one
+# sync over both. `aws s3 sync` parallelises its uploads and guarantees nothing about the
+# order within a pass, so a pass that happened to put collection.json up and then failed —
+# network, credentials, a Ctrl-C — left the bucket's collection linking item documents that
+# do not exist. rtj's reload-from-S3 reads exactly those `rel: item` hrefs, DELETEs every row
+# of the collection, and only then discovers one of them 404s: it aborts, and the collection
+# serves nothing. Its own script records that happening to stac-dem-bc.
+#
+# Latent on every release so far, because none of them ADDED an item — every href in the
+# collection already resolved. The release that completes floodplains#125 adds 17 at once,
+# which is the largest exposure this bucket has had, so the window is closed now rather than
+# discovered then. The --skip-sync path above already had this shape (one `cp` of the
+# collection); this makes the full path agree with it.
 aws s3 sync "$STAC_DIR" "s3://$BUCKET" \
-  --exclude '*' --include '*.json' --exclude '*/*'
+  --exclude '*' --include '*.json' --exclude '*/*' --exclude 'collection.json'
+aws s3 cp "$STAC_DIR/collection.json" "s3://$BUCKET/collection.json"
 
 fi
 
@@ -540,12 +876,79 @@ else
 missing=$(comm -23 <(printf '%s\n' "$local_ids") <(printf '%s\n' "$after_ids") || true)
 extra=$(comm -13 <(printf '%s\n' "$local_ids") <(printf '%s\n' "$after_ids") || true)
 if [ -n "$missing" ]; then echo "NOT REGISTERED:"; printf '  %s\n' $missing; fail=1; fi
-if [ -n "$extra" ] && [ -z "$ALLOW_RETRACT" ]; then
-  echo "LIVE BUT NOT IN THIS BUILD:"; printf '  %s\n' $extra
-  echo "  drop with: scripts/item_unregister.sh $(printf '%s ' $extra)"
+# CONTAINMENT, not equality. The retirement has not happened yet at this point — step 6 runs
+# after every probe below, so that a probe failure costs nothing — which means the ids this
+# release is about to delete are legitimately still live here. Demanding equality instead
+# would also break the re-run after a verify failure, when they are legitimately gone.
+# Step 7 is where equality is required, once the delete has actually run.
+surplus=$(comm -23 <(printf '%s\n' "$extra") <(printf '%s\n' "$retired_ids") || true)
+if [ -n "$surplus" ] && [ -z "$ALLOW_RETRACT" ]; then
+  echo "LIVE BUT NOT IN THIS BUILD, AND NOT RETIRED BY IT:"; printf '  %s\n' $surplus
+  echo "  drop with: scripts/item_unregister.sh $(printf '%s ' $surplus)"
   fail=1
 fi
-probe_item=$(printf '%s\n' "$local_ids" | head -1)
+probe_item=$(head -1 <<<"$local_ids")
+fi
+
+# Every id the published collection links must have a document in the bucket. Until now
+# NOTHING checked this: step 5 compared ids against the API and probed one asset of one item,
+# and the only bucket reads in this script were collection.json, $ONLY.json and the retirement
+# witness. So the invariant the step-3 sync split rests on — "collection.json never links an
+# absent object" — was enforced by the ORDER of two statements and never read back, which is
+# the whole shape of a guard that cannot fail. A HEAD per id, which is cheap, and it also
+# catches a sync that died partway in the normal path.
+if [ -z "$ONLY" ]; then
+  # The set this iterates is the COLLECTION'S OWN `rel: item` links, read out of the document
+  # about to be published — not `$STAC_DIR/*.json`. The two agree only because item_create.py
+  # writes links and files in one run, and nothing read that back: item_validate.py checks the
+  # item COUNT, never the links against the files. An id the collection links whose document is
+  # absent is exactly what kills a reload-from-S3, so it is the links that have to be the
+  # question. Asserted equal to the file set as well, since a disagreement either way is a
+  # broken build.
+  linked_ids=$(python3 -c "
+import json, posixpath, sys
+d = json.load(open(sys.argv[1]))
+out = set()
+for l in d.get('links') or []:
+    if l.get('rel') == 'item':
+        b = posixpath.basename(l.get('href') or '')
+        out.add(b[:-5] if b.endswith('.json') else b)
+print('\n'.join(sorted(out)))" "$STAC_DIR/collection.json") && links_read=1 \
+    || { echo "  could not read the rel:item links out of the built collection.json" >&2
+         fail=1; links_read=""; linked_ids=""; }
+  # Compared whether or not the set is EMPTY. Guarding the compare on `-n "$linked_ids"` let a
+  # collection that links NOTHING pass silently while the build held items — a guard failing
+  # toward pass, and the state a dropped link block would produce.
+  if [ -n "$links_read" ] && [ "$linked_ids" != "$local_ids" ]; then
+    echo "  the built collection.json links a different item set than this build holds:" >&2
+    comm -3 <(printf '%s\n' "$linked_ids") <(printf '%s\n' "$local_ids") | sed 's/^/    /' >&2 || true
+    fail=1
+  fi
+  absent=""; unread=""
+  for id in $linked_ids; do
+    code=$(curl -sI -o /dev/null -w '%{http_code}' --max-time 60 "$S3_BASE/$id.json" || echo 000)
+    # 404/403 is "no document"; anything else is a read that did not complete, and those have
+    # different remedies. Collapsing them is the mistake the retirement witness 400 lines above
+    # refuses to make, and that this file states the rule against three times — and here it
+    # would print an alarming and false claim about a reload deleting the collection.
+    case "$code" in
+      200) ;;
+      404|403) absent="$absent $id($code)" ;;
+      *)       unread="$unread $id($code)" ;;
+    esac
+  done
+  if [ -n "$absent" ]; then
+    echo "  the bucket has no document for item(s) this collection links:$absent" >&2
+    echo "  A reload-from-S3 would delete the collection's rows and then fail on these." >&2
+    fail=1
+  fi
+  if [ -n "$unread" ]; then
+    echo "  could not read the bucket document for item(s):$unread" >&2
+    echo "  Not the same as absent, and not assumed to be: retry before concluding anything." >&2
+    fail=1
+  fi
+  [ -n "$absent$unread" ] \
+    || echo "bucket documents: all $(printf '%s\n' "$linked_ids" | grep -c . || true) linked item(s) present"
 fi
 
 # Asset probe: catches "the JSON is live but its COG never uploaded", which no amount
@@ -756,10 +1159,94 @@ print('OK ' + fmt(built_marked) if served == built_marked
   esac
 fi
 
+# AFTER every probe, and this placement is the design. A delete between step 4 and step 5
+# would precede the asset probe, the checksum probe, the version read-back, both licence
+# read-backs and the deprecation read-back — all of which set `fail=1` and fall through to
+# here — so the realistic bad day would be seventeen public items deleted and a release
+# reporting INCOMPLETE. Placed here, a failed probe costs a failed release with the
+# catalogue untouched, and the re-run is clean.
 [ "$fail" -eq 0 ] || { echo "RELEASE INCOMPLETE" >&2; exit 1; }
+
+final_ids="$after_ids"
+if [ "$n_retired" -gt 0 ]; then
+  echo ""
+  echo "=== 6: RETIRE ==="
+  # item_unregister.sh, not SQL written here: it already constrains each id's shape before
+  # interpolating it, always scopes pgstac.delete_item to one collection (the one-arg form
+  # reaches into the sibling collections in this same database), and is idempotent.
+  #
+  # COLLECTION and GEOSERV_HOST passed explicitly because neither is exported: without them
+  # the subscript falls back to its own defaults, so a release pointed at a throwaway
+  # collection — which this script's own header documents — would delete from the real one.
+  #
+  # Only the ids actually LIVE. The literal may legitimately name one the preflight reported
+  # as already retired by an earlier run of this release, and `item_unregister.sh` is
+  # idempotent — but "unregistering 1 item(s)" for an id that was already gone is a log line
+  # that says something untrue, and it would make a count of deletes stop meaning anything.
+  # The 404 check below still covers every id in the literal, so nothing is taken on trust.
+  to_delete=$(comm -12 <(printf '%s\n' "$retired_ids") <(printf '%s\n' "$live_ids") || true)
+  if [ -n "$to_delete" ]; then
+    COLLECTION="$COLLECTION" GEOSERV_HOST="$HOST" \
+      bash scripts/item_unregister.sh $to_delete
+  else
+    echo "nothing to unregister — every id in RETIRED_ITEMS was already absent from the API"
+  fi
+
+  echo ""
+  echo "=== 7: VERIFY RETIREMENT ==="
+  # The ONLY evidence the delete happened. item_unregister.sh warns and exits 0 when it
+  # deletes nothing, and this script never parses its NOTICEs, so without reading the
+  # catalogue back a silently-empty delete reports OK.
+  final_ids=$(fetch_live_ids) \
+    || { echo "Could not re-read the collection after the retirement." >&2; exit 1; }
+  rfail=0
+  still=$(comm -12 <(printf '%s\n' "$retired_ids") <(printf '%s\n' "$final_ids") || true)
+  if [ -n "$still" ]; then
+    echo "RETIRED BUT STILL SERVED:" >&2; printf '  %s\n' $still >&2
+    rfail=1
+  fi
+  # Now equality, which is the whole point: the served set and the build's set must agree,
+  # so a group can never be left serving both its whole-network item and its species one.
+  #
+  # UNCONDITIONAL, and that is not an oversight. It used to carry `[ -z "$ALLOW_RETRACT" ]`,
+  # copied from the step-5 arm — but the flag and a non-empty literal are refused together and
+  # this whole block is gated on a non-empty literal, so that test could never be false. A
+  # condition that cannot be false reads as a live escape hatch on the one arm the retirement
+  # turns on, and the next reader looking for how to waive it would have found what looked like
+  # the way.
+  if [ "$final_ids" != "$local_ids" ]; then
+    echo "after the retirement the served set is not this build (served vs built):" >&2
+    comm -3 <(printf '%s\n' "$final_ids") <(printf '%s\n' "$local_ids") | sed 's/^/  /' >&2 || true
+    rfail=1
+  fi
+  for id in $retired_ids; do
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "$API/items/$id" || true)
+    case "$code" in
+      404|410) ;;
+      *) echo "  $id still answers $code from the API" >&2; rfail=1 ;;
+    esac
+  done
+  if [ "$rfail" -ne 0 ]; then
+    echo "RELEASE INCOMPLETE — the catalogue was published but the retirement did not take." >&2
+    echo "The assets are all still in the bucket (no sync passes --delete, and the S3" >&2
+    echo "deletion is a separate later step), so this is recoverable. Re-run this release" >&2
+    echo "first; it is idempotent and the preflight treats an already-deleted id as a re-run." >&2
+    echo "To put a retired item BACK instead, fetch its document and register that — " >&2
+    echo "item_register.sh reads local files only, so the bucket URL cannot be passed to it:" >&2
+    echo "  aws s3 cp s3://$BUCKET/<item-id>.json \"\${TMPDIR:-/tmp}/\"" >&2
+    echo "  scripts/item_register.sh \"\${TMPDIR:-/tmp}/<item-id>.json\"" >&2
+    echo "  then RE-RUN THE RELEASE: this collection.json no longer links that item, so" >&2
+    echo "  restoring only the API row leaves the bucket and the API disagreeing, which is" >&2
+    echo "  the state a reload-from-S3 turns into an empty collection." >&2
+    echo "Do not run scripts/item_retract_s3.sh until the release reports COMPLETE." >&2
+    exit 1
+  fi
+  echo "retired $n_retired item(s); the collection now serves exactly this build"
+fi
+
 echo ""
 if [ -n "$ONLY" ]; then
   echo "RELEASE COMPLETE — $ONLY republished; collection unchanged at $(printf '%s\n' "$after_ids" | grep -c .) items, version $live_version, $API"
 else
-  echo "RELEASE COMPLETE — v$VERSION: $(printf '%s\n' "$after_ids" | grep -c .) items live at $API"
+  echo "RELEASE COMPLETE — v$VERSION: $(printf '%s\n' "$final_ids" | grep -c .) items live at $API"
 fi
