@@ -24,3 +24,11 @@
 - Fixed while testing: the roster total was `staged + skipped`, which is only right while every
   skip is a target rather than a whole group. Counted from the targets each `area.yml` declares
   instead, with groups declaring none reported on their own line.
+
+### Phase 2 — the refusal proven
+- Seven sandbox arms, each told apart by its own message (`findings.md` carries the table and the
+  commands): unreadable record, moved schema and a mid-write raster each refuse with no census;
+  the no-record control still prints one; a missing bundle and a missing `area.yml` skip by name.
+- Added a guard the plan did not have: nothing staged is now its own refusal. The skip arms were
+  printing `PROVENANCE_FLOOR=0` and exiting 0, and 0 is both a legitimate past value and what a
+  reader that found nothing produces.

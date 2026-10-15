@@ -82,12 +82,12 @@ symlinked — then run the script from the repo with `FLOODPLAINS_DATA=<sbx>/src
 is `dirname($FLOODPLAINS_DATA)/config`, so one tree serves both, and this script writes nothing,
 so it cannot escape).
 
-- [ ] Clean tree: exits 0, prints the census, numbers equal the roster walk done in planning.
-- [ ] Unreadable `provenance.json` in one staged group: exits non-zero, no census printed, the
+- [x] Clean tree: exits 0, prints the census, numbers equal the roster walk done in planning.
+- [x] Unreadable `provenance.json` in one staged group: exits non-zero, no census printed, the
       failure names that group.
-- [ ] `schema_version` bumped past the reader's pin: same disposition.
-- [ ] A raster touched newer than its landcover run stamp: same disposition (the mid-write state).
-- [ ] An area with no `provenance.json` at all still counts as an item carrying none and the
+- [x] `schema_version` bumped past the reader's pin: same disposition.
+- [x] A raster touched newer than its landcover run stamp: same disposition (the mid-write state).
+- [x] An area with no `provenance.json` at all still counts as an item carrying none and the
       census still prints — the forward-only control, so the refusal cannot be reading absence as
       failure.
 

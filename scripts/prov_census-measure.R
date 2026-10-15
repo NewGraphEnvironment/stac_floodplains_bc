@@ -248,7 +248,19 @@ if (length(skips)) {
   cat("\nWARNING: ", length(skips), " rostered target(s)/group(s) would not stage:\n", sep = "")
   for (s in skips) cat("  ", s, "\n", sep = "")
   cat("A full release from this tree is refused by the PARTIAL_STAGE interlock unless\n",
-      "ALLOW_SKIPPED=1. The census below is of the set a build of THIS tree stages.\n", sep = "")
+      "ALLOW_SKIPPED=1. Any census below is of the set a build of THIS tree stages.\n", sep = "")
+}
+
+# Nothing staged is not a census of zero; it is a measurement that did not happen. Printing
+# `PROVENANCE_FLOOR=0` here and exiting 0 is the fail-toward-pass direction, and 0 is the one
+# value every presence check in the publish path waves through — it was true of v1.0.0. Same
+# refusal item_validate.py makes for a wrong `--base` rather than reporting `valid: 0`.
+if (!length(staged)) {
+  cat("\nNO CENSUS: nothing staged. A floor of 0 is a number a reader that found nothing ",
+      "produces,\nand it was once true, so it cannot be told from a measurement that worked. ",
+      "Check that\n$FLOODPLAINS_DATA points at a populated producer tree (it resolved to ",
+      normalizePath(FLOODPLAINS_DATA, mustWork = FALSE), ").\n", sep = "")
+  quit(status = 1)
 }
 
 n_any <- sum(vapply(absences, function(a) length(a) < length(PROV_FIELDS), logical(1)))
@@ -282,8 +294,11 @@ cat("scripts/prov_fields-check.py\n")
 patterns <- vapply(absences, function(a) if (length(a)) paste(a, collapse = "+") else "", character(1))
 for (p in unique(patterns)) {
   ids <- names(patterns)[patterns == p]
-  cat("  ", length(ids), " item(s) ",
-      if (nzchar(p)) paste0("missing ", gsub("+", " + ", p, fixed = TRUE)) else "with all twelve",
-      ": ", paste(ids, collapse = ", "), "\n", sep = "")
+  # Three labels, not two: "with none at all" is its own population in that fixture, and
+  # spelling it as every field missing in turn is unreadable at twelve fields.
+  label <- if (!nzchar(p)) paste0("with all ", length(PROV_FIELDS))
+           else if (length(absences[[ids[1]]]) == length(PROV_FIELDS)) "with none at all"
+           else paste0("missing ", gsub("+", " + ", p, fixed = TRUE))
+  cat("  ", length(ids), " item(s) ", label, ": ", paste(ids, collapse = ", "), "\n", sep = "")
 }
 quit(status = 0)

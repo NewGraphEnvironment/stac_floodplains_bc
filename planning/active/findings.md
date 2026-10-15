@@ -59,6 +59,47 @@ Checked against `01_stage.R` so the script can say what it does not cover:
 Every unmirrored row makes the build stage *fewer* items or stop outright, so the script's count
 can only ever be at or above what such a build publishes — and both of those are loud.
 
+## Phase 2 — the refusal, proven in a sandbox
+
+No check script ships for it (#82 asks for a measurement, and a check for the measurement is not
+what it asks for), so the arms were driven by hand and are reproducible from here. Sandbox shape
+is `stage_years-check.R:159-190`'s, minus its cwd games — one group, a synthetic region yml, the
+real `area.yml` and `provenance.json` copied, bundles and rasters symlinked (the mtime guard
+follows a symlink to the producer's file, which is older than the record, so the control passes):
+
+```bash
+SBX=$(mktemp -d)/sbx
+mkdir -p "$SBX/src/config/regions" "$SBX/src/config/bulk" "$SBX/src/data/bulk/rasters/all_ff04"
+printf 'region: skeena\nwatershed_groups: [BULK]\n' > "$SBX/src/config/regions/test.yml"
+cp ../floodplains/config/bulk/area.yml       "$SBX/src/config/bulk/area.yml"
+cp ../floodplains/data/bulk/provenance.json  "$SBX/src/data/bulk/provenance.json"
+for f in floodplain.gpkg floodplain_landcover.gpkg; do
+  ln -s "$PWD/../floodplains/data/bulk/$f" "$SBX/src/data/bulk/$f"; done
+for f in ../floodplains/data/bulk/rasters/all_ff04/*; do
+  ln -s "$PWD/$f" "$SBX/src/data/bulk/rasters/all_ff04/$(basename "$f")"; done
+FLOODPLAINS_DATA="$SBX/src/data" Rscript scripts/prov_census-measure.R
+```
+
+| arm | mutation | result |
+|---|---|---|
+| control | none | exit 0, census of 1 item, all twelve fields |
+| unreadable record | `provenance.json` truncated to invalid JSON | exit 1, **no census**, names BULK and jsonlite's own lexical error |
+| schema moved | `schema_version` -> 3 | exit 1, no census, "declares schema_version 3 but this reader implements 2" |
+| mid-write | one `classified_*.tif` replaced by a file newer than the landcover run stamp | exit 1, no census, `fp_prov_rasters_current()`'s own message |
+| forward-only control | `provenance.json` removed | **exit 0**, census prints, 1 item with none at all, floor 0 — the legitimate absence, not a failure |
+| group skip | one bundle removed | group skipped by name, and then the zero-staged refusal below |
+| no roster | `area.yml` removed | group reported as declaring no targets, then the same refusal |
+
+Each refusal was told apart by its own message, never by the exit status: six arms share exit 1,
+and only the message says which fired.
+
+**A guard added here, not in the plan.** The group-skip and no-roster arms printed
+`PROVENANCE_FLOOR=0` and exited 0 — a census of nothing, in the shape of an answer. 0 is the one
+value every presence check in the publish path waves through, and it was true of v1.0.0, so it
+cannot be told from a measurement that worked. Nothing staged is now its own refusal, naming the
+resolved `$FLOODPLAINS_DATA`: the same stance `item_validate.py` takes on a wrong `--base` rather
+than reporting `valid: 0` and exiting 0.
+
 ## Errors Encountered
 
 | Error | Resolution |
