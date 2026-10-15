@@ -59,7 +59,17 @@ FP <- Sys.getenv("FLOODPLAINS_DATA", unset = file.path("..", "floodplains", "dat
 # A group declaring `targets:` is refused rather than guessed at: this script rewrites ONE
 # scenario's record and asserts one item staged, so a multi-target group would stage a second
 # item the arms say nothing about.
-AREA <- tolower(Sys.getenv("AREA", unset = "ufra"))
+# Default BULK, which is the area that still has a record to drive the arms with. It was
+# `ufra`, and since floodplains#125 flipped every region to whole-network that default proved
+# NOTHING: ufra's area.yml declares `primary_scenario: all_ff04`, SCEN is derived from it, and
+# ufra's provenance.json carries a landcover section for `ch_ff04` only — so the script took
+# the "no landcover record" exit and printed "0 assertions, 0 failed, 1 skipped — the call site
+# was NOT proven" on its documented invocation. It skipped out loud, exactly as designed, and
+# nobody was reading. Measured 2026-10-14: bulk, dunc, kisp and morr all carry an `all_ff04`
+# landcover record; bulk is the only annual one, so it exercises the derived-year arms that
+# #75 put in rather than the three-year constants they replaced. 13 assertions on bulk, 0 on
+# ufra.
+AREA <- tolower(Sys.getenv("AREA", unset = "bulk"))
 
 src_area <- file.path(FP, AREA)
 src_cfg <- file.path(dirname(FP), "config", AREA, "area.yml")
@@ -219,6 +229,14 @@ expect_true("...and trips none of the year-set arms",
 # landcover stamp: floodplains#79 is converting areas to an annual span one at a time, and
 # when it reaches ufra this pin stops describing anything. Skipped OUT LOUD then, so a
 # re-run reads as "re-take the pin", never as "the code moved the data".
+#
+# That is now PERMANENT, and for a reason the comment above anticipated without naming:
+# floodplains#125 moved ufra to `primary_scenario: all_ff04`, so no build produces
+# `ufra_ch_ff04` at all any more and the pinned bytes describe an item that cannot be
+# rebuilt. It is left in place rather than re-taken, because what it pins is #61's "this
+# issue changes code, not data" criterion against a PRE-change build; a pin re-taken from
+# today's code could only ever confirm today's code against itself. Re-taking it belongs
+# with whoever lands ufra's whole-network run, as a different and newly-named guard.
 # TWO gates, because the digest has two independent sources. `produced_datetime` covers
 # upstream. The other is this machine: meta.json carries `epsg`, three
 # `floodplain_ff0N_km2` areas, a bbox and a full GeoJSON geometry, every one of them

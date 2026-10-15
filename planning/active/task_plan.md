@@ -115,9 +115,9 @@ Not listed when the phases were written; recorded here as landed work.
 
 ## Phase 6: the two dead guards the upstream flip left behind
 
-- [ ] `test_pipeline.R:25` — default `WSG=ufra` is unstageable today (13 of 23 groups are); move it to
+- [x] `test_pipeline.R:25` — default `WSG=ufra` is unstageable today (13 of 23 groups are); move it to
       a group that stages
-- [ ] `stage_years-check.R:63` — default `AREA=ufra` skips every case and prints "the call site was
+- [x] `stage_years-check.R:63` — default `AREA=ufra` skips every case and prints "the call site was
       NOT proven"; move it, and re-take or retire the `ufra_ch_ff04` `meta.json` fold pin at `:217-231`
       that sits unreachable behind that skip
 
@@ -155,7 +155,7 @@ Not listed when the phases were written; recorded here as landed work.
 
 - [ ] `bash scripts/catalogue_release-check.sh` — every case, old and new, green
 - [ ] `bash -n` on every edited shell script; `shellcheck` if available
-- [ ] the smoke test passes on its **new** default, and `stage_years-check.R` reports assertions
+- [x] the smoke test passes on its **new** default, and `stage_years-check.R` reports assertions
       rather than a skip
 - [ ] mutation table: every new arm, defect restored, arm red
 - [ ] Tests pass

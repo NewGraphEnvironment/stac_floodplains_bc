@@ -11,7 +11,7 @@
 # publish past as a collection — the one-group tree can only go out one item at a time,
 # via `catalogue_release.sh --only <item_id>`, which never touches collection.json (#36).
 #
-#   Rscript scripts/test_pipeline.R            # defaults to UFRA
+#   Rscript scripts/test_pipeline.R            # defaults to BULK
 #   WSG=necr Rscript scripts/test_pipeline.R   # any rostered WSG
 #   WSG=bulk Rscript scripts/test_pipeline.R   # whole-network group: species `all`, 7-year span
 #
@@ -22,7 +22,14 @@ library(jsonlite)
 library(yaml)
 library(sf)   # explicit: the gpkg attribute checks below must not rely on 01_stage.R's attach
 
-wsg <- tolower(Sys.getenv("WSG", unset = "ufra"))
+# BULK, not UFRA. The default has to be a group that actually STAGES, and since
+# floodplains#125 flipped every region to whole-network, 13 of the 23 rostered groups declare
+# `primary_scenario: all_ff04` while holding only their old species rasters — so 01_stage.R
+# skips their one target and this script stops at "no items staged for UFRA". Measured
+# 2026-10-14: only bulk, dunc, kisp and morr have a `rasters/all_ff04/`. A smoke test whose
+# documented invocation cannot run is not a smoke test, and the failure named the group rather
+# than the cause. bulk is the group scripts/README.md already uses for its worked examples.
+wsg <- tolower(Sys.getenv("WSG", unset = "bulk"))
 
 message("=== SMOKE TEST: ", toupper(wsg), " (local only, no S3) ===\n")
 

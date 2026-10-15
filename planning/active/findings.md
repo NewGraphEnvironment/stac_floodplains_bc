@@ -352,3 +352,34 @@ and the item endpoint — and nothing guarantees those agree.
 R4 is the one worth naming: without the trailing slash, `aws s3 rm s3://b/<id> --recursive`
 also sweeps every key sharing the prefix — `cccc_ch_ff04_anything/` — on a bucket with no
 versioning.
+
+## The two dead guards, before and after
+
+Measured 2026-10-14, both on this branch and reproducible on `main`:
+
+```
+$ Rscript scripts/stage_years-check.R                      # the documented default
+  skip  every case (ufra has no landcover record for all_ff04)
+0 assertions, 0 failed, 1 skipped — the call site was NOT proven
+
+$ AREA=bulk Rscript scripts/stage_years-check.R
+13 assertions, 0 failed, 1 skipped
+```
+
+`test_pipeline.R` on `WSG=ufra` stops at "no items staged for UFRA" — `01_stage.R:380-382`
+skips the one target, because ufra declares `primary_scenario: all_ff04` and holds only
+`rasters/ch_ff04/`. True today for 13 of the 23 rostered groups. On `WSG=bulk` it passes
+end to end, and independently reproduces #79's figure: `bulk_all_ff04` ff04 = 659.99 km².
+
+Both defaults moved to `bulk`, which `scripts/README.md` already used for its worked
+examples, and which is the only annual-span whole-network area — so it drives the
+derived-year arms #75 introduced rather than the three-year constants they replaced.
+
+**The `meta.json` fold pin is left in place, skipping permanently, deliberately.** Its own
+comment anticipated going stale when floodplains#79 reached ufra; what actually happened is
+stronger — floodplains#125 moved ufra to `all_ff04`, so no build produces `ufra_ch_ff04` at
+all and the pinned bytes describe an item that cannot be rebuilt. It is not re-taken here,
+because what it pins is #61's "this issue changes code, not data" criterion against a
+**pre-change** build, and a pin re-taken from today's code would confirm today's code against
+itself — verification reading its own output. Re-taking it is a different, newly-named guard,
+and belongs with whoever lands ufra's whole-network run.
