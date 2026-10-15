@@ -40,3 +40,17 @@
   so far and would first have mattered on the one that adds 17 items.
 - Mutation tables in `findings.md`: 10 release arms + 6 S3/sync guards, every one red.
   Two first-round greens were the mutation patching inside a branch the case never enters.
+
+### Phases 6-8 — dead guards, docs, issue hygiene
+
+- `test_pipeline.R` and `stage_years-check.R` moved off `ufra`, which since floodplains#125
+  stages nothing. The second was printing "the call site was NOT proven" on its documented
+  invocation; 13 assertions on `bulk`.
+- `## Retraction` split into Replacement and Removal, both release-first, with the rtj
+  reload hazard named. Release table gains steps 6 and 7. Stale counts corrected.
+- `NEWS.md`: the mechanism, what the cutover must land in one commit, and the `v2.0.0`
+  reservation making it a minor bump.
+- Posted on floodplains#125: the retirement cannot be staged per group, a release needs all
+  13 remaining runs, and the `stage_years-check.R` note under its "Left" list is done.
+- #79 closed by construction (option 1, structural). #76's body rewritten: the per-group
+  framing corrected, the decisions and the mechanism recorded, blockers listed.

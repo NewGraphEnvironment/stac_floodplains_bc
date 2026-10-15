@@ -145,10 +145,10 @@ Not listed when the phases were written; recorded here as landed work.
 - [x] record the `v2.0.0` collision: `NEWS.md:13-18` reserves it for corrected geometry everywhere,
       and `mcgr_ch_ff04` survives this release, so a release deleting 17 public item ids ships as a
       minor bump
-- [ ] raise MCGR upstream (floodplains, our own repo): its `area.yml` must go back to `ch_ff04` until
+- [x] raise MCGR upstream (floodplains, our own repo): its `area.yml` must go back to `ch_ff04` until
       floodplains#76 clears, or neither of its items can stage
-- [ ] comment on #79 with the mechanism and close it
-- [ ] edit #76's body: the migration is one full release retiring 17 items, not group-by-group, and
+- [x] comment on #79 with the mechanism and close it
+- [x] edit #76's body: the migration is one full release retiring 17 items, not group-by-group, and
       add the MCGR prerequisite to "Depends on"
 
 ## Validation
