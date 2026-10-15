@@ -547,17 +547,17 @@ FIELD_PREFIXES = {
 # reader that lost a field, above is a census nobody updated.
 PROV_CENSUS = {
     "link_run_uid": 18,
-    "link_config_sha256": 21,
-    "link_sha": 21,
-    "link_version": 21,
-    "flooded_version": 21,
-    "drift_version": 21,
-    "produced_datetime": 21,
-    "landcover_source": 21,
-    "landcover_collection": 21,
-    "landcover_stac_url": 21,
-    "landcover_key": 21,
-    "landcover_item_hash": 21,
+    "link_config_sha256": 23,
+    "link_sha": 23,
+    "link_version": 23,
+    "flooded_version": 23,
+    "drift_version": 23,
+    "produced_datetime": 23,
+    "landcover_source": 23,
+    "landcover_collection": 23,
+    "landcover_stac_url": 23,
+    "landcover_key": 23,
+    "landcover_item_hash": 23,
 }
 assert set(PROV_CENSUS) == set(PROV_FIELDS), (
     "PROV_CENSUS and PROV_FIELDS disagree — a field with no census row would be counted by "

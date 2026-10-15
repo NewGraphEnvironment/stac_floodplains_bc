@@ -24,35 +24,35 @@ over (airvine, 2026-10-15).
 
 ## Phase 2: Rebuild, and take the numbers from the build
 
-- [ ] `bash scripts/run_pipeline.sh` (no `ALLOW_SKIPPED`, no `ALLOW_DRIFT_SKEW`)
-- [ ] No `PARTIAL_STAGE`, 23 items, all `<wsg>_all_ff04`
-- [ ] Record `01_stage.R`'s aspatial-table and unclaimed-layer reports (reported, not refused)
-- [ ] Capture `item_validate.py`'s `census:` line — the authority
+- [x] `bash scripts/run_pipeline.sh` (no `ALLOW_SKIPPED`, no `ALLOW_DRIFT_SKEW`)
+- [x] No `PARTIAL_STAGE`, 23 items, all `<wsg>_all_ff04`
+- [x] Record `01_stage.R`'s aspatial-table and unclaimed-layer reports (reported, not refused)
+- [x] Capture `item_validate.py`'s `census:` line — the authority
 
 ## Phase 3: Set every literal, from the build
 
-- [ ] `PROVENANCE_FLOOR` — `scripts/catalogue_release.sh:61`
-- [ ] `PROV_CENSUS` — `scripts/item_validate.py:540`
-- [ ] `scripts/prov_fields-check.py`: fixture populations and every fixture-derived number that
+- [x] `PROVENANCE_FLOOR` — `scripts/catalogue_release.sh:61`
+- [x] `PROV_CENSUS` — `scripts/item_validate.py:540`
+- [x] `scripts/prov_fields-check.py`: fixture populations and every fixture-derived number that
       moves with them; the all-absent population stays
-- [ ] `RETIRED_ITEMS` — `scripts/catalogue_release.sh:80` — exactly the 23 live ids
-- [ ] `ALLOWED_YEAR_SETS` unchanged: both tuples still occupied
+- [x] `RETIRED_ITEMS` — `scripts/catalogue_release.sh:80` — exactly the 23 live ids
+- [x] `ALLOWED_YEAR_SETS` unchanged: both tuples still occupied
 
 ## Phase 4: Prove the guards before the release gate does
 
-- [ ] `item_validate.py --expect-provenance <floor>`
-- [ ] `prov_fields-check.py`
-- [ ] `style_drift-check.py`, `style_determinism-check.py`, `attribution_drift-check.py`,
+- [x] `item_validate.py --expect-provenance <floor>`
+- [x] `prov_fields-check.py`
+- [x] `style_drift-check.py`, `style_determinism-check.py`, `attribution_drift-check.py`,
       `year_sets-check.py`, `fp_provenance-check.R`, `gpkg_determinism-check.R`,
       `stage_years-check.R`
-- [ ] `catalogue_release-check.sh` — one expected failure, its `RETIRED_ITEMS=""` arm
+- [x] `catalogue_release-check.sh` — one expected failure, its `RETIRED_ITEMS=""` arm
 
 ## Phase 5: The documents that go stale at the cutover
 
-- [ ] `NEWS.md`: promote Unreleased to `## v2.0.0`, naming all 23 retired ids
-- [ ] `CLAUDE.md` above the marker
-- [ ] `README.Rmd` prose + `scripts/readme_functions.R` comment
-- [ ] Stale comments naming mcgr/pine as the two carrying no provenance
+- [x] `NEWS.md`: promote Unreleased to `## v2.0.0`, naming all 23 retired ids
+- [x] `CLAUDE.md` above the marker
+- [x] `README.Rmd` prose + `scripts/readme_functions.R` comment
+- [x] Stale comments naming mcgr/pine as the two carrying no provenance
 
 ## Phase 6: Tag and release
 
@@ -65,7 +65,7 @@ over (airvine, 2026-10-15).
 
 ## Validation
 
-- [ ] Tests pass
+- [x] Tests pass
 - [ ] `/code-check` clean (once over the branch)
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion

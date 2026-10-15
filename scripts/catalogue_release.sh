@@ -56,9 +56,11 @@ S3_BASE="https://$BUCKET.s3.us-west-2.amazonaws.com"   # the shape item_create.p
 # v1.0.0; a full rebuild from today's producer tree carries bulk_all_ff04 and no longer
 # stages bulk_co_ff04 at all (floodplains#125 retired the targets: blocks), so the next
 # full release sets whatever its build prints in the same commit as its NEWS entry.
-# 21 of 23, measured on the build this release publishes: 2 items legitimately carry no
-# provenance at all. Exact in both directions, so this is the count and not a lower bound.
-PROVENANCE_FLOOR=21
+# 23 of 23, measured on the build this release publishes (v2.0.0, #89): every rostered group
+# carries a provenance record now. Exact in both directions, so this is the count and not a
+# lower bound. It was 21 of 23 at v1.1.0 — mcgr and pine carried none — and both gained one
+# when the whole-network runs produced them.
+PROVENANCE_FLOOR=23
 
 # What this release RETIRES (#76): the exact live item ids it removes from the catalogue.
 # A LITERAL set by a human, the same shape and for the same reasons as PROVENANCE_FLOOR
@@ -77,7 +79,11 @@ PROVENANCE_FLOOR=21
 # item id changes — and the arms below refuse unless the group survives in the build.
 # `--allow-retract` is for a REMOVAL, a group leaving the catalogue with nothing taking its
 # place, and it grants no delete.
-RETIRED_ITEMS=""
+# v2.0.0 (#89): the whole-network cutover. Every live id is replaced by its group's
+# <wsg>_all_ff04. 23 ids over 22 groups — MORR is the two-for-one case this mechanism
+# was built for. CLEAR THIS BACK TO "" in the commit after the release; a non-empty
+# literal on main is itself a failure, which catalogue_release-check.sh asserts.
+RETIRED_ITEMS="bowr_ch_ff04 bulk_co_ff04 fran_ch_ff04 kisp_ch_ff04 kotl_bt_ff04 larl_bt_ff04 lchl_ch_ff04 lnth_ch_ff04 lsal_ch_ff04 mcgr_ch_ff04 mork_ch_ff04 morr_ch_ff06 morr_co_ff04 necr_ch_ff04 pars_bt_ff04 pcea_bt_ff04 pine_bt_ff04 sloc_bt_ff04 tabr_ch_ff04 thom_ch_ff04 ufra_ch_ff04 unth_ch_ff04 will_ch_ff04"
 
 # The licence the collection must be SERVING when the release finishes (#47). A third
 # copy of item_create.py's COLLECTION_LICENSE and item_validate.py's EXPECTED_LICENSE, and
