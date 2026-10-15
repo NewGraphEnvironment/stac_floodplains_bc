@@ -727,7 +727,8 @@ else
       # pipefail` the writer's SIGPIPE becomes the test's answer once the text exceeds the pipe
       # buffer — measured at 64 KiB on this machine. NEWS.md is 47,156 B on the v2.0.0
       # commit and its top section 36,129 B, so this is not reachable yet; it is 1.8x of
-      # margin on a file that only grows — it was 2.2x before this release's own entry — and
+      # margin on a file that only grows — it was 2.0x before this release's own entry
+      # (main's top section is 32,989 B), measured with the awk slice just below — and
       # the failure would read as "the id is not named" for an id that is.
       # This file already documents the trap for `grep -m1` a few lines up.
       grep -qE "(^|[^A-Za-z0-9_-])$id([^A-Za-z0-9_-]|\$)" <<<"$news_entry" \
