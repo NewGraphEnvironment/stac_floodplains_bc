@@ -122,7 +122,7 @@ fp_readme_map(wsg, props, assets)
 
 ## What is in the catalogue
 
-One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<species>_ff0N`. Most groups publish one; MORR publishes two. Seven assets each, plus one per classified year — every one downloadable from its group's popup on the [interactive map](https://www.newgraphenvironment.com/stac_floodplains_bc/):
+One **item** per watershed group, id `<wsg>_all_ff04` — the floodplain of the group's whole stream network, at order >= 2 with no access filter. (`all` is the producer's token for that network, not a species. The id's middle slot is a scenario's species, so a group that modelled a single species again would publish `<wsg>_<species>_ff0N`.) Seven assets each, plus one per classified year — every one downloadable from its group's popup on the [interactive map](https://www.newgraphenvironment.com/stac_floodplains_bc/):
 
 | asset | what it is |
 |---|---|
@@ -139,7 +139,7 @@ Every asset publishes `file:checksum` and `file:size`, so you can confirm a down
 
 **Each item's GeoPackages hold only that item's layers.** Merging *N* items therefore gives you *N* copies of the same layer families and nothing retired — no second floodplain model from a target the group no longer publishes. `floodplain.gpkg` is the one place several `scenario` values appear under one item, because the ff02, ff04 and ff06 delineations each record their own flood factor.
 
-**The collection mixes flood factors.** `ff04` is the functional floodplain and `ff06` the wider valley bottom, so filter on `flood_factor` before comparing or summing groups — an unfiltered aggregate adds different extents together.
+**Every item is `ff04`**, the functional floodplain. `floodplain.gpkg` also carries the `ff02` and `ff06` (wider valley bottom) delineations, so compare those inside an item rather than across the catalogue. If a group ever publishes a second flood factor, filter on the `flood_factor` property before comparing or summing groups — an unfiltered aggregate would add different extents together.
 
 ## Coverage
 
@@ -171,7 +171,7 @@ my_dt_table(rows, cols_freeze_left = 2, page_length = 25) |>
   DT::formatRound(num, digits = 0)
 ```
 
-Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item's **own** extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **`r fp_readme_int(tot$km2)` km²** of floodplain, **`r fp_readme_int(tot$loss)` ha** lost, **`r fp_readme_int(tot$gain)` ha** gained, **`r fp_readme_int(tot$net, signed = TRUE)` ha** net. That km² total counts each group's `ff04` extent once — MORR's two items share one physical floodplain — while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
+Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item's **own** extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **`r fp_readme_int(tot$km2)` km²** of floodplain, **`r fp_readme_int(tot$loss)` ha** lost, **`r fp_readme_int(tot$gain)` ha** gained, **`r fp_readme_int(tot$net, signed = TRUE)` ha** net. That km² total counts each group's `ff04` extent once, so it stays correct if a group ever publishes two items over one physical floodplain, while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
 
 ```{r dep, echo=FALSE, results="asis"}
 d <- props$id[props$deprecated]

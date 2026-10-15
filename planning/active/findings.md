@@ -34,6 +34,43 @@ fixture 25 items / 23 provenanced, so every number derived from it moves too.
 | Error | Resolution |
 |-------|------------|
 
+## Plan review (Plan agent, 2026-10-15) — corrections that changed the plan
+
+1. **`catalogue_release-check.sh` cannot run on the release commit.** It copies the real
+   `scripts/` into a throwaway repo and runs the real `catalogue_release.sh` against a
+   two-item fixture catalogue (`LIVE="aaaa_ch_ff04 bbbb_ch_ff04"`). Nothing rewrites the
+   literal at setup, so 23 real ids in `RETIRED_ITEMS` make every `--only` case refuse at
+   `catalogue_release.sh:163`, every `--allow-retract` case at `:190`, and every full-release
+   case fail the "never published" arm at `:540` (the curl shim 404s a key with no fixture
+   file). The positive control included. **So: run it BEFORE setting `RETIRED_ITEMS`**, not
+   as "one known failure". Verified by reading the shims; not executed.
+2. **`## Unreleased` must be renamed, not have a heading inserted above it.**
+   `catalogue_release.sh:679` reads the FIRST `## ` heading from the tagged commit and refuses
+   anything that is not `## v<VERSION>`; its own comment says an `## Unreleased` above the
+   entry "is exactly the state this gate exists to refuse". Verified in the code.
+3. **`item_create.py` does not refuse a stale `DEPRECATED_ITEMS` id** — `:549` is a membership
+   test and the branch is simply dead. The refusal is `item_validate.py:394` alone. Phase 1's
+   ordering still holds, for one reason rather than two.
+4. **Two `-check` scripts default to an item the rebuild stops producing** —
+   `gpkg_determinism-check.R` and `style_determinism-check.py` both `ITEM=sloc_bt_ff04`, which
+   stops the script rather than checking anything. Both comments predicted this.
+5. **The published collection description** (`item_create.py:677-679`) said "one per modelled
+   species/scenario" — user-facing text on the API, not a comment.
+6. **`git push origin v2.0.0` was missing from the plan**, and goes after `RELEASE COMPLETE`.
+7. `README.Rmd:142`'s "the collection mixes flood factors" is no longer true — every item is
+   `ff04`.
+8. A **re-run** of the release after a step-7 failure is not cheap: the `not_live` witness
+   loop (`:494-556`) does a HEAD plus a full body fetch per id, and `bulk_all_ff04.json` is
+   17.8 MB.
+
+## prov_fields-check.py — the numbers are the FIXTURE's
+
+`catalogue()` builds 18 full + 3 part + 2 none = 23 items, 21 provenanced, and the `floor=21`
+call sites assert against that tree, not against the catalogue. Moving the part-population to
+5 makes it 25 seen / 23 traced, so `(traced, seen)`, `per_section`, every `floor=` and three
+expected message strings move with it. The all-absent population stays whatever the
+measurement says: the `NGE_PROVENANCE_NULL` and conditional-extension arms live only there.
+
 ## Issue context
 
 **If we do it:** the catalogue carries one floodplain model per watershed group, published region by region, ending at `v2.0.0` where every published area carries corrected geometry.

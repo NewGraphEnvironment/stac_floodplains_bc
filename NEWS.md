@@ -25,7 +25,54 @@ memory, and had to be recalled rather than read.
 > therefore *is* the release this paragraph reserves `v2.0.0` for — see the entry below. Nothing
 > about the condition changed; it simply became reachable.
 
-## Unreleased
+## v2.0.0 (2026-10-15)
+
+### One floodplain model per watershed group (#89)
+
+**Every published item is replaced.** The catalogue served 23 per-species items, each modelling
+the floodplain of one species' *accessible* network. Upstream (floodplains#125) retired the
+`targets:` blocks, so every rostered group is now modelled over the **whole stream network** at
+order >= 2 with no access filter, attributed by `blue_line_key`. This release retires all 23 live
+ids and publishes 23 `<wsg>_all_ff04` ones in a single upsert, so no group is ever served two
+floodplains at once.
+
+Retired, and their S3 objects deleted after the release verified:
+
+`bowr_ch_ff04`, `bulk_co_ff04`, `fran_ch_ff04`, `kisp_ch_ff04`, `kotl_bt_ff04`, `larl_bt_ff04`,
+`lchl_ch_ff04`, `lnth_ch_ff04`, `lsal_ch_ff04`, `mcgr_ch_ff04`, `mork_ch_ff04`, `morr_ch_ff06`,
+`morr_co_ff04`, `necr_ch_ff04`, `pars_bt_ff04`, `pcea_bt_ff04`, `pine_bt_ff04`, `sloc_bt_ff04`,
+`tabr_ch_ff04`, `thom_ch_ff04`, `ufra_ch_ff04`, `unth_ch_ff04`, `will_ch_ff04`.
+
+**This is a breaking change for anyone holding an item id.** Every id moved, the figures moved
+with them — a whole-network floodplain is not the same extent as a species-accessible one, and
+BULK's two disagreed by 70% (659.99 vs 386.53 km², measured 2026-10-14) — and `summaries.species`
+is now `["all"]` alone. `all` is not a fish: it is the producer's reserved token for the whole
+network (floodplains#104/#125), which `README.Rmd` labels "whole network".
+
+**MORR is the two-for-one case `RETIRED_ITEMS` was built for**: two live items
+(`morr_co_ff04` + `morr_ch_ff06`), one replacing them. The group-survival arm is written over
+watershed groups rather than item counts for exactly this reason — 23 live items reduce to 22
+groups, the build has 23, and nothing is lost.
+
+**DUNC joins the catalogue**, having never been published. floodplains#133 held it back:
+`inputs.link.version` with `link_log: null` publishes as a half-present `processing:software`
+entry, which `item_create.py` raises on — aborting the whole build, not merely DUNC's item. The
+Columbia run of 2026-10-15T18:38Z wrote the missing `link_log`, and the pair is even.
+
+**The collection no longer mixes flood factors.** Every item is `ff04` (functional floodplain),
+so the advice to filter on `scenario` or `flood_factor` before summing across groups no longer
+has a case to protect against. `floodplain.gpkg` still carries all three ff02/ff04/ff06
+delineations per item.
+
+**`DEPRECATED_ITEMS` and `EXPECTED_DEPRECATED` are both empty**, which is the marker expiring by
+its own mechanism rather than being tidied away. Every area is on `flooded` 0.7.0's pinned grid
+(floodplains#117 / flooded#67), so nothing is below `MIN_FLOODED_VERSION` and the
+both-directions guard is satisfied by the empty set. `mcgr_ch_ff04` and `pine_bt_ff04` were the
+two items this file said could not be re-run; floodplains#76's own body records that its block
+is on the species *accessible* network, which whole mode never reads.
+
+**It is the `v2.0.0` this file reserves** — "the release in which every published area carries
+corrected geometry" — and the reservation is now spent.
 
 ### The floor and the census are produced, not hand-derived (#82)
 
@@ -145,7 +192,7 @@ rosters, so the runs that produce every other group produce these two.
 So the cutover converts all 23 groups, every one on `flooded` 0.7.0's pinned grid
 (floodplains#117 / flooded#67), and `DEPRECATED_ITEMS` and `EXPECTED_DEPRECATED` **both go
 empty** — nothing is below `MIN_FLOODED_VERSION`, and the both-directions guard is satisfied by
-the empty set. A release that withdraws 17 public item ids and moves every published geometry is
+the empty set. A release that withdraws 23 public item ids and moves every published geometry is
 a major bump, and now nothing stands in the way of calling it one.
 
 ### Each item's GeoPackages hold only that item's layers (#80)
