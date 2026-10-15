@@ -155,6 +155,7 @@ Two per-species `ITEM=` defaults break if SLOC ever retires — `gpkg_determinis
 
 | Error | Resolution |
 |-------|------------|
+| `stage_years-check.R` reported `1 failed` on a tree that had just passed | Self-inflicted: I had launched `test_pipeline.R` in the background, and it wipes and re-stages `data/raw` + `data/stac`, which is exactly what `stage_years-check.R`'s last assertion — "the repo's own `data/` tree is untouched by all four runs" — exists to notice. Both scripts own `data/`, so they cannot run concurrently. Serially: 13 assertions, 0 failed. The assertion did its job; the mistake was mine, and it is the same class as editing files a long run is reading |
 
 ## Plan review (Plan agent, 2026-10-14) — verified claims that changed the design
 

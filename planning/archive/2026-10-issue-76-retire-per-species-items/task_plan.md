@@ -160,7 +160,7 @@ Not listed when the phases were written; recorded here as landed work.
 - [x] mutation table: every new arm, defect restored, arm red
 - [x] Tests pass
 - [x] `/code-check branch` clean
-- [ ] PWF checkboxes match landed work
+- [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
 
 **Not verifiable on this branch, and said so:** no live retirement runs here. No `*_all_ff04` item is
