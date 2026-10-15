@@ -24,6 +24,7 @@ import ast
 import hashlib
 import json
 import pathlib
+import re
 import shutil
 import sys
 import tempfile
@@ -192,6 +193,13 @@ NONE_STAGED = {f: None for f in PROV_FIELDS}
 # with all twelve, 3 missing only link_run_uid, 2 with none. A fixture that covered only the
 # first two would never reach the all-absent arms, which is where the NGE_PROVENANCE_NULL
 # derivation and the conditional extension both live.
+#
+# WHEN THESE ARE RE-TAKEN (`prov_census-measure.R` prints them grouped and named), the
+# all-absent population STAYS, whatever the measurement says. Measured 2026-10-15 it is already
+# empty — mcgr and pine both carry records now, so every staged item carries something — and a
+# literal re-take would delete the only fixture that reaches those two arms. The populations are
+# here to exercise shapes the catalogue can hold, and the live count of each is the reason the
+# first two are sized as they are, not a reason to drop one to zero.
 def catalogue() -> list[dict]:
     items = [{"item_id": f"full{i:02d}_ch_ff04"} for i in range(18)]
     items += [{"item_id": f"part{i:02d}_bt_ff04", "staged": without("link_run_uid")}
@@ -204,6 +212,13 @@ def catalogue() -> list[dict]:
 
 print("the literals")
 # Every case below reads the census, so what it says is asserted rather than assumed.
+#
+# These three numbers are PRODUCED by `scripts/prov_census-measure.R` (#82) — the one script in
+# `scripts/` not named `-check`, because it makes an expectation rather than asserting one. Run it
+# on the tree the release is cut from; it prints the floor, `PROV_CENSUS` and the populations
+# below in one block. They are NOT derived from each other here on purpose: deriving the fixture
+# from `PROV_CENSUS` would make the arm just below assert the literal against itself. The join is
+# that one command prints all three, which the static arm further down holds in place.
 expect_clean("PROV_CENSUS matches the live catalogue measured for this release",
              [] if (PROV_CENSUS["link_run_uid"] == 18
                     and {PROV_CENSUS[f] for f in PROV_FIELDS if f != "link_run_uid"} == {21})
@@ -217,6 +232,48 @@ def literal(path: pathlib.Path, name: str):
                 getattr(t, "id", None) == name for t in node.targets):
             return ast.literal_eval(node.value)
     raise SystemExit(f"{path.name}: no module-level literal {name}")
+
+
+# EVERY text-presence arm below reads R CODE with its comments removed, because the defect they
+# all share is that the token being pinned also appears in prose — and the prose is usually a
+# comment explaining why the code must stay as it is, so a regression deletes the code and
+# leaves the explanation. Two instances were measured in review, one in each arm: the paste
+# block passed with the `cat()` it pins deleted (this file's name sat in a nearby comment), and
+# the mirror arm could not fire at all (`area[["targets"]]` is a comment in both files).
+#
+# Quote-aware rather than whole-line, which is the strictly harder half and was the second
+# instance: a whole-line filter leaves `cat("x")  # for prov_fields-check.py` satisfying the
+# arm, while a cut at the first `#` would destroy `cat("# scripts/...")`, which is the line the
+# paste arm has to see. So the cut is at the first `#` OUTSIDE quotes, which keeps the one and
+# removes the other.
+def _code_only(text: str, word_start: bool = False) -> str:
+    """Source with comments removed; a `#` inside a string literal is never a comment.
+
+    `word_start` is the shell rule: a comment begins at an unquoted `#` only at the start of a
+    word, so `${tag#v}` survives (seven of those in catalogue_release.sh, measured) while a
+    trailing ` # note` does not. R has no such expansion, so there any unquoted `#` starts a
+    comment.
+    """
+    out = []
+    for line in text.splitlines():
+        quote = None
+        esc = False
+        cut = len(line)
+        for i, ch in enumerate(line):
+            if esc:
+                esc = False
+            elif quote and ch == "\\" and quote == '"':
+                esc = True
+            elif quote:
+                if ch == quote:
+                    quote = None
+            elif ch in "\"'":
+                quote = ch
+            elif ch == "#" and (not word_start or i == 0 or line[i - 1] in " \t"):
+                cut = i
+                break
+        out.append(line[:cut])
+    return "\n".join(out)
 
 
 # The publish-side copies of the field list are deliberately not shared (a guard that imports
@@ -255,12 +312,115 @@ expect_clean("...over the published prefixes plus the retired one",
 # defect; reverting it to an inline `python3 -c` would bring the class back, and the three
 # assertions above would keep passing against a module nothing runs.
 _release = (ROOT / "scripts" / "catalogue_release.sh").read_text()
+# Searched with COMMENTS removed, for the reason spelled out at `_code_only`: the token this
+# pins is exactly the kind a comment quotes, and the 400-char window it searches already holds
+# two comment lines. Measured in review, twice: a whole-line filter was the first fix and a
+# TRAILING comment defeated it — `| python3 -c '...'  # was: | python3 scripts/only_preflight.py`
+# passed an arm whose whole subject is which of those two the release runs.
+_release_code = _code_only(_release, word_start=True)
 expect_clean("the release path runs it rather than an inline program",
              [] if ("| python3 scripts/only_preflight.py"
-                    in _release.split("only_prov=$(curl")[1][:400])
+                    in _release_code.split("only_prov=$(curl")[1][:400])
              else ["catalogue_release.sh does not call scripts/only_preflight.py for the "
                    "--only preflight — if the program moved back inline, bash is expanding it "
                    "again and these assertions are checking a module the release never runs"])
+
+# --- the literals as a shape, before anything measures them (#82) ----------------------
+# Two invariants over the three numbers themselves, which hold whatever build they came from —
+# so they fail at PASTE time, in the commit that re-takes the census, rather than at the next
+# release.
+#
+# The pairing is the one that matters, and it is the one way the pre-flight measurement and the
+# published census can differ BY CONSTRUCTION. `link_version` and `link_sha` publish as one
+# `processing:software` entry, so `prov_present()` above reads both from that single value and
+# item_create.py REFUSES an item carrying one without the other rather than writing `+<sha>`
+# or a bare version. A census with unequal counts for two fields of one entry therefore
+# describes a tree whose build stops at item_create.py. DUNC was in exactly that state
+# (`link_log: null`, `inputs.link.version` set; floodplains#133) from 2026-10-14 until the
+# Columbia run of 2026-10-15T18:38Z wrote it a `link_log`, which is how this arm came to be
+# written. It stays because the pair can empty again — the condition is BOTH sources empty, not
+# an unresolved sha, since all 23 `all*` sections carry `inputs$link$sha: null` and publish
+# because the log row supplies it — and a census taken inside one of those windows is what this
+# stops being pasted as an expectation.
+_uneven = [(entry, {f: PROV_CENSUS[f] for f in fields})
+           for entry, fields in PROV_SOFTWARE.items()
+           if len({PROV_CENSUS[f] for f in fields}) > 1]
+expect_clean("fields sharing one processing:software entry carry equal census counts",
+             [] if not _uneven
+             else [f"{e} publishes as ONE entry but the census says {c} — item_create.py "
+                   f"refuses a half-present entry, so no build can produce that pair"
+                   for e, c in _uneven])
+
+# And the floor bounds every field: it counts items carrying ANY field, so no field can be
+# carried by more items than that. Not asserted as EQUALITY — a catalogue where every
+# provenanced item is missing some different field has no field at the floor — but `<=` is a
+# property of the two numbers, and it is the arm that catches a floor re-taken without the
+# census or the reverse. Read from the release script by the same anchored pattern
+# catalogue_release-check.sh uses, so an indented or overridable assignment fails here too.
+_floor_m = re.search(r"^PROVENANCE_FLOOR=([0-9]+)$", _release, re.M)
+expect_clean("PROVENANCE_FLOOR bounds every per-field census count",
+             [] if _floor_m and max(PROV_CENSUS.values()) <= int(_floor_m.group(1))
+             else ["catalogue_release.sh has no bare `PROVENANCE_FLOOR=<n>` line"]
+             if not _floor_m
+             else [f"the floor is {_floor_m.group(1)} and the census peaks at "
+                   f"{max(PROV_CENSUS.values())} — one of the two was re-taken without the "
+                   "other"])
+
+# --- the producer of the three numbers above (#82) -------------------------------------
+# A SIXTH place that has to agree about the field list, and the only one that is not a publish
+# path: `prov_census-measure.R`, which produces the floor, `PROV_CENSUS` and the fixture
+# populations this file hard-asserts. Text reads, because it is R and nothing here can import
+# it.
+#
+# First, that it does not carry its own copy of either literal it reads out of 01_stage.R. A
+# census taken over a copied field list would silently stop counting a field the build still
+# publishes — the same defect the four arms above exist for, arriving from the one script whose
+# output a human pastes into two literals.
+_measure_path = ROOT / "scripts" / "prov_census-measure.R"
+_measure = _measure_path.read_text() if _measure_path.exists() else ""
+_measure_code = _code_only(_measure)
+
+expect_clean("prov_census-measure.R parses its literals out of 01_stage.R rather than copying",
+             [] if ('parse(file.path("scripts", "01_stage.R"))' in _measure_code
+                    and 'stage_literal("PROV_FIELDS")' in _measure_code
+                    and 'stage_literal("TRANSITION_SPAN")' in _measure_code
+                    and "PROV_FIELDS <- c(" not in _measure_code)
+             else [f"{_measure_path.name}: expected the parse-and-eval construction for both "
+                   "PROV_FIELDS and TRANSITION_SPAN, and no `PROV_FIELDS <- c(` of its own"
+                   if _measure
+                   else "scripts/prov_census-measure.R is absent, so nothing produces the "
+                        "numbers this file asserts"])
+
+
+# Second, that it still PRINTS all three destinations. That one command prints them together is
+# the whole join between this file's literals and `item_validate.py`'s: lose one from the block
+# and a re-take moves two of three, which is the state #75 found them in.
+_paste = (_measure_code.split("--- paste these")[-1]
+          if "--- paste these" in _measure_code else "")
+_missing_dest = [d for d in ("PROVENANCE_FLOOR", "PROV_CENSUS", "prov_fields-check.py")
+                 if d not in _paste]
+expect_clean("...and prints the floor, the census and this file's populations in one block",
+             [] if _paste and not _missing_dest
+             else ["prov_census-measure.R's paste block names none of them"] if not _paste
+             else [f"prov_census-measure.R's paste block does not name {_missing_dest}"])
+
+# Third, the weakest of the three and the only cover on a real duplication: that script MIRRORS
+# 01_stage.R's roster walk rather than sharing one (#90 tracks extracting an `fp_roster.R`),
+# and the three expressions below are where a divergence would change which items are counted —
+# the `[[`-not-`$` target read, the anchored classified pattern, and the directory-only raster
+# skip. Presence in both files' CODE, never absence: both files' comments quote `area$targets`
+# while explaining why it must not be used, so an absence test would read the explanation as the
+# defect. The target read is pinned as the whole assignment, because the subscript alone is what
+# those comments quote — measured in review: with the arm reading the bare subscript, rewriting
+# BOTH files' code to `area$targets` left 49 assertions and 0 failures.
+_stage_code = _code_only((ROOT / "scripts" / "01_stage.R").read_text())
+_mirror = ['targets <- area[["targets"]]', r"^classified_[0-9]{4}\\.tif$",
+           "dir.exists(src_rasters)"]
+_broken = [e for e in _mirror if e not in _stage_code or e not in _measure_code]
+expect_clean("...and mirrors the three roster expressions that decide what is counted",
+             [] if not _broken
+             else [f"01_stage.R and prov_census-measure.R no longer share {_broken} — the walk "
+                   "has diverged, so the census is of a different set than the build stages"])
 
 # --- controls --------------------------------------------------------------------------
 

@@ -98,8 +98,10 @@ phrased: `--only` cannot publish a never-live item, and `readme_functions.R` ref
 where the API's item count and the bucket `collection.json`'s `rel: item` count disagree — so the
 first full release after floodplains#125 retires all 17 per-species items and adds 17 whole-network
 ones at once, with `PROVENANCE_FLOOR` and `PROV_CENSUS` re-taken in the same commit. Measured
-2026-10-14, it cannot be cut yet: 13 of the 23 rostered groups declare `all_ff04` and hold only
-their old species rasters, so a rebuild skips them. The collection mixes flood factors,
+2026-10-14 it could not be cut: 13 of the 23 rostered groups declared `all_ff04` and held only
+their old species rasters, so a rebuild skipped them. **Re-measured 2026-10-15T18:42Z through
+`scripts/prov_census-measure.R` (#82): all 23 stage, none skipped, floor 23** — so that blocker is
+gone and whether one remains is a question for that command, not for this file. The collection mixes flood factors,
 so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
 extents (ff04 = functional floodplain, ff06 = valley bottom).
 
@@ -235,9 +237,9 @@ asserted whenever the floor is: how many items carry a value for **each** field.
 23 rostered targets, the census is `link_run_uid` 17, `link_config_sha256` 20, `link_sha` 20, the
 other nine 21, with `PROVENANCE_FLOOR` 21 still exact. The whole delta is DUNC, which joined
 `columbia.yml` upstream carrying `link_log: null`, so it drops all three log-sourced fields. **It
-is deliberately not re-measured here** (#75): DUNC cannot publish at all until floodplains#133 is
-resolved, so a release cut today would fail one step earlier, and writing 17/20/20 now would
-encode a broken record as the expectation. The literals are re-taken on the build the next full
+is deliberately not re-measured here** (#75): DUNC could not publish at all while
+floodplains#133 held (it cleared on 2026-10-15, below), so a release cut then would have failed
+one step earlier, and writing 17/20/20 would have encoded a broken record as the expectation. The literals are re-taken on the build the next full
 release is cut from — which is what an exact literal is for, and the refusal is the mechanism
 working. It exists because omitting absent keys retired set
 equality over the key set, which had been catching a reader that silently found nothing and a
@@ -248,6 +250,59 @@ field and not per section**, because per section is false on the published catal
 2026-10-13, `link_run_uid` is absent on `kotl`/`larl`/`sloc` while the rest of its section
 carries values, which is modelled upstream (a block whose schema predates link#262), so an
 all-or-nothing section arm would refuse three live items.
+
+**A half-present `processing:software` entry aborts the whole build, not just its own item** —
+measured 2026-10-15 (#82), and sharper than "DUNC is blocked". `link_version` comes from
+`inputs$link$version` and `link_sha` from `link_log$link_sha`, and the two publish as ONE
+`processing:software` entry, so `item_create.py` **raises** on an item carrying one without the
+other rather than writing `+<sha>`. DUNC stages (config in `columbia.yml`, both bundles, seven
+rasters) and was in exactly that state from 2026-10-14, so a rebuild aborted on it whichever
+region a release was for: floodplains#133 gated the whole build and not merely Columbia's items,
+which is what #89's "DUNC is not a gate" was wrong about. **The Columbia run of 2026-10-15
+cleared it** — measured 18:38Z, `network/all2` now carries a `link_log` with
+`link_sha 8215d2d0…`, the pair is even and **that arm no longer refuses** — which is not the same
+as a build having been run, since this census declines the `sf`/GDAL and `drift` arms (floodplains#133 is
+still open as written). The condition is **both sources empty**, not an unresolved sha: measured
+2026-10-15, all 23 `all*` network sections carry `inputs$link$sha: null` with
+`sha_source: unresolved_version_mismatch` and every one of them publishes, because the log row
+supplies the sha. The mechanism is kept because that pair can empty again, and it is the one way
+a staged census and a published one differ by construction
+— which is why `prov_fields-check.py` refuses a `PROV_CENSUS` whose paired fields disagree.
+
+**`scripts/prov_census-measure.R` is what produces both numbers** (#82), and it is a
+**measurement, not a gate** — the one script here not named `-check`, because every `*-check`
+asserts an expectation and this one makes one. It needs `$FLOODPLAINS_DATA` and no build: it walks
+the roster the way `01_stage.R` does and drives `fp_provenance.R`, so the numbers come from the
+code the build reads provenance with rather than from a second implementation, and it prints all
+three literals that move together (the floor, the census, and `prov_fields-check.py`'s fixture
+populations) because #75 found two of the three stale. It mirrors the build's selection **in the
+build's order**, which is load-bearing rather than tidy: the no-rasters skip sits above
+`01_stage.R`'s first `fp_prov_*` call, so a group whose config is converted ahead of its run is
+skipped rather than read, where reading it raises. How many are in that state is a property of
+the hour, not of this repo: `Rscript scripts/prov_census-measure.R` names them, and the series it
+gave while one run landed is below. It refuses — no
+census, non-zero — on any failed read, and on a run that stages nothing, since a floor of 0 was
+once true and is also what a reader that found nothing produces. An absent `provenance.json` is
+not a failure but the forward-only state, and such an item is what the floor's denominator counts.
+**The literals still are not re-taken** (above). Measured through it 2026-10-15T17:37Z: 23
+rostered targets, 20 staging, floor 20, `link_run_uid` 18, `link_config_sha256`/`link_sha` 19,
+the other nine 20 — a different shape again from 2026-10-14's 23/21, because the Fraser and Peace
+runs landed and the three unconverted Columbia groups now skip instead of counting. That the
+denominator moves between builds is the reason the number is re-taken per build rather than
+carried, and a `columbia` run was in flight while that was measured, which is what the printed
+timestamp and producer HEAD exist to say — 20 minutes later the same command REFUSED, because
+that run had written KOTL's `all_ff04` rasters and not yet stamped its landcover section, so a
+skipped target became a would-stage one whose record does not describe it (the state a build
+stops on too). Measured
+again as the run landed: 21/21 at 18:16Z, 22/22 at 18:33Z, and 23 rostered / 23 staged / floor 23
+at 18:38Z with `link_run_uid` 18 and the other eleven 23. So the same command over one tree gave
+five different answers in an hour, one of them a refusal — which is the whole argument for an
+exact literal re-taken on the build a release is cut from rather than carried between releases.
+**It is the pre-flight, not the authority**:
+`item_validate.py` prints the same twelve counts from the published items, in the same format, and
+the build's line is what a release sets the literals from. It mirrors `01_stage.R`'s roster walk
+rather than sharing one (#90), with three static arms in `prov_fields-check.py` holding the
+mirrored expressions in place.
 
 `--only` cannot meet a full-tree expectation, so its preflight compares against the live item
 instead, in two arms. **Values**, from the API, per field, with both sides canonicalised to the

@@ -27,11 +27,49 @@ memory, and had to be recalled rather than read.
 
 ## Unreleased
 
+### The floor and the census are produced, not hand-derived (#82)
+
+`scripts/prov_census-measure.R` prints `PROVENANCE_FLOOR`, `PROV_CENSUS` and
+`prov_fields-check.py`'s fixture populations from `$FLOODPLAINS_DATA`, with no build. It is a
+**measurement, not a gate** — the one script in `scripts/` not named `-check`, because every
+`*-check` there asserts an expectation and this one makes one. It walks the roster the way
+`01_stage.R` does and drives `fp_provenance.R`, so the numbers come from the code the build reads
+provenance with; it mirrors the build's selection in the build's order, so a target with no
+rasters is skipped rather than read, as `01_stage.R` skips it. It refuses with no census and a
+non-zero exit on any failed read, and on a run that stages nothing, because a floor of 0 was once
+true and is also what a reader that found nothing produces. An absent record is not a failure but
+the forward-only state.
+
+It is the **pre-flight, not the authority**: `item_validate.py` prints the same twelve counts
+from the published items as its `census:` line, which this script also emits in that exact
+format, so the two can be diffed. `prov_fields-check.py` gains three arms over the literals
+themselves — fields sharing one `processing:software` entry must carry equal counts, the floor
+must bound every count, and the measure script must parse its field list out of `01_stage.R` and
+still name all three destinations. It mirrors `01_stage.R`'s roster walk rather than sharing one;
+#90 tracks extracting an `fp_roster.R`, and three static arms hold the mirror in place until then.
+
+Measured through it five times on 2026-10-15 while a `columbia` run landed upstream: floor 20 at
+17:37Z; a **refusal** at 17:58Z, because that run had written KOTL's `all_ff04` rasters and not
+yet stamped its landcover section; floor 21 at 18:16Z, 22 at 18:33Z, and 23 rostered / 23 staged
+/ floor 23 at 18:38Z with `link_run_uid` 18 and the other eleven 23. One tree, one command, five
+answers in an hour — which is the argument for re-taking an exact literal on the build a release
+is cut from instead of carrying it between releases.
+
+Two findings fell out of that, both recorded in `CLAUDE.md`: a **half-present
+`processing:software` entry aborts the whole build**, because `item_create.py` refuses an item
+carrying `link_version` without `link_sha` rather than writing `+<sha>` — so while DUNC was in
+that state a rebuild aborted on it whichever region a release was for, which is what #89's "DUNC
+is not a gate" was wrong about; and the Columbia run then **cleared** it, measured 18:38Z.
+**The literals here are unchanged either way**: they are re-taken on the build each release is
+cut from, which is what the script is for.
+
 ### The release retires the items it replaces, in band (#76)
 
-Nothing published changes yet. No `*_all_ff04` item is live, and a full release is blocked
-upstream by floodplains#125 (13 of the 23 rostered groups have no whole-network rasters on
-disk, measured 2026-10-14), floodplains#133 (DUNC) and MCGR's config state. This is the
+Nothing published changes yet. No `*_all_ff04` item is live, and a full release was blocked
+upstream when this was written by floodplains#125 (13 of the 23 rostered groups had no
+whole-network rasters on disk, measured 2026-10-14), floodplains#133 (DUNC) and MCGR's config
+state. All three had cleared on disk by 2026-10-15T18:38Z — see the #82 entry above, and take
+the current state from `Rscript scripts/prov_census-measure.R` rather than from here. This is the
 mechanism the cutover needs, proved against `catalogue_release-check.sh`.
 
 floodplains#125 retires the per-species items rather than re-running them, and the publish
@@ -160,13 +198,14 @@ every item's own lookup misses. A key naming a scenario this repo does not publi
 examined, which is what lets upstream model scenarios we never emit an item for. An absent or
 empty section stays the forward-only state and still degrades to `NULL`.
 
-**A full release is blocked, and not by this change.** `PROVENANCE_FLOOR` (21) is still exact, but
-`PROV_CENSUS` reads `link_run_uid` 18 / `link_config_sha256` 21 / `link_sha` 21 where the current
-roster measures 17 / 20 / 20 — the delta is entirely DUNC, new in `columbia.yml` upstream with a
-null `link_log`. Those literals are deliberately **not** re-measured here: DUNC is refused one step
+**A full release is blocked, and not by this change** (as of 2026-10-14; DUNC cleared the next
+day — see the #82 entry above). `PROVENANCE_FLOOR` (21) is still exact, but `PROV_CENSUS` reads
+`link_run_uid` 18 / `link_config_sha256` 21 / `link_sha` 21 where the roster then measured
+17 / 20 / 20 — the delta was entirely DUNC, new in `columbia.yml` upstream with a null
+`link_log`. Those literals are deliberately **not** re-measured here: DUNC was refused one step
 earlier by `item_create.py` for a half-present `processing:software` `link` entry
-(floodplains#133), so a release cut today would fail before the census, and writing the new numbers
-would encode a broken record as the expectation. They are re-taken on the build the next full
+(floodplains#133), so a release cut that day would have failed before the census, and writing the
+new numbers would have encoded a broken record as the expectation. They are re-taken on the build the next full
 release is cut from. The refusal is the exact literal doing its job.
 
 Two consequences for anyone reading the record:

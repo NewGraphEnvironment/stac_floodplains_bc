@@ -337,6 +337,75 @@ Two values in `stage_years-check.R` are pinned witnesses, each gated so a re-run
 the sf/GDAL/PROJ triple (this machine, because the areas and geometry in `meta.json` are
 computed here).
 
+## Where the floor and census numbers come from — `prov_census-measure.R`
+
+**A measurement, not a gate** (#82). Every other `*-check.{R,py}` in this directory **asserts**
+an expectation; this one **produces** one, which is why it is not named `-check`. A run that
+exits 0 says nothing about whether the build is correct — it says "here are the numbers a human
+sets". Nothing here reads its output automatically, and nothing should.
+
+```bash
+Rscript scripts/prov_census-measure.R      # exit 0: a census was printed; non-zero: none was
+```
+
+It prints, paste-ready and at column 0, all three literals that are re-taken together on the
+build a release is cut from — `PROVENANCE_FLOOR` (`catalogue_release.sh`), `PROV_CENSUS`
+(`item_validate.py`) and `prov_fields-check.py`'s fixture populations — because #75 found two of
+the three stale and a block naming only the one being asked for leaves the others exactly as
+findable as they were then. Before it existed the only routes were a full ~900 MB build or a
+throwaway script. Two of the five literals of this shape; `ALLOWED_YEAR_SETS`,
+`EXPECTED_DEPRECATED` and `RETIRED_ITEMS` are still read off a build.
+
+**It is the pre-flight, not the authority.** A release rebuilds anyway, and `item_validate.py`
+prints the same twelve counts from the *published* items as its `census:` line — which this
+script also emits, in that line's exact format, so comparing the two is a `diff`. The build's
+line is what the literals are set from; this saves the round trip, and the two agreeing is worth
+more than either alone. The one way they differ by construction: `link_version` and `link_sha`
+publish as a single `processing:software` entry, and `item_create.py` **raises** on an item
+carrying one without the other, so this script can print two different counts for that pair
+while no publishable build can. `prov_fields-check.py` refuses exactly that pasted census.
+
+It needs `$FLOODPLAINS_DATA` and the config tree beside it and nothing else: no stage, no writes,
+no network, no database. It walks the roster the way `01_stage.R` does and drives
+`fp_provenance.R`, so the numbers come from the code the build reads provenance with rather than
+from a second implementation of it — and it mirrors the build's **selection in the build's
+order**, which is load-bearing: `01_stage.R`'s no-rasters skip sits above its first `fp_prov_*`
+call, so a target with no rasters never reaches the reader. A rostered target sits in exactly that
+state whenever its group's config is converted ahead of its run, and reading one raises — so the
+issue's stated walk order would print no census on a tree a build is perfectly happy with. How
+many are in that state is a property of the hour; the script names them.
+
+**It refuses rather than print a short census**, because its output becomes a release gate and a
+count low for any reason other than the data would be pasted into the floor and then satisfied by
+a build that lost provenance. A failed read — unreadable record, a `schema_version` past the
+reader's pin, a raster newer than the record describing it — prints every failure with its target
+id and exits non-zero with **no census at all**. So does a run that staged nothing: a floor of 0
+was once true and is also what a reader that found nothing produces. An **absent**
+`provenance.json` is not a failure; it is the forward-only state, and such an item is what the
+floor's denominator counts.
+
+A skipped target is reported by name beside a banner and exits 0: the census still describes the
+set a build of that tree stages, and such a build drops a `PARTIAL_STAGE` marker the release
+refuses to publish past. The output also carries its own provenance — UTC timestamp, the resolved
+`$FLOODPLAINS_DATA`, and the producer tree's `git describe` — because a census with no date is
+the state #75 found the literals in, and a tree mid-write (an upstream run in flight) measures a
+half-finished roster.
+
+What it does **not** check, so exit 0 is never read as "this build will stage": it does not open
+the GeoPackages (existence yes, readability no — the build's key arms need `sf`/GDAL, the
+dependency separating "runs where a build cannot" from "needs the build env"), and it does not
+compare `drift_version` against the installed `drift`, for the same reason. Both make a real
+build stage fewer items or stop outright, so its count can only sit at or above what such a
+build publishes. It does run `fp_prov_span()`, `fp_years_reconcile()` and
+`fp_prov_rasters_current()`, in the build's own order, so the first refusal it shows is the one
+the build would.
+
+It **mirrors** `01_stage.R`'s roster walk rather than sharing one, which is the duplication this
+repo normally refuses — #90 tracks extracting an `fp_roster.R` both scripts source. Until then
+`prov_fields-check.py` statically asserts that both files still carry the three expressions that
+decide what is counted: the `[[`-not-`$` target read, the anchored `classified_` pattern, and the
+directory-only raster skip.
+
 ## Determinism check
 
 `gpkg_determinism-check.R` proves the GeoPackage timestamp pin is doing its job — extract the same
