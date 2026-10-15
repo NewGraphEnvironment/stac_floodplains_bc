@@ -337,11 +337,18 @@ expect_clean("prov_census-measure.R parses its literals out of 01_stage.R rather
                    else "scripts/prov_census-measure.R is absent, so nothing produces the "
                         "numbers this file asserts"])
 
-# Second, that it still prints all three destinations. That one command prints them together is
+# Second, that it still PRINTS all three destinations. That one command prints them together is
 # the whole join between this file's literals and `item_validate.py`'s: lose one from the block
-# and a re-take moves two of three, which is the state #75 found them in. Searched inside the
-# paste block only, so a mention in the header does not satisfy it.
+# and a re-take moves two of three, which is the state #75 found them in.
+#
+# Searched inside the paste block, with that block's own R COMMENTS stripped. Both halves are
+# load-bearing and the second was found in review: this file's name appears in a comment
+# explaining the fixture populations, three lines above the `cat()` that prints them, so without
+# the strip the arm passed with that `cat()` deleted outright — a guard satisfied by prose about
+# the thing it is meant to pin. A `cat("# scripts/...` line survives the strip because it begins
+# with `cat(`, which is the distinction being drawn.
 _paste = _measure.split("--- paste these")[-1] if "--- paste these" in _measure else ""
+_paste = "\n".join(ln for ln in _paste.splitlines() if not ln.lstrip().startswith("#"))
 _missing_dest = [d for d in ("PROVENANCE_FLOOR", "PROV_CENSUS", "prov_fields-check.py")
                  if d not in _paste]
 expect_clean("...and prints the floor, the census and this file's populations in one block",

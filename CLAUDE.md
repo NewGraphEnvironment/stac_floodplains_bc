@@ -278,7 +278,10 @@ nine 20 — a different shape again from 2026-10-14's 23/21, because the Fraser 
 landed and the three unconverted Columbia groups now skip instead of counting. That the
 denominator moves between builds is the reason the number is re-taken per build rather than
 carried, and a `columbia` run was in flight while that was measured, which is what the printed
-timestamp and producer HEAD exist to say. **It is the pre-flight, not the authority**:
+timestamp and producer HEAD exist to say — 20 minutes later the same command REFUSED, because
+that run had written KOTL's `all_ff04` rasters and not yet stamped its landcover section, so a
+skipped target became a would-stage one whose record does not describe it (the state a build
+stops on too). **It is the pre-flight, not the authority**:
 `item_validate.py` prints the same twelve counts from the published items, in the same format, and
 the build's line is what a release sets the literals from. It mirrors `01_stage.R`'s roster walk
 rather than sharing one (#90), with three static arms in `prov_fields-check.py` holding the

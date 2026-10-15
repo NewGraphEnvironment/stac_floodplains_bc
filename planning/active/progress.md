@@ -45,3 +45,17 @@
   the build, and step 3, which now names the build's own `census:` line as the authority.
 - `prov_fields-check.py`: three arms over the literals, a comment naming the producer, and a note
   that the all-absent fixture population stays even though the live catalogue no longer has one.
+
+### /code-check branch, round 1 (4 findings, all 4 real, all 4 fixed)
+- **The group-level order was reversed.** `01_stage.R` reads the record at `:233` and skips a
+  missing bundle at `:251`; the draft had it the other way, so a group with a broken record AND
+  no bundles was a recorded skip with a pasteable census where the build stops outright. Hoisted.
+- **A target with no `transition.tif` was counted as staged.** `fp_prov_rasters_current()`
+  filters to `file.exists()`, so it cannot see an absent one, and `01_stage.R:443` stops the
+  build on it. Checked explicitly now, between the two calls the build makes either side of it.
+- **The paste-block arm was satisfied by prose.** This file's name appears in an R comment three
+  lines above the `cat()` that prints it, so the arm passed with that `cat()` deleted. The block
+  is now stripped of comment lines before the test — re-mutated, and it fires.
+- **Two targets of one group with the same scenario** would count an item twice in the census and
+  once in the floor, with the accounting identity still satisfied. Refused by id now.
+- Fixed en route: two citations of `01_stage.R:375` for a skip that is at `:380`.

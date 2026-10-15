@@ -168,6 +168,25 @@ Run over a copy of `scripts/` so the working tree was never patched. Control: 49
 | `prov_fields-check.py` dropped from the paste block | "...does not name [...]" |
 | the raster-skip expression reworded in the measure script | "no longer share" |
 
+## The refusal fires on the real tree, 20 minutes after the census did
+
+Timeline, one command, same tree, no code change between the two:
+
+| UTC | `Rscript scripts/prov_census-measure.R` |
+|---|---|
+| 17:37 | exit 0 — 23 rostered, 20 staged, floor 20; `kotl_all_ff04` skipped, no `rasters/all_ff04/` |
+| 17:58 | **exit 1, no census** — `kotl_all_ff04`: "the landcover section has no 'all_ff04' key — it holds 'bt_ff04'" |
+
+The `run_region.R columbia` run in flight wrote KOTL's seven `classified_*.tif` into
+`rasters/all_ff04/` and has not yet stamped its landcover section (upstream writes rasters first,
+stamps last — the invariant `fp_prov_rasters_current()` exists for). So the target stopped being
+a skip and became a would-stage target whose record does not describe it, and a build of that
+tree stops there too: `01_stage.R` calls `fp_prov_span()` with no per-area `tryCatch`.
+
+That is the refusal doing exactly its job on producer bytes rather than in a sandbox, and it is
+why the numbers above carry a timestamp. It also means the floor cannot be re-taken until the
+Columbia run finishes — which is the state, not a defect.
+
 ## Errors Encountered
 
 | Error | Resolution |

@@ -160,7 +160,7 @@ for (rf in region_files) {
 
 # --- Walk it ----------------------------------------------------------------------------
 # The build's SELECTION, in the build's ORDER, which is the one deviation from #82's spec and
-# is load-bearing rather than tidy. 01_stage.R's "no rasters" skip (:375) sits ABOVE its first
+# is load-bearing rather than tidy. 01_stage.R's "no rasters" skip (:380) sits ABOVE its first
 # fp_prov_* call (:396), so a target with no rasters never reaches the reader. Three rostered
 # targets are in exactly that state (kotl/larl/sloc declare `all_ff04` while their landcover
 # sections hold only `bt_ff04` — KOTL's floodplain and network sections DO carry `all_*`, which
@@ -215,8 +215,28 @@ for (wsg in wsgs) {
 
   src_wsg <- file.path(FLOODPLAINS_DATA, wsg)
 
-  # Both bundles, existence only (01_stage.R:250). Absent, the build skips the whole group
-  # before it reads any provenance, so none of its targets is in the census either.
+  # One record per WSG upstream, so read once and select per target. NULL is the normal
+  # forward-only state (floodplains#33 is forward-only), not a failure — every area modelled
+  # before it carries none until it is re-run, and those items are exactly what the floor's
+  # denominator counts. A RAISE is the other thing entirely: unreadable JSON, or a
+  # schema_version this reader does not implement (fp_provenance.R:147-166 draws the line).
+  #
+  # ABOVE the bundle arm, because 01_stage.R reads the record at :233 and skips on a missing
+  # bundle at :251 — the reverse of this script's first draft, where a group with a broken
+  # record AND no bundles was a recorded skip with a pasteable census while the build stops on
+  # it outright. The order is only worth mirroring if it is mirrored where the two dispositions
+  # differ, and this pair is exactly that place.
+  wsg_prov <- tryCatch(fp_prov_read(src_wsg),
+                       error = function(e) structure(conditionMessage(e), class = "fp_failed"))
+  if (inherits(wsg_prov, "fp_failed")) {
+    failures <- c(failures, paste0(toupper(wsg), " [", paste(target_ids, collapse = ", "), "]: ",
+                                   as.character(wsg_prov)))
+    n_failed <- n_failed + length(targets)
+    next
+  }
+
+  # Both bundles, existence only (01_stage.R:250-256). Absent, the build skips the whole group,
+  # so none of its targets is in the census either.
   gpkg_src <- file.path(src_wsg, c("floodplain.gpkg", "floodplain_landcover.gpkg"))
   missing_gpkg <- gpkg_src[!file.exists(gpkg_src)]
   if (length(missing_gpkg)) {
@@ -224,20 +244,6 @@ for (wsg in wsgs) {
                              paste(basename(missing_gpkg), collapse = " / "), " at ", src_wsg,
                              " — ", paste(target_ids, collapse = ", ")))
     n_skipped <- n_skipped + length(targets)
-    next
-  }
-
-  # One record per WSG upstream, so read once and select per target. NULL is the normal
-  # forward-only state (floodplains#33 is forward-only), not a failure — every area modelled
-  # before it carries none until it is re-run, and those items are exactly what the floor's
-  # denominator counts. A RAISE is the other thing entirely: unreadable JSON, or a
-  # schema_version this reader does not implement (fp_provenance.R:147-166 draws the line).
-  wsg_prov <- tryCatch(fp_prov_read(src_wsg),
-                       error = function(e) structure(conditionMessage(e), class = "fp_failed"))
-  if (inherits(wsg_prov, "fp_failed")) {
-    failures <- c(failures, paste0(toupper(wsg), " [", paste(target_ids, collapse = ", "), "]: ",
-                                   as.character(wsg_prov)))
-    n_failed <- n_failed + length(targets)
     next
   }
 
@@ -268,7 +274,7 @@ for (wsg in wsgs) {
     item_id <- paste0(wsg, "_", scenario)
 
     src_rasters <- file.path(src_wsg, "rasters", scenario)
-    # The DIRECTORY, and only the directory, is the skip (01_stage.R:375). A directory that
+    # The DIRECTORY, and only the directory, is the skip (01_stage.R:380). A directory that
     # exists holding none or one `classified_*.tif` does NOT skip in the build: it reaches
     # fp_years_reconcile(), which stops ("needs at least two classified years"), and 01_stage.R
     # has no per-area tryCatch — so the build stops. Treating that as a skip here would print a
@@ -297,10 +303,21 @@ for (wsg in wsgs) {
                                    list.files(src_rasters,
                                               pattern = "^classified_[0-9]{4}\\.tif$"))))
       checked <- fp_years_reconcile(years, span_rec, TRANSITION_SPAN, item_id)
-      fp_prov_rasters_current(src_wsg,
-                              file.path(src_rasters,
-                                        c(sprintf("classified_%d.tif", years), "transition.tif")),
-                              wsg_prov, species, scenario, item_id)
+      raster_paths <- file.path(src_rasters,
+                                c(sprintf("classified_%d.tif", years), "transition.tif"))
+      fp_prov_rasters_current(src_wsg, raster_paths, wsg_prov, species, scenario, item_id)
+      # `transition.tif` is the one source raster nothing above can miss for us.
+      # fp_prov_rasters_current() filters to `file.exists()` (fp_provenance.R:588), so an
+      # absent one is silently not mtime-checked, and the classified set came from
+      # list.files() so it exists by construction. 01_stage.R:443 stops the build on it
+      # ("Missing source raster"), which is why a target without one must not be counted as
+      # staged. Placed here because that stop sits BETWEEN the build's rasters_current call
+      # (:422) and its fp_prov_item call (:670).
+      absent <- raster_paths[!file.exists(raster_paths)]
+      if (length(absent)) {
+        stop("Missing source raster: ", paste(absent, collapse = ", "),
+             " — 01_stage.R stops the build on this.", call. = FALSE)
+      }
       list(prov = fp_prov_item(wsg_prov, species, scenario, item_id, years),
            year_checked = isTRUE(checked))
     }, error = function(e) structure(conditionMessage(e), class = "fp_failed"))
@@ -367,6 +384,19 @@ if (n_targets != length(staged) + n_skipped + n_failed) {
   cat("\nNO CENSUS: ", n_targets, " rostered target(s) but ", length(staged), " staged + ",
       n_skipped, " skipped + ", n_failed, " failed. This script lost track of an item, so ",
       "its\ncounts cannot be trusted.\n", sep = "")
+  quit(status = 1)
+}
+# And no two of them are the same item. `absences` is keyed by item id, so two targets of one
+# group declaring the same `scenario` would increment `counts` twice while overwriting one
+# `absences` entry — the floor counting the item once and the census twice, with the identity
+# above still satisfied. 01_stage.R would stage the second over the first in the same
+# directory; neither is a state to publish a number from.
+if (anyDuplicated(staged) || length(absences) != length(staged)) {
+  cat("\nNO CENSUS: ", length(staged), " staged target(s) but ", length(absences),
+      " distinct item id(s)", if (anyDuplicated(staged))
+        paste0(" — repeated: ", paste(unique(staged[duplicated(staged)]), collapse = ", ")) else "",
+      ".\nTwo targets of one group declare the same scenario, so the census counts an item ",
+      "twice.\n", sep = "")
   quit(status = 1)
 }
 
