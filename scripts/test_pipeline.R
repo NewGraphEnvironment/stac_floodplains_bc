@@ -22,13 +22,16 @@ library(jsonlite)
 library(yaml)
 library(sf)   # explicit: the gpkg attribute checks below must not rely on 01_stage.R's attach
 
-# BULK, not UFRA. The default has to be a group that actually STAGES, and since
-# floodplains#125 flipped every region to whole-network, 13 of the 23 rostered groups declare
-# `primary_scenario: all_ff04` while holding only their old species rasters — so 01_stage.R
-# skips their one target and this script stops at "no items staged for UFRA". Measured
-# 2026-10-14: only bulk, dunc, kisp and morr have a `rasters/all_ff04/`. A smoke test whose
-# documented invocation cannot run is not a smoke test, and the failure named the group rather
-# than the cause. bulk is the group scripts/README.md already uses for its worked examples.
+# BULK, not UFRA. The default has to be a group that actually STAGES. When this default moved,
+# floodplains#125 had flipped every region to whole-network but the runs had not caught up:
+# measured 2026-10-14, 13 of the 23 rostered groups declared `primary_scenario: all_ff04` while
+# holding only their old species rasters, only bulk, dunc, kisp and morr had a
+# `rasters/all_ff04/`, and 01_stage.R skipped the rest — so this script stopped at "no items
+# staged for UFRA". All 23 stage as of v2.0.0, so any of them would work today; bulk stays
+# because it is the group scripts/README.md already uses for its worked examples, and because
+# a default that only works while the roster is complete is the thing that broke last time.
+# A smoke test whose documented invocation cannot run is not a smoke test, and that failure
+# named the group rather than the cause.
 wsg <- tolower(Sys.getenv("WSG", unset = "bulk"))
 
 message("=== SMOKE TEST: ", toupper(wsg), " (local only, no S3) ===\n")

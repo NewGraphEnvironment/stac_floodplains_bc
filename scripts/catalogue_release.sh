@@ -592,11 +592,13 @@ if [ -n "$orphans" ]; then
   #
   # This is the ONLY arm that survives ALLOW_SKIPPED=1. That flag suppresses PARTIAL_STAGE
   # altogether (01_stage.R), so the interlock above is ABSENT rather than passing and a short
-  # build looks like a full one. Measured 2026-10-14, a full rebuild stages 10 of 23 groups;
-  # with ALLOW_SKIPPED set, the orphan set is 17 ids a human could fill into the literal in
-  # good faith, and every other arm would pass — publishing a collection that silently drops
-  # 13 watershed groups onto a bucket with no versioning. What refuses it is that `mcgr`,
-  # `ufra`, `will` and the rest appear in no build id at all.
+  # build looks like a full one. The worked case, measured 2026-10-14 while the upstream
+  # conversion was half done: a full rebuild staged 10 of 23 groups, so with ALLOW_SKIPPED
+  # set the orphan set was 17 ids a human could fill into the literal in good faith, every
+  # other arm would pass, and the collection would silently drop 13 watershed groups onto a
+  # bucket with no versioning. What refuses it is that `mcgr`, `ufra`, `will` and the rest
+  # appear in no build id at all. All 23 stage as of v2.0.0, so that exact shape is not
+  # reachable from today's tree — the arm is for the next partial conversion, not that one.
   if [ -z "$ALLOW_RETRACT" ]; then
     live_wsgs=$(fetch_live_wsgs) \
       || { echo "Could not read the live watershed groups — refusing to publish blind." >&2; exit 1; }

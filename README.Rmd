@@ -207,7 +207,7 @@ A raster asset streams — no download needed. Paste the `/vsicurl/` path into Q
 
 ```bash
 GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR \
-  gdalinfo /vsicurl/https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2023.tif
+  gdalinfo /vsicurl/https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_all_ff04/classified_2023.tif
 ```
 
 ### From QGIS, filtered to your area of interest
