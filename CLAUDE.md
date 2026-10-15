@@ -98,8 +98,10 @@ phrased: `--only` cannot publish a never-live item, and `readme_functions.R` ref
 where the API's item count and the bucket `collection.json`'s `rel: item` count disagree — so the
 first full release after floodplains#125 retires all 17 per-species items and adds 17 whole-network
 ones at once, with `PROVENANCE_FLOOR` and `PROV_CENSUS` re-taken in the same commit. Measured
-2026-10-14, it cannot be cut yet: 13 of the 23 rostered groups declare `all_ff04` and hold only
-their old species rasters, so a rebuild skips them. The collection mixes flood factors,
+2026-10-14 it could not be cut: 13 of the 23 rostered groups declared `all_ff04` and held only
+their old species rasters, so a rebuild skipped them. **Re-measured 2026-10-15T18:42Z through
+`scripts/prov_census-measure.R` (#82): all 23 stage, none skipped, floor 23** — so that blocker is
+gone and whether one remains is a question for that command, not for this file. The collection mixes flood factors,
 so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
 extents (ff04 = functional floodplain, ff06 = valley bottom).
 
@@ -235,9 +237,9 @@ asserted whenever the floor is: how many items carry a value for **each** field.
 23 rostered targets, the census is `link_run_uid` 17, `link_config_sha256` 20, `link_sha` 20, the
 other nine 21, with `PROVENANCE_FLOOR` 21 still exact. The whole delta is DUNC, which joined
 `columbia.yml` upstream carrying `link_log: null`, so it drops all three log-sourced fields. **It
-is deliberately not re-measured here** (#75): DUNC cannot publish at all until floodplains#133 is
-resolved, so a release cut today would fail one step earlier, and writing 17/20/20 now would
-encode a broken record as the expectation. The literals are re-taken on the build the next full
+is deliberately not re-measured here** (#75): DUNC could not publish at all while
+floodplains#133 held (it cleared on 2026-10-15, below), so a release cut then would have failed
+one step earlier, and writing 17/20/20 would have encoded a broken record as the expectation. The literals are re-taken on the build the next full
 release is cut from — which is what an exact literal is for, and the refusal is the mechanism
 working. It exists because omitting absent keys retired set
 equality over the key set, which had been catching a reader that silently found nothing and a
@@ -258,9 +260,13 @@ rasters) and was in exactly that state from 2026-10-14, so a rebuild aborted on 
 region a release was for: floodplains#133 gated the whole build and not merely Columbia's items,
 which is what #89's "DUNC is not a gate" was wrong about. **The Columbia run of 2026-10-15
 cleared it** — measured 18:38Z, `network/all2` now carries a `link_log` with
-`link_sha 8215d2d0…`, the pair is even at 23, and a build no longer aborts (floodplains#133 is
-still open as written). The mechanism is kept because the state recurs whenever upstream cannot
-resolve a sha, and it is the one way a staged census and a published one differ by construction
+`link_sha 8215d2d0…`, the pair is even and **that arm no longer refuses** — which is not the same
+as a build having been run, since this census declines the `sf`/GDAL and `drift` arms (floodplains#133 is
+still open as written). The condition is **both sources empty**, not an unresolved sha: measured
+2026-10-15, all 23 `all*` network sections carry `inputs$link$sha: null` with
+`sha_source: unresolved_version_mismatch` and every one of them publishes, because the log row
+supplies the sha. The mechanism is kept because that pair can empty again, and it is the one way
+a staged census and a published one differ by construction
 — which is why `prov_fields-check.py` refuses a `PROV_CENSUS` whose paired fields disagree.
 
 **`scripts/prov_census-measure.R` is what produces both numbers** (#82), and it is a
@@ -272,8 +278,9 @@ three literals that move together (the floor, the census, and `prov_fields-check
 populations) because #75 found two of the three stale. It mirrors the build's selection **in the
 build's order**, which is load-bearing rather than tidy: the no-rasters skip sits above
 `01_stage.R`'s first `fp_prov_*` call, so a group whose config is converted ahead of its run is
-skipped rather than read, where reading it raises — three Columbia groups at 2026-10-15T17:37Z
-and none at 18:38Z, the count moving hourly while a run lands. It refuses — no
+skipped rather than read, where reading it raises. How many are in that state is a property of
+the hour, not of this repo: `Rscript scripts/prov_census-measure.R` names them, and the series it
+gave while one run landed is below. It refuses — no
 census, non-zero — on any failed read, and on a run that stages nothing, since a floor of 0 was
 once true and is also what a reader that found nothing produces. An absent `provenance.json` is
 not a failure but the forward-only state, and such an item is what the floor's denominator counts.

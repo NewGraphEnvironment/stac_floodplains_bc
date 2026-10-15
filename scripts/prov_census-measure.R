@@ -34,9 +34,11 @@
 # no publishable build can, and a build of such a tree stops at item_create.py rather than
 # producing a census at all. The pairing is asserted where the map lives, over the pasted
 # literal, by `prov_fields-check.py` — not copied into R, which would be a sixth copy of a
-# publish-side fact. DUNC was in exactly that state from 2026-10-14 until the Columbia run of
-# 2026-10-15 wrote it a `link_log` (floodplains#133, open as written); the arm stays because the
-# state is reachable whenever upstream cannot resolve a sha, not because one area had it.
+# publish-side fact. DUNC was in exactly that state when it was measured on 2026-10-14, until the
+# Columbia run of 2026-10-15 wrote it a `link_log` (floodplains#133, open as written). The arm
+# stays because the pair can empty again — and the condition is BOTH sources empty, not an
+# unresolved sha: all 23 `all*` sections carry `inputs$link$sha: null` and publish anyway,
+# because the log row supplies it.
 #
 # It needs `$FLOODPLAINS_DATA` and the config tree beside it, and nothing else: no stage, no
 # writes, no network, no database, and no `drift`/`sf`/GDAL — it runs on a machine that cannot

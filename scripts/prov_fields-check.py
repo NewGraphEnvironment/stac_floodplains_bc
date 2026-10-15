@@ -338,8 +338,10 @@ expect_clean("the release path runs it rather than an inline program",
 # describes a tree whose build stops at item_create.py. DUNC was in exactly that state
 # (`link_log: null`, `inputs.link.version` set; floodplains#133) from 2026-10-14 until the
 # Columbia run of 2026-10-15T18:38Z wrote it a `link_log`, which is how this arm came to be
-# written — it stays because the state recurs whenever upstream cannot resolve a sha, and a
-# census taken during one of those windows is what it stops being pasted.
+# written. It stays because the pair can empty again — the condition is BOTH sources empty, not
+# an unresolved sha, since all 23 `all*` sections carry `inputs$link$sha: null` and publish
+# because the log row supplies it — and a census taken inside one of those windows is what this
+# stops being pasted as an expectation.
 _uneven = [(entry, {f: PROV_CENSUS[f] for f in fields})
            for entry, fields in PROV_SOFTWARE.items()
            if len({PROV_CENSUS[f] for f in fields}) > 1]

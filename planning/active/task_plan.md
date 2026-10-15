@@ -16,10 +16,12 @@ here asserts an expectation and this one produces one.
 Measured on the real tree during planning, 2026-10-15: 23 rostered targets, 3 would not stage
 (`kotl`/`larl`/`sloc` — config converted to `all_ff04` ahead of their run), 20 staging and all 20
 carrying provenance, `link_run_uid` 18, `link_config_sha256`/`link_sha` 19. **Those numbers are
-not written into any literal by this issue** — DUNC cannot publish until floodplains#133 is
-resolved, so a release cut today fails one step earlier and writing today's numbers would encode a
-broken record as the expectation (CLAUDE.md, #75). This issue ships the producer; #89's releases
-use it.
+not written into any literal by this issue** — DUNC could not publish while floodplains#133
+held, so a release cut that day failed one step earlier and writing those numbers would have
+encoded a broken record as the expectation (CLAUDE.md, #75). **Superseded the same day:** the
+Columbia run cleared DUNC at 18:38Z and the roster reached 23/23 — see `findings.md`, which holds
+the whole series. The decision not to re-take the literals stands either way: they are re-taken on
+the build a release is cut from. This issue ships the producer; #89's releases use it.
 
 ## Phase 1 — the script
 

@@ -77,6 +77,19 @@
   fix reached one of them. Enumerated by grep over the branch's added prose: 68 hits, 58
   structural, 10 about the tree, 5 of those stale. All corrected.
 - While the review ran, the upstream Columbia run finished and **falsified this branch's own
-  DUNC claim**: `link_sha` now resolves from a log row, so a build no longer aborts. Corrected in
+  DUNC claim**: `link_sha` resolves from a log row as of 18:38Z, so that arm no longer refuses.
+  Corrected in
   `CLAUDE.md`, `NEWS.md`, both scripts and #89's body; the measurement is a comment on
   floodplains#133, which stays open for its owner.
+
+### /code-check branch, round 4 (9 findings, no bugs, all fixed) — and the loop ends
+- Round 4 showed mechanism 3's enumeration was not one: it grepped added lines in three paths, so
+  it missed four surviving copies, the PR draft and the issue bodies. Redone with no filters over
+  every touched file plus the draft and three issue bodies; it found a 12th instance the reviewer
+  had not named — `CLAUDE.md`'s "it cannot be cut yet: 13 of the 23 rostered groups", the sentence
+  a future agent would read to decide whether the cutover can happen.
+- One claim was falsified rather than stale: "the state recurs whenever upstream cannot resolve a
+  sha". Measured, all 23 `all*` sections carry a null `inputs$link$sha` and all 23 publish. The
+  condition is both sources empty; corrected in four places.
+- Loop terminated by enumeration on all three mechanisms, not by a quiet round: 38 rows for build
+  fidelity, 8 source-text arms with 14 mutations, and the unfiltered sweep above.

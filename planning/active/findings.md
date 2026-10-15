@@ -24,9 +24,11 @@ targets walked: 23   carrying any: 20
 would-not-stage (3): kotl_all_ff04, larl_all_ff04, sloc_all_ff04   [no classified rasters]
 ```
 
-Not pasted into any literal: DUNC cannot publish until floodplains#133, so a release cut from
-this tree fails one step earlier and these numbers would encode a broken record as the
-expectation (#75, CLAUDE.md).
+Not pasted into any literal: DUNC could not publish while floodplains#133 held, so a release cut
+from this tree would have failed one step earlier and these numbers would have encoded a broken
+record as the expectation (#75, CLAUDE.md). **That cleared at 18:38Z the same day** — the series
+and the correction are further down this file; the decision not to re-take the literals stands on
+its own reason, which is that they are re-taken on the build a release is cut from.
 
 ## The skip-before-read order is the build's, and the issue's spec is not
 
@@ -316,7 +318,7 @@ group:
 | 18:33 | floor 22, 22 staged, 1 skipped |
 | 18:38 | floor 23, 23 staged, none skipped; `link_run_uid` 18, the other eleven 23 |
 
-The last one **falsified a claim this branch had written into three files and an issue body**:
+The last one **falsified a claim this branch had written into four files and an issue body**:
 that a build of the tree aborts because DUNC carries `link_version` without `link_sha`. Measured
 18:38Z, `data/dunc/provenance.json`'s `network/all2` now carries a `link_log` with
 `link_sha 8215d2d0…`, the pair is even at 23, and `item_create.py` no longer refuses it. The
@@ -324,10 +326,62 @@ finding was true when measured (17:37-18:16Z) and the guard it produced stays, b
 recurs whenever upstream cannot resolve a sha — but every copy of the claim is corrected to say
 when it held, and floodplains#133 carries the measurement as a comment (still open; closing it is
 its owner's call). `link_log` carries no `run_uid` even now, which is the modelled
-`kotl`/`larl`/`sloc` shape and is why `link_run_uid` stays at 18.
+`kotl`/`larl`/`sloc` shape and is why `link_run_uid` stays at 18 — five items lack it
+(`kotl`, `larl`, `sloc`, `dunc`, `mcgr`), which the script prints by name.
 
 This is the rule about measurements carrying their timestamp, arriving as a correction to work in
 flight rather than as a convention to cite.
+
+## /code-check round 4: the third mechanism was not closed, and now is
+
+Round 4 was scoped to the previous commit, because that commit rewrote load-bearing CLAIMS under
+a tree that was still moving. Nine findings, **no bugs** — `prov_fields-check.py` stayed 49/0 and
+the measure script exit 0 throughout, so no guard moved. It re-measured the tree itself
+(18:42Z: unchanged at 23/23; the `peace` run had not moved it, all three Peace groups already
+holding `rasters/all_ff04/`) and verified the corrected core true: the field sources, the
+half-present raise, and that `run_pipeline.sh` calls `item_create.py` **once** under
+`set -euo pipefail`, which is why one item's refusal aborts the whole build.
+
+Its central point is that my enumeration of mechanism 3 was not one: it grepped **added** lines in
+**three paths**, so it could not see pre-existing copies in the same files, branch-added copies
+outside those paths, or the two artifacts `git diff` cannot reach at all — the PR draft and the
+issue bodies. Four copies survived, three of them in the same `## Unreleased` section, so a reader
+would have met 23/23-cleared, then "blocked by floodplains#133", then 17/20/20.
+
+| finding | disposition |
+|---|---|
+| `README.md` "two of them an hour later" — the 11th instance, and false (2 held at +39 min, 0 at +61) | count removed; the script names them |
+| "the state recurs whenever upstream cannot resolve a sha" — **falsified by 22 counterexamples** | corrected in 4 places: the condition is BOTH sources empty. Measured: all 23 `all*` sections carry `inputs$link$sha: null` and every one publishes, because the log row supplies it |
+| "those four" items lack `run_uid` — it is **five** (`+mcgr`) | corrected here and in the floodplains#133 comment; the script had printed five by name two minutes earlier |
+| "a build no longer aborts" is inferred, not measured | now "that arm no longer refuses", with the declined arms named |
+| 4 uncorrected copies (`CLAUDE.md:238`, `NEWS.md:68`, `NEWS.md:199`, `task_plan.md`/`findings.md`) | each dated; the two `NEWS.md` ones point at the #82 entry |
+| the PR draft still led with the falsified claim | rewritten before any push |
+| #89 self-contradicting in three places + "seven classified rasters" (three are) | body corrected; its verified-state table kept as dated history with a pointer to the command |
+| "three files and an issue body" — four files | corrected |
+| "from 2026-10-14" names the first measurement, not the start (2026-10-12) | reworded to "when it was measured on" |
+
+### Enumeration, done the way round 4 prescribed
+
+No `^+` filter, no path list, over **every file the branch touches plus the PR draft and the
+bodies of #82, #89 and #90**:
+
+```bash
+BASE=$(git merge-base origin/main HEAD)
+FILES=$(git diff --name-only "$BASE"...HEAD | grep -v review-round)
+gh issue view 89 --json body -q .body > /tmp/s89.md   # and 82, 90
+grep -nEi 'DUNC cannot|cannot publish|is blocked|three (rostered|Columbia)|two of them|those four|state today|no longer aborts|13 of the 23' \
+  $FILES /tmp/pr.md /tmp/s82.md /tmp/s89.md /tmp/s90.md
+```
+
+It found a **12th** instance the reviewer had not named either, and the most consequential of all:
+`CLAUDE.md`'s own "Measured 2026-10-14, it cannot be cut yet: 13 of the 23 rostered groups declare
+`all_ff04` and hold only their old species rasters" — the sentence a future agent would read to
+decide whether the cutover release can happen, false as of 18:42Z. Re-measured in place.
+
+**The structural fix, which is what closes it:** the moving numbers live in exactly two places —
+the script, which prints them live, and this file, which is a dated record by construction. Every
+other copy is count-free and points at the command. The final sweep returns only the two
+quotations inside the table above.
 
 ## Errors Encountered
 

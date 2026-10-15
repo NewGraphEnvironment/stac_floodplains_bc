@@ -65,9 +65,11 @@ cut from, which is what the script is for.
 
 ### The release retires the items it replaces, in band (#76)
 
-Nothing published changes yet. No `*_all_ff04` item is live, and a full release is blocked
-upstream by floodplains#125 (13 of the 23 rostered groups have no whole-network rasters on
-disk, measured 2026-10-14), floodplains#133 (DUNC) and MCGR's config state. This is the
+Nothing published changes yet. No `*_all_ff04` item is live, and a full release was blocked
+upstream when this was written by floodplains#125 (13 of the 23 rostered groups had no
+whole-network rasters on disk, measured 2026-10-14), floodplains#133 (DUNC) and MCGR's config
+state. All three had cleared on disk by 2026-10-15T18:38Z — see the #82 entry above, and take
+the current state from `Rscript scripts/prov_census-measure.R` rather than from here. This is the
 mechanism the cutover needs, proved against `catalogue_release-check.sh`.
 
 floodplains#125 retires the per-species items rather than re-running them, and the publish
@@ -196,13 +198,14 @@ every item's own lookup misses. A key naming a scenario this repo does not publi
 examined, which is what lets upstream model scenarios we never emit an item for. An absent or
 empty section stays the forward-only state and still degrades to `NULL`.
 
-**A full release is blocked, and not by this change.** `PROVENANCE_FLOOR` (21) is still exact, but
-`PROV_CENSUS` reads `link_run_uid` 18 / `link_config_sha256` 21 / `link_sha` 21 where the current
-roster measures 17 / 20 / 20 — the delta is entirely DUNC, new in `columbia.yml` upstream with a
-null `link_log`. Those literals are deliberately **not** re-measured here: DUNC is refused one step
+**A full release is blocked, and not by this change** (as of 2026-10-14; DUNC cleared the next
+day — see the #82 entry above). `PROVENANCE_FLOOR` (21) is still exact, but `PROV_CENSUS` reads
+`link_run_uid` 18 / `link_config_sha256` 21 / `link_sha` 21 where the roster then measured
+17 / 20 / 20 — the delta was entirely DUNC, new in `columbia.yml` upstream with a null
+`link_log`. Those literals are deliberately **not** re-measured here: DUNC was refused one step
 earlier by `item_create.py` for a half-present `processing:software` `link` entry
-(floodplains#133), so a release cut today would fail before the census, and writing the new numbers
-would encode a broken record as the expectation. They are re-taken on the build the next full
+(floodplains#133), so a release cut that day would have failed before the census, and writing the
+new numbers would have encoded a broken record as the expectation. They are re-taken on the build the next full
 release is cut from. The refusal is the exact literal doing its job.
 
 Two consequences for anyone reading the record:
