@@ -153,12 +153,12 @@ Not listed when the phases were written; recorded here as landed work.
 
 ## Validation
 
-- [ ] `bash scripts/catalogue_release-check.sh` — every case, old and new, green
-- [ ] `bash -n` on every edited shell script; `shellcheck` if available
+- [x] `bash scripts/catalogue_release-check.sh` — every case, old and new, green
+- [x] `bash -n` on every edited shell script; `shellcheck` if available
 - [x] the smoke test passes on its **new** default, and `stage_years-check.R` reports assertions
       rather than a skip
-- [ ] mutation table: every new arm, defect restored, arm red
-- [ ] Tests pass
+- [x] mutation table: every new arm, defect restored, arm red
+- [x] Tests pass
 - [ ] `/code-check branch` clean
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
