@@ -25,47 +25,47 @@ use it.
 
 `scripts/prov_census-measure.R`, no arguments, no writes, no network, no database.
 
-- [ ] Header: what it produces, where each number goes, that it is a **measurement not a gate**,
+- [x] Header: what it produces, where each number goes, that it is a **measurement not a gate**,
       and the caveat that a tree mid-write (an upstream `run_region.R` in flight) yields a census
       of a half-finished roster — which the printed timestamp and producer HEAD make visible.
-- [ ] `PROV_FIELDS` parsed out of `01_stage.R`, never copied: `parse()`, find the single
+- [x] `PROV_FIELDS` parsed out of `01_stage.R`, never copied: `parse()`, find the single
       `PROV_FIELDS <- ...` assignment, `stopifnot` exactly one, `eval()` it, then
       `source("scripts/fp_provenance.R")`. Exactly the pattern at `fp_provenance-check.R:24-30`.
       A fifth copy of the field list is what #74 spent its rounds avoiding.
-- [ ] Roster walk mirroring `01_stage.R:135-160, 206-229`: `config/regions/*.yml` ->
+- [x] Roster walk mirroring `01_stage.R:135-160, 206-229`: `config/regions/*.yml` ->
       `watershed_groups` -> `config/<wsg>/area.yml` -> targets. `[[ ]]` throughout, never `$` —
       `area$targets` returns a `targets_retired:` block and `rc$watershed_groups` a retired roster
       (`01_stage.R:138-143, 217-222` record both measured cases).
-- [ ] Mirror the build's **selection**, in the build's order, so the census describes the set a
+- [x] Mirror the build's **selection**, in the build's order, so the census describes the set a
       build would stage: no `area.yml` -> skip the group; either bundle (`floodplain.gpkg`,
       `floodplain_landcover.gpkg`) absent -> skip the group; no `rasters/<scenario>/` or no
       `classified_<yyyy>.tif` in it -> skip that target. **Each skip is recorded and printed by
       name.**
-- [ ] `years` from `rasters/<scenario>/classified_<yyyy>.tif`, pattern **anchored at both ends**
+- [x] `years` from `rasters/<scenario>/classified_<yyyy>.tif`, pattern **anchored at both ends**
       (`01_stage.R:402`) — unanchored, the `.tif.aux.xml` sidecar beside each raster matches and
       the year is counted twice. It is the one argument `fp_prov_item()` needs that is not in the
       record; it feeds the `landcover_key` fold.
-- [ ] Per staged target, inside `tryCatch`: `fp_prov_rasters_current()` then `fp_prov_item()`, and
+- [x] Per staged target, inside `tryCatch`: `fp_prov_rasters_current()` then `fp_prov_item()`, and
       count a field as carried when its value is not NA. `fp_prov_read()` once per group, also in
       `tryCatch`.
-- [ ] **Refusal**: a failure is recorded, not fatal, so one group does not end the walk; then if
+- [x] **Refusal**: a failure is recorded, not fatal, so one group does not end the walk; then if
       any occurred, print every failure with its target id and **exit non-zero having printed no
       census**. The number becomes a release gate, so a count that is short for any reason other
       than the data is the dangerous direction — it would be pasted into `PROVENANCE_FLOOR` and
       then satisfied by a build that lost provenance. A `NULL` from `fp_prov_read()` is **not** a
       failure: that is the legitimate forward-only state and counts as an item carrying none
       (`fp_provenance.R:147-166` draws exactly this line).
-- [ ] Skipped targets are **not** a refusal: exit 0, with a banner naming them and saying a full
+- [x] Skipped targets are **not** a refusal: exit 0, with a banner naming them and saying a full
       release from this tree is refused by the `PARTIAL_STAGE` interlock unless `ALLOW_SKIPPED=1`.
       The build would stage the same set, so the census still matches the build it describes.
-- [ ] Output carries its own provenance: UTC timestamp, the resolved `$FLOODPLAINS_DATA`, the
+- [x] Output carries its own provenance: UTC timestamp, the resolved `$FLOODPLAINS_DATA`, the
       producer tree's `git describe --tags --always --dirty` and HEAD, and rostered / staged /
       skipped counts. A census printed without them is a number with no date, which is the state
       #75 found the literals in. The git read degrades to a stated "not a git tree" rather than
       failing — Phase 2's sandboxes are not repos, and neither is a copied data tree.
-- [ ] Output shape — ready to paste, in `PROV_FIELDS` order, plus the floor and the destination of
+- [x] Output shape — ready to paste, in `PROV_FIELDS` order, plus the floor and the destination of
       each number.
-- [ ] Say in the script what it does **not** check, so nobody reads its exit 0 as "this build will
+- [x] Say in the script what it does **not** check, so nobody reads its exit 0 as "this build will
       stage": it does not open the GeoPackages (the build skips a bundle it cannot read, and
       refuses a layer carrying no usable key or another group's), and it does not run
       `fp_years_reconcile()`. Both of those make the build stage *fewer* items or stop outright —
