@@ -9,13 +9,13 @@
 #
 # --only <item_id> republishes one existing item: its assets, its JSON, its pgstac row.
 # It NEVER publishes collection.json — a partial build's collection describes only the
-# groups in that build, and registering it would replace the live 20-group collection
+# groups in that build, and registering it would replace the live 22-group collection
 # with a one-group one, with no rollback (bucket versioning is Suspended). The
 # PARTIAL_STAGE interlock and the live-vs-build comparison guard exactly that document,
 # so both are skipped under --only, out loud. The item must already be live: a new item
 # needs the collection's extent/summaries/links updated, which only a full release does.
-# Validation still covers the whole tree on disk, so with a full 20-item build present
-# --only re-hashes ~670 MB of assets; correct, just slow. Proven by
+# Validation still covers the whole tree on disk, so with a full 23-item build present
+# --only re-hashes ~640 MB of assets; correct, just slow. Proven by
 # scripts/catalogue_release-check.sh, which runs this script against shims.
 #
 # Requires: data/stac (built by run_pipeline.sh), AWS credentials, SSH to geopro.
@@ -149,7 +149,7 @@ cd "$REPO"
 
 # Fielded search, used by both the preflight and the verify. `fields.include` is
 # mandatory, not an optimization: an unfielded GET /items returns the full
-# unsimplified floodplain geometries — ~34 s and ~34 MB for 17 items, growing
+# unsimplified floodplain geometries — ~34 s and ~34 MB for 17 items (measured when the collection held 17), growing
 # linearly as groups are added, so it would eventually just time out. Fielded it is
 # 8 KB in 0.15 s.
 fetch_live_ids() {

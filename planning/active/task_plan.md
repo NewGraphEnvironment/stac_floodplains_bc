@@ -123,19 +123,19 @@ Not listed when the phases were written; recorded here as landed work.
 
 ## Phase 7: documentation
 
-- [ ] `scripts/README.md`: split `## Retraction` into **Removal** and **Replacement**, both ordered
+- [x] `scripts/README.md`: split `## Retraction` into **Removal** and **Replacement**, both ordered
       release-first; correct `:139-140`, which claims `--allow-retract` is required at a step where
       its own recipe has already made it a no-op; name the rtj reload hazard
-- [ ] `## Cut a release`: the retirement happens inside step 4-5, and step 6 (README rebuild) is
+- [x] `## Cut a release`: the retirement happens inside step 4-5, and step 6 (README rebuild) is
       after it — the ordering #79 turns on
-- [ ] fix stale prose in `catalogue_release.sh`: `:12`, `:17` ("20-group" / "20-item"), `:116`
+- [x] fix stale prose in `catalogue_release.sh`: `:12`, `:17` ("20-group" / "20-item"), `:116`
       ("17 items")
-- [ ] `CLAUDE.md`: the Collection model paragraph on MORR's two live orphans, and the Catalog
+- [x] `CLAUDE.md`: the Collection model paragraph on MORR's two live orphans, and the Catalog
       registration paragraph on upsert-and-orphans
 
 ## Phase 8: release bookkeeping and issue hygiene
 
-- [ ] `NEWS.md` **Unreleased**: the mechanism; that the first retirement release names its ids in
+- [x] `NEWS.md` **Unreleased**: the mechanism; that the first retirement release names its ids in
       `RETIRED_ITEMS` and in its own entry; and that it retires **17 at once**, not per group
 - [ ] record the literals re-taken on the build the release is cut from — `PROVENANCE_FLOOR`,
       `PROV_CENSUS` (`item_validate.py:540-553`), `prov_fields-check.py`'s 18/21/23 — all in the same

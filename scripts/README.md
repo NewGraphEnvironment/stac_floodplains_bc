@@ -68,16 +68,20 @@ retired (827 MB). The tree total also carries the COGs and is re-taken at a full
 | 0 preflight | `PARTIAL_STAGE` absent; ≥1 item + `collection.json`; SSH reachable; the build compared against the **live** collection — refuses if any live item is missing; then the **version gate** — HEAD exactly at a `vX.Y.Z` tag, tracked tree clean, `NEWS.md` top entry naming that version — and `collection_version.py` stamps `collection.json` (STAC Version Extension) before anything is validated or published |
 | 1 validate | the gate. Nothing below runs unless every document validates; on a full release the validator is also given `PROVENANCE_FLOOR` — a literal in the script, set by a human, naming how many items must carry provenance at all (#32), which also turns on the per-field census — the literal `PROV_CENSUS` in `item_validate.py` naming how many items carry a value for **each** of the twelve fields (#74). `check_collection_metadata` and `check_citation_premise` also run here: the licence, the six providers, both links and `sci:citation` asserted verbatim, and every item's `landcover:collection` **and** `landcover:stac_url` checked against what the citation attributes — the id and the host can move independently, and a host move alone would change the licensor (#47). `check_deprecated` asserts exactly `EXPECTED_DEPRECATED` publish `deprecated: true`, and that every item is marked **iff** its `processing:software` `flooded` entry is below 0.5.0 or unreadable — both directions, since an unmarked over-mapped item adds nothing to the provenance floor's count (#26). Under `--only` the release passes `--partial`, which drops exactly one arm — ids named in the literal but absent from the tree. A stray marker, and an item in the literal that is present but unmarked, are both still refused there |
 | 2 sync assets | `aws s3 sync` — no `--delete`, no `--size-only`, `--exclude '*.json'` |
-| 3 sync JSON | after the assets, so no document references an object that has not landed |
+| 3 sync JSON | after the assets, so no document references an object that has not landed. **Two calls**: the item documents, then `collection.json` on its own, last. One `aws s3 sync` over both parallelises them, so a pass that uploaded the collection and then failed would leave it linking objects that were never written — and a reload-from-S3 deletes the collection's rows before discovering that (see **Retraction**) |
 | 4 register | collection first (pgstac items reference the collection row), then items |
 | 5 verify | collection 200; live ids match the build **both ways**; the largest asset of one item probed for size and its published `file:checksum` re-verified against the bytes on S3; the live collection's `version` equals the tag just released (under `--only`: unchanged); and, on a full release, the **deprecation markers** (#26) read back from the API and reconciled against the build — the field's whole purpose is that a consumer sees it — and the **licence** read back from both the API and the bucket copy: `license` against the constant, and `sci:citation` plus the `rel: license` and `rel: derived_from` hrefs compared against the collection.json this release published (#47). Compared by VALUE, not presence: pgstac rebuilds a collection's `links` array through `get_links()` — which is why the build's `rel: item` links are served as none — and the one thing it does to a link it keeps is rewrite the href |
+| 6 retire | only when `RETIRED_ITEMS` is non-empty, and only once `fail` is 0 for every probe above: `item_unregister.sh` over exactly those ids, scoped to this collection. Placed here and not after step 4 on purpose — between register and verify it would precede every read-back that can veto the release, so one stale checksum would cost the deleted item ids as well as the release |
+| 7 verify retirement | the collection re-read: none of the retired ids is in it, each answers 404 from the API, and the served set **equals** the build. Step 5 asks only for containment, because at that point the retirement has not happened yet and a re-run after a verify failure would otherwise be refused |
 
 Validation gates the **asset** sync, not just the JSON. Bucket versioning is Suspended, so there is
 no rollback from pushing the better part of a gigabyte of assets for a build that then fails.
 
 Registration is an **upsert**, so nothing is deleted implicitly and the collection never serves
-zero items mid-release. The cost is that an item dropped from the build stays live — step 0 and
-step 5 both report those, and removal is an explicit `item_unregister.sh` call.
+zero items mid-release. The cost is that an item dropped from the build stays live — fine when that
+is deliberate and recorded, which is what `RETIRED_ITEMS` names and step 6 removes, and a refusal
+when it is not: step 0 refuses any live item this build does not produce unless the literal names it
+or `--allow-retract` waives it. See **Retraction**.
 
 ### Cut a release
 
@@ -99,7 +103,11 @@ curl -s https://images.a11s.one/collections/stac-floodplains-bc | jq .version
 # 5. only now publish the tag: a pushed tag says the catalogue IS in this state, and a release
 #    that failed would otherwise leave a public tag for a state that never went live
 git push origin vX.Y.Z
-# 6. rebuild the repo README from what the API now serves, and commit it. This commit is past
+# 6. rebuild the repo README from what the API now serves, and commit it. On a release that
+#    set RETIRED_ITEMS, this comes AFTER step 4 has done the retirement — which it does, in
+#    band — because the README refuses to render while a group carries two items disagreeing
+#    on floodplain_ff04_km2, and a whole-network item genuinely disagrees with the species one
+#    it replaces (#79). This commit is past
 #    the tag by design (the tag marks the catalogue's state, not the README), so it can happen
 #    later, and on a DIFFERENT machine than the one that cut the release -- it needs R and
 #    rstac, which a release-only machine has no reason to hold. The caption the render writes
@@ -121,23 +129,71 @@ collection carries no version, and registering it would silently un-version the 
 
 ## Retraction
 
-Removing a published item is registry-driven, not ad hoc:
+Two different jobs, and the one you want is decided by whether anything takes the item's place.
 
-```bash
-# 1. drop the target upstream (region roster / area.yml in the floodplains repo)
-# 2. rebuild — the item is no longer produced
-bash scripts/run_pipeline.sh
-# 3. delete it from the API
-scripts/item_unregister.sh <item-id>
-# 4. delete its assets (S3 has no versioning — this is irreversible)
-aws s3 rm s3://stac-floodplains-bc/<item-id>/ --recursive
-aws s3 rm s3://stac-floodplains-bc/<item-id>.json
-# 5. publish the smaller collection
-bash scripts/catalogue_release.sh --allow-retract
+| | **Replacement** (#76) | **Removal** |
+|---|---|---|
+| when | a group's item **id changes** — `<wsg>_ch_ff04` becomes `<wsg>_all_ff04` | a group leaves the catalogue with nothing in its place |
+| driven by | `RETIRED_ITEMS` in `catalogue_release.sh` | `--allow-retract` |
+| the release | unregisters them itself, in step 6, and step 7 requires the served set to equal the build | publishes past them; they stay live until you unregister them by hand |
+| refuses if | any retired group is not covered by another item in the build | — |
+
+**Both are release-first.** The bucket's `collection.json` must stop linking an item *before*
+its objects go, and the API must stop serving it before that:
+
+```
+publish the smaller/replacing collection  ->  pgstac delete  ->  S3 delete
 ```
 
-`--allow-retract` is required at step 5 because a build with fewer items than the live collection
-is otherwise refused — that refusal is the guard against an accidental partial publish.
+Get that order wrong and a reload-from-S3 empties the collection. `rtj`'s
+`stac_register-all.sh` reads the bucket `collection.json`, extracts every `rel: item` href,
+**`DELETE`s every row of the collection**, and only then fetches each href — one 404 and it
+aborts, having already deleted. rtj's own script records that happening to `stac-dem-bc`. So a
+window in which `collection.json` links an object you have removed is a window in which any
+reload serves zero items. `item_retract_s3.sh` refuses to open one.
+
+### Replacement — a group moving to a new item id
+
+```bash
+# 1. upstream: point the group at its new scenario (config/<wsg>/area.yml), re-run it there
+# 2. rebuild here — the old id is no longer produced, the new one is
+bash scripts/run_pipeline.sh
+# 3. set RETIRED_ITEMS in scripts/catalogue_release.sh to exactly the live ids being replaced,
+#    name every one of them in the NEWS.md entry, and commit both with the version bump
+# 4. tag, then release: it validates, syncs, registers, verifies, THEN unregisters the
+#    retired ids and re-verifies that the collection serves exactly this build
+bash scripts/catalogue_release.sh --allow-retract
+# 5. only now the assets, which is the only irreversible step
+scripts/item_retract_s3.sh --yes <retired-id> [<retired-id>...]
+# 6. regenerate the README (release step 6) — AFTER the retirement, not before
+```
+
+`--allow-retract` is still passed at step 4: the literal says *which* ids, the flag says the
+smaller collection is intended, and neither alone retracts anything.
+
+Until step 5 runs, **the retirement is reversible**: no sync passes `--delete`, so each retired
+item's document is still in the bucket and `item_register.sh` can put its pgstac row back. That is
+why the asset delete is a separate script, needs `--yes`, and refuses while the API still serves
+the item, while the bucket `collection.json` still links it, or while this build still produces it.
+
+### Removal — a group leaving the catalogue
+
+```bash
+# 1. drop the group upstream (region roster / area.yml in the floodplains repo)
+# 2. rebuild — the item is no longer produced
+bash scripts/run_pipeline.sh
+# 3. publish the smaller collection FIRST, so the bucket stops linking the item
+bash scripts/catalogue_release.sh --allow-retract
+# 4. then the API row
+scripts/item_unregister.sh <item-id>
+# 5. then the assets (irreversible)
+scripts/item_retract_s3.sh --yes <item-id>
+```
+
+`--allow-retract` is required at step 3 because a build with fewer items than the live collection
+is otherwise refused — that refusal is the guard against an accidental partial publish. It is also
+what waives the arm that would otherwise refuse losing a watershed group entirely, which is the
+whole difference between this recipe and the one above.
 
 ## Pilot — `catalogue_release.sh --only <item_id>`
 

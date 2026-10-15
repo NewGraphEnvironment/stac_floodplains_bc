@@ -92,7 +92,14 @@ year set is data, the span is a contract.
 **One item per `(watershed group, species, scenario)` target**, id `<wsg>_<sp>_ff0N` — *not* one per
 group. MORR carries two LIVE (`morr_co_ff04` + `morr_ch_ff06`) but stages one: upstream retired its
 `targets:` block under floodplains#125, so a rebuild produces `morr_all_ff04` and those two survive
-only as live orphans until #76 unregisters them. The collection mixes flood factors,
+as live orphans until a release names them in `RETIRED_ITEMS` (#76 built the mechanism; the cutover
+release exercises it). **That cutover is one release, not one per group**, however the issue is
+phrased: `--only` cannot publish a never-live item, and `readme_functions.R` refuses any render
+where the API's item count and the bucket `collection.json`'s `rel: item` count disagree — so the
+first full release after floodplains#125 retires all 17 per-species items and adds 17 whole-network
+ones at once, with `PROVENANCE_FLOOR` and `PROV_CENSUS` re-taken in the same commit. Measured
+2026-10-14, it cannot be cut yet: 13 of the 23 rostered groups declare `all_ff04` and hold only
+their old species rasters, so a rebuild skips them. The collection mixes flood factors,
 so any cross-group aggregate must filter on `scenario` or `flood_factor` or it sums different
 extents (ff04 = functional floodplain, ff06 = valley bottom).
 
@@ -337,9 +344,29 @@ server build installs on the host. The API is deliberately read-only (transactio
 droplet rebuild.
 
 Registration is an **upsert**: nothing is deleted implicitly, and there is no window where the
-collection serves zero items. An item dropped from a build therefore stays live until an explicit
-`item_unregister.sh`; the release reports those as orphans and refuses to publish past them
-without `--allow-retract`.
+collection serves zero items. An item dropped from a build therefore stays live unless something
+removes it, and there are two ways, for two different jobs (#76). `RETIRED_ITEMS` in
+`catalogue_release.sh` is a literal a human sets naming the ids a release **replaces** — the
+release unregisters exactly those in step 6 and step 7 then requires the served set to equal the
+build, so a group is never left serving both its whole-network item and the species one it
+replaced. `--allow-retract` is the other job, a group **leaving** the catalogue: it permits
+publishing past an orphan and removes nothing, so those stay live until an explicit
+`item_unregister.sh`. The literal says which, the flag says a smaller collection is intended, and
+neither alone retracts anything. Arms in step 0 refuse an orphan the literal does not name, an id
+the build still produces, an id that was never published (told from an already-retired one by the
+bucket copy, which is what keeps a re-run after a verify failure possible), and — the one arm that
+survives `ALLOW_SKIPPED=1`, where `PARTIAL_STAGE` is absent rather than passing — any live
+watershed group this build does not cover.
+
+**The delete runs after every probe, not between register and verify**, so a failed read-back costs
+a failed release and not the deleted ids as well. And until `item_retract_s3.sh` runs, it is
+reversible: no sync passes `--delete`, so `item_register.sh` can re-register a retired item from
+the bucket copy the build no longer holds. That script is the irreversible half, needs `--yes`, and
+refuses while the API serves the item, while the bucket `collection.json` still links it, or while
+the build still produces it — the middle one because rtj's reload-from-S3 `DELETE`s a collection's
+rows before discovering a linked href 404s, which is how `stac-dem-bc` came to serve zero items.
+For the same reason step 3 writes `collection.json` **last**, in its own call, rather than in one
+parallelised sync with every item document.
 
 **Every full release is a tag** (#19). `catalogue_release.sh` refuses unless HEAD is exactly at a
 `vX.Y.Z` tag, the tracked tree is clean, and `NEWS.md`'s top entry names that version; it then
