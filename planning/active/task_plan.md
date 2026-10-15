@@ -57,7 +57,7 @@ half is a separate script, and why the delete is safe to put inside the release 
 - [x] 21d empty literal, clean release → zero `delete_item` payloads, completion line unchanged
 - [x] 21e `--allow-retract` remainder: an orphan outside the literal is permitted, gets **no** delete
       (this is harness case 9m's successor; 9m itself must be rewritten, not deleted)
-- [ ] 22 `item_retract_s3.sh` refuses while the id is still served or still linked from the bucket
+- [x] 22 `item_retract_s3.sh` refuses while the id is still served or still linked from the bucket
       `collection.json`
 - [x] anchored-sed twin for `RETIRED_ITEMS` beside `:393`'s `PROVENANCE_FLOOR` check, asserting it is
       one bare literal **and empty on `main`** — a shipped non-empty literal is itself a failure
@@ -74,7 +74,9 @@ half is a separate script, and why the delete is safe to put inside the release 
       already-retired arm using `$S3_BASE/<id>.json` as the one independent witness; not-in-build;
       live-groups ⊆ build-groups; every literal id named in the tagged `NEWS.md`
 - [x] `fetch_live_wsgs()` — a fielded `POST /search` with `fields.include: ["id","properties.wsg"]`;
-      build groups from `data/raw/<item_id>/meta.json`. No id is parsed apart.
+      build groups from **`data/stac/<id>.json`'s own `properties.wsg`**, not
+      `data/raw/<id>/meta.json` as planned: the release needs AWS credentials and SSH, not the
+      source tree, and `data/raw/` is the source tree. No id is parsed apart either way.
 - [x] comment the `ALLOW_SKIPPED=1` justification on the group arm, and that the DEPRECATED overlap
       arm was deliberately **not** added (`item_validate.py:394-395` is the guard; a third copy of
       `DEPRECATED_ITEMS` is drift nothing pins)
@@ -92,12 +94,24 @@ half is a separate script, and why the delete is safe to put inside the release 
       parses its NOTICEs, so the 404 assertion is the **only** evidence the delete happened.
 - [x] on phase-B failure, print the two-line remedy and name the bucket-copy rollback
 
+## Phase 4b: `scripts/item_retract_s3.sh` — the irreversible half
+
+Not listed when the phases were written; recorded here as landed work.
+
+- [x] refuses unless the API 404s the id, the bucket `collection.json` carries no `rel: item`
+      link naming it, and the build does not still produce it (checked only where a build is
+      present — a release-only machine holds no `data/stac`)
+- [x] prints each prefix's object count and byte total before deleting; `--yes` required
+- [x] sibling to `item_unregister.sh`: `set -euo pipefail`, the same id-shape guard before the id
+      reaches a command, the same `BUCKET`/`COLLECTION` overrides
+- [x] the prefix keeps its trailing slash, so the recursive delete cannot sweep a sibling id
+
 ## Phase 5: the sync-ordering hazard this release maximises
 
-- [ ] `:497-498` syncs `collection.json` and every item JSON in one parallelised pass. Sync the item
+- [x] `:497-498` syncs `collection.json` and every item JSON in one parallelised pass. Sync the item
       JSONs with `--exclude collection.json`, then `aws s3 cp` the collection last, as the
       `--skip-sync` path already does at `:452`
-- [ ] a harness case asserting the collection is the **last** JSON object written
+- [x] a harness case asserting the collection is the **last** JSON object written
 
 ## Phase 6: the two dead guards the upstream flip left behind
 
