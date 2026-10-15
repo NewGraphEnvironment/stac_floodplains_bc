@@ -59,38 +59,38 @@ half is a separate script, and why the delete is safe to put inside the release 
       (this is harness case 9m's successor; 9m itself must be rewritten, not deleted)
 - [ ] 22 `item_retract_s3.sh` refuses while the id is still served or still linked from the bucket
       `collection.json`
-- [ ] anchored-sed twin for `RETIRED_ITEMS` beside `:393`'s `PROVENANCE_FLOOR` check, asserting it is
+- [x] anchored-sed twin for `RETIRED_ITEMS` beside `:393`'s `PROVENANCE_FLOOR` check, asserting it is
       one bare literal **and empty on `main`** — a shipped non-empty literal is itself a failure
-- [ ] mutation table in `findings.md`; the implied half of the set relation recorded as implied
+- [x] mutation table in `findings.md`; the implied half of the set relation recorded as implied
       rather than covered
 
 ## Phase 3: `RETIRED_ITEMS` and the preflight arms
 
-- [ ] `RETIRED_ITEMS` literal beside `PROVENANCE_FLOOR` (`:61`) and `EXPECT_LICENSE` (`:67`); empty by
+- [x] `RETIRED_ITEMS` literal beside `PROVENANCE_FLOOR` (`:61`) and `EXPECT_LICENSE` (`:67`); empty by
       default, no env override
-- [ ] refuse `--only` + non-empty literal at `:106-110`
-- [ ] replace the orphan block (`:330-342`) with: `orphans ⊆ RETIRED_ITEMS` **unless**
+- [x] refuse `--only` + non-empty literal at `:106-110`
+- [x] replace the orphan block (`:330-342`) with: `orphans ⊆ RETIRED_ITEMS` **unless**
       `--allow-retract` (which permits the remainder and gives it no delete); the split typo/
       already-retired arm using `$S3_BASE/<id>.json` as the one independent witness; not-in-build;
       live-groups ⊆ build-groups; every literal id named in the tagged `NEWS.md`
-- [ ] `fetch_live_wsgs()` — a fielded `POST /search` with `fields.include: ["id","properties.wsg"]`;
+- [x] `fetch_live_wsgs()` — a fielded `POST /search` with `fields.include: ["id","properties.wsg"]`;
       build groups from `data/raw/<item_id>/meta.json`. No id is parsed apart.
-- [ ] comment the `ALLOW_SKIPPED=1` justification on the group arm, and that the DEPRECATED overlap
+- [x] comment the `ALLOW_SKIPPED=1` justification on the group arm, and that the DEPRECATED overlap
       arm was deliberately **not** added (`item_validate.py:394-395` is the guard; a third copy of
       `DEPRECATED_ITEMS` is drift nothing pins)
 
 ## Phase 4: the delete, placed after every probe
 
-- [ ] phase A, in place of `:540-547`: keep the `missing` arm; require `extra ⊆ RETIRED_ITEMS`
+- [x] phase A, in place of `:540-547`: keep the `missing` arm; require `extra ⊆ RETIRED_ITEMS`
       (containment, not equality — equality is what breaks the re-run)
-- [ ] run every existing probe; if `fail != 0`, exit **without deleting**
-- [ ] delete via `COLLECTION="$COLLECTION" GEOSERV_HOST="$HOST" bash scripts/item_unregister.sh …`
+- [x] run every existing probe; if `fail != 0`, exit **without deleting**
+- [x] delete via `COLLECTION="$COLLECTION" GEOSERV_HOST="$HOST" bash scripts/item_unregister.sh …`
       — neither variable is exported (`:37`, `:42`), so omitting them silently targets the default
       collection. `item_unregister.sh` itself is reused unchanged.
-- [ ] phase B: re-read the live set; require `served == build` exactly, and each retired id 404s.
+- [x] phase B: re-read the live set; require `served == build` exactly, and each retired id 404s.
       `item_unregister.sh` warns and exits 0 when it deletes nothing (`:49-51`) and the release never
       parses its NOTICEs, so the 404 assertion is the **only** evidence the delete happened.
-- [ ] on phase-B failure, print the two-line remedy and name the bucket-copy rollback
+- [x] on phase-B failure, print the two-line remedy and name the bucket-copy rollback
 
 ## Phase 5: the sync-ordering hazard this release maximises
 

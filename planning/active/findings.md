@@ -298,3 +298,42 @@ partial staging rather than about retirement. A guard failing toward pass, arriv
 fixture rather than the code. Fixed by clearing the marker at the top of the block, and it is
 the reason case 21a (the positive control) is not optional: without it every refusal above is a
 grep that has never been shown to match.
+
+## Mutation table (2026-10-14)
+
+Each arm's refusal disabled in `catalogue_release.sh`, the whole suite re-run, and the case
+that must notice recorded. Ten arms, ten reds — the second column is the case that went red,
+not the case it was aimed at, so a mutation caught by the wrong case would show here.
+
+| # | arm disabled | case that went red |
+|---|---|---|
+| M1 | the containment arm (orphans ⊆ `RETIRED_ITEMS`) | 20a, 20b |
+| M2 | never-published vs already-retired, told apart by the bucket copy | 20c |
+| M3 | already-retired is reported, not refused | 20d |
+| M4 | the not-in-build arm | 20e |
+| M5 | the group arm | 20f |
+| M6 | the NEWS arm | 20g |
+| M7 | `--only` + a non-empty literal | 20h |
+| M8 | the delete's placement after the `fail` gate | 21b (+ 17 others) |
+| M9 | the still-served arm in step 7 | 21c, 21f |
+| M10 | the delete's scope (live subset, not the whole literal) | 20d |
+
+**The implied half is recorded as implied, not covered.** `RETIRED_ITEMS ⊆ orphans` cannot
+fire: `orphans = live − build`, so any literal id that is live and not in the build is in
+`orphans` by construction, and an id failing either of those two conditions is refused by the
+liveness or not-in-build arm first. No mutation can make that half red, so the relation
+implemented is containment in one direction only.
+
+**Two rounds, and the first round's STILL GREENs were both my probe, not the guard.** M4 and
+M10 came back green because each mutation patched a line *inside* a branch the case never
+enters — M4's inside `if [ -n "$also_built" ]`, M10's inside `if [ -n "$to_delete" ]`, which is
+empty in exactly the case under test. Re-aimed at the branch conditions, both went red at
+once. The prior belongs on the probe (`code-check.md`, "The probe is broken before the world
+is"), and a mutation table is itself a probe.
+
+**M9 was the one real finding.** Removing `rfail=1` from the still-served arm left case 21c
+green, because the equality arm and the 404 loop both fire there too — so the arm was not
+independently pinned. Case 21f isolates it: `--allow-retract` skips the equality arm by design,
+and `FAKE_GONE_IDS` makes the item endpoint answer 404, so the search still listing the id is
+the only thing wrong. Both arms stay, because they read different surfaces — the search index
+and the item endpoint — and nothing guarantees those agree.

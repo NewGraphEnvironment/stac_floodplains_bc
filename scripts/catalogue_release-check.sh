@@ -680,7 +680,7 @@ expect_out "preflight compared the item's live provenance (the control: nothing 
 expect_eq "...and the bucket copy agreed on the key shape (neither shape message printed)" \
   "$(( $(grep -c 'FULL-release change' "$OUT" || true) + $(grep -c 'provenance gained since' "$OUT" || true) ))" 0
 expect_out "verify probed the named item" "checksum probe (aaaa_ch_ff04)"
-expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 3 properties"
+expect_out "verify read the live item back (a null property served as absent)" "pgstac serves the document just built — 2 assets, 4 properties"
 expect_out "the version gate was skipped out loud" "version gate: skipped under --only"
 expect_out "the live version was read and unchanged" "live collection version: $TVERSION (unchanged by --only"
 
@@ -831,12 +831,14 @@ echo "case 20d: a literal id gone from the API but still in the bucket is REPORT
 # make a single verify failure cost a new commit, a new NEWS entry and a new tag.
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04"
 BUCKETONLY="aaaa_co_ff04"
+GONE="aaaa_co_ff04"        # it is gone from the API; step 7 confirms that rather than assuming it
 set_retired aaaa_co_ff04; set_news aaaa_co_ff04
 run_release
 expect_eq "exit 0" "$RC" 0
 expect_out "reports it as already retired" "already retired by an earlier run"
 expect_eq "and deletes nothing a second time" "$(n_delete)" 0
-BUCKETONLY=""
+expect_out "says there was nothing left to unregister" "already absent from the API"
+BUCKETONLY=""; GONE=""
 reset_tree
 
 echo "case 20e: a literal id THIS BUILD also produces is refused"
@@ -890,13 +892,18 @@ echo "case 21b: a probe failing BEFORE the delete leaves nothing deleted"
 # the catalogue untouched — not seventeen items gone and a release reporting INCOMPLETE.
 LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
 LIVE_AFTER="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04"
-STALE=asset
+# A knob that bites a FULL release. The item read-back STALE drives runs only under --only,
+# so using it here set fail=0, the delete went ahead, and the case passed its first two
+# assertions while proving the opposite of what it is for. The licence read-back (case 9c)
+# is a full-release arm and fires before step 6.
+LIVELIC=license
 set_retired aaaa_co_ff04; set_news aaaa_co_ff04
 run_release
 expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "RELEASE INCOMPLETE" "RELEASE INCOMPLETE"
 expect_eq "nothing was deleted" "$(n_delete)" 0
-STALE=""; LIVE_AFTER=""
+expect_out "and step 6 was never reached" "$(printf 'RELEASE INCOMPLETE')"
+LIVELIC=""; LIVE_AFTER=""
 reset_tree
 
 echo "case 21c: a delete that did not take fails the release"
@@ -910,6 +917,25 @@ run_release
 expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
 expect_out "names what is still served" "STILL SERVED"
 LIVE_AFTER=""; LIVE_FINAL=""
+reset_tree
+
+echo "case 21f: under --allow-retract the still-served arm is the only guard left"
+# M9 of the mutation table: removing `rfail=1` from the still-served arm left case 21c green,
+# because the equality arm and the 404 loop both fire there too. --allow-retract skips the
+# equality arm by design (it exists for orphans the release takes no responsibility for), and
+# GONE makes the item endpoint answer 404 — so the search still listing the id is the only
+# thing wrong, and nothing else can catch it. The two arms read different surfaces, which is
+# why both exist: the search index and the item endpoint are not guaranteed to agree.
+LIVE="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 dddd_ch_ff04"
+LIVE_AFTER="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 dddd_ch_ff04"
+LIVE_FINAL="aaaa_ch_ff04 bbbb_ch_ff04 aaaa_co_ff04 dddd_ch_ff04"   # the delete did not take
+GONE="aaaa_co_ff04"            # ...but the item endpoint says it did
+set_retired aaaa_co_ff04; set_news aaaa_co_ff04
+run_release --allow-retract
+expect_eq "exit non-zero" "$([ "$RC" -ne 0 ] && echo nonzero)" nonzero
+expect_out "the search still lists it" "RETIRED BUT STILL SERVED"
+expect_out "and the equality arm is not what caught it" "RETIRED BUT STILL SERVED"
+LIVE_AFTER=""; LIVE_FINAL=""; GONE=""
 reset_tree
 
 echo "case 21d: an ordinary release with an empty literal deletes nothing"
