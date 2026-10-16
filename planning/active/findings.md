@@ -282,3 +282,9 @@ The repo already carries pre-existing citations of that kind in `04_gpkg_style.p
 `item_validate.py`; #86 is open for exactly that and is where they get removed. This branch
 adds none — verified with
 `git diff origin/main -- . | grep -E '^\+.*(private-repo-name)#[0-9]+'`.
+
+## Errors Encountered (2)
+
+| Error | Resolution |
+|-------|------------|
+| The conventions repo was checked out on **another task's in-flight feature branch**, not main, and `git checkout -b` inherited it — so the PR opened with 10 foreign commits and 20 files, reading MERGEABLE/CLEAN the whole time | Rebuilt the branch in a throwaway `git worktree` off `origin/main`, cherry-picked the one commit, `--force-with-lease`, and restored the original checkout to the branch and dirty file it was found on. **Check `git branch --show-current` before `git checkout -b` in a repo this session did not start in** — `git log -1` alone does not tell you which branch you are on, and a clean mergeable PR is no evidence of a clean range |
