@@ -115,8 +115,11 @@ gpkg_layer_keys <- function(src) {
   # differing number of rows: 0, 1" — R recycles a length-1 column against a length-0 one
   # rather than yielding a 0-row frame (code-check-r.md) — and that message names neither the
   # file nor the condition. The message says st_layers() and not gpkg_contents, because that
-  # is where this list came from and the two differ: GDAL lists tables gpkg_contents does not
-  # register (`layer_styles` is one, verified on a styled file). This arm has NOT been fired —
+  # is where this list came from and the two CAN differ: GDAL's `LIST_ALL_TABLES=AUTO` lists
+  # a table gpkg_contents does not register, but only while the file declares no aspatial
+  # content — which is #95, and is why `layer_styles` is registered since then. This
+  # function only ever reads the PRODUCER's files (01_stage.R), which carry no style table
+  # either way. This arm has NOT been fired —
   # dropping the last table makes GDAL refuse to open the file at all — so it is a cheap
   # precondition that refuses rather than passes, not a tested guard.
   if (!length(layers)) {
@@ -125,9 +128,11 @@ gpkg_layer_keys <- function(src) {
   # `data_type` from gpkg_contents, not from the geometry type sf reports. Two reasons, both
   # measured. A `transition_*` layer is declared `Unknown (any)` and reports an EMPTY
   # geomtype, not NA, so a geometry test calls it aspatial or not depending on which of the
-  # two emptinesses it checks; and `layer_styles` (04_gpkg_style.py) gets no gpkg_contents
-  # row at all, so selecting on data_type excludes it without naming it. GDAL serves the
-  # table through st_read(query=) — checked.
+  # two emptinesses it checks; and this function reads producer files, whose layers all
+  # carry a gpkg_contents row, so a layer with none is a shape nothing here produces. GDAL
+  # serves the table through st_read(query=) — checked. Since #95 a STAGED file's
+  # `layer_styles` IS registered, as `attributes`, which is why the staged-side readers
+  # (test_pipeline.R, gpkg_determinism-check.R) exclude it by name and this one need not.
   dt <- sf::st_read(src, quiet = TRUE,
                     query = "SELECT table_name, data_type FROM gpkg_contents")
   out <- data.frame(layer = layers, wsg = NA_character_, species = NA_character_,

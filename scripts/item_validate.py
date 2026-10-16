@@ -1006,6 +1006,25 @@ EXPECTED_RAT_ROWS = {"classified": 10, "transition": 100}
 STYLED_GPKGS = ("floodplain.gpkg", "floodplain_landcover.gpkg", "transition_vector.gpkg")
 STYLE_DIR = Path("styles")
 
+# The `gpkg_contents` registration that makes an embedded style REACHABLE (#95), and the
+# pin its timestamp carries. The pin is read from `fp_gpkg.R` — the one place this repo
+# decides what a pinned GeoPackage timestamp is — for the same reason `sync_excludes()`
+# reads the release script: a guard restating the value it checks is a round trip through
+# our own assignment.
+FP_GPKG_R = Path(__file__).resolve().parent / "fp_gpkg.R"
+STYLE_TABLE = "layer_styles"
+EXPECT_STYLE_REGISTRATION = (STYLE_TABLE, "attributes", STYLE_TABLE, "", 0)
+
+
+def gpkg_epoch(fp_gpkg_r: Path = FP_GPKG_R) -> str:
+    m = re.search(r'^GPKG_EPOCH\s*<-\s*"([^"]+)"',
+                  fp_gpkg_r.read_text(encoding="utf-8"), re.M)
+    if not m:
+        raise SystemExit(
+            f"could not read GPKG_EPOCH from {fp_gpkg_r} — the timestamp pin moved or was "
+            f"renamed, and this check cannot assert a value it cannot find")
+    return m.group(1)
+
 # The style assets every item must publish. Absolute for the same reason as the RAT
 # rows: `check_checksums` compares each item's asset keys against the LARGEST set it
 # saw, so three keys lost from every item is uniform and invisible there (#23).
@@ -1569,6 +1588,9 @@ def check_layer_styles(base: Path) -> list[str]:
     """
     problems: list[str] = []
     checked_files = 0
+    # Read once per run rather than per file: the pin is a property of the repo, not of
+    # the tree under test.
+    style_epoch = gpkg_epoch()
     # Which renderer each style must be. An implicit "not categorized, therefore fine"
     # is a guard failing toward pass: `nullSymbol` is a legitimate QGIS renderer that
     # draws absolutely nothing, and it would sail through a check keyed on categories.
@@ -1646,8 +1668,56 @@ def check_layer_styles(base: Path) -> list[str]:
                         f"{item_id}/{gname} has no layer_styles table — it will open "
                         f"unstyled in QGIS (04_gpkg_style.py did not run)")
                     continue
+
+                # Is the style table REACHABLE, not merely present (#95). GDAL's
+                # `LIST_ALL_TABLES=AUTO` surfaces a table `gpkg_contents` does not register
+                # only while the file declares no aspatial content, and QGIS's style lookup
+                # goes through GDAL's layer list — so every `floodplain_landcover.gpkg`,
+                # which carries the producer's `patch_watercourse_*` and `composition_*`,
+                # published a style that was present, correct, complete and invisible on all
+                # 23 items. Every other arm in this function passed on those files, because
+                # every one of them reads the rows directly through sqlite3.
+                #
+                # Asserted at the SQL level rather than by asking GDAL: `osgeo` is not
+                # available under uv and this is the one script `catalogue_release.sh` gates
+                # on, so shelling out to `ogrinfo` would put an undeclared CLI dependency in
+                # the release path. `test_pipeline.R` asks the GDAL question through
+                # `sf::st_layers()`, which reproduces the heuristic exactly.
+                reg = con.execute(
+                    "SELECT table_name, data_type, identifier, description, srs_id, "
+                    "last_change FROM gpkg_contents WHERE table_name = ?",
+                    (STYLE_TABLE,)).fetchall()
+                if len(reg) != 1:
+                    problems.append(
+                        f"{item_id}/{gname} has {len(reg)} gpkg_contents row(s) for "
+                        f"{STYLE_TABLE}, expected 1. GDAL lists an unregistered table only "
+                        f"while the file declares no aspatial content, so the embedded "
+                        f"style goes unreachable the moment one appears — and every "
+                        f"row-level check here still passes, which is how all 23 landcover "
+                        f"bundles shipped an invisible style (#95)")
+                elif reg[0][:5] != EXPECT_STYLE_REGISTRATION:
+                    problems.append(
+                        f"{item_id}/{gname} registers {STYLE_TABLE} as {reg[0][:5]!r}, "
+                        f"expected {EXPECT_STYLE_REGISTRATION!r}")
+                elif reg[0][5] != style_epoch:
+                    # The reason the registration was left out until #95: it is a second
+                    # wall-clock stamp beside `layer_styles.update_time`, and unpinned it
+                    # churns every published file:checksum on every rebuild.
+                    problems.append(
+                        f"{item_id}/{gname} registers {STYLE_TABLE} with last_change "
+                        f"{reg[0][5]!r}, expected the pin {style_epoch!r} — unpinned, this "
+                        f"one row republishes a new checksum for unchanged content on every "
+                        f"rebuild")
+                # `layer_styles` excluded by name as well, the fifth and last copy of a
+                # shape code-check rounds 1 and 2 each found once. Here it only ever made
+                # the MESSAGE wrong rather than letting anything through — the registration
+                # arm above refuses a non-`attributes` row first — but a file registered as
+                # `features` otherwise lands in this list and is reported as "a layer with
+                # no style row", which is the wrong problem in the wrong words. Four of
+                # five readers excluding it is how the second instance arrived.
                 layers = [r[0] for r in con.execute(
-                    "SELECT table_name FROM gpkg_contents WHERE data_type='features'")]
+                    "SELECT table_name FROM gpkg_contents WHERE data_type='features' "
+                    "AND table_name <> ?", (STYLE_TABLE,))]
                 geom_of = dict(con.execute(
                     "SELECT table_name, column_name FROM gpkg_geometry_columns"))
                 rows = con.execute(
@@ -2173,7 +2243,8 @@ def main() -> int:
         return 1
     print(f"layer styles: every feature layer in {len(STYLED_GPKGS)} GeoPackages carries "
           f"the expected renderer, paints something, has a category for every value it "
-          f"holds, and agrees with classification:classes; "
+          f"holds, and agrees with classification:classes; {STYLE_TABLE} is registered in "
+          f"gpkg_contents so GDAL lists it and the style is reachable; "
           f"{len(EXPECTED_STYLE_ASSETS)} style assets published per item")
 
     # --- COG layout: is the range-request property the format promises actually there? ---

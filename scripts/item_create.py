@@ -420,8 +420,12 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain land cover + transition (GeoPackage)",
         description=(
-            f"Land-cover and transition layers for {meta['item_id']} alone — every layer "
-            f"carries wsg/species/scenario, so items merged into one file stay separable."),
+            # "every DATA layer", not "every layer": GDAL lists the `layer_styles` table
+            # beside the real ones, and since #95 it does so in all three bundles. The
+            # unqualified claim was already visibly false to anyone running `ogrinfo`.
+            f"Land-cover and transition layers for {meta['item_id']} alone — every data "
+            f"layer carries wsg/species/scenario, so items merged into one file stay "
+            f"separable."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain_landcover.gpkg"),
     )
@@ -430,10 +434,20 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
         description=(
+            # "each DATA layer", and "the feature layers" rather than "the layer list":
+            # this description tells the consumer to enumerate, and that enumeration is five
+            # entries, the fifth being `layer_styles`, which has no `scenario` column. NOT
+            # "since #95" — this bundle declares no aspatial content, so GDAL's
+            # LIST_ALL_TABLES=AUTO listed the UNREGISTERED style table too, and the count was
+            # five before the registration as well (measured on a de-registered copy). #95
+            # is why the claim is worth fixing now, not what made it false. The sibling asset
+            # above carried the identical claim and was corrected; this one is the copy that
+            # instructs the enumeration, so it is the one where the loose form misleads.
             f"The ff02/ff04/ff06 delineations for {meta['item_id']}'s species alone, plus "
             f"the producer's per-blue-line-key breakdown of the headline scenario where one "
-            f"exists. Each layer records its own flood factor in `scenario`, so several "
-            f"values appear under one item; read the layer list rather than assuming three."),
+            f"exists. Each data layer records its own flood factor in `scenario`, so several "
+            f"values appear under one item; read the feature layers rather than assuming "
+            f"three."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )

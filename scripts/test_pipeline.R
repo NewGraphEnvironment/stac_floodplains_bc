@@ -351,7 +351,7 @@ for (mp in meta_paths) {
     }
   }
 
-  # Attribute contract (floodplains#30): every layer of BOTH published GeoPackages carries the
+  # Attribute contract (floodplains#30): every DATA layer of BOTH published GeoPackages carries the
   # area identifier, so downstream consumers can merge many items into one gpkg and separate
   # them by attribute. Upstream backfills both files (gpkg_backfill-wsg.R), so both are guarded
   # — checking only one would let a regression in the other pass green. Passes today.
@@ -360,7 +360,7 @@ for (mp in meta_paths) {
   # copied whole, so a multi-target group shipped the other species' layers and a
   # whole-network group shipped its retired species' layers — `wsg` was the one key that
   # was item-invariant under that copy, and the stronger assertion was not available. It is
-  # now: staging selects by the layer's own key, so every layer of every published
+  # now: staging selects by the layer's own key, so every data layer of every published
   # GeoPackage belongs to the item that ships it.
   #
   # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
@@ -371,13 +371,31 @@ for (mp in meta_paths) {
   # `wsg` column from it — restored the bug to confirm that. The filter is
   # `gpkg_contents.data_type`, NOT the geometry type it used to be, because the geometry
   # test excluded exactly the layers staging now SELECTS: `patch_watercourse_*` and
-  # `composition_*` are `attributes` rows, the item's own, and they would go unchecked. Two
-  # measurements make data_type the right discriminator: 04_gpkg_style.py deliberately
-  # writes `layer_styles` with NO `gpkg_contents` row (registering it would add a second
-  # churning timestamp), so selecting on data_type excludes it structurally rather than by
-  # name — verified on a styled file here; and a `transition_*` layer is declared
-  # `Unknown (any)` and reports an EMPTY geomtype rather than NA, so a geometry test gives a
-  # different answer depending on which emptiness it checks.
+  # `composition_*` are `attributes` rows, the item's own, and they would go unchecked. And
+  # a `transition_*` layer is declared `Unknown (any)` and reports an EMPTY geomtype rather
+  # than NA, so a geometry test gives a different answer depending on which emptiness it
+  # checks.
+  #
+  # `layer_styles` is then excluded BY NAME, where until #95 the data_type filter excluded
+  # it structurally — because the writer left it unregistered, and the comment here said so.
+  # That is what shipped #95: GDAL's `LIST_ALL_TABLES=AUTO` hides an unregistered table
+  # once the file declares any aspatial content, so every `floodplain_landcover.gpkg`
+  # published a style QGIS could not reach. The writer registers it now, which puts it
+  # inside the filter.
+  #
+  # A name-based exclusion is what the shared spatial code-check convention warns against —
+  # it passes the day a second non-spatial table appears — so it is paired with the POSITIVE
+  # arm below, which asserts GDAL still lists `layer_styles`. Excluding by name alone would
+  # hide the disappearance this whole issue is about. The name is not a guess: it is QGIS's,
+  # fixed, and already a literal in three scripts here.
+  #
+  # What that arm can and cannot see, measured rather than assumed: de-registering
+  # `layer_styles` leaves it LISTED in `floodplain.gpkg` and `transition_vector.gpkg`, because
+  # neither declares aspatial content — that IS the AUTO heuristic. So the arm discriminates
+  # on `floodplain_landcover.gpkg` alone. The other two are covered absolutely by
+  # item_validate.py's registration arm, which runs over all three; this one is the
+  # GDAL-level predicate, on the only bundle where GDAL's answer currently depends on it.
+
   # The ff-set rule, in ONE place, used by the per-layer arm and the set arm alike.
   want_scen_for <- function(gp) {
     if (gp == "floodplain.gpkg") {
@@ -391,8 +409,30 @@ for (mp in meta_paths) {
     sf::st_read(gpkg, quiet = TRUE,
                 query = paste("SELECT table_name FROM gpkg_contents",
                               "WHERE data_type IN ('features','attributes')",
+                              "AND table_name <> 'layer_styles'",
                               "ORDER BY table_name"))$table_name
   }
+
+  # The positive half of that exclusion, and the arm that would have caught #95 inside the
+  # pipeline's own environment. The predicate is GDAL's: `LIST_ALL_TABLES=AUTO` surfaces an
+  # unregistered table only while the file declares no aspatial content, so a style table
+  # can be present, correct and complete and still never reach a consumer. `st_layers()`
+  # reproduces the heuristic exactly — measured 2026-10-16 on sf's GDAL 3.8.5, QGIS 4.2.1's
+  # 3.12.4 and homebrew's 3.13.0, all three hiding it in floodplain_landcover.gpkg and
+  # listing it in the other two bundles — so this needs no QGIS and no new dependency.
+  #
+  # Necessary, not sufficient: the NULL `f_table_schema` trap 04_gpkg_style.py documents is
+  # the standing proof that a LISTED, well-formed style row still opens unstyled. What QGIS
+  # actually draws is scripts/style_reach-check.py, by hand.
+  for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg")) {
+    gpkg <- file.path(item_dir, gp)
+    if (!"layer_styles" %in% sf::st_layers(gpkg)$name) {
+      stop("GDAL does not list `layer_styles` in ", gp, " for ", meta$item_id,
+           " — the embedded style is unreachable, and every row-level check still passes ",
+           "because the rows are there. Register it in gpkg_contents (04_gpkg_style.py, #95)")
+    }
+  }
+
   for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg")) {
     gpkg <- file.path(item_dir, gp)
     lyrs <- keyed_layers(gpkg)
