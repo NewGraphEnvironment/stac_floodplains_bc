@@ -79,11 +79,14 @@ PROVENANCE_FLOOR=23
 # item id changes — and the arms below refuse unless the group survives in the build.
 # `--allow-retract` is for a REMOVAL, a group leaving the catalogue with nothing taking its
 # place, and it grants no delete.
-# v2.0.0 (#89): the whole-network cutover. Every live id is replaced by its group's
-# <wsg>_all_ff04. 23 ids over 22 groups — MORR is the two-for-one case this mechanism
-# was built for. CLEAR THIS BACK TO "" in the commit after the release; a non-empty
-# literal on main is itself a failure, which catalogue_release-check.sh asserts.
-RETIRED_ITEMS="bowr_ch_ff04 bulk_co_ff04 fran_ch_ff04 kisp_ch_ff04 kotl_bt_ff04 larl_bt_ff04 lchl_ch_ff04 lnth_ch_ff04 lsal_ch_ff04 mcgr_ch_ff04 mork_ch_ff04 morr_ch_ff06 morr_co_ff04 necr_ch_ff04 pars_bt_ff04 pcea_bt_ff04 pine_bt_ff04 sloc_bt_ff04 tabr_ch_ff04 thom_ch_ff04 ufra_ch_ff04 unth_ch_ff04 will_ch_ff04"
+# Last used at v2.0.0 (#89), the whole-network cutover: 23 ids over 22 groups, each
+# replaced by its group's <wsg>_all_ff04, MORR being the two-for-one case this mechanism
+# was built for. NEWS.md under v2.0.0 names them; cleared here in the commit after that
+# release. Clearing is NOT optional once item_retract_s3.sh has run: the already-retired
+# arm below tells a just-retired id from a typo by the BUCKET copy, and the S3 retract
+# deletes exactly that witness — so a literal left set would refuse the NEXT release with
+# "names an item that was never published", at the price of a new commit, NEWS entry and tag.
+RETIRED_ITEMS=""
 
 # The licence the collection must be SERVING when the release finishes (#47). A third
 # copy of item_create.py's COLLECTION_LICENSE and item_validate.py's EXPECTED_LICENSE, and

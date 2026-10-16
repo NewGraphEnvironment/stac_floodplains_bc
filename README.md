@@ -9,7 +9,7 @@ stac-floodplains-bc
 
 **`stac-floodplains-bc`** is a catalogue of how land cover changed on British Columbia’s
 floodplains between 2017 and 2023 — where trees were lost, where they came back, and over what
-extent — for 22 watershed groups in
+extent — for 23 watershed groups in
 4 regions. It is published as a
 [SpatioTemporal Asset Catalog](https://stacspec.org/) (STAC) — a standard for describing geospatial data so a client can search it by place, time and attribute without downloading anything first. It is for restoration planners, stewardship offices and researchers who want the underlying rasters rather than a summary of them. The endpoint is <https://images.a11s.one>, readable from the [`rstac`](https://brazil-data-cube.github.io/rstac/) R package, QGIS 3.42+, or any other STAC client.
 
@@ -30,7 +30,7 @@ Each watershed group is coloured by region; the dark threads inside them are the
 
 ## What is in the catalogue
 
-One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<species>_ff0N`. Most groups publish one; MORR publishes two. Seven assets each, plus one per classified year — every one downloadable from its group’s popup on the [interactive map](https://www.newgraphenvironment.com/stac_floodplains_bc/):
+One **item** per watershed group, id `<wsg>_all_ff04` — the floodplain of the group’s whole stream network, at order \>= 2 with no access filter. (`all` is the producer’s token for that network, not a species. The id’s middle slot is a scenario’s species, so a group that modelled a single species again would publish `<wsg>_<species>_ff0N`.) Seven assets each, plus one per classified year — every one downloadable from its group’s popup on the [interactive map](https://www.newgraphenvironment.com/stac_floodplains_bc/):
 
 | asset | what it is |
 |----|----|
@@ -45,42 +45,42 @@ One **item** per `(watershed group, species, scenario)` target, id `<wsg>_<speci
 
 Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and pin which build a figure came from. (A checksum answers *are my bytes current*, not *did the values change* — a re-encode moves every checksum.) Every GeoPackage layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute.
 
-**The collection mixes flood factors.** `ff04` is the functional floodplain and `ff06` the wider valley bottom, so filter on `flood_factor` before comparing or summing groups — an unfiltered aggregate adds different extents together.
+**Each item’s GeoPackages hold only that item’s layers.** Merging *N* items therefore gives you *N* copies of the same layer families and nothing retired — no second floodplain model from a target the group no longer publishes. `floodplain.gpkg` is the one place several `scenario` values appear under one item, because the ff02, ff04 and ff06 delineations each record their own flood factor.
+
+**Every item is `ff04`**, the functional floodplain. `floodplain.gpkg` also carries the `ff02` and `ff06` (wider valley bottom) delineations, so compare those inside an item rather than across the catalogue. If a group ever publishes a second flood factor, filter on the `flood_factor` property before comparing or summing groups — an unfiltered aggregate would add different extents together.
 
 ## Coverage
 
-*Generated from the live API on 2026-09-05: 23 items across 22 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 1.1.0.*
+*Generated from the live API on 2026-10-15: 23 items across 23 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 2.0.0.*
 
 | WSG | Region | Species | Flood factor | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |:---|:---|:---|:---|---:|---:|---:|---:|
-| KOTL | Columbia | bull trout | ff04 | 676 | 536 | 338 | -198 |
-| LARL | Columbia | bull trout | ff04 | 286 | 122 | 56 | -66 |
-| SLOC | Columbia | bull trout | ff04 | 117 | 74 | 52 | -23 |
-| BOWR | Fraser | chinook | ff04 | 236 | 292 | 203 | -89 |
-| FRAN | Fraser | chinook | ff04 | 782 | 5,264 | 590 | -4,674 |
-| LCHL | Fraser | chinook | ff04 | 233 | 912 | 1,073 | +161 |
-| LNTH | Fraser | chinook | ff04 | 152 | 272 | 65 | -207 |
-| LSAL | Fraser | chinook | ff04 | 186 | 560 | 650 | +90 |
-| MCGR | Fraser | chinook | ff04 | 290 | 510 | 817 | +307 |
-| MORK | Fraser | chinook | ff04 | 417 | 623 | 772 | +149 |
-| NECR | Fraser | chinook | ff04 | 397 | 1,943 | 915 | -1,028 |
-| TABR | Fraser | chinook | ff04 | 155 | 347 | 150 | -197 |
-| THOM | Fraser | chinook | ff04 | 87 | 56 | 3 | -53 |
-| UFRA | Fraser | chinook | ff04 | 147 | 414 | 529 | +115 |
-| UNTH | Fraser | chinook | ff04 | 101 | 260 | 179 | -81 |
-| WILL | Fraser | chinook | ff04 | 236 | 486 | 352 | -133 |
-| PARS | Peace | bull trout | ff04 | 410 | 1,076 | 2,696 | +1,620 |
-| PCEA | Peace | bull trout | ff04 | 1,052 | 84 | 137 | +53 |
-| PINE | Peace | bull trout | ff04 | 380 | 763 | 1,497 | +734 |
-| BULK | Skeena | coho | ff04 | 387 | 1,565 | 827 | -738 |
-| KISP | Skeena | chinook | ff04 | 190 | 199 | 693 | +494 |
-| MORR | Skeena | coho | ff04 | 358 | 309 | 576 | +268 |
-| MORR | Skeena | chinook | ff06 | 372 | 343 | 606 | +264 |
-| **Total** |  |  |  | **7,273** | **17,008** | **13,775** | **-3,233** |
+| DUNC | Columbia | whole network | ff04 | 185 | 117 | 214 | +97 |
+| KOTL | Columbia | whole network | ff04 | 754 | 643 | 444 | -199 |
+| LARL | Columbia | whole network | ff04 | 376 | 379 | 198 | -182 |
+| SLOC | Columbia | whole network | ff04 | 154 | 120 | 84 | -36 |
+| BOWR | Fraser | whole network | ff04 | 390 | 586 | 466 | -120 |
+| FRAN | Fraser | whole network | ff04 | 1,096 | 10,140 | 1,056 | -9,084 |
+| LCHL | Fraser | whole network | ff04 | 427 | 1,526 | 2,172 | +646 |
+| LNTH | Fraser | whole network | ff04 | 389 | 746 | 489 | -257 |
+| LSAL | Fraser | whole network | ff04 | 291 | 1,004 | 1,016 | +13 |
+| MCGR | Fraser | whole network | ff04 | 355 | 777 | 1,046 | +269 |
+| MORK | Fraser | whole network | ff04 | 667 | 1,063 | 1,408 | +345 |
+| NECR | Fraser | whole network | ff04 | 760 | 4,464 | 2,199 | -2,264 |
+| TABR | Fraser | whole network | ff04 | 267 | 635 | 426 | -208 |
+| THOM | Fraser | whole network | ff04 | 257 | 1,169 | 178 | -991 |
+| UFRA | Fraser | whole network | ff04 | 302 | 827 | 907 | +80 |
+| UNTH | Fraser | whole network | ff04 | 235 | 673 | 356 | -316 |
+| WILL | Fraser | whole network | ff04 | 351 | 679 | 694 | +14 |
+| PARS | Peace | whole network | ff04 | 559 | 1,753 | 3,348 | +1,595 |
+| PCEA | Peace | whole network | ff04 | 843 | 228 | 225 | -2 |
+| PINE | Peace | whole network | ff04 | 489 | 1,033 | 1,627 | +594 |
+| BULK | Skeena | whole network | ff04 | 660 | 2,793 | 1,319 | -1,475 |
+| KISP | Skeena | whole network | ff04 | 324 | 350 | 1,012 | +662 |
+| MORR | Skeena | whole network | ff04 | 479 | 660 | 780 | +121 |
+| **Total** |  |  |  | **10,611** | **32,366** | **21,667** | **-10,699** |
 
-Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item’s **own** extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **7,273 km²** of floodplain, **17,008 ha** lost, **13,775 ha** gained, **-3,233 ha** net. That km² total counts each group’s `ff04` extent once — MORR’s two items share one physical floodplain — while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
-
-**2 items published `deprecated: true`** (`mcgr_ch_ff04`, `pine_bt_ff04`). They were modelled before a bankfull-units fix in `flooded` and over-map the floodplain, so their figures read high — republished rather than withdrawn, because a withdrawn item is invisible while a deprecated one is a warning a client can act on.
+Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item’s **own** extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **10,611 km²** of floodplain, **32,366 ha** lost, **21,667 ha** gained, **-10,699 ha** net. That km² total counts each group’s `ff04` extent once, so it stays correct if a group ever publishes two items over one physical floodplain, while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
 
 ## Query it
 
@@ -99,7 +99,7 @@ A raster asset streams — no download needed. Paste the `/vsicurl/` path into Q
 
 ``` bash
 GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR \
-  gdalinfo /vsicurl/https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_bt_ff04/classified_2023.tif
+  gdalinfo /vsicurl/https://stac-floodplains-bc.s3.us-west-2.amazonaws.com/kotl_all_ff04/classified_2023.tif
 ```
 
 ### From QGIS, filtered to your area of interest
