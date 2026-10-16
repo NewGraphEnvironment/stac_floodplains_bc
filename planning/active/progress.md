@@ -24,7 +24,7 @@
   - `01_stage.R:85-86` wipes `data/stac` unconditionally — witness captured first.
   Not taken: the review's suggestion to drop the committed QGIS check in favour of the
   GDAL-level arm alone. Both ship: GDAL listing the table is necessary but not sufficient
-  for QGIS to apply the style (rfp#17 is the proof).
+  for QGIS to apply the style (the NULL `f_table_schema` trap is the proof).
 - Revised task_plan.md and findings.md pre-baseline, which is where that is free.
 - Next: Phase 1.
 
@@ -110,14 +110,14 @@ release slips.
 
 ### Phase 6 — cross-repo
 
-- **soul#432** filed and fixed on branch `432-layer-styles-registration-is-required`
+- **An issue filed in the conventions repo**, and fixed on branch `432-layer-styles-registration-is-required`
   (commit `c9dcf4f`, not merged). Both adjacent paragraphs of
   `conventions/code-check-spatial.md` were wrong, not one: the bullet claiming GDAL lists
   non-spatial tables "with or without a `gpkg_contents` row", and the paragraph telling every
   repo the registration is unnecessary. The second is the sentence that shipped #95. The
   generated index in each repo's CLAUDE.md gains a row on the next `/claude-md-propagate`,
   which is deliberately not run from here.
-- **rfp#407** filed as a defect report, not a feature request. `.rfp_layer_styles_ddl()` writes
+- **An issue filed in the field-data package** as a defect report, not a feature request. `.rfp_layer_styles_ddl()` writes
   `layer_styles` unregistered and `.tracking_append()` registers `rfp_tracking` as
   `attributes`; under the **monolith** layout `rfp_layout_layer_path()` returns `spec$gpkg`, so
   both land in one file beside styled feature layers. Not reproduced there — the shipped form

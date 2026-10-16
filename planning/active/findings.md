@@ -166,7 +166,7 @@ Three layers, none of them redundant:
 | `style_reach-check.py`, PyQGIS | what does QGIS actually **draw** | by hand |
 
 GDAL listing the table is necessary but **not sufficient** for QGIS to apply the style —
-rfp#17's NULL `f_table_schema` is the standing proof that a listed, well-formed row can
+the NULL `f_table_schema` trap is the standing proof that a listed, well-formed row can
 still open unstyled. And the release gate stays at the SQL level: `osgeo` is unavailable
 under `uv`, and shelling out to `ogrinfo` would put an undeclared CLI dependency in the
 one script `catalogue_release.sh` gates on.
@@ -269,3 +269,16 @@ itself": *what QGIS does with a layer opened plain, with no `.qml` handed to it 
 how a style that loads cleanly and renders nothing gets caught.* The recipe was there; it had
 not been run over `floodplain_landcover.gpkg`.
 
+
+## This repo is public, so the cross-repo pointers cannot be written down
+
+`.claude/visibility` is `public`, and `feature-workflow.md` forbids naming a private sibling
+repo in tracked text — "not even as provenance", because the link 404s for everyone outside the
+organisation and names internal work while doing it. The two issues this work filed live in
+private repos, and so does the one that recorded the NULL `f_table_schema` trap, so all of them
+are described in words here instead. `planning/` is committed, so the rule reaches it too.
+
+The repo already carries pre-existing citations of that kind in `04_gpkg_style.py` and
+`item_validate.py`; #86 is open for exactly that and is where they get removed. This branch
+adds none — verified with
+`git diff origin/main -- . | grep -E '^\+.*(private-repo-name)#[0-9]+'`.

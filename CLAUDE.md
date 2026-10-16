@@ -62,8 +62,9 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   stamp was the objection that kept the registration out at #46. Three guards now ask three
   different questions, and the third is not redundant: `item_validate.py` that the row is
   there and pinned, `test_pipeline.R` that `sf::st_layers()` still LISTS it, and the hand-run
-  `style_reach-check.py` what QGIS actually draws — because rfp#17's NULL `f_table_schema` is
-  the standing proof that a listed, well-formed row still opens unstyled. The staged-side
+  `style_reach-check.py` what QGIS actually draws — because the NULL `f_table_schema` trap
+  `04_gpkg_style.py` documents is the standing proof that a listed, well-formed row still
+  opens unstyled. The staged-side
   readers (`test_pipeline.R`, `gpkg_determinism-check.R`) exclude `layer_styles` BY NAME now,
   which the `data_type` filter used to do structurally; the name-based exclusion is only safe
   paired with that positive listing arm.

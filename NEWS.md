@@ -77,8 +77,10 @@ are deliberately different, none of them redundant:
 | does GDAL still **list** the table | `test_pipeline.R`, `sf::st_layers()` | the smoke test |
 | what does QGIS actually **draw** | `scripts/style_reach-check.py` (new) | by hand |
 
-The third is not covered by the second: rfp#17's NULL `f_table_schema` is the standing proof
-that a listed, well-formed style row still opens unstyled. `style_reach-check.py` opens every
+The third is not covered by the second: the NULL `f_table_schema` trap — a row written
+successfully, logging nothing, and still opening unstyled because QGIS matches that column with
+`= ''` and NULL never equals — is the standing proof that a listed, well-formed style row can
+still fail at the consumer. `style_reach-check.py` opens every
 styled layer plain through PyQGIS and reads the renderer back, and its cold arm de-registers
 the table on a temp copy and requires the style to become unreachable. It runs under the QGIS
 bundle's own interpreter, so it is not part of `run_pipeline.sh`. The recipe for it had been in

@@ -114,7 +114,7 @@ commit as Phase 1.
 ## Phase 4: `scripts/style_reach-check.py` — ask QGIS what it actually draws
 
 Not redundant with Phase 3: GDAL listing the table is **necessary but not sufficient** for
-QGIS to apply the style — rfp#17's NULL `f_table_schema` is the standing proof that a
+QGIS to apply the style — the NULL `f_table_schema` trap is the standing proof that a
 listed, well-formed row can still open unstyled. This is the end-consumer witness, and the
 question #95 proves was never asked of this bundle. Runs under the QGIS bundle's own
 python, so — like `fp_provenance-check.R`, `stage_years-check.R`, `year_sets-check.py` and

@@ -541,8 +541,9 @@ $Q/ogrinfo -so <copy>/floodplain_landcover.gpkg layer_styles          # count + 
 
 That last line is the measurement that justifies writing **less** than GDAL does.
 
-Listing is necessary and **not sufficient**, which is why the QGIS arm stays: rfp#17's NULL
-`f_table_schema` is the standing proof that a listed, well-formed style row still opens unstyled.
+Listing is necessary and **not sufficient**, which is why the QGIS arm stays: the NULL
+`f_table_schema` trap in the same step's notes is the standing proof that a listed, well-formed
+style row still opens unstyled.
 `style_reach-check.py` opens every styled layer of all three bundles plain and reads the renderer
 back, and its cold arm de-registers the table on a temp copy and requires the style to become
 unreachable — a guard nobody has seen fail is decoration. The cold arm is **landcover-only** on

@@ -12,9 +12,9 @@ WHY IT IS NOT REDUNDANT WITH `test_pipeline.R`
 `test_pipeline.R` asserts that GDAL LISTS `layer_styles` (`sf::st_layers()`), which is the
 predicate #95 turns on: the GPKG driver's `LIST_ALL_TABLES=AUTO` default surfaces an
 unregistered table only while the file declares no aspatial content. That arm is necessary
-and **not sufficient** — rfp#17 is the standing proof that a listed, well-formed style row
-whose `f_table_schema` is NULL still opens unstyled, because QGIS matches that column with
-`= ''` and NULL never equals anything. Only the real consumer answers "what is on screen".
+and **not sufficient** — the NULL `f_table_schema` trap that `04_gpkg_style.py`'s first
+bullet documents is the standing proof that a listed, well-formed style row still opens
+unstyled, because QGIS matches that column with `= ''` and NULL never equals anything. Only the real consumer answers "what is on screen".
 
 So the three layers are, deliberately, three different questions:
 

@@ -414,9 +414,9 @@ for (mp in meta_paths) {
   # 3.12.4 and homebrew's 3.13.0, all three hiding it in floodplain_landcover.gpkg and
   # listing it in the other two bundles — so this needs no QGIS and no new dependency.
   #
-  # Necessary, not sufficient: rfp#17's NULL `f_table_schema` is the standing proof that a
-  # LISTED, well-formed style row still opens unstyled. What QGIS actually draws is
-  # scripts/style_reach-check.py, by hand.
+  # Necessary, not sufficient: the NULL `f_table_schema` trap 04_gpkg_style.py documents is
+  # the standing proof that a LISTED, well-formed style row still opens unstyled. What QGIS
+  # actually draws is scripts/style_reach-check.py, by hand.
   for (gp in c("floodplain_landcover.gpkg", "floodplain.gpkg", "transition_vector.gpkg")) {
     gpkg <- file.path(item_dir, gp)
     if (!"layer_styles" %in% sf::st_layers(gpkg)$name) {
