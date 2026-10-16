@@ -490,9 +490,10 @@ content. The writer compares the rows first and skips.
 
 Nor is the fifth, and no other arm reaches it: **repairing** a registration that is present and
 wrong — the shape QGIS's own writer leaves whenever someone saves a style into the file, and the
-shape a change to `GPKG_EPOCH` would produce. `gpkg_contents.table_name` is the PRIMARY KEY, so
-a writer that INSERTed unconditionally raises `UNIQUE constraint failed` there and on no other
-path. The obvious setup for that arm does **not** work, which is why it is written the way it is:
+shape a change to `GPKG_EPOCH` would produce. `gpkg_contents` constrains both `table_name` (PRIMARY KEY) and
+`identifier` (UNIQUE), so a writer that INSERTed unconditionally raises there and on no other
+path — `UNIQUE constraint failed: gpkg_contents.identifier`, measured, since SQLite checks the
+autoindexes in that order. The obvious setup for that arm does **not** work, which is why it is written the way it is:
 dropping the style table while keeping its registration leaves the registration comparing equal,
 the writer skips that branch, and an unconditional INSERT passes — restoring the bug that way
 gave a green run. Only a row that *differs* gets the write attempted.

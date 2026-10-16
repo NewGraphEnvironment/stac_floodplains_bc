@@ -8,7 +8,8 @@
   tree read-only for the `gpkg_contents` / `gpkg_spatial_ref_sys` shape; searched the
   sibling packages for the same writer and found rfp's.
 - Phases approved by user, with three scope decisions: ship the QGIS reachability check
-  in this PR; file a soul issue and correct `code-check-spatial.md`; land code + a
+  in this PR; file an issue in the conventions repo and correct its spatial
+  code-check convention there; land code + a
   `v2.0.1` NEWS entry here and leave the rebuild, tag and release to the operator.
 - Created branch `95-qgis-cannot-find-the-embedded-styles-in` off main (at `4db1fa8`).
 - Scaffolded PWF baseline from issue #95 with the approved phases.
@@ -110,18 +111,17 @@ release slips.
 
 ### Phase 6 — cross-repo
 
-- **An issue filed in the conventions repo**, and fixed on branch `432-layer-styles-registration-is-required`
-  (commit `c9dcf4f`, not merged). Both adjacent paragraphs of
-  `conventions/code-check-spatial.md` were wrong, not one: the bullet claiming GDAL lists
-  non-spatial tables "with or without a `gpkg_contents` row", and the paragraph telling every
-  repo the registration is unnecessary. The second is the sentence that shipped #95. The
-  generated index in each repo's CLAUDE.md gains a row on the next `/claude-md-propagate`,
-  which is deliberately not run from here.
-- **An issue filed in the field-data package** as a defect report, not a feature request. `.rfp_layer_styles_ddl()` writes
-  `layer_styles` unregistered and `.tracking_append()` registers `rfp_tracking` as
-  `attributes`; under the **monolith** layout `rfp_layout_layer_path()` returns `spec$gpkg`, so
-  both land in one file beside styled feature layers. Not reproduced there — the shipped form
-  templates carry registered aspatial tables (`form_cabin_visit_pebble`, `form_edna_sample`)
-  but no style table yet, so the state only exists in a built project, and rfp owns the QGIS
-  oracle that can settle it. The issue also answers the "does the verb belong in rfp" question:
-  probably yes, and this repo's hand-run script is the working recipe if it does.
+- **An issue filed in the conventions repo**, and fixed there on its own branch and PR, not
+  merged. Both adjacent paragraphs of its spatial code-check convention were wrong, not one:
+  the bullet claiming GDAL lists non-spatial tables "with or without a `gpkg_contents` row",
+  and the paragraph telling every repo the registration is unnecessary. The second is the
+  sentence that shipped #95. The generated index in each repo's CLAUDE.md gains a row on the
+  next `/claude-md-propagate`, which is deliberately not run from here.
+- **An issue filed in the field-data package** as a defect report, not a feature request: it
+  writes `layer_styles` unregistered and separately registers a tracking table as
+  `attributes`, and under its single multi-layer layout both land in one file beside styled
+  feature layers. Not reproduced there — its shipped templates carry registered aspatial
+  tables but no style table yet, so the state only exists in a built project, and that package
+  owns the QGIS oracle that can settle it. The issue also answers the "does the verb belong
+  there" question: probably yes, and this repo's hand-run script is the working recipe if it
+  does.

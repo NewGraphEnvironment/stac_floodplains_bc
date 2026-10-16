@@ -172,9 +172,11 @@ def main() -> int:
                 # present and wrong. QGIS's own writer leaves one with a wall-clock
                 # `last_change` whenever a user saves a style into the file, upstream could
                 # ship one, and a change to `GPKG_EPOCH` would produce the same shape.
-                # `gpkg_contents.table_name` is the PRIMARY KEY, so a writer that INSERTed
-                # here instead of UPDATEing raises `IntegrityError` — and this is the only
-                # path that reaches it.
+                # `gpkg_contents` constrains both `table_name` (PRIMARY KEY) and
+                # `identifier` (UNIQUE), so a writer that INSERTed here instead of UPDATEing
+                # raises `IntegrityError` — on `identifier` in practice, measured, since
+                # SQLite checks the autoindexes in that order — and this is the only path
+                # that reaches it.
                 #
                 # Measured, because the obvious setup does NOT work: dropping the style
                 # table while keeping its registration leaves the registration comparing

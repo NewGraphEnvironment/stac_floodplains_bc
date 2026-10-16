@@ -158,11 +158,20 @@ def feature_layers(con: sqlite3.Connection) -> list[tuple[str, str]]:
 
     Ordered so a rebuild inserts the same rows in the same sequence and the file
     stays byte-reproducible.
+
+    `layer_styles` is excluded BY NAME as well as by `data_type`, which is not redundant.
+    Since #95 this writer registers it, and a registration that arrives saying
+    `data_type='features'` — from a hand edit, or any other writer — puts the style table
+    into this list. Measured: `floodplain_landcover.gpkg` then raises "layer 'layer_styles'
+    matches no style rule" and names the wrong problem, while `floodplain.gpkg`, whose rule
+    is a catch-all, silently writes a style row FOR THE STYLE TABLE. The repair branch below
+    would have fixed the `data_type`, but neither file ever reaches it.
     """
     rows = con.execute(
         "SELECT c.table_name, g.column_name FROM gpkg_contents c "
         "LEFT JOIN gpkg_geometry_columns g ON g.table_name = c.table_name "
-        "WHERE c.data_type = 'features' ORDER BY c.table_name").fetchall()
+        "WHERE c.data_type = 'features' AND c.table_name <> ? "
+        "ORDER BY c.table_name", (STYLE_TABLE,)).fetchall()
     return [(r[0], r[1] or "geom") for r in rows]
 
 
@@ -234,7 +243,9 @@ def style_gpkg(path: pathlib.Path, styles: dict[str, str],
             # UPDATE when a row is already there, never INSERT and never REPLACE.
             #
             # A bare INSERT raises `UNIQUE constraint failed: gpkg_contents.identifier`
-            # on any file that arrives carrying its own registration — which QGIS's own
+            # — `table_name` is the PRIMARY KEY and `identifier` is UNIQUE, and SQLite
+            # reports the latter, measured — on any file that arrives carrying its own
+            # registration — which QGIS's own
             # writer leaves behind whenever someone saves a style into the file, and which
             # a change to `GPKG_EPOCH` would produce too. Measured by restoring it.
             #

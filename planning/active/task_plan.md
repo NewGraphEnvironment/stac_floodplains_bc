@@ -106,7 +106,8 @@ commit as Phase 1.
       `"layer_styles" %in% sf::st_layers(gpkg)$name` for each bundle. This is the
       GDAL-level predicate itself (sf's GDAL 3.8.5 reproduces the heuristic exactly,
       measured), it needs no new dependency, and it is what stops a name-based exclusion
-      hiding a disappearance. It also answers soul's "filter on the property, never on the
+      hiding a disappearance. It also answers the shared convention's "filter on the
+      property, never on the
       name" rule, which the exclusion alone would contradict.
 - [x] Rewrite the comment block at `test_pipeline.R` 369–381, whose structural-exclusion
       rationale this fix falsifies, keeping the "a filter that removed everything" guard.
@@ -165,34 +166,38 @@ python, so — like `fp_provenance-check.R`, `stage_years-check.R`, `year_sets-c
 
 ## Phase 6: Cross-repo — the same claim lives outside this repo
 
-- [x] **soul**: `conventions/code-check-spatial.md` needs **both** adjacent paragraphs
-      rewritten, not one. "Neither is needed — QGIS auto-styles without them … writing
-      *less* than QGIS does removes a churn vector" is false; and the bullet above it says
-      "GDAL lists non-spatial tables as layers … with or without a `gpkg_contents` row",
-      which is the premise that shipped this bug. Its "filter on the property, never on the
-      name" advice stays right and now needs the positive-arm companion. Correcting a soul
-      convention needs an issue first (the blast-radius rule): file it with the
-      three-GDAL measurement, then correct both paragraphs in a separate soul commit.
-- [x] **rfp**: file a defect issue, not a feature request. `.rfp_layer_styles_ddl()` writes
-      `layer_styles` with no `gpkg_contents` row and `.tracking_append()` registers
-      `rfp_tracking` as `data_type='attributes'`; under the single multi-layer project
-      layout those land in one file beside styled feature layers — the shape measured here.
-      `.rfp_styles_gpkg_tables()` would also need the same exclusion. rfp is the right
-      long-term home for a reusable reachability verb: it already owns the QGIS oracle
-      (`tests/testthat/helper-qgis.R`, a pinned `qgis/qgis` image) and the style-writing
-      exports. This repo does not depend on rfp and should not grow one for a hand-run
-      check, so Phase 4's script stays local; the issue carries the recipe.
+This repo is public, so neither bullet may name the other repo, its files or its issue
+numbers (`feature-workflow.md`: not even as provenance). Each issue carries the detail.
+
+- [x] **The conventions repo**: its spatial code-check convention needs **both** adjacent
+      paragraphs rewritten, not one. "Neither is needed — QGIS auto-styles without them …
+      writing *less* than QGIS does removes a churn vector" is false; and the bullet above
+      it says "GDAL lists non-spatial tables as layers … with or without a `gpkg_contents`
+      row", which is the premise that shipped this bug. Its "filter on the property, never
+      on the name" advice stays right and now needs the positive-arm companion. Correcting
+      a shared convention needs an issue first (the blast-radius rule): file it with the
+      three-GDAL measurement, then correct both paragraphs on its own branch and PR.
+- [x] **The field-data package**: file a defect issue, not a feature request. It writes
+      `layer_styles` with no `gpkg_contents` row and separately registers a
+      provenance-tracking table as `data_type='attributes'`; under its single multi-layer
+      project layout those land in one file beside styled feature layers — the shape
+      measured here. One of its own `gpkg_contents` readers needs the same by-name
+      exclusion `test_pipeline.R` just grew. It is also the right long-term home for a
+      reusable reachability verb, since it already owns a QGIS oracle (a pinned container
+      with a version constant) and the style-writing exports. This repo has no dependency
+      on it and should not grow one for a hand-run check, so Phase 4's script stays local;
+      the issue carries the recipe.
 
 ## Validation
 
-- [ ] `uv run python scripts/style_determinism-check.py` and `NO_PIN=1 …`
-- [ ] `Rscript scripts/gpkg_determinism-check.R` and `NO_PIN=1 …` — all three arms
-- [ ] `WSG=sloc Rscript scripts/test_pipeline.R`, twice, with
+- [x] `uv run python scripts/style_determinism-check.py` and `NO_PIN=1 …`
+- [x] `Rscript scripts/gpkg_determinism-check.R` and `NO_PIN=1 …` — all three arms
+- [x] `WSG=sloc Rscript scripts/test_pipeline.R`, twice, with
       `shasum -a 256 data/stac/sloc_all_ff04/*.gpkg` diffed between runs: cross-build byte
       equality, which no existing check covers end to end (the determinism check compares
       two copies that each went through the same setup).
-- [ ] `bash scripts/catalogue_release-check.sh`
-- [ ] `/code-check branch` before the PR, three-round floor
+- [x] `bash scripts/catalogue_release-check.sh`
+- [ ] `/code-check branch` before the PR, three-round floor (round 1 done: 6 findings, 6 fixed)
 - [ ] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
 

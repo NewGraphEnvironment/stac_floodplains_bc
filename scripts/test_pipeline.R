@@ -383,11 +383,18 @@ for (mp in meta_paths) {
   # published a style QGIS could not reach. The writer registers it now, which puts it
   # inside the filter.
   #
-  # A name-based exclusion is what soul's code-check-spatial.md warns against — it passes
-  # the day a second non-spatial table appears — so it is paired with the POSITIVE arm
-  # below, which asserts GDAL still lists `layer_styles`. Excluding by name alone would
+  # A name-based exclusion is what the shared spatial code-check convention warns against —
+  # it passes the day a second non-spatial table appears — so it is paired with the POSITIVE
+  # arm below, which asserts GDAL still lists `layer_styles`. Excluding by name alone would
   # hide the disappearance this whole issue is about. The name is not a guess: it is QGIS's,
   # fixed, and already a literal in three scripts here.
+  #
+  # What that arm can and cannot see, measured rather than assumed: de-registering
+  # `layer_styles` leaves it LISTED in `floodplain.gpkg` and `transition_vector.gpkg`, because
+  # neither declares aspatial content — that IS the AUTO heuristic. So the arm discriminates
+  # on `floodplain_landcover.gpkg` alone. The other two are covered absolutely by
+  # item_validate.py's registration arm, which runs over all three; this one is the
+  # GDAL-level predicate, on the only bundle where GDAL's answer currently depends on it.
 
   # The ff-set rule, in ONE place, used by the per-layer arm and the set arm alike.
   want_scen_for <- function(gp) {

@@ -96,25 +96,22 @@ the structural-exclusion rationale this fix falsifies.
 | `scripts/04_gpkg_style.py` | docstring bullet: "registering the table adds a second wall-clock timestamp … the registration buys nothing" |
 | `scripts/README.md` | step-04 row: "measured to auto-style fine without them" |
 | `scripts/test_pipeline.R` | comment: "deliberately writes `layer_styles` with NO `gpkg_contents` row" |
-| soul `conventions/code-check-spatial.md` | "Neither is needed — QGIS auto-styles without them … writing *less* than QGIS does removes a churn vector" — loaded by **every** repo |
+| the shared spatial code-check convention | "Neither is needed — QGIS auto-styles without them … writing *less* than QGIS does removes a churn vector" — loaded by **every** repo |
 
-## rfp carries the same shape
+## A sibling package carries the same shape
 
-Not a feature request — a plausible live defect:
+Not a feature request — a plausible live defect, filed there with the detail. The shape, in
+terms this repo can state without naming another repo's internals: a package that writes
+`layer_styles` with no `gpkg_contents` row, and separately registers a provenance-tracking
+table as `data_type = 'attributes'`, puts both in **one** file under its single multi-layer
+project layout — exactly the shape measured here. Under its per-layer layout the tracking
+table owns its own file and the question does not arise. One of its own readers scans
+`gpkg_contents` unfiltered and excludes `layer_styles` only in a fallback branch, so a
+registration there needs the same by-name exclusion `test_pipeline.R` just grew.
 
-- `rfp/R/rfp_styles_apply.R::.rfp_layer_styles_ddl()` writes `layer_styles` with no
-  `gpkg_contents` row (DDL copied from QGIS's own writer, minus the registration).
-- `rfp/R/rfp_source_bcdata_pass.R::.tracking_append()` registers `rfp_tracking` with
-  `data_type = 'attributes'` in a project GeoPackage.
-- Under the single multi-layer project layout those land in **one** file beside styled
-  feature layers — exactly the shape measured here. Under the split layout (#89) tracking
-  owns its own file and the question does not arise.
-- `.rfp_styles_gpkg_tables()` reads `gpkg_contents` unfiltered and excludes
-  `layer_styles` only in its no-`gpkg_contents` fallback branch, so a registration there
-  would also need that filter — the same break as `test_pipeline.R`'s.
-- rfp already owns the QGIS oracle (`tests/testthat/helper-qgis.R`, a pinned
-  `qgis/qgis` image with a version constant), which is why a reusable reachability verb
-  belongs there rather than here.
+It is also where a reusable reachability verb belongs, because it already owns a QGIS oracle
+— a pinned container with a version constant — which this repo does not and should not grow
+for one hand-run check.
 
 ## Why the guard that would have caught it needs QGIS's own python
 
@@ -288,3 +285,44 @@ adds none — verified with
 | Error | Resolution |
 |-------|------------|
 | The conventions repo was checked out on **another task's in-flight feature branch**, not main, and `git checkout -b` inherited it — so the PR opened with 10 foreign commits and 20 files, reading MERGEABLE/CLEAN the whole time | Rebuilt the branch in a throwaway `git worktree` off `origin/main`, cherry-picked the one commit, `--force-with-lease`, and restored the original checkout to the branch and dirty file it was found on. **Check `git branch --show-current` before `git checkout -b` in a repo this session did not start in** — `git log -1` alone does not tell you which branch you are on, and a clean mergeable PR is no evidence of a clean range |
+
+## Code-check round 1 — six findings, all real, two of them in the fix itself
+
+Full report in `review-round1.md` (scrubbed of private-repo identifiers, which was its own
+first finding). Verified here before acting, and one turned out worse than reported:
+
+| finding | verdict |
+|---|---|
+| the planning files still name the private siblings' internals, after a commit saying the citations were "described rather than linked" — the links went, the **names** did not | real; scrubbed, including the reviewer's own file |
+| a bare `#89` meaning the sibling's issue resolves to **this** repo's #89 (the v2.0.0 cutover) | real; the number is gone, since a private repo cannot be qualified either |
+| **4 of the 9 warm assertions in `style_reach-check.py` cannot fail** — `singleSymbol` is also what QGIS builds for a layer with no style | real, and the sharpest finding here; see below |
+| `feature_layers(dereg)[0]` IndexErrors past `main()`, discarding every finding above it | real; guarded and named |
+| a registration arriving with `data_type='features'` never reaches the repair branch | real, and **worse** than reported; see below |
+| the positive arm's comment claims a scope it does not have | real; it discriminates on one bundle of three |
+
+### The probe whose whole job is to reach the failure mode could not reach it
+
+`EXPECT_RENDERER["floodplain"]` is `singleSymbol`, and `singleSymbol` is QGIS's default for a
+layer with **no style at all**. Measured on `all_ff04`: styled gives `#1f78b4` at opacity 0.5;
+the same file with `layer_styles` dropped and de-registered gives a random colour at opacity
+1.0. So four of nine assertions passed identically whether that bundle's style was reachable,
+unreachable or absent — on the bundle the "register all three" argument is pre-emptive for, so
+nothing else covered it either.
+
+Fixed by asserting every symbol's opacity against the committed QMLs, which carry
+`alpha="0.5"` on all 102 symbols — read, not restated, and refusing on more than one distinct
+value. Uniform across all three styles, so one assertion covers all nine layers. Restored the
+bug: stripping `floodplain.gpkg`'s style now gives 4 named failures where it gave a green run.
+
+The recipe this script replaced already knew: `scripts/README.md`'s #46 paragraph says
+"renderer and symbol **opacity** read back from QGIS".
+
+### `data_type='features'` on the registration, measured in both bundles
+
+`feature_layers()` selects on `data_type='features'`, so a registration arriving with that
+value puts the style table into the writer's own input, ahead of the repair branch that would
+have fixed it. The reviewer measured `floodplain_landcover.gpkg` raising "layer 'layer_styles'
+matches no style rule" — naming the wrong problem. Measured here, `floodplain.gpkg` is worse:
+its style rule is a catch-all, so it **silently writes a style row for the style table**, and
+the run reports success. Fixed by excluding the table by name in `feature_layers()` as well as
+by `data_type`; both bundles now repair the row and style exactly their real layers.

@@ -58,6 +58,7 @@ import ast
 import importlib.util
 import os
 import pathlib
+import re
 import shutil
 import sqlite3
 import sys
@@ -84,6 +85,38 @@ EXPECT_RENDERER = {"floodplain": "singleSymbol",
 EXPECTED_STYLE_CATEGORIES = {"classified": 10, "transition": 91}
 
 ITEM_VALIDATE = REPO / "scripts" / "item_validate.py"
+STYLE_DIR = REPO / "styles"
+
+
+def expected_opacity() -> float:
+    """The symbol opacity the committed QMLs carry, read rather than restated.
+
+    THE RENDERER TYPE ALONE CANNOT FAIL FOR `floodplain.gpkg`, which is why this exists.
+    `EXPECT_RENDERER["floodplain"]` is `singleSymbol`, and `singleSymbol` is also what QGIS
+    builds for a layer with no style at all — so four of this script's nine assertions passed
+    identically whether that bundle's style was reachable, unreachable or absent. Measured
+    2026-10-16 on `all_ff04`: styled gives `#1f78b4` at opacity 0.5, the same file with
+    `layer_styles` dropped and de-registered gives a random colour at opacity 1.0. The
+    "fixture that cannot reach the failure mode" shape, in the one probe whose whole job is
+    to reach it — and on the bundle the "register all three" argument is pre-emptive for, so
+    nothing else would have caught it either.
+
+    Opacity is the discriminator rather than colour because it is uniform across all three
+    styles and all 102 symbols, so one assertion covers all nine layers. Read from
+    `styles/*.qml` and not hardcoded: those are the reviewed artifact, `item_validate.py`
+    already proves the embedded blob equals them byte for byte, and a number restated here
+    would be a third copy. Refuses on more than one distinct value, since then "the style
+    QGIS applied" has no single expected opacity and this arm would be asserting a coincidence.
+    """
+    vals: set[str] = set()
+    for qml in sorted(STYLE_DIR.glob("*.qml")):
+        vals |= set(re.findall(r'alpha="([0-9.]+)"', qml.read_text(encoding="utf-8")))
+    if len(vals) != 1:
+        raise SystemExit(
+            f"the committed styles carry {len(vals)} distinct symbol opacities "
+            f"({sorted(vals)}) — this check compares QGIS's symbols against one expected "
+            f"value, and cannot tell a styled layer from an unstyled one without it")
+    return float(vals.pop())
 
 
 def literal(path: pathlib.Path, name: str):
@@ -122,21 +155,26 @@ def style_kind(gpkg: pathlib.Path, layer: str) -> str:
 
 
 def renderer_of(gpkg: pathlib.Path, layer: str):
-    """(renderer type, category count or None) for a PLAIN open — no .qml handed over.
+    """(renderer type, category count or None, symbol opacities) for a PLAIN open.
 
-    `QgsVectorLayer` loads the provider's default style by default, which for a GeoPackage
-    is the `layer_styles` row — reached through GDAL's layer list, which is the whole point.
+    No `.qml` handed over: `QgsVectorLayer` loads the provider's default style by default,
+    which for a GeoPackage is the `layer_styles` row — reached through GDAL's layer list,
+    which is the whole point.
+
+    The opacities are what make the `singleSymbol` arms able to fail; see
+    `expected_opacity()`. `symbols()` takes a `QgsRenderContext()` and not `None`.
     """
-    from qgis.core import QgsVectorLayer
+    from qgis.core import QgsRenderContext, QgsVectorLayer
     vl = QgsVectorLayer(f"{gpkg}|layername={layer}", layer, "ogr")
     if not vl.isValid():
-        return None, None
+        return None, None, set()
     r = vl.renderer()
     if r is None:
-        return None, None
+        return None, None, set()
     rtype = r.type()
     n = len(r.categories()) if rtype == "categorizedSymbol" else None
-    return rtype, n
+    opacities = {round(s.opacity(), 4) for s in r.symbols(QgsRenderContext())}
+    return rtype, n, opacities
 
 
 def main() -> int:
@@ -183,7 +221,9 @@ def main() -> int:
     app.initQgis()
     try:
         checked = 0
-        print(f"item: {item}   QGIS prefix: {prefix}")
+        want_opacity = expected_opacity()
+        print(f"item: {item}   QGIS prefix: {prefix}   expected symbol opacity: "
+              f"{want_opacity}")
 
         # --- warm: every styled layer, opened plain -------------------------------
         for gname in sorted(_gs.FILE_STYLES):
@@ -196,27 +236,37 @@ def main() -> int:
                 continue
             for layer in layers:
                 kind = style_kind(gpkg, layer)
-                rtype, n = renderer_of(gpkg, layer)
+                rtype, n, opac = renderer_of(gpkg, layer)
                 checked += 1
                 want = EXPECT_RENDERER[kind]
-                ok = rtype == want and (
-                    n == EXPECTED_STYLE_CATEGORIES[kind] if kind in
-                    EXPECTED_STYLE_CATEGORIES else True)
+                ok = (rtype == want and opac == {want_opacity}
+                      and (n == EXPECTED_STYLE_CATEGORIES[kind]
+                           if kind in EXPECTED_STYLE_CATEGORIES else True))
                 print(f"  {gname:26} {layer:40} {kind:11} "
                       f"{rtype or 'NO RENDERER'}{'' if n is None else f' ({n})'} "
-                      f"{'ok' if ok else 'WRONG'}")
+                      f"opacity={sorted(opac) or '-'} {'ok' if ok else 'WRONG'}")
                 if rtype is None:
                     failures.append(
                         f"{gname}/{layer}: QGIS built no renderer — the layer did not open")
-                elif rtype != want:
+                    continue
+                if rtype != want:
                     failures.append(
                         f"{gname}/{layer}: QGIS draws it with {rtype!r}, expected {want!r} "
                         f"— the embedded style is not what the consumer gets")
-                elif kind in EXPECTED_STYLE_CATEGORIES and \
+                    continue
+                if kind in EXPECTED_STYLE_CATEGORIES and \
                         n != EXPECTED_STYLE_CATEGORIES[kind]:
                     failures.append(
                         f"{gname}/{layer}: QGIS built {n} categories, expected "
                         f"{EXPECTED_STYLE_CATEGORIES[kind]}")
+                # The arm that makes the `singleSymbol` cases able to fail at all: an
+                # unstyled layer is `singleSymbol` too, at QGIS's default opacity of 1.0.
+                if opac != {want_opacity}:
+                    failures.append(
+                        f"{gname}/{layer}: QGIS drew symbol opacit(ies) {sorted(opac)}, "
+                        f"expected {{{want_opacity}}} — the renderer type matches but the "
+                        f"symbols are not the committed style's, which for a singleSymbol "
+                        f"layer is the ONLY thing separating a reachable style from none")
 
         # --- cold: de-register the style table and the style must become unreachable ---
         # A guard nobody has seen fail is decoration. If this arm passes, the warm arm above
@@ -235,18 +285,28 @@ def main() -> int:
                     f"cold arm removed {n_del} registration row(s) from {cold}, expected 1 "
                     f"— the arm did not set up the state it claims to test")
             else:
-                layer = feature_layers(dereg)[0]
-                kind = style_kind(dereg, layer)
-                rtype, _ = renderer_of(dereg, layer)
-                print(f"\n  cold arm: {cold} de-registered, {layer} -> "
-                      f"{rtype or 'NO RENDERER'} (must NOT be "
-                      f"{EXPECT_RENDERER[kind]!r})")
-                if rtype == EXPECT_RENDERER[kind]:
+                # Indexed only after checking: the warm arm RECORDS an empty bundle and
+                # continues rather than aborting, so an IndexError here would escape
+                # `main()` as a traceback and throw away every finding collected above it.
+                cold_layers = feature_layers(dereg)
+                if not cold_layers:
                     failures.append(
-                        f"cold arm: QGIS still draws {layer} with {rtype!r} after the "
-                        f"registration was removed — the registration is not what makes "
-                        f"the style reachable, so the warm arm above is measuring "
-                        f"something else and this check is decoration")
+                        f"cold arm: {cold} declares no feature layers, so the arm that "
+                        f"makes the warm pass mean something did not run")
+                else:
+                    layer = cold_layers[0]
+                    kind = style_kind(dereg, layer)
+                    rtype, _, opac = renderer_of(dereg, layer)
+                    print(f"\n  cold arm: {cold} de-registered, {layer} -> "
+                          f"{rtype or 'NO RENDERER'} opacity={sorted(opac) or '-'} "
+                          f"(must NOT be {EXPECT_RENDERER[kind]!r} at {want_opacity})")
+                    if rtype == EXPECT_RENDERER[kind] and opac == {want_opacity}:
+                        failures.append(
+                            f"cold arm: QGIS still draws {layer} with {rtype!r} at the "
+                            f"committed opacity after the registration was removed — the "
+                            f"registration is not what makes the style reachable, so the "
+                            f"warm arm above is measuring something else and this check is "
+                            f"decoration")
     finally:
         app.exitQgis()
 
