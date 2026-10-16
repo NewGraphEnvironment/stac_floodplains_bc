@@ -165,7 +165,7 @@ python, so — like `fp_provenance-check.R`, `stage_years-check.R`, `year_sets-c
 
 ## Phase 6: Cross-repo — the same claim lives outside this repo
 
-- [ ] **soul**: `conventions/code-check-spatial.md` needs **both** adjacent paragraphs
+- [x] **soul**: `conventions/code-check-spatial.md` needs **both** adjacent paragraphs
       rewritten, not one. "Neither is needed — QGIS auto-styles without them … writing
       *less* than QGIS does removes a churn vector" is false; and the bullet above it says
       "GDAL lists non-spatial tables as layers … with or without a `gpkg_contents` row",
@@ -173,7 +173,7 @@ python, so — like `fp_provenance-check.R`, `stage_years-check.R`, `year_sets-c
       name" advice stays right and now needs the positive-arm companion. Correcting a soul
       convention needs an issue first (the blast-radius rule): file it with the
       three-GDAL measurement, then correct both paragraphs in a separate soul commit.
-- [ ] **rfp**: file a defect issue, not a feature request. `.rfp_layer_styles_ddl()` writes
+- [x] **rfp**: file a defect issue, not a feature request. `.rfp_layer_styles_ddl()` writes
       `layer_styles` with no `gpkg_contents` row and `.tracking_append()` registers
       `rfp_tracking` as `data_type='attributes'`; under the single multi-layer project
       layout those land in one file beside styled feature layers — the shape measured here.

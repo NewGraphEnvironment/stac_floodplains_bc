@@ -107,3 +107,21 @@ figures.
 
 `NEWS.md` gains the `v2.0.1` entry. Its date is the day it was written — bump it if the
 release slips.
+
+### Phase 6 — cross-repo
+
+- **soul#432** filed and fixed on branch `432-layer-styles-registration-is-required`
+  (commit `c9dcf4f`, not merged). Both adjacent paragraphs of
+  `conventions/code-check-spatial.md` were wrong, not one: the bullet claiming GDAL lists
+  non-spatial tables "with or without a `gpkg_contents` row", and the paragraph telling every
+  repo the registration is unnecessary. The second is the sentence that shipped #95. The
+  generated index in each repo's CLAUDE.md gains a row on the next `/claude-md-propagate`,
+  which is deliberately not run from here.
+- **rfp#407** filed as a defect report, not a feature request. `.rfp_layer_styles_ddl()` writes
+  `layer_styles` unregistered and `.tracking_append()` registers `rfp_tracking` as
+  `attributes`; under the **monolith** layout `rfp_layout_layer_path()` returns `spec$gpkg`, so
+  both land in one file beside styled feature layers. Not reproduced there — the shipped form
+  templates carry registered aspatial tables (`form_cabin_visit_pebble`, `form_edna_sample`)
+  but no style table yet, so the state only exists in a built project, and rfp owns the QGIS
+  oracle that can settle it. The issue also answers the "does the verb belong in rfp" question:
+  probably yes, and this repo's hand-run script is the working recipe if it does.
