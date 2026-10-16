@@ -434,10 +434,17 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
         description=(
+            # "each DATA layer", and "the feature layers" rather than "the layer list":
+            # this description tells the consumer to enumerate, and since #95 that
+            # enumeration is five entries, the fifth being `layer_styles`, which has no
+            # `scenario` column. The sibling asset above carried the identical claim and was
+            # corrected; this one is the copy that instructs the enumeration, so it is the
+            # one where the loose form actually misleads.
             f"The ff02/ff04/ff06 delineations for {meta['item_id']}'s species alone, plus "
             f"the producer's per-blue-line-key breakdown of the headline scenario where one "
-            f"exists. Each layer records its own flood factor in `scenario`, so several "
-            f"values appear under one item; read the layer list rather than assuming three."),
+            f"exists. Each data layer records its own flood factor in `scenario`, so several "
+            f"values appear under one item; read the feature layers rather than assuming "
+            f"three."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )

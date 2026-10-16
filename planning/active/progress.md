@@ -6,7 +6,7 @@
   `item_validate.py::check_layer_styles`, `test_pipeline.R`'s layer arms, `fp_gpkg.R`,
   `run_pipeline.sh`, the style sections of `scripts/README.md`; probed the staged v2.0.0
   tree read-only for the `gpkg_contents` / `gpkg_spatial_ref_sys` shape; searched the
-  sibling packages for the same writer and found rfp's.
+  sibling packages for the same writer and found one carrying it.
 - Phases approved by user, with three scope decisions: ship the QGIS reachability check
   in this PR; file an issue in the conventions repo and correct its spatial
   code-check convention there; land code + a

@@ -326,3 +326,47 @@ matches no style rule" — naming the wrong problem. Measured here, `floodplain.
 its style rule is a catch-all, so it **silently writes a style row for the style table**, and
 the run reports success. Fixed by excluding the table by name in `feature_layers()` as well as
 by `data_type`; both bundles now repair the row and style exactly their real layers.
+
+## Code-check round 2 — five findings, and the mechanism named
+
+Its mechanism statement is better than mine. Mine was "an assertion whose expected value is
+also the value the failure mode produces", which covers round 1's sharpest finding and nothing
+else. Round 2's:
+
+> **#95 converted a fact that was *structural* into a value this repo's own writer now
+> writes, and at the same time introduced the repo's first guards whose subject is
+> *reachability* rather than *presence*.**
+
+The single absence of a `gpkg_contents` row was doing three jobs silently: it excluded the
+style table from every `data_type` filter for free, with no name anywhere; it made "the style
+is there" and "the style is reachable" indistinguishable, so every presence assertion read as
+a reachability one; and it kept the published prose true by accident. Registering the row
+retires all three accidents at once, so the branch owes three sweeps — explicit exclusions,
+a discriminator on every reachability assertion, and a re-check of every quantified claim on
+every surface. Round 1 found one instance of each of the first two and the start of the third.
+**Round 2's whole residue was the third: the claim sweep had run over *links* and over three
+of five surfaces.**
+
+| finding | verdict |
+|---|---|
+| `progress.md:9` still names a private sibling by **name** — the earlier sweep scoped itself to the `<repo>#<N>` *link* form | real; scrubbed |
+| a **commit subject** names both private siblings with issue numbers, in a public repo | real; the branch was unpushed, so rewritten rather than left in published history |
+| `item_create.py`'s **published** `floodplain` asset description tells the consumer to "read the layer list", which is now five entries whose fifth has no `scenario` column — the identical claim was corrected in the sibling asset ten lines above | real; this is the copy that *instructs* the enumeration |
+| `scripts/README.md:272` overstates the very guard this branch changed | real |
+| `style_reach-check.py` has its **own** `feature_layers()` with no name exclusion — round 1 finding 2's shape, in a second copy, raising from inside the warm loop | real; fixing one copy and not the other is how the first instance got here |
+
+### A measurement that came out of fixing the last one
+
+With the registration's `data_type` set to `features` in all three bundles, QGIS loses the
+style in **all three** — every styled layer back to `singleSymbol` at opacity 1.0, including
+the two bundles with no aspatial table that #95 never affected. So `data_type='attributes'` is
+now justified by measurement rather than by citing the GeoPackage spec, and the strengthened
+script reports nine named failures there where it used to raise on the first bundle.
+
+### And one the enumeration found rather than a reviewer
+
+`expected_opacity()`'s discriminating power is a property of the **value** 0.5, not of the
+comparison: 1.0 is what QGIS gives an unstyled layer, so a style shipped at full opacity would
+silently return the four `singleSymbol` assertions to the no-op they were before #95, with the
+renderer-type arm already unable to tell and nothing saying so. It now refuses on 1.0, the same
+shape as its refusal on more than one distinct value.

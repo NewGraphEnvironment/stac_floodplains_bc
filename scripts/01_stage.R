@@ -533,7 +533,7 @@ for (wsg in wsgs) {
     # everywhere else here. So scanning only one bundle was right about
     # the data and wrong about the question — `floodplain.gpkg` is a file this repo now
     # SELECTS layers into, and it is the bundle with no cover at all, because
-    # 04_gpkg_style.py maps every layer of it to one style unconditionally.
+    # 04_gpkg_style.py maps every feature layer of it to one style unconditionally.
     #
     # `%in%`, not `==`, for the same NA reason as the features filter above: `==` would print
     # a phantom NA in the report.
@@ -548,7 +548,7 @@ for (wsg in wsgs) {
     # The name-vs-key cross-check, in the opposite direction from the layer assertion below.
     # That one asks whether a NAME we expect carries the key; this asks whether a layer the
     # KEY selected has a name we recognise. It is the only cover floodplain.gpkg has, because
-    # 04_gpkg_style.py maps every layer of that file to one style unconditionally — a
+    # 04_gpkg_style.py maps every feature layer of that file to one style unconditionally — a
     # catch-all that was sound while the layers were inherited from upstream and is a
     # selection we make now.
     # ANCHORED AT BOTH ENDS. `^<sp>_ff[0-9]{2}` alone matches `bt_ff04_reach_summary`, so a
@@ -787,7 +787,7 @@ if (length(year_untraced)) {
 # and floodplains#131 will prune — a count that should fall to zero and is not an error
 # while it does not. The second is the one to act on: a layer that matches an item's key but
 # no family this repo knows is a new upstream shape, published undescribed, and for
-# floodplain.gpkg nothing downstream can catch it (04_gpkg_style.py maps every layer of that
+# floodplain.gpkg nothing downstream can catch it (04_gpkg_style.py maps every feature layer of that
 # file to one style unconditionally).
 if (length(unclaimed_groups)) {
   message(length(unclaimed_groups), " group(s) carry layers no target claims (named above): ",

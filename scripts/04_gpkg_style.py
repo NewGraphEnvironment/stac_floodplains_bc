@@ -95,9 +95,11 @@ STYLE_TABLE = "layer_styles"
 # GDAL itself wrote for the sibling `attributes` rows in these same files: `identifier`
 # equal to the table name, an empty description, a NULL bounding box, and `srs_id` 0 —
 # which GeoPackage 1.2 requires `gpkg_spatial_ref_sys` to carry and which is present in all
-# three bundles (measured). `data_type` must be `attributes`: `features` wants a
-# `gpkg_geometry_columns` row and breaks the layer, and `aspatial` is the retired GDAL
-# extension and wants a `gpkg_extensions` row.
+# three bundles (measured). `data_type` must be `attributes`, and that is measured rather
+# than taken from the spec: with `features` instead, QGIS loses the style in ALL THREE
+# bundles — every styled layer comes back `singleSymbol` at opacity 1.0, including the two
+# that have no aspatial table and so were never affected by #95 at all. (`aspatial` is the
+# retired GDAL extension and wants a `gpkg_extensions` row.)
 _GC_COLS = '"table_name","data_type","identifier","description","last_change","srs_id"'
 
 

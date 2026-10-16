@@ -116,7 +116,19 @@ def expected_opacity() -> float:
             f"the committed styles carry {len(vals)} distinct symbol opacities "
             f"({sorted(vals)}) — this check compares QGIS's symbols against one expected "
             f"value, and cannot tell a styled layer from an unstyled one without it")
-    return float(vals.pop())
+    opacity = float(vals.pop())
+    # The arm's discriminating power is a property of this VALUE, not of the comparison:
+    # 1.0 is what QGIS gives an unstyled layer, so a style shipped at full opacity would
+    # silently return the four `singleSymbol` assertions to the no-op they were before #95,
+    # with the renderer-type arm already unable to tell the difference and nothing saying so.
+    # Refused rather than tolerated, for the same reason as the multi-value case above.
+    if opacity == 1.0:
+        raise SystemExit(
+            "the committed styles ship at opacity 1.0, which is also QGIS's default for an "
+            "UNSTYLED layer — so this check could no longer tell a reachable style from no "
+            "style on the single-symbol bundle. Give the opacity arm a different "
+            "discriminator (symbol colour) before shipping a full-opacity style")
+    return opacity
 
 
 def literal(path: pathlib.Path, name: str):
@@ -135,11 +147,19 @@ def literal(path: pathlib.Path, name: str):
 
 
 def feature_layers(path: pathlib.Path) -> list[str]:
+    """The file's feature layers, with the style table excluded by name as well.
+
+    The second copy of a shape found in `04_gpkg_style.py`: a registration arriving with
+    `data_type='features'` — a hand edit, or another writer — would otherwise put the style
+    table into this list, and `style_kind()` then raises `SystemExit` from inside the warm
+    loop, discarding every failure already collected. Fixing one copy and not the other is
+    how the first instance got here.
+    """
     con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
         return [r[0] for r in con.execute(
             "SELECT table_name FROM gpkg_contents WHERE data_type = 'features' "
-            "ORDER BY table_name")]
+            "AND table_name <> ? ORDER BY table_name", (_gs.STYLE_TABLE,))]
     finally:
         con.close()
 

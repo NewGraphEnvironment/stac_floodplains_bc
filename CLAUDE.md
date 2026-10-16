@@ -48,7 +48,9 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   non-deterministic at identical byte length and would churn every published `file:checksum`.
 
   **Embedding a style is not publishing a reachable one, and the discriminator is GDAL's**
-  (#95). `layer_styles` is registered in `gpkg_contents` as `attributes`, with
+  (#95). `layer_styles` is registered in `gpkg_contents` as `attributes` — measured, not read
+  off the spec: with `features` instead, QGIS loses the style in **all three** bundles, the
+  two with no aspatial table included — with
   `last_change` pinned like every other row: GDAL's `LIST_ALL_TABLES=AUTO` surfaces an
   unregistered table only while the file declares no aspatial content, and QGIS's style lookup
   goes through GDAL's layer list — so every `floodplain_landcover.gpkg`, which carries the
@@ -202,7 +204,7 @@ layer in the two bundles this repo stages from is in the landcover one (66 of 66
 the v2.0.0 tree over the 23 **rostered** groups; `floodplain.gpkg` has none, and upstream's
 `aquatic_network.gpkg` holds 23 more that nothing here reads), so scanning that file alone was
 right about the data and wrong about the question: `floodplain.gpkg` is the bundle
-with no other cover, because `04_gpkg_style.py` maps every layer of it to one style
+with no other cover, because `04_gpkg_style.py` maps every feature layer of it to one style
 unconditionally. The same run also names any staged layer matching no known family, on a
 pattern anchored at both ends — unanchored, `<sp>_ff04_reach_summary` would read as a known
 `<sp>_ff0N` layer. A consumer opening the file still sees two tables nothing here

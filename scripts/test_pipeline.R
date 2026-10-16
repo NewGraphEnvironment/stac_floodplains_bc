@@ -351,7 +351,7 @@ for (mp in meta_paths) {
     }
   }
 
-  # Attribute contract (floodplains#30): every layer of BOTH published GeoPackages carries the
+  # Attribute contract (floodplains#30): every DATA layer of BOTH published GeoPackages carries the
   # area identifier, so downstream consumers can merge many items into one gpkg and separate
   # them by attribute. Upstream backfills both files (gpkg_backfill-wsg.R), so both are guarded
   # — checking only one would let a regression in the other pass green. Passes today.
@@ -360,7 +360,7 @@ for (mp in meta_paths) {
   # copied whole, so a multi-target group shipped the other species' layers and a
   # whole-network group shipped its retired species' layers — `wsg` was the one key that
   # was item-invariant under that copy, and the stronger assertion was not available. It is
-  # now: staging selects by the layer's own key, so every layer of every published
+  # now: staging selects by the layer's own key, so every data layer of every published
   # GeoPackage belongs to the item that ships it.
   #
   # `layer` is omitted deliberately: sf ignores it when `query` is supplied (the query names the
