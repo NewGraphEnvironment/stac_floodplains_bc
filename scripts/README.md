@@ -493,9 +493,17 @@ style that loads cleanly and renders nothing gets caught.
 
 ```bash
 R=/Applications/QGIS-final-4_2_1.app/Contents/Resources
+PROJ_DATA="$R/qgis/proj" PROJ_LIB="$R/qgis/proj" GDAL_DATA="$R/qgis/gdal" \
 PYTHONPATH="$R/python3.12:$R/python3.12/site-packages:$R/python3.12/lib-dynload" \
+QT_QPA_PLATFORM=offscreen \
   /Applications/QGIS-final-4_2_1.app/Contents/MacOS/python3.12 probe.py
 ```
+
+The three data paths are not optional, and the recipe here omitted them until 2026-10-15.
+Without `PROJ_DATA`/`PROJ_LIB` every call floods `Cannot find proj.db` and CRS handling
+degrades silently — a reprojection still returns coordinates, so a probe can report a
+renderer fine while the geometry it drew was wrong. `QT_QPA_PLATFORM=offscreen` is what
+keeps a render off a display.
 
 `PYTHONHOME` does **not** work: the bundle's stdlib is at `Resources/python3.12`, not the
 `Resources/lib/python3.12` that PYTHONHOME implies, so it dies with
@@ -507,9 +515,23 @@ Two API details that each cost a retry: `renderer.symbols()` requires a `QgsRend
 argument rather than `None`, and a raster's embedded palette reads back as
 `layer.renderer().classes()` with `.value` / `.color` / `.label` per entry.
 
+**QGIS 4 is PyQt6**, where an enum is reached through its class: `QImage.Format.Format_ARGB32`,
+not `QImage.Format_ARGB32`, and `loop.exec()` rather than `exec_()`. Both raise
+`AttributeError` at the call, which reads as a missing binding rather than a moved one.
+
+And when a probe renders rather than only reading a renderer, two more: a zoom window must be
+computed in the CRS it will be **applied** in — these bundles mix CRS by design, `floodplain.gpkg`
+in EPSG:3005 and the other two in UTM — and `QgsMapSettings.setLayers()` draws its FIRST entry
+on top, so a list written in reading order hides the layer you came to see behind the one
+below it. Each produces a blank or wrong panel with no error.
+
 This is how the #46 styles were verified — all 24 layers of a multi-target group opened plain,
 renderer and symbol opacity read back from QGIS — and it is what #48 will need for raster
-opacity. `item_validate.py` covers the same ground without QGIS for anything that runs in the
+opacity. **It had never been run over `floodplain_landcover.gpkg`**, which is how #95 shipped:
+every one of that bundle's styles is present, correct and unreachable by QGIS on all 23
+published items. Nothing in the pipeline asks whether a style is *reachable* —
+`style_drift-check.py` compares committed QML against `classes.json`, which is the same
+reader on both sides. `item_validate.py` covers the same ground without QGIS for anything that runs in the
 pipeline; this is for the questions only the real consumer can answer.
 
 ## Provenance reader check
