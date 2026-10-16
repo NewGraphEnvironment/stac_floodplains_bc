@@ -160,7 +160,7 @@ python, so — like `fp_provenance-check.R`, `stage_years-check.R`, `year_sets-c
       `README.md`. Qualify to data layers. A full re-render is release step 6 and reads the
       live API, so the one sentence is corrected in both files identically instead.
 - [x] `NEWS.md` — `## v2.0.1` entry: the GDAL mechanism, what republishes, and the count.
-- [ ] Correct the issue body: it attributes the behaviour to QGIS, and the discriminator is
+- [x] Correct the issue body: it attributes the behaviour to QGIS, and the discriminator is
       GDAL's `LIST_ALL_TABLES=AUTO`.
 
 ## Phase 6: Cross-repo — the same claim lives outside this repo
