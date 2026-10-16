@@ -19,11 +19,34 @@ Three things here are deliberate and each was measured:
     never equals anything, so a NULL row is written successfully, logs nothing, and
     the layer opens with a single symbol. (rfp#17, reproduced on this repo's data.)
 
-  * No `gpkg_contents` row and no triggers, unlike what QGIS's own writer produces.
-    Measured: QGIS auto-styles perfectly without them, and registering the table adds
-    a second wall-clock timestamp (`gpkg_contents.last_change`) that would churn the
-    published `file:checksum` on every rebuild. GDAL lists `layer_styles` as a layer
-    either way, so the registration buys nothing.
+  * `layer_styles` IS registered in `gpkg_contents`, with `last_change` pinned. Until #95
+    it was not, on a measurement that "GDAL lists `layer_styles` as a layer either way, so
+    the registration buys nothing" — which was the premise that shipped #95 and is false.
+    The GPKG driver's `LIST_ALL_TABLES=AUTO` default surfaces an unregistered table only
+    while the file declares no aspatial content; once a `data_type='attributes'` row is
+    present GDAL stops LISTING `layer_styles`, and QGIS's style lookup goes through GDAL's
+    layer list. So every `floodplain_landcover.gpkg` — which carries the producer's
+    `patch_watercourse_*` and `composition_*` — published a correct, complete and
+    unreachable style on all 23 items. Measured 2026-10-16 on GDAL 3.8.5, 3.12.4 and
+    3.13.0: hidden in that bundle, listed in the other two, and `-oo LIST_ALL_TABLES=YES`
+    brings it back. A decade-old heuristic, not a QGIS regression, and `LIST_ALL_TABLES`
+    is consumer-side — unreachable from the published bytes — so registering is the only
+    in-file fix.
+
+    Registered in ALL THREE bundles, not only the one that needs it today: `01_stage.R`
+    anticipates an aspatial family appearing in `floodplain.gpkg` and would stage it, and
+    on that day that bundle's styles would die exactly as the landcover bundle's did,
+    silently. Uniform registration makes reachability a property of the file rather than
+    of a heuristic.
+
+    What killed the registration at #46 was that it adds a second wall-clock timestamp
+    (`gpkg_contents.last_change`) beside `layer_styles.update_time`, churning every
+    published `file:checksum`. Pinned to the same `GPKG_EPOCH`, it does not — and it is
+    the value every other `gpkg_contents` row in these files already carries.
+
+    Still NO triggers and no `gpkg_ogr_contents` row, which is less than GDAL writes for
+    its own tables. Measured rather than assumed: `ogrinfo -so` on the registered table
+    reports `Feature Count: 4`, `FID Column = id` and every column typed, with no warning.
 
   * `update_time` is pinned, and the column's own DEFAULT is not used. The QGIS schema
     defaults it to `strftime(...,'now')`; the pin is the same `GPKG_EPOCH` that
@@ -65,6 +88,22 @@ FILE_STYLES = {
         "classified.qml" if layer.startswith("classified") else
         "transition.qml" if layer.startswith("transition") else None),
 }
+
+STYLE_TABLE = "layer_styles"
+
+# The `gpkg_contents` row that makes the style table reachable (#95), shaped to match what
+# GDAL itself wrote for the sibling `attributes` rows in these same files: `identifier`
+# equal to the table name, an empty description, a NULL bounding box, and `srs_id` 0 —
+# which GeoPackage 1.2 requires `gpkg_spatial_ref_sys` to carry and which is present in all
+# three bundles (measured). `data_type` must be `attributes`: `features` wants a
+# `gpkg_geometry_columns` row and breaks the layer, and `aspatial` is the retired GDAL
+# extension and wants a `gpkg_extensions` row.
+_GC_COLS = '"table_name","data_type","identifier","description","last_change","srs_id"'
+
+
+def intended_registration(epoch: str) -> tuple:
+    return (STYLE_TABLE, "attributes", STYLE_TABLE, "", epoch, 0)
+
 
 LAYER_STYLES_DDL = """
 CREATE TABLE IF NOT EXISTS "layer_styles" (
@@ -151,7 +190,9 @@ _COLS = ('"id","f_table_catalog","f_table_schema","f_table_name","f_geometry_col
          '"update_time"')
 
 
-def style_gpkg(path: pathlib.Path, styles: dict[str, str], epoch: str) -> int:
+def style_gpkg(path: pathlib.Path, styles: dict[str, str],
+               epoch: str) -> tuple[int, bool]:
+    """(feature layers styled, registration present and pinned) for one GeoPackage."""
     con = sqlite3.connect(path)
     try:
         layers = feature_layers(con)
@@ -161,26 +202,69 @@ def style_gpkg(path: pathlib.Path, styles: dict[str, str], epoch: str) -> int:
                 f"write a style table to a file this script cannot describe")
         want = intended_rows(path, layers, styles, epoch)
 
-        # Skip the write entirely when the file is already correct. Not cosmetic:
+        # Skip each write when that part of the file is already correct. Not cosmetic:
         # SQLite bumps the header change counter on any write transaction and a
         # DELETE leaves freelist pages, so a re-run that rewrote identical rows would
         # still change the file's bytes — and with them the published `file:checksum`.
         # Measured: one pass over a virgin file is byte-reproducible; a second pass
         # was not, until this check.
+        #
+        # The style rows and the registration are compared SEPARATELY, so a re-run is a
+        # true no-op in every combination of the two — including the one #95 creates, a
+        # file whose style rows are already right and whose registration is missing. A
+        # single combined comparison would have rewritten both to fix either.
         have = None
         if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
-                       "AND name='layer_styles'").fetchone():
-            have = con.execute(f"SELECT {_COLS} FROM layer_styles ORDER BY id").fetchall()
-        if have == want:
-            return len(layers)
+                       f"AND name='{STYLE_TABLE}'").fetchone():
+            have = con.execute(
+                f"SELECT {_COLS} FROM {STYLE_TABLE} ORDER BY id").fetchall()
+        want_gc = intended_registration(epoch)
+        have_gc = con.execute(
+            f"SELECT {_GC_COLS} FROM gpkg_contents WHERE table_name = ?",
+            (STYLE_TABLE,)).fetchone()
 
-        con.executescript(LAYER_STYLES_DDL)
-        con.execute("DELETE FROM layer_styles")
-        con.executemany(
-            f"INSERT INTO layer_styles ({_COLS}) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", want)
-        con.commit()
-        return len(layers)
+        if have != want:
+            con.executescript(LAYER_STYLES_DDL)
+            con.execute(f"DELETE FROM {STYLE_TABLE}")
+            con.executemany(
+                f"INSERT INTO {STYLE_TABLE} ({_COLS}) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", want)
+
+        if have_gc != want_gc:
+            # UPDATE when a row is already there, never INSERT and never REPLACE.
+            #
+            # A bare INSERT raises `UNIQUE constraint failed: gpkg_contents.identifier`
+            # on any file that arrives carrying its own registration — which QGIS's own
+            # writer leaves behind whenever someone saves a style into the file, and which
+            # a change to `GPKG_EPOCH` would produce too. Measured by restoring it.
+            #
+            # REPLACE does not raise, and is still wrong: measured on a repair, it moves
+            # the row's rowid (7 -> 8) and the file's sha256 with it, because REPLACE
+            # deletes and re-inserts. It is not a published-bytes hazard — a repaired file
+            # is never published, since a release is cut from a full rebuild — and
+            # `style_determinism-check.py` does NOT pin it, because that check byte-compares
+            # the fresh-build path, where both spellings behave as INSERT and give
+            # identical bytes.
+            if have_gc is None:
+                con.execute(
+                    f"INSERT INTO gpkg_contents ({_GC_COLS}) VALUES (?,?,?,?,?,?)",
+                    want_gc)
+            else:
+                con.execute(
+                    "UPDATE gpkg_contents SET data_type = ?, identifier = ?, "
+                    "description = ?, last_change = ?, srs_id = ? WHERE table_name = ?",
+                    (*want_gc[1:], want_gc[0]))
+
+        if have != want or have_gc != want_gc:
+            con.commit()
+
+        # Read the registration BACK rather than reporting the intent. The summary line
+        # below is the only thing an operator reads for this step, and while it merely
+        # restated what the code meant to do it printed "registered in gpkg_contents" on a
+        # run with the registration disabled — measured, by restoring that bug.
+        return len(layers), bool(con.execute(
+            "SELECT 1 FROM gpkg_contents WHERE table_name = ? AND last_change = ?",
+            (STYLE_TABLE, epoch)).fetchone())
     finally:
         con.close()
 
@@ -197,14 +281,17 @@ def main() -> int:
             f"no item directories under {STAC_DIR} — nothing was staged, and a run "
             f"that styled nothing must not report success")
 
-    total_rows = 0
+    total_rows, total_reg, total_files = 0, 0, 0
     for item in items:
         rows = 0
         for name in sorted(FILE_STYLES):
             gpkg = item / name
             if not gpkg.exists():
                 raise SystemExit(f"{gpkg} is absent — staging did not complete")
-            rows += style_gpkg(gpkg, styles, epoch)
+            n, registered = style_gpkg(gpkg, styles, epoch)
+            rows += n
+            total_files += 1
+            total_reg += registered
 
         # Also place the styles beside the assets, so `item_create.py` can publish them
         # as STAC assets. Per-item copies rather than one shared object at the bucket
@@ -224,7 +311,14 @@ def main() -> int:
               f"{len(styles)} .qml copied")
 
     print(f"styles embedded: {total_rows} row(s) over {len(items)} item(s), "
-          f"update_time pinned to {epoch}")
+          f"{STYLE_TABLE} registered and pinned in {total_reg} of {total_files} "
+          f"GeoPackage(s), both timestamps pinned to {epoch}")
+    if total_reg != total_files:
+        raise SystemExit(
+            f"{total_files - total_reg} GeoPackage(s) ended without a pinned "
+            f"{STYLE_TABLE} registration — GDAL would stop listing the table the moment "
+            f"the file declares any aspatial content, and the style would be unreachable "
+            f"with every row still in place (#95)")
     return 0
 
 

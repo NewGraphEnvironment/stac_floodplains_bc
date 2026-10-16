@@ -118,9 +118,18 @@ for (gp in c("floodplain.gpkg", "floodplain_landcover.gpkg")) {
   # produced different bytes from the same layers, so a green warm arm here described a file
   # the stage does not write. That is why the sort is in the writer rather than in its
   # callers.
+  #
+  # `layer_styles` is excluded BY NAME, which a staged-side list did not used to need:
+  # since #95 `04_gpkg_style.py` registers it in `gpkg_contents` as `attributes`, so it is
+  # now inside the filter above. It exists only on the staged side — the producer's file
+  # has no style table — and `gpkg_copy_layers()` stops with GDAL's
+  # `Couldn't fetch requested layer`, a message that blames the copier for a layer the
+  # caller asked for. Excluding is right rather than intersecting with the producer's
+  # layers, because a layer genuinely missing upstream must still fail loudly here.
   layers <- sf::st_read(file.path(staged, gp), quiet = TRUE,
                         query = paste("SELECT table_name FROM gpkg_contents",
                                       "WHERE data_type IN ('features','attributes')",
+                                      "AND table_name <> 'layer_styles'",
                                       "ORDER BY table_name"))$table_name
   if (!length(layers)) stop("staged ", gp, " declares no layers — nothing to re-translate")
   local({

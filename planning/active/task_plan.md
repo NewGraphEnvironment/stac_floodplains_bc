@@ -41,35 +41,35 @@ anticipates an aspatial family appearing in `floodplain.gpkg` and would stage it
 that day that bundle's styles would die exactly as the landcover bundle's did. Uniform
 registration makes reachability a property of the file instead of of a GDAL heuristic.
 
-- [ ] Add the `gpkg_contents` registration to `style_gpkg()`, matching what GDAL itself
+- [x] Add the `gpkg_contents` registration to `style_gpkg()`, matching what GDAL itself
       wrote for the sibling `attributes` rows in these same files: `identifier` =
       `table_name`, `description` `''`, bbox columns NULL, `srs_id` 0, `last_change` =
       the `epoch` argument `style_gpkg()` already receives (not a second read of
       `gpkg_epoch()`, so the determinism check's cold path drives it through one source).
-- [ ] `data_type` must be `attributes`: `features` needs a `gpkg_geometry_columns` row and
+- [x] `data_type` must be `attributes`: `features` needs a `gpkg_geometry_columns` row and
       breaks the layer, `aspatial` is the retired GDAL extension and needs a
       `gpkg_extensions` row, and `attributes` is GPKG 1.2 core and what GDAL wrote for
       `composition_*` here. Record that `ogrinfo -so` reads the registered table cleanly
       with **no** `gpkg_ogr_contents` row and no feature-count triggers — measured, not
       assumed, so the writer's refusal to write GDAL's extra bookkeeping is justified.
-- [ ] Fold the registration into the skip-if-current comparison, which today reads only
+- [x] Fold the registration into the skip-if-current comparison, which today reads only
       the `layer_styles` rows. A re-run over a correct file must stay a byte no-op, and a
       file whose style rows match but whose registration is missing must **not** be
       skipped.
-- [ ] The write must be conditional, not a bare INSERT. `gpkg_contents.table_name` is the
+- [x] The write must be conditional, not a bare INSERT. `gpkg_contents.table_name` is the
       PRIMARY KEY and `identifier` is UNIQUE, so any run where the style rows differ while
       the registration is already correct — a regenerated `styles/*.qml`, a new class
       table — would raise `IntegrityError`. `UPDATE`-or-`INSERT`, never `REPLACE`, which
       reassigns the rowid.
-- [ ] Rewrite the two docstring claims this falsifies: "registering the table adds a
+- [x] Rewrite the two docstring claims this falsifies: "registering the table adds a
       second wall-clock timestamp … the registration buys nothing", and "GDAL lists
       `layer_styles` as a layer either way" — the exact premise that shipped #95.
-- [ ] Confirm `feature_layers()` is unaffected (`data_type = 'features'`), so the new row
+- [x] Confirm `feature_layers()` is unaffected (`data_type = 'features'`), so the new row
       cannot feed back into the writer's own input.
 
 ## Phase 2: The two guards that must fail when the registration is absent
 
-- [ ] `scripts/item_validate.py` — new arm in `check_layer_styles()`, per styled
+- [x] `scripts/item_validate.py` — new arm in `check_layer_styles()`, per styled
       GeoPackage: exactly one `gpkg_contents` row for `layer_styles`, `data_type`
       `attributes`, `last_change` = `GPKG_EPOCH`. Read the pin from `scripts/fp_gpkg.R`
       with the idiom `sync_excludes()` uses for `catalogue_release.sh`. Stays at the SQL
@@ -77,14 +77,14 @@ registration makes reachability a property of the file instead of of a GDAL heur
       unavailable under `uv`, and shelling out to `ogrinfo` would add an undeclared CLI
       dependency to the release path. Extend the summary line so an operator reads the
       claim that the table is registered.
-- [ ] `scripts/style_determinism-check.py` — strip the registration row as well as
+- [x] `scripts/style_determinism-check.py` — strip the registration row as well as
       `DROP TABLE layer_styles` in setup, so both arms start from the virgin shape and the
       registration write is exercised; add a warm-path arm asserting the written row
       carries the pin.
-- [ ] A second warm-only arm for the conflict path, which no existing arm can reach: drop
+- [x] A second warm-only arm for the conflict path, which no existing arm can reach: drop
       `layer_styles` while **keeping** its `gpkg_contents` row, call `style_gpkg()`, and
       assert it does not raise and leaves exactly one registration row.
-- [ ] Prove both new guards fail on purpose: `item_validate.py` over a copied tree with
+- [x] Prove both new guards fail on purpose: `item_validate.py` over a copied tree with
       the registration rows deleted must report one problem per item naming the
       consequence; the determinism arm must go red against a wall-clock `last_change`.
 
@@ -93,22 +93,22 @@ registration makes reachability a property of the file instead of of a GDAL heur
 All three break the moment a tree is built with the new writer, so they land in the same
 commit as Phase 1.
 
-- [ ] `scripts/gpkg_determinism-check.R` (~line 121) takes its layer set from the
+- [x] `scripts/gpkg_determinism-check.R` (~line 121) takes its layer set from the
       **staged** file with `data_type IN ('features','attributes')` and hands it to
       `gpkg_copy_layers()` against the **producer's** file, which has no `layer_styles` —
       so `gpkg_copy_layers()` stops with `Couldn't fetch requested layer`. Hits both
       multi-layer arms. Exclude `layer_styles` in that query and say in the comment why a
       staged-side list now needs filtering.
-- [ ] `scripts/test_pipeline.R::keyed_layers()` feeds the per-layer key arm, the
+- [x] `scripts/test_pipeline.R::keyed_layers()` feeds the per-layer key arm, the
       source-set equality arm (whose `expect` comes from the producer's file) and the
       absolute floor. Exclude `layer_styles` by name.
-- [ ] Pair the name-based exclusion with a **positive** arm —
+- [x] Pair the name-based exclusion with a **positive** arm —
       `"layer_styles" %in% sf::st_layers(gpkg)$name` for each bundle. This is the
       GDAL-level predicate itself (sf's GDAL 3.8.5 reproduces the heuristic exactly,
       measured), it needs no new dependency, and it is what stops a name-based exclusion
       hiding a disappearance. It also answers soul's "filter on the property, never on the
       name" rule, which the exclusion alone would contradict.
-- [ ] Rewrite the comment block at `test_pipeline.R` 369–381, whose structural-exclusion
+- [x] Rewrite the comment block at `test_pipeline.R` 369–381, whose structural-exclusion
       rationale this fix falsifies, keeping the "a filter that removed everything" guard.
 
 ## Phase 4: `scripts/style_reach-check.py` — ask QGIS what it actually draws

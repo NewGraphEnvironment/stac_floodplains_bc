@@ -27,3 +27,48 @@
   for QGIS to apply the style (rfp#17 is the proof).
 - Revised task_plan.md and findings.md pre-baseline, which is where that is free.
 - Next: Phase 1.
+
+### Phases 1-3 — the fix and the guards
+
+Writer registers `layer_styles` in all three bundles, pinned; `item_validate.py` asserts the
+row; `test_pipeline.R` asserts GDAL still LISTS it; the two staged-side `gpkg_contents`
+readers exclude it by name.
+
+Mutation table — every new guard restored to red on purpose:
+
+| mutation | guard that fired |
+|---|---|
+| registration disabled (`if False`) | `item_validate.py`: **69 of 69** problems on the published tree (23 x 3), nothing else; `style_determinism-check.py` arm 4; `test_pipeline.R` names `floodplain_landcover.gpkg` |
+| registration written with a wall-clock `last_change` | determinism arms 1-3 (digests differ) **and** arm 4 by name |
+| bare `INSERT` instead of UPDATE-or-INSERT | determinism arm 5: `UNIQUE constraint failed: gpkg_contents.identifier` |
+| `INSERT OR REPLACE` | **nothing** — see below |
+
+Two measurements that corrected the design:
+
+- The conflict arm's obvious setup **cannot fail**. Dropping the style table while keeping
+  its registration leaves the registration comparing equal, so the writer skips that branch
+  and a bare INSERT passes. The arm had to be written over a registration that *differs*
+  (QGIS's own wall-clock row, or a changed `GPKG_EPOCH`), which is the path that reaches it.
+- `INSERT OR REPLACE` is wrong but **not** caught here, so the comment says so rather than
+  implying a guard: measured, REPLACE moves the row's rowid 7 -> 8 and the file's sha256
+  with it, and the determinism check byte-compares only the fresh-build path, where both
+  spellings behave as INSERT.
+
+The writer's summary line printed "registered in gpkg_contents" on a run with the
+registration disabled, so it now reads the row back and refuses on any file that ends
+without one.
+
+Verified, in order:
+
+- QGIS 4.2.1 on the published v2.0.0 bytes vs the fix, same session, `sloc_all_ff04`:
+  before, the four landcover layers come back `singleSymbol` and the other five are correct;
+  after, all nine carry the expected renderer (10 and 91 categories); the de-registered copy
+  falls back to `singleSymbol`.
+- `item_validate.py` full tree, pre-change: PASS — which is the point. Every style arm it
+  already had read the row it wrote, so none of them could see this.
+- `style_determinism-check.py` warm + cold: PASS. `gpkg_determinism-check.R` all three arms:
+  PASS.
+- `WSG=sloc Rscript scripts/test_pipeline.R`: PASS end to end, twice, with the three bundles
+  **byte-identical across the two independent builds** — so the registration does not make a
+  fresh build non-reproducible. (The determinism check cannot show this: both its arms go
+  through the same setup.)
