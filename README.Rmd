@@ -262,4 +262,4 @@ The scripts here are [MIT](LICENSE). The published catalogue — everything unde
 
 - [`stac_dem_bc`](https://github.com/NewGraphEnvironment/stac_dem_bc) — LidarBC elevation (`stac-elevation-bc`)
 - [`stac_airphoto_bc`](https://github.com/NewGraphEnvironment/stac_airphoto_bc) — historic airphoto thumbnails, 1963–2019 (`stac-airphoto-bc`)
-- [`stac_uav_bc`](https://github.com/NewGraphEnvironment/stac_uav_bc) — UAV imagery, organized by watershed (`imagery-uav-bc-prod`)
+- [`stac_uav_bc`](https://github.com/NewGraphEnvironment/stac_uav_bc) — UAV imagery, organized by watershed (`stac-imagery-uav-bc`)

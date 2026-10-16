@@ -34,7 +34,7 @@ for id in "$@"; do
   # delete_item(_id, _collection): the one-arg form leaves _collection NULL, and
   # pgstac's body is `WHERE id = _id AND (_collection IS NULL OR collection=_collection)`
   # — i.e. UNSCOPED across every collection in this db, which also hosts
-  # imagery-uav-bc-prod and stac-dem-bc. Always pass the collection.
+  # stac-imagery-uav-bc and stac-elevation-bc. Always pass the collection.
   #
   # NO_DATA_FOUND only, not OTHERS: delete_item uses `RETURNING * INTO STRICT`, so a
   # genuinely-absent id raises exactly NO_DATA_FOUND. Catching OTHERS would swallow
