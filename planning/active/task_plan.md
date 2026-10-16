@@ -199,7 +199,7 @@ numbers (`feature-workflow.md`: not even as provenance). Each issue carries the 
 - [x] `bash scripts/catalogue_release-check.sh`
 - [x] `/code-check branch`: four rounds, 6 + 5 + 6 + 3 findings, all fixed. The loop ended by enumeration (11 readers, 18 assertions, 34 claims) plus a fourth round scoped to the third's fixes, since one of those corrected what round 3 proposed
 - [x] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] `/planning-archive` on completion
 
 **Not in this work** (operator, after merge): the full `run_pipeline.sh` rebuild, re-taking
 `PROVENANCE_FLOOR` and `PROV_CENSUS` from that build, the `v2.0.1` tag,

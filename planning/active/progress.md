@@ -125,3 +125,35 @@ release slips.
   owns the QGIS oracle that can settle it. The issue also answers the "does the verb belong
   there" question: probably yes, and this repo's hand-run script is the working recipe if it
   does.
+
+### Code-check — four rounds, 20 findings, all fixed
+
+| round | findings | fixed | inside the previous fix? |
+|---|---|---|---|
+| 1 | 6 | 6 | — (two were inside the fix the branch itself landed) |
+| 2 | 5 | 5 | yes — a second copy of round 1's `feature_layers()` shape, and the claim sweep |
+| 3 | 6 | 6 | yes — a false change attribution inside round 2's own fix |
+| 4 | 3 | 3 | yes — the refusal message that replaced round 1's summary line repeated its defect |
+
+**How the loop ended.** Not on a quiet round — every round found something inside the previous
+one's fix, which per `code-check.md` means only an enumeration terminates it. Round 3 produced
+it: 11 readers of `gpkg_contents.data_type`, 18 assertions, 34 quantified claims, each with a
+per-member verdict and nothing above its source of truth. Round 4 was then scoped to round 3's
+fixes alone, because one of them was a correction of what round 3 proposed, and it confirmed
+the closure by mutation. Its own three findings were diagnostic-only — none could ship bad
+bytes — and the fix removes the class structurally rather than instance by instance: the
+refusal message is now the check's output, so it cannot disagree with the check.
+
+Twice the reported fix was measured not to work, and that is the thread running through all
+four rounds:
+
+- Round 3's "compare the full `want_gc` tuple" still passed a writer emitting
+  `data_type='features'`, because `want_gc` **is** the intent. A read-back against the value
+  you just wrote is self-referential however many columns you compare.
+- Round 1's conflict-arm setup could not fail at all, because dropping the style table while
+  keeping its registration leaves the registration comparing equal.
+
+Four reviewer agents on one diff is the top of the usual bound. The reason is in the table:
+the first three rounds each found a defect inside a fix, so stopping at three would have left
+the round-3 correction unreviewed — and that correction was the one that had to overrule the
+reviewer who proposed it.
