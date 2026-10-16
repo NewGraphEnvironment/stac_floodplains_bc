@@ -72,3 +72,22 @@ Verified, in order:
   **byte-identical across the two independent builds** — so the registration does not make a
   fresh build non-reproducible. (The determinism check cannot show this: both its arms go
   through the same setup.)
+
+### Phase 4 — the QGIS witness
+
+`scripts/style_reach-check.py`, run under the QGIS bundle's own python3.12. Verified:
+
+- On the published v2.0.0 bytes: 5 problems — the four landcover layers `singleSymbol`, plus
+  the cold arm correctly reporting it could not set up its own state (0 registration rows to
+  remove on a pre-fix file).
+- On the rebuilt tree: PASS, all 9 layers, and the cold arm's de-registered copy falling back
+  to `singleSymbol`.
+- Under `uv run`: refuses by name, pointing at the recipe.
+- The static arm against `item_validate.py`'s copies fires on drift (changed 91 -> 90 and it
+  named both the drift and the two layers). Non-vacuity is structural: `literal()` raises if
+  it finds nothing, and `EXPECT_RENDERER` is defined INSIDE `check_layer_styles`, so the
+  reader walks the whole AST rather than the module body.
+
+The cold arm is landcover-only on purpose. De-registering either other bundle returns it to a
+state where AUTO still lists the table and QGIS still finds the style, so a per-bundle cold arm
+would report two false failures.

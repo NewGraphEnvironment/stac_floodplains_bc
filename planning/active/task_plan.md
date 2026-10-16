@@ -120,24 +120,24 @@ question #95 proves was never asked of this bundle. Runs under the QGIS bundle's
 python, so — like `fp_provenance-check.R`, `stage_years-check.R`, `year_sets-check.py` and
 `prov_fields-check.py` — it is **not** in `run_pipeline.sh`.
 
-- [ ] Warm arm: for one staged item (`ITEM=` overridable), open every styled layer of all
+- [x] Warm arm: for one staged item (`ITEM=` overridable), open every styled layer of all
       three bundles plain through `QgsVectorLayer` — no `.qml` handed to it — and assert
       `isValid()`, the expected renderer type, and the category count for the two
       categorized styles.
-- [ ] Cold arm, **landcover only**. De-registering `floodplain.gpkg` or
+- [x] Cold arm, **landcover only**. De-registering `floodplain.gpkg` or
       `transition_vector.gpkg` returns them to a state where AUTO still lists the table and
       QGIS still finds the style, so a per-bundle cold arm would report two false failures.
       The arm either names the landcover bundle or injects an `attributes` row first.
-- [ ] Runner: the recipe in `scripts/README.md` under "Verifying a style against QGIS
+- [x] Runner: the recipe in `scripts/README.md` under "Verifying a style against QGIS
       itself" — `PROJ_DATA`/`PROJ_LIB`/`GDAL_DATA`, the bundle's `python3.12` on
       `PYTHONPATH`, `QT_QPA_PLATFORM=offscreen`, PyQt6 enum access. Prefix from
       `QGIS_PREFIX` with the installed path as default, refusing by name when absent
       rather than half-running.
-- [ ] Expected-renderer map: one literal here, **statically** compared against
+- [x] Expected-renderer map: one literal here, **statically** compared against
       `item_validate.py`'s `EXPECT_RENDERER` (it cannot be imported — `item_validate.py`
       pulls pystac, which QGIS's python does not have), the shape `prov_fields-check.py`
       uses over the four publish-side copies.
-- [ ] Writes only to a temp directory; never touches `data/`.
+- [x] Writes only to a temp directory; never touches `data/`.
 
 ## Phase 5: Prose and NEWS — the stale claim is in seven tracked places
 
