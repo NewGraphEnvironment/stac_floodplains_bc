@@ -46,6 +46,27 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   needed separately because a `sqlite3` write never passes through GDAL, so `OGR_CURRENT_DATE`
   does not reach it. Symbol ids are `uuid5`, never `uuid4`: a random id makes the generator
   non-deterministic at identical byte length and would churn every published `file:checksum`.
+
+  **Embedding a style is not publishing a reachable one, and the discriminator is GDAL's**
+  (#95). `layer_styles` is registered in `gpkg_contents` as `attributes`, with
+  `last_change` pinned like every other row: GDAL's `LIST_ALL_TABLES=AUTO` surfaces an
+  unregistered table only while the file declares no aspatial content, and QGIS's style lookup
+  goes through GDAL's layer list — so every `floodplain_landcover.gpkg`, which carries the
+  producer's `patch_watercourse_*` and `composition_*`, published a style that was present,
+  correct, complete and invisible on all 23 items. Measured 2026-10-16 on GDAL 3.8.5, 3.12.4
+  and 3.13.0, all three agreeing, so it is a decade-old heuristic rather than a QGIS
+  regression; `LIST_ALL_TABLES` is consumer-side and unreachable from the published bytes, so
+  **registering is the only in-file fix**. Registered in all three bundles, not only the one
+  that needs it today, because `01_stage.R` anticipates an aspatial family appearing in
+  `floodplain.gpkg` and would stage it. The pin is what made this free — the second wall-clock
+  stamp was the objection that kept the registration out at #46. Three guards now ask three
+  different questions, and the third is not redundant: `item_validate.py` that the row is
+  there and pinned, `test_pipeline.R` that `sf::st_layers()` still LISTS it, and the hand-run
+  `style_reach-check.py` what QGIS actually draws — because rfp#17's NULL `f_table_schema` is
+  the standing proof that a listed, well-formed row still opens unstyled. The staged-side
+  readers (`test_pipeline.R`, `gpkg_determinism-check.R`) exclude `layer_styles` BY NAME now,
+  which the `data_type` filter used to do structurally; the name-based exclusion is only safe
+  paired with that positive listing arm.
 - **Landing page + site** — `README.Rmd` is the single source, rendering `README.md`
   (`github_document`) and `index.html` (GitHub Pages, served from `main` at `/`, live at
   `www.newgraphenvironment.com/stac_floodplains_bc`). `scripts/readme_functions.R` holds the one
@@ -126,9 +147,10 @@ Assets per item: **one COG per classified year** + a transition COG, plus **thre
 GeoPackages —
 `floodplain_landcover.gpkg`, `floodplain.gpkg` (ff02/ff04/ff06 delineations), and
 `transition_vector.gpkg` (the transition patches alone — a tenth of the bundle's bytes on the
-groups measured, and the ratio rises wherever the bundle shrank). Every layer of
+groups measured, and the ratio rises wherever the bundle shrank). Every DATA layer of
 all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by
-attribute.
+attribute — "every layer" is what the asset description said until #95, and GDAL lists
+`layer_styles` beside them, which carries no key and never did.
 
 **All three are WRITTEN here, and each holds only its own item's layers** (#80). The first two
 used to be whole-file copies of the group's bundle, which was self-describing while a group's
@@ -168,7 +190,10 @@ not. `04_gpkg_style.py` and
 `item_validate.check_layer_styles` filter to `features`, so they are inert there; since #80
 `test_pipeline.R` filters on `data_type IN ('features','attributes')` instead and asserts the
 item key on them too, because the geometry filter it used before excluded exactly the layers
-staging now selects. A **new** aspatial family has no automatic cover at all: the
+staging now selects. **They are not inert everywhere** — #95: their mere registration is what
+made GDAL stop listing this bundle's unregistered `layer_styles`, so the two tables nothing
+here describes were the reason every one of this bundle's styles was unreachable. Which is the
+sharper version of the rule below: an undescribed artifact is not a passive one. A **new** aspatial family has no automatic cover at all: the
 "matches no style rule" refusal runs after the `features` filter, so one would ship
 undescribed — which is why `01_stage.R` names every aspatial table it staged, per item, on
 every run, **across both bundles** rather than only the landcover one. Every `attributes`

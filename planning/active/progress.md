@@ -91,3 +91,19 @@ Verified, in order:
 The cold arm is landcover-only on purpose. De-registering either other bundle returns it to a
 state where AUTO still lists the table and QGIS still finds the style, so a per-bundle cold arm
 would report two false failures.
+
+### Phase 5 — prose and NEWS
+
+The retired claim was live in seven tracked places, not the three the first pass found:
+`04_gpkg_style.py` (two sentences, one of them the exact premise that shipped this),
+`fp_gpkg.R` (twice), `test_pipeline.R`, `scripts/README.md`, `CLAUDE.md` (twice).
+
+Also corrected: "every layer carries `wsg`/`species`/`scenario`" to "every **data** layer", in
+`item_create.py`'s **published** asset description, `CLAUDE.md`, `README.Rmd`, `README.md` and
+`index.html`. It was already false on two bundles, because GDAL lists `layer_styles` beside
+the real layers and it has never carried a key. The two generated files are edited in place
+rather than re-rendered: a render is release step 6, reads the live API, and would move the
+figures.
+
+`NEWS.md` gains the `v2.0.1` entry. Its date is the day it was written — bump it if the
+release slips.

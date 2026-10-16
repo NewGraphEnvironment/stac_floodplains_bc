@@ -25,6 +25,81 @@ memory, and had to be recalled rather than read.
 > therefore *is* the release this paragraph reserves `v2.0.0` for — see the entry below. Nothing
 > about the condition changed; it simply became reachable.
 
+## v2.0.1 (2026-10-16)
+
+### Every published GeoPackage's embedded style is reachable again (#95)
+
+**All 23 items republish.** Every published `floodplain_landcover.gpkg` carried a correct
+`layer_styles` row per feature layer — the right QML, the right renderer, `f_table_schema`
+`''`, `useAsDefault` 1 — and **QGIS found none of them**. Four layers per item (eight on the
+four annual-span items) opened with a random single symbol instead of the 10-class
+`classified` or 91-category `transition` style. 108 styled layers in total. The COGs were
+unaffected: they self-style from their RAT.
+
+**The discriminator is GDAL's, not QGIS's.** The GPKG driver's `LIST_ALL_TABLES=AUTO` default
+surfaces a table `gpkg_contents` does not register **only** while the file declares no
+aspatial content. `floodplain_landcover.gpkg` carries the producer's `patch_watercourse_*`
+and `composition_*` as `attributes` rows, so GDAL stopped *listing* `layer_styles` there —
+and QGIS's style lookup goes through GDAL's layer list. `floodplain.gpkg` and
+`transition_vector.gpkg` carry no aspatial tables, which is exactly why they escaped, and
+why the measurement taken at #46 ("QGIS auto-styles fine without a `gpkg_contents` row") was
+right about the file it was taken on and wrong about this one.
+
+Measured 2026-10-16 on three GDALs, all agreeing — 3.8.5 (`sf`), 3.12.4 (QGIS 4.2.1's own)
+and 3.13.0 (homebrew) — so this is a long-standing heuristic rather than a QGIS regression.
+`LIST_ALL_TABLES` is a consumer-side open option, unreachable from the published bytes, so
+registering the table is the only in-file fix.
+
+Not new at v2.0.0, but v2.0.0 made it universal: the whole-network runs write both aspatial
+tables for every group, where it was 18 / 5 on 2026-10-14. Before that, the groups with no
+aspatial table styled correctly.
+
+`04_gpkg_style.py` now registers `layer_styles` in `gpkg_contents` as `attributes`, in **all
+three** bundles rather than only the one that needs it today — `01_stage.R` anticipates an
+aspatial family appearing in `floodplain.gpkg` and would stage it, and on that day that
+bundle's styles would die the same silent death. `last_change` is pinned to the same
+`GPKG_EPOCH` as `layer_styles.update_time` and as every other row in these files: the second
+wall-clock stamp was the objection that kept the registration out at #46, and pinned it does
+not churn.
+
+So every bundle's bytes move and every item's `file:checksum` with them, which is why this
+is a release rather than an asset swap.
+
+### Three guards, because nothing asked whether a style was reachable
+
+Every style check in the repo read the row it had written, and all of them passed on all 23
+items — the "verification that reads its own output" shape. Replaced by three questions that
+are deliberately different, none of them redundant:
+
+| asks | where | runs |
+|---|---|---|
+| is the row registered, `attributes`, pinned | `item_validate.py`, stdlib `sqlite3` | every build; the release gate |
+| does GDAL still **list** the table | `test_pipeline.R`, `sf::st_layers()` | the smoke test |
+| what does QGIS actually **draw** | `scripts/style_reach-check.py` (new) | by hand |
+
+The third is not covered by the second: rfp#17's NULL `f_table_schema` is the standing proof
+that a listed, well-formed style row still opens unstyled. `style_reach-check.py` opens every
+styled layer plain through PyQGIS and reads the renderer back, and its cold arm de-registers
+the table on a temp copy and requires the style to become unreachable. It runs under the QGIS
+bundle's own interpreter, so it is not part of `run_pipeline.sh`. The recipe for it had been in
+`scripts/README.md` since #46 and had never been pointed at this bundle — committing it as a
+script is the remedy.
+
+`style_determinism-check.py` gains two arms: that the registration carries the pin, and the
+conflict path (the style table regenerated against an already-registered tree, where
+`gpkg_contents.table_name` being the PRIMARY KEY makes an unconditional INSERT raise).
+
+### Also
+
+- The staged-side readers of `gpkg_contents` — `test_pipeline.R` and
+  `gpkg_determinism-check.R` — exclude `layer_styles` by name, which the `data_type` filter
+  used to do structurally. Paired with the positive listing arm above, because a name-based
+  exclusion passes the day a second non-spatial table appears.
+- "Every layer carries `wsg`/`species`/`scenario`" is now "every **data** layer", in the
+  published `floodplain_landcover` asset description and on the landing page. GDAL lists
+  `layer_styles` beside the real layers and it has never carried a key; the unqualified claim
+  was already false on two of the three bundles.
+
 ## v2.0.0 (2026-10-15)
 
 ### One floodplain model per watershed group (#89)

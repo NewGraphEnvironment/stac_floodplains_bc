@@ -420,8 +420,12 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         media_type=GPKG_MEDIA_TYPE,
         title="Floodplain land cover + transition (GeoPackage)",
         description=(
-            f"Land-cover and transition layers for {meta['item_id']} alone — every layer "
-            f"carries wsg/species/scenario, so items merged into one file stay separable."),
+            # "every DATA layer", not "every layer": GDAL lists the `layer_styles` table
+            # beside the real ones, and since #95 it does so in all three bundles. The
+            # unqualified claim was already visibly false to anyone running `ogrinfo`.
+            f"Land-cover and transition layers for {meta['item_id']} alone — every data "
+            f"layer carries wsg/species/scenario, so items merged into one file stay "
+            f"separable."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain_landcover.gpkg"),
     )

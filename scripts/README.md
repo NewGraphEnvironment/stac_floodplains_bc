@@ -30,7 +30,7 @@ the catalog host, so it can be cut from a machine that does not hold the source 
 | Stage | `01_stage.R` | Discover rostered WSGs + their publish targets; for each item (`<wsg>_<scenario>`, one per declared `(species, scenario)`) copy the classified/transition rasters into `data/raw/<item_id>/`; **write** `floodplain_landcover.gpkg` + `floodplain.gpkg` (ff02/ff04/ff06 delineations) into `data/stac/<item_id>/` holding **only that item's layers**, selected by each layer's own `wsg`/`species`/`scenario` (#80 — a whole-file copy would ship a target the group no longer publishes); extract the transition layer to `transition_vector.gpkg` (layer `transition`); derive per-flood-factor floodplain areas + tree metrics + footprint → `data/raw/<item_id>/meta.json` |
 | Tag | `02_raster_tag.py` | Embed GDAL metadata tags from `meta.json` onto the **staged** rasters (WSG, species, scenario, region, floodplain area per flood factor ff02/ff04/ff06 km², gross loss/gain/net ha, run provenance, per-asset year). Before the COG conversion, not after — tagging a finished COG in place moves its main IFD to the end of the file (#33). Also authors the class-label RAT as a PAM `.aux.xml` beside each staged raster, which `03` absorbs into the COG (#34/#35) |
 | COG | `03_cog.py` | Convert the tagged rasters to Cloud-Optimized GeoTIFFs → `data/stac/<item_id>/` via `rasterio.shutil.copy` (a GDAL `CreateCopy`), which carries the tags, colour table, band description **and the class-label RAT** through. This is the last step to touch a published byte. Python rather than terra since #34: only a RAT can put labels inside a `.tif`, and RAT-in-`GDAL_METADATA` needs GDAL 3.12+ while terra links 3.8.5 |
-| Style | `04_gpkg_style.py` | Embed a `layer_styles` row per feature layer in all three GeoPackages, so QGIS opens them already coloured with the same palette the COGs carry in their RAT (#46). Stdlib `sqlite3` — a GeoPackage is a SQLite database and a style row is an INSERT, so no GDAL and no new dependency. `f_table_schema` is `''`, never NULL (QGIS matches with `= ''` and NULL never equals, so a NULL row is written, logs nothing, and the layer opens unstyled). No `gpkg_contents` row and no triggers, unlike QGIS's own writer: measured to auto-style fine without them, and registering the table adds a second wall-clock stamp that would churn `file:checksum`. `update_time` pinned to `GPKG_EPOCH`, read from `fp_gpkg.R` so the two cannot drift. A re-run compares first and skips the write, because SQLite bumps its header change counter on any write transaction |
+| Style | `04_gpkg_style.py` | Embed a `layer_styles` row per feature layer in all three GeoPackages, so QGIS opens them already coloured with the same palette the COGs carry in their RAT (#46). Stdlib `sqlite3` — a GeoPackage is a SQLite database and a style row is an INSERT, so no GDAL and no new dependency. `f_table_schema` is `''`, never NULL (QGIS matches with `= ''` and NULL never equals, so a NULL row is written, logs nothing, and the layer opens unstyled). The table **is** registered in `gpkg_contents` as `attributes` since #95 — it was not until then, on the premise that "GDAL lists it either way", which is true only while the file declares no aspatial content: GDAL's `LIST_ALL_TABLES=AUTO` then stops listing it, and QGIS's style lookup goes through GDAL's layer list, so all 23 `floodplain_landcover.gpkg` published a correct and unreachable style. Registered in all three bundles, not only the one that needs it today. Still no triggers and no `gpkg_ogr_contents` row, which is less than GDAL writes and measured safe. Both timestamps — `layer_styles.update_time` and the registration's `gpkg_contents.last_change` — pinned to `GPKG_EPOCH`, read from `fp_gpkg.R` so they cannot drift; unpinned, that second stamp is what kept the registration out at #46. A re-run compares first and skips the write, because SQLite bumps its header change counter on any write transaction |
 | STAC | `item_create.py` | Build the collection + one `<item_id>.json` per target into `data/stac/`; asset hrefs under `<item_id>/`. Also hashes every asset into `file:checksum` + `file:size`. Build only — no validation, no network; the collection carries no `version` until `catalogue_release.sh` stamps it |
 | Extract | `fp_gpkg.R` | Sourced by `01_stage.R`: pins `OGR_CURRENT_DATE` and writes single-layer GeoPackages into a fresh file (the only case the pin makes byte-reproducible) |
 | Validate | `item_validate.py` | pystac-validate every document **on disk**, so what is checked is what ships. Requires exactly the staged item count, so a wrong `--base` fails instead of reporting `valid: 0` and exiting 0. Also re-hashes every asset and asserts the published `file:checksum`/`file:size` match the bytes |
@@ -477,26 +477,95 @@ NO_PIN=1 uv run python scripts/style_determinism-check.py   # cold: rebuilds mus
 ITEM=bulk_all_ff04 uv run python scripts/style_determinism-check.py
 ```
 
-Three properties, measured on `kotl_bt_ff04`: two writes with the pin are byte-identical
-across all three GeoPackages; two writes with a wall-clock stamp differ (the cold path, so a
-warm pass means something); and re-running the style step does not move a single byte.
+Five properties, the first three measured on `kotl_bt_ff04`: two writes with the pin are
+byte-identical across all three GeoPackages; two writes with a wall-clock stamp differ (the cold
+path, so a warm pass means something); re-running the style step does not move a single byte; the
+`gpkg_contents` registration added by #95 carries the pin, since the column's own DEFAULT is
+`strftime(...,'now')` and that second stamp is what kept the registration out at #46; and the
+conflict path holds.
 
-That third one is not obvious. SQLite bumps its header change counter on **any** write
-transaction, so a writer that rewrote identical rows would still republish a new
-`file:checksum` for unchanged content. The writer compares the rows first and skips.
+The third is not obvious. SQLite bumps its header change counter on **any** write transaction, so
+a writer that rewrote identical rows would still republish a new `file:checksum` for unchanged
+content. The writer compares the rows first and skips.
 
-### Verifying a style against QGIS itself
+Nor is the fifth, and no other arm reaches it: **repairing** a registration that is present and
+wrong — the shape QGIS's own writer leaves whenever someone saves a style into the file, and the
+shape a change to `GPKG_EPOCH` would produce. `gpkg_contents.table_name` is the PRIMARY KEY, so
+a writer that INSERTed unconditionally raises `UNIQUE constraint failed` there and on no other
+path. The obvious setup for that arm does **not** work, which is why it is written the way it is:
+dropping the style table while keeping its registration leaves the registration comparing equal,
+the writer skips that branch, and an unconditional INSERT passes — restoring the bug that way
+gave a green run. Only a row that *differs* gets the write attempted.
 
-A style that reloads in our own reader proves only self-consistency. The question that matters
-is what **QGIS** does with a layer opened plain, with no `.qml` handed to it — which is how a
-style that loads cleanly and renders nothing gets caught.
+The write is `UPDATE`-or-`INSERT`, never `REPLACE`: REPLACE does not raise but deletes and
+re-inserts, moving the row's rowid (measured, 7 -> 8) and the file's sha256 with it. That is not
+a published-bytes hazard, since a repaired file is never published, and this check does not pin
+it — it byte-compares the fresh-build path, where both spellings behave as INSERT.
+
+### Verifying a style is reachable — `style_reach-check.py`
+
+A style that reloads in our own reader proves only self-consistency. Two questions neither
+`style_drift-check.py` nor `item_validate.py` can answer, because both read the row they wrote:
+does the consumer's GDAL **list** the style table at all, and what does **QGIS** then draw for a
+layer opened plain, with no `.qml` handed to it.
+
+```bash
+uv run python scripts/style_reach-check.py      # refuses: PyQGIS is not in the uv env
+```
+
+Three layers ask three different things, and none is redundant:
+
+| asks | where | runs |
+|---|---|---|
+| is the row there, `attributes`, pinned | `item_validate.py`, stdlib `sqlite3` | every build; the release gate |
+| does GDAL **list** the table | `test_pipeline.R`, `sf::st_layers()` | the smoke test |
+| what does QGIS **draw** from it | `style_reach-check.py`, PyQGIS | by hand |
+
+The middle one is the predicate #95 turns on. GDAL's `LIST_ALL_TABLES=AUTO` surfaces a table
+`gpkg_contents` does not register **only** while the file declares no aspatial content, and QGIS's
+style lookup goes through GDAL's layer list — so `floodplain_landcover.gpkg`, which carries the
+producer's `patch_watercourse_*` and `composition_*`, hid its own style table. Measured 2026-10-16
+on three GDALs, all agreeing: hidden there, listed in the other two bundles, and
+`-oo LIST_ALL_TABLES=YES` brings it back.
+
+```bash
+Q=/Applications/QGIS-final-4_2_1.app/Contents/MacOS
+$Q/ogrinfo -q <copy>/floodplain_landcover.gpkg                        # 6 layers, no layer_styles
+$Q/ogrinfo -q -oo LIST_ALL_TABLES=YES <copy>/floodplain_landcover.gpkg  # there, merely unlisted
+#  register the row, then
+$Q/ogrinfo -q <copy>/floodplain_landcover.gpkg                        # 7 layers
+$Q/ogrinfo -so <copy>/floodplain_landcover.gpkg layer_styles          # count + typed columns,
+                                                                      # no warning, and no
+                                                                      # gpkg_ogr_contents row
+```
+
+That last line is the measurement that justifies writing **less** than GDAL does.
+
+Listing is necessary and **not sufficient**, which is why the QGIS arm stays: rfp#17's NULL
+`f_table_schema` is the standing proof that a listed, well-formed style row still opens unstyled.
+`style_reach-check.py` opens every styled layer of all three bundles plain and reads the renderer
+back, and its cold arm de-registers the table on a temp copy and requires the style to become
+unreachable — a guard nobody has seen fail is decoration. The cold arm is **landcover-only** on
+purpose: de-registering either other bundle returns it to a state where AUTO still lists the table
+and QGIS still finds the style, so a per-bundle cold arm would report two false failures.
+
+Measured on `sloc_all_ff04`, the published v2.0.0 bytes against the fix: before, the four
+landcover layers come back `singleSymbol` while the other five are correct; after, all nine carry
+the expected renderer (10 and 91 categories), and the de-registered copy falls back to
+`singleSymbol`.
+
+It needs the QGIS bundle's own interpreter — PyQGIS is not in this repo's `uv` env and cannot be —
+so it is **not** in `run_pipeline.sh`, like the other hand-run checks:
 
 ```bash
 R=/Applications/QGIS-final-4_2_1.app/Contents/Resources
 PROJ_DATA="$R/qgis/proj" PROJ_LIB="$R/qgis/proj" GDAL_DATA="$R/qgis/gdal" \
 PYTHONPATH="$R/python3.12:$R/python3.12/site-packages:$R/python3.12/lib-dynload" \
 QT_QPA_PLATFORM=offscreen \
-  /Applications/QGIS-final-4_2_1.app/Contents/MacOS/python3.12 probe.py
+  /Applications/QGIS-final-4_2_1.app/Contents/MacOS/python3.12 scripts/style_reach-check.py
+
+ITEM=bulk_all_ff04 ... scripts/style_reach-check.py   # any staged item
+QGIS_PREFIX=/Applications/QGIS-x.y.z.app ...          # another bundle
 ```
 
 The three data paths are not optional, and the recipe here omitted them until 2026-10-15.
@@ -525,14 +594,11 @@ in EPSG:3005 and the other two in UTM — and `QgsMapSettings.setLayers()` draws
 on top, so a list written in reading order hides the layer you came to see behind the one
 below it. Each produces a blank or wrong panel with no error.
 
-This is how the #46 styles were verified — all 24 layers of a multi-target group opened plain,
-renderer and symbol opacity read back from QGIS — and it is what #48 will need for raster
-opacity. **It had never been run over `floodplain_landcover.gpkg`**, which is how #95 shipped:
-every one of that bundle's styles is present, correct and unreachable by QGIS on all 23
-published items. Nothing in the pipeline asks whether a style is *reachable* —
-`style_drift-check.py` compares committed QML against `classes.json`, which is the same
-reader on both sides. `item_validate.py` covers the same ground without QGIS for anything that runs in the
-pipeline; this is for the questions only the real consumer can answer.
+This recipe is also how the #46 styles were verified — all 24 layers of a multi-target group
+opened plain, renderer and symbol opacity read back from QGIS — and it is what #48 will need for
+raster opacity. **It had never been run over `floodplain_landcover.gpkg`**, which is how #95
+shipped, and committing it as a script is the remedy: a recipe in a README is run when someone
+remembers to, and the one bundle nobody pointed it at is the one that broke.
 
 ## Provenance reader check
 

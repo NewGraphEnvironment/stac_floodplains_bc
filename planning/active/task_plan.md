@@ -141,25 +141,25 @@ python, so — like `fp_provenance-check.R`, `stage_years-check.R`, `year_sets-c
 
 ## Phase 5: Prose and NEWS — the stale claim is in seven tracked places
 
-- [ ] `scripts/04_gpkg_style.py` — the two docstring claims (Phase 1).
-- [ ] `scripts/fp_gpkg.R` (~117–119 and ~125–130) — "GDAL lists tables `gpkg_contents`
+- [x] `scripts/04_gpkg_style.py` — the two docstring claims (Phase 1).
+- [x] `scripts/fp_gpkg.R` (~117–119 and ~125–130) — "GDAL lists tables `gpkg_contents`
       does not register (`layer_styles` is one, verified on a styled file)". True on two
       bundles, false on the third: the measurement was taken on the wrong file.
-- [ ] `scripts/test_pipeline.R` 369–371 — "`st_layers()` returns it alongside the real
+- [x] `scripts/test_pipeline.R` 369–371 — "`st_layers()` returns it alongside the real
       ones" (Phase 3).
-- [ ] `scripts/README.md` — the step-04 row in the rebuild table; the "Verifying a style
+- [x] `scripts/README.md` — the step-04 row in the rebuild table; the "Verifying a style
       against QGIS itself" section gains the new script, the GDAL mechanism and the
       `ogrinfo` two-command proof; a `style_reach-check.py` entry beside the other
       hand-run checks.
-- [ ] `CLAUDE.md` — the `styles/` paragraph; and the "two tables this repo does not
+- [x] `CLAUDE.md` — the `styles/` paragraph; and the "two tables this repo does not
       describe" paragraph, which calls those tables "inert there" when they are the thing
       that flipped the behaviour.
-- [ ] The "every layer carries wsg/species/scenario" claim, which GDAL already falsifies
+- [x] The "every layer carries wsg/species/scenario" claim, which GDAL already falsifies
       on two bundles today and on all three after the fix: `scripts/item_create.py`
       (**published** in every item document), `CLAUDE.md`, `README.Rmd` and the generated
       `README.md`. Qualify to data layers. A full re-render is release step 6 and reads the
       live API, so the one sentence is corrected in both files identically instead.
-- [ ] `NEWS.md` — `## v2.0.1` entry: the GDAL mechanism, what republishes, and the count.
+- [x] `NEWS.md` — `## v2.0.1` entry: the GDAL mechanism, what republishes, and the count.
 - [ ] Correct the issue body: it attributes the behaviour to QGIS, and the discriminator is
       GDAL's `LIST_ALL_TABLES=AUTO`.
 

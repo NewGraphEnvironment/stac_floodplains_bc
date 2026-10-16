@@ -13021,9 +13021,11 @@ the transition is unaffected.</p>
 <code>file:size</code>, so you can confirm a download arrived intact and
 pin which build a figure came from. (A checksum answers <em>are my bytes
 current</em>, not <em>did the values change</em> — a re-encode moves
-every checksum.) Every GeoPackage layer carries <code>wsg</code>,
-<code>species</code> and <code>scenario</code>, so items merged into one
-file stay separable by attribute.</p>
+every checksum.) Every GeoPackage <strong>data</strong> layer carries
+<code>wsg</code>, <code>species</code> and <code>scenario</code>, so
+items merged into one file stay separable by attribute. (Each file also
+holds a <code>layer_styles</code> table, which is QGIS’s own and carries
+no key — it is what makes the layers open already coloured.)</p>
 <p><strong>Each item’s GeoPackages hold only that item’s
 layers.</strong> Merging <em>N</em> items therefore gives you <em>N</em>
 copies of the same layer families and nothing retired — no second
