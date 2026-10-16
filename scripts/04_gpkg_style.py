@@ -102,10 +102,45 @@ STYLE_TABLE = "layer_styles"
 # that have no aspatial table and so were never affected by #95 at all. (`aspatial` is the
 # retired GDAL extension and wants a `gpkg_extensions` row.)
 _GC_COLS = '"table_name","data_type","identifier","description","last_change","srs_id"'
+# The same column list as NAMES, so nothing below indexes that tuple positionally. The order
+# in `_GC_COLS` is load-bearing in three places — the INSERT, the UPDATE's
+# `(*want_gc[1:], want_gc[0])`, and the read-back — and a CONSISTENT reorder of it (every
+# consumer updated, exactly the right row written) still turned a positional read-back into a
+# permanent false refusal of a correct file, asserting that `last_change` was not the pin when
+# it was. Measured. A build that cannot be made to pass is cheap next to one that ships bad
+# bytes, but the diagnostic named the wrong column, which is the expensive half.
+_GC_FIELDS = tuple(c.strip('"') for c in _GC_COLS.split(","))
 
 
 def intended_registration(epoch: str) -> tuple:
     return (STYLE_TABLE, "attributes", STYLE_TABLE, "", epoch, 0)
+
+
+def registration_problem(back, want_gc: tuple, epoch: str) -> str | None:
+    """What is wrong with the `gpkg_contents` row, named by COLUMN, or None.
+
+    Returns the difference rather than a boolean, so the refusal in `main()` can say what it
+    found instead of restating what the author expected to find. The first version of that
+    message enumerated three conditions while the check had four, and a trigger rewriting
+    `identifier` produced a refusal whose every named condition was false of the file —
+    the same defect round 1 reported against the summary line this replaced, one level down.
+    """
+    if back is None:
+        return f"no {STYLE_TABLE} row in gpkg_contents at all"
+    bad = [f"{f}={b!r} (wanted {w!r})"
+           for f, b, w in zip(_GC_FIELDS, back, want_gc) if b != w]
+    # The two conditions that do NOT descend from `intended_registration()`. Without them a
+    # writer whose intent is wrong passes, because `want_gc` is that intent — measured, with
+    # `data_type='features'` reported as "3 of 3" and exit 0 on unreachable files.
+    dt, lc = back[_GC_FIELDS.index("data_type")], back[_GC_FIELDS.index("last_change")]
+    if dt != "attributes":
+        bad.append(f"data_type={dt!r}, which must be 'attributes' — measured, any other "
+                   f"value loses the style in every bundle")
+    if lc != epoch:
+        bad.append(f"last_change={lc!r}, which must be the pin {epoch!r}")
+    # dict.fromkeys: a wrong `want_gc` makes the zip silent and the literals fire, a wrong
+    # ROW makes both fire on the same column, and the operator should see it once.
+    return "; ".join(dict.fromkeys(bad)) or None
 
 
 LAYER_STYLES_DDL = """
@@ -204,7 +239,7 @@ _COLS = ('"id","f_table_catalog","f_table_schema","f_table_name","f_geometry_col
 
 def style_gpkg(path: pathlib.Path, styles: dict[str, str],
                epoch: str) -> tuple[int, bool]:
-    """(feature layers styled, registration present and pinned) for one GeoPackage."""
+    """(feature layers styled, what is wrong with the registration or None)."""
     con = sqlite3.connect(path)
     try:
         layers = feature_layers(con)
@@ -286,17 +321,16 @@ def style_gpkg(path: pathlib.Path, styles: dict[str, str],
         # files whose styles QGIS then cannot reach at all. A read-back against the value
         # you just wrote is self-referential however many of its columns you compare.
         #
-        # So `attributes` is asserted as a LITERAL here, separately from the tuple. That is
-        # the one property the file's behaviour depends on, and this is the only statement
-        # in the writer that does not descend from `intended_registration()`. It is still
-        # the writer checking itself; the untied copy that checks it from outside is
-        # `item_validate.py`'s registration arm, which runs in the pipeline, the smoke test
-        # and the release gate.
+        # So `attributes` is asserted as a LITERAL, separately from the tuple, inside
+        # `registration_problem()`. That is the one property the file's behaviour depends on
+        # and the only condition here that does not descend from `intended_registration()`.
+        # It is still the writer checking itself; the untied copy that checks it from
+        # outside is `item_validate.py`'s registration arm, which runs in the pipeline, the
+        # smoke test and the release gate.
         back = con.execute(
             f"SELECT {_GC_COLS} FROM gpkg_contents WHERE table_name = ?",
             (STYLE_TABLE,)).fetchone()
-        return len(layers), bool(back) and back == want_gc and back[1] == "attributes" \
-            and back[4] == epoch
+        return len(layers), registration_problem(back, want_gc, epoch)
     finally:
         con.close()
 
@@ -313,17 +347,21 @@ def main() -> int:
             f"no item directories under {STAC_DIR} — nothing was staged, and a run "
             f"that styled nothing must not report success")
 
-    total_rows, total_reg, total_files = 0, 0, 0
+    total_rows, total_files = 0, 0
+    unregistered: list[str] = []
     for item in items:
         rows = 0
         for name in sorted(FILE_STYLES):
             gpkg = item / name
             if not gpkg.exists():
                 raise SystemExit(f"{gpkg} is absent — staging did not complete")
-            n, registered = style_gpkg(gpkg, styles, epoch)
+            n, problem = style_gpkg(gpkg, styles, epoch)
             rows += n
             total_files += 1
-            total_reg += registered
+            if problem is not None:
+                # The PATH, not just a count: on the 23-item build a bare "1 of 69" names
+                # nothing, and `style_gpkg()` already knows which file it is.
+                unregistered.append(f"{item.name}/{name}: {problem}")
 
         # Also place the styles beside the assets, so `item_create.py` can publish them
         # as STAC assets. Per-item copies rather than one shared object at the bucket
@@ -343,16 +381,17 @@ def main() -> int:
               f"{len(styles)} .qml copied")
 
     print(f"styles embedded: {total_rows} row(s) over {len(items)} item(s), "
-          f"{STYLE_TABLE} registered and pinned in {total_reg} of {total_files} "
-          f"GeoPackage(s), both timestamps pinned to {epoch}")
-    if total_reg != total_files:
+          f"{STYLE_TABLE} registered and pinned in {total_files - len(unregistered)} of "
+          f"{total_files} GeoPackage(s), both timestamps pinned to {epoch}")
+    if unregistered:
+        # Says what it FOUND, per file, rather than restating what it expected. GDAL lists an
+        # unregistered table only while the file declares no aspatial content, and a
+        # registration that is not `attributes` loses the style in every bundle (measured),
+        # so either way the style ships unreachable with every row still in place (#95).
         raise SystemExit(
-            f"{total_files - total_reg} of {total_files} GeoPackage(s) ended without a "
-            f"correct {STYLE_TABLE} registration — the row is absent, or it is not "
-            f"`attributes`, or its last_change is not {epoch}. GDAL lists an unregistered "
-            f"table only while the file declares no aspatial content, and a registration "
-            f"that is not `attributes` loses the style in every bundle (measured), so the "
-            f"style would be unreachable with every row still in place (#95)")
+            f"{len(unregistered)} of {total_files} GeoPackage(s) ended with a bad "
+            f"{STYLE_TABLE} registration, so their styles would ship unreachable (#95):\n  "
+            + "\n  ".join(unregistered))
     return 0
 
 

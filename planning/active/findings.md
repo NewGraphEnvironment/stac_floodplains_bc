@@ -417,3 +417,41 @@ Run before round 3 reported, same candidate set, same verdict on members 1–11 
 and judged it bounded by its own registration arm, so message quality rather than
 pass-when-broken. Excluded by name anyway: four of five excluding is how the second instance
 arrived.
+
+## Code-check round 4 — scoped to round 3's fixes, because one of them corrected round 3
+
+Round 4 confirmed round 3's closure survives its own fixes, by mutation: the control tree
+gives "3 of 3" with digests unchanged; a writer emitting `features` is caught by the literal
+arm (and **only** by it, since the tuple comparison still passes); a disabled registration is
+caught by the absent-row short-circuit; a pre-existing wrong row with a foreign `description`,
+`srs_id` and a wall-clock stamp is repaired with no false refusal. `item_validate.py`'s new
+exclusion is a net gain: a style row naming `layer_styles` is now reported, where before it
+cancelled out of both set differences.
+
+Three residual findings, all real, none pass-when-broken:
+
+| finding | verdict |
+|---|---|
+| the refusal message enumerated **three** conditions where the check had **four** — a trigger rewriting `identifier` produced a refusal every named condition of which was false of the file | real, and the same defect round 1 reported against the summary line this replaced, one level down |
+| the refusal named a count and no file — `1 of 69` on the full build, while `style_gpkg()` already knows the path | real |
+| `back[1]`/`back[4]` were positional indices into `_GC_COLS`, so a **consistent** reorder of it wrote exactly the right row and then refused the build forever, blaming the wrong column | real, measured; fails closed, but unfixable-looking |
+| `NEWS.md` still named two of the five by-name exclusions, in the same hunk this commit edited | real — one fact in two documents, corrected in one, which is the shape round 2 found |
+
+Both code findings are fixed by one change: the read-back returns **what differed, named by
+column**, from a `_GC_FIELDS` tuple derived from `_GC_COLS`, and `main()` prints it per file.
+That removes the positional indices and the restated predicate together — the message can no
+longer disagree with the check, because it *is* the check's output. Measured after: a rewritten
+`identifier` reports `identifier='meddled' (wanted 'layer_styles')`; a `features`-emitting
+writer reports the file and `data_type`; and a consistent `_GC_COLS` reorder now gives
+"3 of 3" and exit 0.
+
+Round 4 also noted, out of scope and not filed: the style-**rows** half of the summary line is
+still intent — `style_gpkg()` returns `len(layers)` with no read-back — so a writer embedding a
+NULL `f_table_schema` would print "9 style row(s) … 3 of 3" and exit 0. `item_validate.py`
+catches that absolutely, and the comment is scoped to the registration, so it does not
+overclaim. Left as is deliberately.
+
+And one measurement that strengthens a claim rather than correcting it: with `data_type` set to
+`features`, `ogrinfo` lists `layer_styles` in **none** of the three bundles, where
+de-registering hides it only in the landcover one. So `test_pipeline.R`'s positive arm catches
+a `features` registration on all three — stronger than its comment claims, and no hole.

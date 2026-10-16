@@ -197,7 +197,7 @@ numbers (`feature-workflow.md`: not even as provenance). Each issue carries the 
       equality, which no existing check covers end to end (the determinism check compares
       two copies that each went through the same setup).
 - [x] `bash scripts/catalogue_release-check.sh`
-- [x] `/code-check branch`: three rounds, 6 + 5 + 6 findings, all fixed; the loop ended by enumeration (11 readers, 18 assertions, 34 claims), not by a quiet round
+- [x] `/code-check branch`: four rounds, 6 + 5 + 6 + 3 findings, all fixed. The loop ended by enumeration (11 readers, 18 assertions, 34 claims) plus a fourth round scoped to the third's fixes, since one of those corrected what round 3 proposed
 - [x] PWF checkboxes match landed work
 - [ ] `/planning-archive` on completion
 

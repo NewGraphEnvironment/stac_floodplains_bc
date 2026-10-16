@@ -95,15 +95,21 @@ bundle's own interpreter, so it is not part of `run_pipeline.sh`. The recipe for
 script is the remedy.
 
 `style_determinism-check.py` gains two arms: that the registration carries the pin, and the
-conflict path (the style table regenerated against an already-registered tree, where
-`gpkg_contents.table_name` being the PRIMARY KEY makes an unconditional INSERT raise).
+repair path — a registration present but wrong, which is what QGIS's own writer leaves when
+someone saves a style into the file, and where an unconditional INSERT raises
+`UNIQUE constraint failed: gpkg_contents.identifier` (measured; `table_name` is the PRIMARY KEY
+and `identifier` is UNIQUE, and SQLite reports the latter).
 
 ### Also
 
-- The staged-side readers of `gpkg_contents` — `test_pipeline.R` and
-  `gpkg_determinism-check.R` — exclude `layer_styles` by name, which the `data_type` filter
-  used to do structurally. Paired with the positive listing arm above, because a name-based
-  exclusion passes the day a second non-spatial table appears.
+- **Five** staged-side readers of `gpkg_contents` exclude `layer_styles` by name, which the
+  `data_type` filter used to do structurally: the two `feature_layers()` copies in
+  `04_gpkg_style.py` and `style_reach-check.py`, `test_pipeline.R`'s `keyed_layers()`,
+  `gpkg_determinism-check.R`, and `item_validate.py`. The count is written down because the
+  two `feature_layers()` copies were missed one per code-check round, each time for the same
+  reason — a reader who believes there are two such readers is in the state that produced the
+  omission. Paired with the positive listing arm above, because a name-based exclusion passes
+  the day a second non-spatial table appears.
 - "Every layer carries `wsg`/`species`/`scenario`" is now "every **data** layer", in **both**
   published asset descriptions and on the landing page. GDAL lists `layer_styles` beside the
   real layers and it has never carried a key; the unqualified claim was already false on two of
