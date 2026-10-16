@@ -46,7 +46,8 @@ Three things here are deliberate and each was measured:
 
     Still NO triggers and no `gpkg_ogr_contents` row, which is less than GDAL writes for
     its own tables. Measured rather than assumed: `ogrinfo -so` on the registered table
-    reports `Feature Count: 4`, `FID Column = id` and every column typed, with no warning.
+    reports the right feature count (4, 4 and 1 on the three bundles), `FID Column = id`
+    and every column typed, with no warning.
 
   * `update_time` is pinned, and the column's own DEFAULT is not used. The QGIS schema
     defaults it to `strftime(...,'now')`; the pin is the same `GPKG_EPOCH` that
@@ -275,9 +276,27 @@ def style_gpkg(path: pathlib.Path, styles: dict[str, str],
         # below is the only thing an operator reads for this step, and while it merely
         # restated what the code meant to do it printed "registered in gpkg_contents" on a
         # run with the registration disabled — measured, by restoring that bug.
-        return len(layers), bool(con.execute(
-            "SELECT 1 FROM gpkg_contents WHERE table_name = ? AND last_change = ?",
-            (STYLE_TABLE, epoch)).fetchone())
+        #
+        # The whole row AND one literal, and the second half is the part that took three
+        # tries. Comparing the read-back against `want_gc` catches a row that did not land
+        # as intended — a failed UPDATE, a trigger, another writer — and it CANNOT catch a
+        # writer whose intent is wrong, because `want_gc` is that intent. Measured: with
+        # `intended_registration()` emitting `data_type='features'`, a full-tuple comparison
+        # against `want_gc` reported "registered and pinned in 3 of 3" and exited 0, on
+        # files whose styles QGIS then cannot reach at all. A read-back against the value
+        # you just wrote is self-referential however many of its columns you compare.
+        #
+        # So `attributes` is asserted as a LITERAL here, separately from the tuple. That is
+        # the one property the file's behaviour depends on, and this is the only statement
+        # in the writer that does not descend from `intended_registration()`. It is still
+        # the writer checking itself; the untied copy that checks it from outside is
+        # `item_validate.py`'s registration arm, which runs in the pipeline, the smoke test
+        # and the release gate.
+        back = con.execute(
+            f"SELECT {_GC_COLS} FROM gpkg_contents WHERE table_name = ?",
+            (STYLE_TABLE,)).fetchone()
+        return len(layers), bool(back) and back == want_gc and back[1] == "attributes" \
+            and back[4] == epoch
     finally:
         con.close()
 
@@ -328,10 +347,12 @@ def main() -> int:
           f"GeoPackage(s), both timestamps pinned to {epoch}")
     if total_reg != total_files:
         raise SystemExit(
-            f"{total_files - total_reg} GeoPackage(s) ended without a pinned "
-            f"{STYLE_TABLE} registration — GDAL would stop listing the table the moment "
-            f"the file declares any aspatial content, and the style would be unreachable "
-            f"with every row still in place (#95)")
+            f"{total_files - total_reg} of {total_files} GeoPackage(s) ended without a "
+            f"correct {STYLE_TABLE} registration — the row is absent, or it is not "
+            f"`attributes`, or its last_change is not {epoch}. GDAL lists an unregistered "
+            f"table only while the file declares no aspatial content, and a registration "
+            f"that is not `attributes` loses the style in every bundle (measured), so the "
+            f"style would be unreachable with every row still in place (#95)")
     return 0
 
 

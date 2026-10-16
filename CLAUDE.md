@@ -66,10 +66,13 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   there and pinned, `test_pipeline.R` that `sf::st_layers()` still LISTS it, and the hand-run
   `style_reach-check.py` what QGIS actually draws — because the NULL `f_table_schema` trap
   `04_gpkg_style.py` documents is the standing proof that a listed, well-formed row still
-  opens unstyled. The staged-side
-  readers (`test_pipeline.R`, `gpkg_determinism-check.R`) exclude `layer_styles` BY NAME now,
-  which the `data_type` filter used to do structurally; the name-based exclusion is only safe
-  paired with that positive listing arm.
+  opens unstyled. **Five** staged-side readers
+  exclude `layer_styles` BY NAME now, which the `data_type` filter used to do structurally:
+  the two `feature_layers()` copies in `04_gpkg_style.py` and `style_reach-check.py`,
+  `test_pipeline.R`'s `keyed_layers()`, `gpkg_determinism-check.R`, and `item_validate.py`'s
+  `data_type='features'` reader. The two `feature_layers()` copies are what code-check rounds
+  1 and 2 each had to add, one per round, which is why the count is written down. A
+  name-based exclusion is only safe paired with that positive listing arm.
 - **Landing page + site** — `README.Rmd` is the single source, rendering `README.md`
   (`github_document`) and `index.html` (GitHub Pages, served from `main` at `/`, live at
   `www.newgraphenvironment.com/stac_floodplains_bc`). `scripts/readme_functions.R` holds the one

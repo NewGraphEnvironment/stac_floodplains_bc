@@ -370,3 +370,50 @@ comparison: 1.0 is what QGIS gives an unstyled layer, so a style shipped at full
 silently return the four `singleSymbol` assertions to the no-op they were before #95, with the
 renderer-type arm already unable to tell and nothing saying so. It now refuses on 1.0, the same
 shape as its refusal on more than one distinct value.
+
+## Code-check round 3 — the enumeration, and a defect inside round 3's own suggested fix
+
+Three sweeps, enumerated mechanically rather than recalled: **11** readers that select on
+`gpkg_contents.data_type`, **18** assertions the branch adds or changes, **34** quantified
+claims. Sweep 1 closes with four excluded by name, one by `data_type` with an independent
+guard above it, and six bounded by side or pipeline order. Sweep 2: 16 of 18 shown able to
+fail, six of them by mutation this session. Sweep 3: 30 true, 3 false, 1 true of two bundles
+of three.
+
+| finding | verdict |
+|---|---|
+| the writer's registration read-back asserts two of six columns, so a writer emitting `data_type='features'` reports "3 of 3" and exits 0 | real, and **the suggested fix does not fix it** — see below |
+| "since #95 that enumeration is five entries" is a false change attribution: `floodplain.gpkg` has no aspatial table, so AUTO listed the unregistered style table too and the count was five before | real, measured on a de-registered copy, and it was inside round 2's own fix |
+| "the staged-side readers (`test_pipeline.R`, `gpkg_determinism-check.R`) exclude it by name" reads exhaustive and names two of four | real; the two omitted are exactly what rounds 1 and 2 each had to add |
+| the NEWS entry names one of the two asset descriptions this branch corrected | real — it reproduced the omission round 2 had just fixed |
+| the v2.0.1 entry records no provenance floor/census line, which CLAUDE.md requires per release | real; added, with the measurement and the instruction to confirm against the build |
+| "`ogrinfo -so` reports `Feature Count: 4`" is true of two bundles; `transition_vector.gpkg` reports 1 | real |
+
+### The read-back could not be fixed the way it was reported
+
+The finding said to compare the full `want_gc` tuple. Measured, that still passes: with
+`intended_registration()` emitting `data_type='features'`, a full-tuple comparison against
+`want_gc` reported *"registered and pinned in 3 of 3"* and exited 0 — because `want_gc` **is**
+the writer's intent. A read-back against the value you just wrote is self-referential however
+many of its columns you compare, which is the same mechanism one level deeper than the finding
+that prompted it.
+
+So `attributes` is now asserted as a **literal**, separately from the tuple — the one statement
+in the writer that does not descend from `intended_registration()`. Restored the bug: the
+mutation now gives "0 of 3" and the refusal. It is still the writer checking itself; the untied
+copy that checks it from outside is `item_validate.py`'s registration arm.
+
+### And the plan review's third blocker, demonstrated by accident
+
+Re-running the writer over an already-built tree to repair the mutated registrations left all
+three GeoPackages byte-different from the build, so `item_validate.py` refused three checksums.
+That is exactly why `v2.0.1` must be cut from a full `run_pipeline.sh` and never from an
+in-place repair — asserted in the plan from the start, and now measured.
+
+### My own sweep 1, and the fifth reader
+
+Run before round 3 reported, same candidate set, same verdict on members 1–11 — and it named
+`item_validate.py`'s `data_type='features'` reader as a third copy of the shape. Round 3 agreed
+and judged it bounded by its own registration arm, so message quality rather than
+pass-when-broken. Excluded by name anyway: four of five excluding is how the second instance
+arrived.

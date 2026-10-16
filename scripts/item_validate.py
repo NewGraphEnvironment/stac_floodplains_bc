@@ -1708,8 +1708,16 @@ def check_layer_styles(base: Path) -> list[str]:
                         f"{reg[0][5]!r}, expected the pin {style_epoch!r} — unpinned, this "
                         f"one row republishes a new checksum for unchanged content on every "
                         f"rebuild")
+                # `layer_styles` excluded by name as well, the fifth and last copy of a
+                # shape code-check rounds 1 and 2 each found once. Here it only ever made
+                # the MESSAGE wrong rather than letting anything through — the registration
+                # arm above refuses a non-`attributes` row first — but a file registered as
+                # `features` otherwise lands in this list and is reported as "a layer with
+                # no style row", which is the wrong problem in the wrong words. Four of
+                # five readers excluding it is how the second instance arrived.
                 layers = [r[0] for r in con.execute(
-                    "SELECT table_name FROM gpkg_contents WHERE data_type='features'")]
+                    "SELECT table_name FROM gpkg_contents WHERE data_type='features' "
+                    "AND table_name <> ?", (STYLE_TABLE,))]
                 geom_of = dict(con.execute(
                     "SELECT table_name, column_name FROM gpkg_geometry_columns"))
                 rows = con.execute(

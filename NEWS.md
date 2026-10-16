@@ -65,6 +65,13 @@ not churn.
 So every bundle's bytes move and every item's `file:checksum` with them, which is why this
 is a release rather than an asset swap.
 
+**Provenance is untouched by this release, and the literals still have to be re-taken from the
+build it is cut from** — a number carried between releases describes a tree nobody has.
+Measured 2026-10-16 through `scripts/prov_census-measure.R`, before the rebuild: floor **23**,
+`link_run_uid` **18**, the other eleven fields **23**, which is what `PROVENANCE_FLOOR` and
+`PROV_CENSUS` already hold, so neither literal is expected to move. Confirm against the release
+build's own printed line rather than against this paragraph.
+
 ### Three guards, because nothing asked whether a style was reachable
 
 Every style check in the repo read the row it had written, and all of them passed on all 23
@@ -97,10 +104,13 @@ conflict path (the style table regenerated against an already-registered tree, w
   `gpkg_determinism-check.R` — exclude `layer_styles` by name, which the `data_type` filter
   used to do structurally. Paired with the positive listing arm above, because a name-based
   exclusion passes the day a second non-spatial table appears.
-- "Every layer carries `wsg`/`species`/`scenario`" is now "every **data** layer", in the
-  published `floodplain_landcover` asset description and on the landing page. GDAL lists
-  `layer_styles` beside the real layers and it has never carried a key; the unqualified claim
-  was already false on two of the three bundles.
+- "Every layer carries `wsg`/`species`/`scenario`" is now "every **data** layer", in **both**
+  published asset descriptions and on the landing page. GDAL lists `layer_styles` beside the
+  real layers and it has never carried a key; the unqualified claim was already false on two of
+  the three bundles, before this release. The `floodplain` description is the one that matters:
+  it tells the consumer to *read the layer list*, which is five entries whose fifth has no
+  `scenario` column — and it was the copy a first pass at this correction missed, while fixing
+  the sibling ten lines above it.
 
 ## v2.0.0 (2026-10-15)
 

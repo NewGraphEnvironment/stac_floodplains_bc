@@ -435,11 +435,14 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         title="Floodplain delineations ff02/ff04/ff06 (GeoPackage)",
         description=(
             # "each DATA layer", and "the feature layers" rather than "the layer list":
-            # this description tells the consumer to enumerate, and since #95 that
-            # enumeration is five entries, the fifth being `layer_styles`, which has no
-            # `scenario` column. The sibling asset above carried the identical claim and was
-            # corrected; this one is the copy that instructs the enumeration, so it is the
-            # one where the loose form actually misleads.
+            # this description tells the consumer to enumerate, and that enumeration is five
+            # entries, the fifth being `layer_styles`, which has no `scenario` column. NOT
+            # "since #95" — this bundle declares no aspatial content, so GDAL's
+            # LIST_ALL_TABLES=AUTO listed the UNREGISTERED style table too, and the count was
+            # five before the registration as well (measured on a de-registered copy). #95
+            # is why the claim is worth fixing now, not what made it false. The sibling asset
+            # above carried the identical claim and was corrected; this one is the copy that
+            # instructs the enumeration, so it is the one where the loose form misleads.
             f"The ff02/ff04/ff06 delineations for {meta['item_id']}'s species alone, plus "
             f"the producer's per-blue-line-key breakdown of the headline scenario where one "
             f"exists. Each data layer records its own flood factor in `scenario`, so several "
