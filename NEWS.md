@@ -25,7 +25,7 @@ memory, and had to be recalled rather than read.
 > therefore *is* the release this paragraph reserves `v2.0.0` for — see the entry below. Nothing
 > about the condition changed; it simply became reachable.
 
-## v2.0.1 (2026-10-16)
+## v2.0.1 (2026-10-17)
 
 ### Every published GeoPackage's embedded style is reachable again (#95)
 
