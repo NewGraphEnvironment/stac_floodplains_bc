@@ -479,6 +479,11 @@ and an API/bucket disagreement is what a reload-from-S3 turns into an empty coll
 refuses while the API serves the item, while the bucket `collection.json` still links it, or while
 the build still produces it — the middle one because rtj's reload-from-S3 `DELETE`s a collection's
 rows before discovering a linked href 404s, which is how `stac-dem-bc` came to serve zero items.
+**`stac-dem-bc` is a retired id**, not a live collection: that repo's elevation collection serves as
+`stac-elevation-bc`, and `imagery-uav-bc-prod` became `stac-imagery-uav-bc` the same way (#97) — measured
+2026-10-17, both old ids 404 and both new ones 200. So an incident named by an old id is correct for its
+date and wrong as something to query; four other tracked mentions of `stac-dem-bc` (NEWS, two release
+scripts, `scripts/README.md`) are those historical references.
 For the same reason step 3 writes `collection.json` **last**, in its own call, rather than in one
 parallelised sync with every item document.
 
