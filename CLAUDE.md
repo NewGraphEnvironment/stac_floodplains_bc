@@ -524,6 +524,20 @@ because of that: a `PARTIAL_STAGE` marker on any skipped group, an item-count fl
 `item_validate.py`, and a pre-sync comparison against the live collection that refuses a build
 missing any live item.
 
+**A release that dies inside step 2 registers nothing, so a re-run is the attempt — with the
+retry budget raised, not identically.** Measured cutting v2.0.1 (2026-10-17): one
+`aws s3 sync` upload, `lsal_all_ff04/floodplain.gpkg` at 7.3 MB, failed
+`RequestTimeout … (reached max retries: 2)` after 221 objects were up, the script exited 1,
+and the API kept serving v2.0.0 with bucket and documents consistent — the fail-closed order
+(sync assets, then JSON, then register) is what makes that true, and it is why a failure there
+costs a re-run rather than a half-published catalogue. `AWS_RETRY_MODE=standard
+AWS_MAX_ATTEMPTS=10 bash scripts/catalogue_release.sh` then completed: the sync skipped the
+221 and uploaded the remaining 48, because it is `aws s3 sync` over an upsert register
+(`planning.md`, "When Something Keeps Failing" — change the inputs, since an identical re-run
+is only the attempt for a transient failure). Verify the result on the bytes a consumer
+downloads, never on the script's own `RELEASE COMPLETE`: fetch one published GeoPackage from
+the bucket, `ogrinfo -so` it, and compare its sha256 with the local build's.
+
 ## Visibility
 
 **Public** (`.claude/visibility` = public). Keep it that way: no internal-only conventions below the
