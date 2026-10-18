@@ -51,7 +51,7 @@ Every asset publishes `file:checksum` and `file:size`, so you can confirm a down
 
 ## Coverage
 
-*Generated from the live API on 2026-10-15: 23 items across 23 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 2.0.0.*
+*Generated from the live API on 2026-10-17: 23 items across 23 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 2.0.1.*
 
 | WSG | Region | Species | Flood factor | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |:---|:---|:---|:---|---:|---:|---:|---:|
