@@ -180,7 +180,11 @@ it reads — it proves one KEY, not one population — which is what the separat
 `transition_*` additionally carries `in_open_water` and `open_water_poly_id` (FWA
 `fwa_lakes_poly` + `fwa_manmade_waterbodies_poly`, no size cut-off, a dammed lake filed as a
 lake so one flag covers both), `composition_*` carries `in_wsg` + `in_open_water`, and
-`patch_watercourse_*`'s key is now (`name_basin`, `patch_id`, `in_wsg`). `in_open_water` is
+`patch_watercourse_*` gains `in_wsg`. #98's body calls that its new key,
+`(name_basin, patch_id, in_wsg)`, and it is not one: measured on BULK, 29,986 rows against
+9,275 distinct triples, with `blue_line_key` completing it and `in_wsg` adding **0**
+combinations, because a patch lies on one side of the line or the other. Carried verbatim from
+the issue body is how it got in. `in_open_water` is
 **any-touch**, like `in_wetland`, so an AREA by it comes from `composition_*` (cell centre)
 and never from summing `area_ha` over the flagged patches — which is what the asset
 descriptions say, because it is the one thing a consumer cannot see by opening the file.
@@ -411,15 +415,31 @@ directly to the model.
 directions** (#98). The unsuffixed six — `floodplain_ff02/04/06_km2`, `gross_loss_ha`,
 `gross_gain_ha`, `net_ha` — are the item's own watershed group, read over `in_wsg` rows, so a
 regional total is their plain sum; the six `*_footprint_*` siblings are the same figures over
-the whole footprint, and a pair's difference is ground a neighbouring group's own item also
-publishes (floodplains#60). The opposite directions are the part worth writing down, because it
+the whole footprint. **A pair's difference is not simply a neighbour's ground**, which an
+earlier draft of every copy of this sentence said: measured on the v2.1.0 build in BC Albers,
+of the 519.16 km2 by which the footprint sum exceeds the in_wsg sum, only **50.58 km2 (9.7%)**
+is another item's own ground, and **468.57 km2 (90.3%)** falls outside every rostered group and
+is in nobody's `in_wsg`. The union of the 23 in_wsg pieces equals their sum (10,092.24 km2), so
+the unsuffixed total genuinely counts no ground twice; summing footprints double-counts by
+0.48% of that sum. Both halves matter and only one was written down: the unsuffixed sum is the
+right regional total, AND it is a total of the rostered floodplain rather than the province's
+(floodplains#60). The opposite directions are the part worth writing down, because it
 is the reason two functions read them rather than one: the pre-split transition layer **was**
 clipped, so scoping loss/gain/net to `in_wsg` HELD every published value (BULK 2793.4 / 1318.7
 / −1474.6, reproduced exactly), while the delineation layer was **never** clipped, so
 `floodplain_ffNN_km2` was already the whole footprint and became the smaller figure (BULK
-659.99 → 646.81; PCEA 843.34 → 491.38, 41.7% of its floodplain lying in Williston's PARS and
-FINA arms). So the catalogue's own silent-switch risk was only ever on the change figures, and
+659.99 → 646.81; PCEA 843.34 → 491.38, 41.7% of its floodplain lying in the arms of Williston
+Reservoir). So the catalogue's own silent-switch risk was only ever on the change figures, and
 the deliberate value move was only ever on the areas.
+
+**PCEA's outside strip is the case that shows what the two scopes are for, and the upstream
+log's attribution of it must not be repeated verbatim.** That log says the ground lies in
+Williston's `PARA` and `FINA` arms. Neither is in this collection's roster — measured against
+`config/regions/*.yml`, which names PARS but neither PARA nor FINA — so that ground is
+published by **no item at all**, and an earlier draft here made it worse by "correcting" PARA
+to the rostered-looking PARS. Which is the sharp version of the rule: the unsuffixed sum is
+the right provincial total because it counts no ground twice, and it is NOT a total of the
+province's floodplain, because ground outside every rostered group is in nobody's `in_wsg`.
 
 `geometry`, `bbox_wgs84` and `proj:bbox` are deliberately NOT rescoped: the rasters cover the
 whole footprint and a STAC geometry must contain its assets. `proj:*` comes off the raster, so
@@ -432,11 +452,18 @@ live catalogue over all 23 items at v2.1.0: **every** item's geometry gains coor
 (DUNC) to 364 (FRAN), 0.00% to 0.13%, BULK 433,852 -> 434,116 — and **no** item's geometry is
 byte-identical to the published one. What does NOT move is the ground: `bbox` and `proj:bbox`
 are unchanged on all 23, and every `*_footprint_km2` equals the live item's unsuffixed area
-exactly. On BULK, measured against the live geometry: area 659.991642 -> 659.991640 km2 and a
-symmetric difference of **11.9 m2**, which is 1.8e-08 of the footprint, and a **Hausdorff
-distance of 0.0099 m** — so no point on either boundary is more than a centimetre from the
-other. The footprint is the same locus with a denser boundary, and the residual is numerical,
-not ground. A plan review reported
+exactly. The footprint is the same locus with a denser boundary.
+
+**The residual itself is deliberately NOT written down here, and that is a finding.** A first
+pass recorded a symmetric difference of 11.9 m2 and a Hausdorff distance of 0.0099 m on BULK;
+a second, independent pass over the same two geometries got 0.01 m2 and 0.0000 m — three
+orders of magnitude apart — and neither run had recorded the CRS it projected to or whether
+`st_make_valid()` had rewritten geometry that was already valid (`code-check-spatial.md` says
+it does). The items are UTM, not BC Albers, so the projection choice moves both numbers. A
+measurement restated without the method that produced it cannot be re-derived, so nothing
+downstream can disagree with it; the figure is dropped rather than carried. What every run
+agrees on, and what to pin, is the bbox (unchanged on 23/23) and the area (equal to the live
+item's on 23/23). A plan review reported
 this as an identical vertex count with a ~1e-11 perturbation, measured on one group; the
 whole-catalogue measurement says otherwise, and the reason to prefer it is that it compares
 the build against the **live** item rather than against another build. Do not assert byte or

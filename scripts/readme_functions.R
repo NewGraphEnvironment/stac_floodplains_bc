@@ -415,8 +415,9 @@ REGION_COLS <- c(columbia = "#7570b3", fraser = "#1b9e77", peace = "#d95f02", sk
 # An order of magnitude, deliberately, not a figure: the provincial ff04 total is rendered from
 # the live API a few lines below, and a literal here has already been wrong twice -- once when
 # the roster grew, and again at #98, which rescoped every item's `floodplain_ff04_km2` to its
-# own watershed group (10,611 -> 10,092 km2, the 519 km2 difference being ground neighbouring
-# groups share). The design argument this number supports only needs the magnitude.
+# own watershed group (10,611 -> 10,092 km2; of the 519 km2 difference only 51 km2 is another
+# item's own ground, the other 469 km2 lying outside every rostered group). The design argument
+# this number supports only needs the magnitude.
 # Floodplain ribbons are drawn in one dark ink rather than by region: at ~10,000 km2 over a
 # ~950,000 km2 province they read as threads, and a thread carrying its own hue on top of a
 # coloured group fill is less legible, not more. The group fill is what carries region.

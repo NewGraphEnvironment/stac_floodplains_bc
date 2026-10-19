@@ -70,6 +70,20 @@ if (isTRUE(params$update_query)) {
 if (!file.exists(CACHE)) {
   stop(CACHE, " is missing — render once with params$update_query = TRUE", call. = FALSE)
 }
+# And a cache from BEFORE #98 must stop it too, rather than render the new prose over the old
+# numbers. The prose below now asserts that every figure in the table is the item's own
+# watershed group and that the totals count no ground twice; a pre-#98 cache holds the
+# whole-footprint values, which are the double-counted ones, so an `update_query = FALSE`
+# render would state the property while displaying its negation. Presence of the footprint
+# property is the discriminator because `item_create.py` publishes all twelve figures or
+# none. Deliberately NOT a `fp_req()` requirement: the figures themselves are not read from
+# the cache's footprint columns, and the remedy belongs in the message.
+if (!"floodplain_ff04_footprint_km2" %in% names(readRDS(CACHE)$props)) {
+  stop(CACHE, " predates #98 (no floodplain_ff04_footprint_km2) — the prose in this document ",
+       "describes in_wsg-scoped figures and this cache holds whole-footprint ones. Render ",
+       "with params$update_query = TRUE, after the v2.1.0 release has published.",
+       call. = FALSE)
+}
 cached <- readRDS(CACHE)
 props <- cached$props
 wsg <- cached$wsg
@@ -137,13 +151,13 @@ One **item** per watershed group, id `<wsg>_all_ff04` — the floodplain of the 
 
 Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and pin which build a figure came from. (A checksum answers *are my bytes current*, not *did the values change* — a re-encode moves every checksum.) Every GeoPackage **data** layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute. (Each file also holds a `layer_styles` table, which is QGIS's own and carries no key — it is what makes the layers open already coloured.)
 
-**Every data layer is split at the watershed group boundary, and carries `in_wsg`.** A floodplain follows its river, so it crosses into the neighbouring group; `in_wsg` is `TRUE` for the part inside the item's own group. A layer that would once have been one row is one row per side, so **union the rows or filter on `in_wsg`** rather than assuming a single feature. The transition patches also carry `in_open_water` and `open_water_poly_id`, from the Freshwater Atlas lakes and manmade waterbodies with no size cut-off — a dammed lake is filed as a lake, so one flag covers both. Like `in_wetland`, it is an any-touch flag, so read **areas** by flag from the `composition_*` table (counted by cell centre) rather than summing `area_ha` over a flagged subset.
+**Every data layer is split at the watershed group boundary, and carries `in_wsg`.** A floodplain follows its river, so it crosses into the neighbouring group; `in_wsg` is `TRUE` for the part inside the item's own group. A layer that would once have been one row is one row per side, so **union the rows or filter on `in_wsg`** rather than assuming a single feature. The transition patches also carry `in_open_water`, from the Freshwater Atlas lakes and manmade waterbodies with no size cut-off — a dammed lake is filed as a lake, so one flag covers both — plus `open_water_poly_id`, which is an identifier rather than a flag. `in_open_water` is **any-touch**, like `in_wetland`: a patch is flagged if it touches a waterbody at all, so read open-water **areas** from the `composition_*` table (counted by cell centre) rather than summing `area_ha` over the flagged patches. `in_wsg` is not any-touch — it is a true partition, which is why the headline figures *are* sums over its `TRUE` rows.
 
 **Each item's GeoPackages hold only that item's layers.** Merging *N* items therefore gives you *N* copies of the same layer families and nothing retired — no second floodplain model from a target the group no longer publishes. `floodplain.gpkg` is the one place several `scenario` values appear under one item, because the ff02, ff04 and ff06 delineations each record their own flood factor.
 
 **Every item is `ff04`**, the functional floodplain. `floodplain.gpkg` also carries the `ff02` and `ff06` (wider valley bottom) delineations, so compare those inside an item rather than across the catalogue. If a group ever publishes a second flood factor, filter on the `flood_factor` property before comparing or summing groups — an unfiltered aggregate would add different extents together.
 
-**Every headline figure is published in two scopes.** `floodplain_ff02_km2` / `floodplain_ff04_km2` / `floodplain_ff06_km2` and `gross_loss_ha` / `gross_gain_ha` / `net_ha` are the item's **own watershed group** — the `in_wsg` rows of the layer each is read from — so a regional or provincial total is their plain sum. Each has a `*_footprint_*` sibling (`floodplain_ff04_footprint_km2`, `gross_loss_footprint_ha`, …) holding the same figure over the item's **whole footprint**, which is the ground its rasters cover and its `geometry` describes. The difference between a pair is ground shared with a neighbour, and that neighbour's own item publishes it too — so summing the footprint figures across groups double-counts, while summing the unsuffixed ones does not. The gap is usually 1–3%; for `pcea_all_ff04` it is 42%, because that much of the item's floodplain lies in Williston Reservoir's arms inside `PARS` and `FINA`. Its two nets even disagree on the **direction** of change — `net_ha` is −2 ha, `net_footprint_ha` is +54 ha — because that outside strip is strongly net-positive (67 ha of gain against 11 ha of loss) while the inside is not. Both figures are right about their own ground; only one of them belongs in a provincial sum.
+**Every headline figure is published in two scopes.** `floodplain_ff02_km2` / `floodplain_ff04_km2` / `floodplain_ff06_km2` and `gross_loss_ha` / `gross_gain_ha` / `net_ha` are the item's **own watershed group** — the `in_wsg` rows of the layer each is read from — so a regional or provincial total is their plain sum. Each has a `*_footprint_*` sibling (`floodplain_ff04_footprint_km2`, `gross_loss_footprint_ha`, …) holding the same figure over the item's **whole footprint**, which is the ground its rasters cover and its `geometry` describes. The difference between a pair is ground outside the item's own group — and mostly ground **no item publishes**: of the 519 km² by which the footprint areas exceed the in_wsg areas across the catalogue, 51 km² (9.7%) is another item's own ground and 469 km² (90.3%) falls outside every watershed group here. So summing the unsuffixed figures counts no ground twice and is the right regional total; summing the footprint figures double-counts by about half a percent. The gap is usually 1–3%; for `pcea_all_ff04` it is 42%, because that much of the item's floodplain lies in the arms of Williston Reservoir, in watershed groups this collection does not cover. Its two nets even disagree on the **direction** of change — `net_ha` is −2 ha, `net_footprint_ha` is +54 ha — because that outside strip is strongly net-positive (67 ha of gain against 11 ha of loss) while the inside is not. Both figures are right about their own ground; only one of them belongs in a provincial sum.
 
 ## Coverage
 

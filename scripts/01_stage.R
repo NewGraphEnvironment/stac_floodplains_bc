@@ -10,8 +10,9 @@
 # vector layer along the watershed group polygon: once over the layer's `in_wsg` rows, which
 # is the item's own ground and what the unsuffixed property publishes, and once over every
 # row, which is the whole footprint and what the `*_footprint_*` sibling publishes. A
-# regional total is then a sum over the first; the overlap between neighbouring groups is
-# the difference (floodplains#60).
+# regional total is then a sum over the first, which counts no ground twice. The difference is
+# NOT simply the overlap between neighbours: measured on the v2.1.0 build, 9.7% of it is
+# another item's own ground and 90.3% lies outside every rostered group (floodplains#60).
 #
 # No modelling here: loss/gain/net are aggregations of the transition patches already
 # produced by the `floodplains` driver. They are computed once, at staging, and written
@@ -751,10 +752,12 @@ for (wsg in wsgs) {
     # The split DOES move these bytes, which the first version of this comment got wrong.
     # Measured against the live catalogue over all 23 items (#98): every geometry gains
     # coordinates (BULK 433,852 -> 434,116; +8 to +364), because the union keeps the nodes the
-    # cut inserted, and none is byte-identical to the published one. The GROUND does not move
-    # — `bbox` unchanged on all 23, and on BULK a symmetric difference of 11.9 m2 out of
-    # 660 km2 with a Hausdorff distance of 1 cm. So expect a geometry diff on this release and
-    # do not assert byte or vertex equality on it; the bbox and the area are what to pin.
+    # cut inserted, and none is byte-identical to the published one. The GROUND does not move:
+    # `bbox` unchanged on all 23 and every footprint area equal to the live item's. (A
+    # per-geometry residual is deliberately not quoted here — two independent passes over the
+    # same pair disagreed by three orders of magnitude, neither having recorded its CRS; see
+    # CLAUDE.md.) So expect a geometry diff on this release, and pin the bbox and the area
+    # rather than the bytes or the vertex count.
     fp <- sf::st_read(fp_gpkg, layer = scenario, quiet = TRUE)
     epsg <- sf::st_crs(fp)$epsg
     fp_wgs <- sf::st_transform(sf::st_union(fp), 4326)

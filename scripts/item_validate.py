@@ -826,6 +826,25 @@ METRIC_SCOPE_PAIRS = (
     ("gross_loss_ha", "gross_loss_footprint_ha"),
     ("gross_gain_ha", "gross_gain_footprint_ha"),
 )
+# Each in_wsg figure is at least this share of its footprint sibling.
+#
+# The arm that closes the hole every other arm here leaves open: an **inverted** `in_wsg`
+# filter. The census below was built for a filter that was DROPPED, which makes the two scopes
+# equal and the straddle count fall to 0. A filter applied with the wrong polarity does the
+# opposite — it publishes the OUTSIDE strip as the item's own figure, so `in_wsg <= footprint`
+# still holds, `gain - loss == net` still holds, and the straddle count RISES to 23/23.
+# Measured on a scratchpad copy of the real build with every unsuffixed figure replaced by its
+# outside complement: `check_metric_scopes` returned ZERO problems with straddle 23/23 while
+# BULK would have published `floodplain_ff04_km2` 13.18 against a live 659.99, and a `net_ha`
+# of +15.5 against a live -1474.6 — a sign flip.
+#
+# A literal a human sets, and a property of the roster rather than a guarantee, like
+# ALLOWED_YEAR_SETS: a group whose floodplain lay mostly outside its own line would fail this
+# honestly. Measured over 23 items x 5 pairs = 115 values on the v2.1.0 build: the minimum is
+# **0.5811** (PCEA's ff02, the group that straddles most) and the maximum inverted value is
+# **0.4189**, so 0.5 passes 115 of 115 real and refuses 115 of 115 inverted, with margin on
+# both sides. Re-take it from the build if a new group lands below it.
+METRIC_SCOPE_MAJORITY = 0.5
 # gain - loss = net, per scope. Both arms, because a filter dropped from ONE member of a
 # triple is the defect this exists for and it leaves the other two consistent.
 # Three independent `round(x, 1)` calls, so the identity holds to 3 x 0.05 and no tighter.
@@ -935,8 +954,21 @@ def check_metric_scopes(base: Path, census: bool = True
                     f"{item_id}: {inw} is {props[inw]} but {fp} is {props[fp]} — the "
                     f"in_wsg figure is a sum over a SUBSET of the footprint's rows and "
                     f"cannot exceed it; the two scopes look swapped")
-            elif props[inw] < props[fp]:
-                straddle[inw] += 1
+            else:
+                if props[inw] < props[fp]:
+                    straddle[inw] += 1
+                # The polarity arm. Checked even where the two are equal, so a footprint of 0
+                # with a positive in_wsg figure cannot slip through as "not straddling".
+                if props[fp] and props[inw] < METRIC_SCOPE_MAJORITY * props[fp]:
+                    problems.append(
+                        f"{item_id}: {inw} is {props[inw]}, only "
+                        f"{props[inw] / props[fp]:.1%} of {fp} ({props[fp]}) — an item's own "
+                        f"watershed group is the majority of its footprint on every rostered "
+                        f"group (minimum {METRIC_SCOPE_MAJORITY:.0%} by literal, 58.1% "
+                        f"measured), so this reads as an INVERTED in_wsg filter publishing "
+                        f"the outside strip as the item's own figure. Every other arm here "
+                        f"passes that: the ordering holds, the net identity holds, and the "
+                        f"straddle census RISES")
 
         for gain, loss, net in METRIC_NET_TRIPLES:
             if abs((props[gain] - props[loss]) - props[net]) > METRIC_NET_TOLERANCE:
@@ -966,8 +998,9 @@ def check_metric_scopes(base: Path, census: bool = True
 # This arm exists because the published asset descriptions now ASSERT it -- "every data layer
 # carries wsg/species/scenario ... and `in_wsg`" on 23 items -- and the only check of that
 # claim was `test_pipeline.R`, which runs one group and which neither `run_pipeline.sh` nor
-# `catalogue_release.sh` calls. A published claim about 23 items x 13 layers was being checked
-# on one item, by a script outside the release path. `01_stage.R`'s own refusal is narrower
+# `catalogue_release.sh` calls. A published claim about 269 data layers — 11 on each of 19
+# items and 15 on each of the 4 annual-span ones, measured — was being checked on one item, by
+# a script outside the release path. `01_stage.R`'s own refusal is narrower
 # still: `in_wsg_flag()` is reached only from the two families the stage MEASURES -- the item's
 # transition layer and the three delineations -- so the seven classified epochs, the
 # per-blue-line-key breakdown and both aspatial tables were covered by nothing here.

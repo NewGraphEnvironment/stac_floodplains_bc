@@ -29,23 +29,36 @@ memory, and had to be recalled rather than read.
 
 ### Items say which of their ground is their own, and the headline figures read it (#98)
 
-**All 23 items republish, every asset.** Upstream NewGraphEnvironment/floodplains#144 (issues
-#53 and #138, backfilled 2026-10-18) split **every** vector layer in both source bundles along
-the watershed group polygon and flagged each piece `in_wsg`. A floodplain follows its river, so
+**All 23 items republish, and 177 of their 246 assets change** — every raster and every
+GeoPackage; the three `style_*` QMLs are byte-identical on all 23, which is why the count is
+not 246. Upstream NewGraphEnvironment/floodplains#144 (issues #53 and #138, backfilled
+2026-10-18) split every **whole-network** vector layer in both source bundles along the
+watershed group polygon and flagged each piece `in_wsg` — 246 layers of the 468 in those
+bundles; the other 222 are the retired per-species layers upstream keeps on disk until
+floodplains#131 prunes them, and this repo stages none of them. A floodplain follows its river, so
 it crosses the group line: a layer that was one row is now one row per side, `all_ff04` is two
 features, `all_ff04_by_blue_line_key` has one row per (key, side), and each `classified_*` one
 per (class, side). The transition patches additionally carry `in_open_water` and
 `open_water_poly_id` (FWA lakes plus manmade waterbodies, no size cut-off — a dammed lake is
 filed as a lake, so one flag covers both); `composition_*` gains `in_wsg` and `in_open_water`,
-and `patch_watercourse_*`'s key becomes (`name_basin`, `patch_id`, `in_wsg`).
+and `patch_watercourse_*` gains `in_wsg` too. (The upstream issue describes that as making
+its key `(name_basin, patch_id, in_wsg)`; measured on BULK it is not one — 29,986 rows against
+9,275 distinct triples, `blue_line_key` is what completes it, and `in_wsg` adds 0 combinations
+because a patch lies on one side of the line or the other.)
 
 **Every headline figure is now published in two scopes.** The unsuffixed six —
 `floodplain_ff02_km2`, `floodplain_ff04_km2`, `floodplain_ff06_km2`, `gross_loss_ha`,
 `gross_gain_ha`, `net_ha` — are the item's **own watershed group**, read over `in_wsg` rows,
 so a regional or provincial total is their plain sum. Six new `*_footprint_*` siblings hold
-the same figures over the whole footprint. A pair's difference is ground shared with a
-neighbour, which that neighbour's own item also publishes, so summing footprints across groups
-double-counts and summing the unsuffixed figures does not (floodplains#60).
+the same figures over the whole footprint. A pair's difference is ground outside the item's own
+group — and measured on this build, most of it is published by nobody: of the 519.16 km2 by
+which the footprint areas exceed the in_wsg areas, **50.58 km2 (9.7%)** is another item's own
+ground and **468.57 km2 (90.3%)** falls outside every rostered watershed group. So summing the
+unsuffixed figures counts no ground twice — the union of the 23 in_wsg pieces equals their sum,
+10,092.24 km2 — while summing footprints double-counts by 0.48% of that sum (floodplains#60).
+The unsuffixed provincial total is therefore a total of the **rostered** floodplain, not of the
+province's; an earlier draft of this entry said the shared ground was a neighbour's, which is
+true of a tenth of it.
 
 **One of those two families changed value and the other did not, and which is which is the
 part worth knowing.** The pre-split transition layer **was** clipped to the group, so the
@@ -79,8 +92,14 @@ Neither is wrong; they answer different questions, and a consumer reading only o
 would state the opposite of the other. It is also why `net` is the one figure excluded from
 the validator's in_wsg-at-most-footprint arm — a signed difference can sit either side.
 
-**`geometry`, `bbox` and `proj:bbox` are unchanged**, and deliberately not rescoped: the COGs
-cover the whole footprint and a STAC item's geometry must contain its assets.
+**`bbox` and `proj:bbox` are unchanged on all 23 items**, and none of the three is rescoped:
+the COGs cover the whole footprint and a STAC item's geometry must contain its assets. The
+`geometry` itself **does** change on every item, though not in what it describes — the union
+of the two split pieces keeps the nodes the cut inserted, so each gains between 8 (DUNC) and
+364 (FRAN) coordinate values, 0.00% to 0.13%, and none is byte-identical to the one published
+before. The ground does not move: the bbox is unchanged and every `*_footprint_km2` equals
+the live item's unsuffixed area exactly. So expect a geometry diff, and do not pin this
+geometry by byte or vertex equality — pin the bbox and the area.
 
 **Both scopes are tagged into every COG**, which is why every raster's `file:checksum` moves
 even though no raster was re-derived. The unsuffixed `NGE_FLOODPLAIN_FF0N_KM2` tags **changed
@@ -95,8 +114,10 @@ ones, for a regional total. `in_open_water` is **any-touch**, like `in_wetland`,
 open-water areas from the `composition_*` table (counted by cell centre) rather than summing
 `area_ha` over the flagged patches; `open_water_poly_id` is an identifier, not a flag.
 `in_wsg` is neither — it is a true **partition** of the patches, which is why the headline
-figures are sums over its TRUE rows and why a provincial total is their plain sum. The collection description and all three GeoPackage asset descriptions
-say all of this — `transition_vector.gpkg` had no description at all before this release and
+figures are sums over its TRUE rows and why a provincial total is their plain sum. The collection description says all of this, and so do the
+`floodplain_landcover.gpkg` and `transition_vector.gpkg` asset descriptions;
+`floodplain.gpkg`'s covers the split and the two area scopes only, because it carries no
+transition patches. `transition_vector.gpkg` had no description at all before this release and
 now carries one.
 
 **New guard: `METRIC_SCOPE_CENSUS` in `item_validate.py`**, a literal a human sets from the
@@ -109,9 +130,13 @@ all. 23 of 23 at this release; that it is 23/23 is a property of the roster, not
 layers over the 23 groups carry it) and asserts its distinct values are a non-empty subset of
 `{FALSE, TRUE}`.
 
-Provenance did not move: `run.datetime_utc` is unchanged upstream, so `processing:datetime` is
-too. Only `transition_patches` and its `outputs_hash` moved there, under a `wsg_split` repair
-record, and nothing here reads either.
+**Provenance is unchanged on 22 of the 23 items, not on all of them.** `run.datetime_utc` did
+not move for the backfill, so `processing:datetime` holds on 22; `dunc_all_ff04` moves
+2026-10-15T18:49:33Z -> 2026-10-18T22:37:59Z, because DUNC was separately re-run upstream in
+that window rather than merely backfilled. The backfill itself moved `transition_patches` and
+its `outputs_hash` under a `wsg_split` repair record, and added fields to the `composition`
+section; nothing here reads any of them, and the per-field census and the floor both held on
+the build this release was cut from.
 
 ## v2.0.1 (2026-10-17)
 

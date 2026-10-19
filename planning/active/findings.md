@@ -371,3 +371,103 @@ claims the repo makes about its data: they carry the corrections themselves, dat
 reader is meant to see the wrong turn as well as the verdict (`planning.md`, "Keep the wrong
 turns"). Numbers there are historical by construction; the files above are the ones a consumer
 or a future session reads as current.
+
+---
+
+## code-check round 3 — the mechanism confirmed, and a blind spot in my own guard
+
+Report: `planning/active/review-round3.md`. Round 3 enumerated **57 claims** against its own
+mechanism statement and found **9 wrong, 3 overstated** — against my numeric enumeration's
+70/70. The two enumerations are not in conflct: mine covered NUMBERS, which were all right;
+round 3's covered **attributions and identities**, which were not. That is itself the lesson —
+I enumerated the dimension I had already been burned on.
+
+Its mechanism statement is sharper than mine and I have adopted it:
+
+> A claim is written by restating a source — the upstream issue body, a sibling copy of the
+> same sentence, or an earlier draft of itself — and is then checked for the PRESENCE of the
+> thing it names rather than re-derived from the artifact it is attached to.
+
+Two consequences it names that mine missed: **a fix lands in the copies someone was looking
+at** (round 1 fixed the geometry claim in `01_stage.R` and `CLAUDE.md` and left `NEWS.md`, the
+only copy a consumer reads; round 2 fixed the any-touch sentence in three places and left the
+published landcover description), and **it is not confined to prose**.
+
+### The blind spot, which is the finding that matters
+
+`check_metric_scopes` — my own Phase 3b guard — **passes an inverted `in_wsg` filter on all 23
+items**. Reproduced on a scratchpad copy of the real build with every unsuffixed figure
+replaced by its outside complement:
+
+```
+inverted bulk: floodplain_ff04_km2 = 13.18   (live 659.99)
+               net_ha              = +15.5   (live -1474.6)   <- sign flip
+check_metric_scopes: 0 problems, straddle 23/23/23/23/23, seen 23
+```
+
+The census was built for a filter that was DROPPED, which makes the scopes equal and the
+straddle count fall to 0. A filter applied with the wrong POLARITY does the opposite: the
+ordering still holds, the net identity still holds, and the straddle count RISES. And a full
+release makes no build-vs-live value comparison at all — `metric_drift` runs only under
+`--only` — so the continuity this release rests on was asserted by nothing in the gate.
+
+**Closed with `METRIC_SCOPE_MAJORITY = 0.5`**, a per-item arm: each in_wsg figure must be at
+least half its footprint sibling. Measured over 23 items x 5 pairs = 115 values: the real
+minimum is **0.5811** (PCEA ff02) and the maximum inverted value is **0.4189**, so 0.5 passes
+115 of 115 real and refuses 115 of 115 inverted, with margin on both sides. Proved: 0 problems
+on the real build, **115** on the inverted tree. A roster property, like `ALLOWED_YEAR_SETS` —
+a group whose floodplain lay mostly outside its own line would fail it honestly.
+
+**Still open, and filed rather than fixed:** a full release compares no VALUE against the live
+catalogue. That gap predates #98 (step 0's containment arm compares id sets only), but this
+release is the first whose safety argument is a continuity claim, which I had to measure by
+hand. Named in the PR.
+
+### The neighbour claim — six copies, 9.7% true
+
+*"the difference between a pair is ground shared with a neighbour, which that neighbour's own
+item also publishes"* — in the PUBLISHED collection description, the properties comment,
+`README.Rmd`, `NEWS.md`, `CLAUDE.md` and `readme_functions.R`. Measured independently
+(`planning/active/neighbour-measure.R`, BC Albers, one union built once):
+
+```
+sum of in_wsg areas    10092.24 km2
+UNION of in_wsg areas  10092.24 km2   -> the items' own ground does not overlap at all
+total outside strip      519.16 km2
+covered by some item      50.58 km2  ( 9.7%)
+published by NOBODY      468.57 km2  (90.3%)
+```
+
+So the sentence was right that the unsuffixed sum counts no ground twice — positively
+confirmed, union equals sum — and wrong about why: 90.3% of the difference is outside **every
+rostered group** and in nobody's `in_wsg`. The real caveat was said nowhere: **the unsuffixed
+provincial total is a total of the ROSTERED floodplain, not of the province's.** All six copies
+now say both halves. My figures reproduce round 3's to the hundredth.
+
+### The others, each measured before fixing
+
+| claim | verdict |
+|---|---|
+| published landcover description: "both flags are any-touch, so areas by flag come from `composition_*`" | **wrong** — `composition_*` has no `open_water_poly_id` (measured: its columns are `in_wsg`, `in_wetland`, `in_alr`, `in_open_water` and no other context column) |
+| published transition description: read `in_fire`/`in_harvest` areas from `composition_*` | **wrong** — that table carries neither, on all 23. Rewritten to say so explicitly: for those two the patch flag is all there is |
+| "PCEA ... Williston's `PARS` and `FINA` arms" | **wrong attribution, twice.** FINA and PARA are in no roster (`config/regions/*.yml` names PARS and neither of the others), and I had "corrected" the upstream log's PARA to the rostered-looking PARS. The real statement is that the ground is in groups this collection does not cover |
+| "`patch_watercourse_*`'s key is now (`name_basin`, `patch_id`, `in_wsg`)" | **wrong twice over** — BULK 29,986 rows against 9,275 distinct triples, `blue_line_key` completes it, and `in_wsg` adds **0** combinations. Carried verbatim from the issue body |
+| `NEWS.md` "`geometry`, `bbox` and `proj:bbox` are unchanged" | **wrong for geometry**, and the copy a consumer reads. Rounds 1 fixed the other two copies and left this one |
+| `NEWS.md` "Provenance did not move ... Only `transition_patches` ... moved" | **wrong both halves** — `dunc_all_ff04`'s `processing:datetime` moves 2026-10-15T18:49:33Z -> 2026-10-18T22:37:59Z (DUNC was separately re-run upstream), and the backfill also added `composition` fields |
+| `NEWS.md` "split **every** vector layer in both source bundles" | **wrong** — 246 of 468; the other 222 are the retired per-species layers. The exact quantifier `CLAUDE.md` warns about |
+| `NEWS.md` "All 23 items republish, every asset" | **overstated** — 177 of 246 assets change; the 69 `style_*` QMLs are byte-identical on 23/23 |
+| `NEWS.md` "all three GeoPackage asset descriptions say all of this" | **overstated** — `floodplain.gpkg`'s says none of the transition part |
+| `item_validate.py` comment "23 items x 13 layers" | **wrong** — 269 layers: 11 on each of 19 items, 15 on each of the 4 annual-span ones |
+| `README.Rmd` "counts no ground twice" against the only reachable render | **true of the data, false of the page** — the committed cache is pre-#98 and holds whole-footprint values, so an `update_query = FALSE` knit would state the property while displaying its negation. Closed with a cache-vintage guard in the query chunk, proved to fire on the committed cache |
+
+### And one of my own measurements withdrawn
+
+`CLAUDE.md` and `01_stage.R` carried a BULK geometry residual — symmetric difference 11.9 m2,
+Hausdorff 0.0099 m. An independent pass over the same two geometries got **0.01 m2 and
+0.0000 m**, three orders of magnitude apart, and neither run had recorded its CRS or whether
+`st_make_valid()` had rewritten already-valid geometry (`code-check-spatial.md` says it does);
+the items are UTM, not BC Albers, so the projection choice moves both figures. **Both numbers
+are dropped rather than carried.** The conclusion they supported is unchanged and is what every
+run agrees on: same locus, denser boundary, bbox unchanged on 23/23, area equal to live on
+23/23. A measurement restated without its method cannot be re-derived, so nothing downstream
+can disagree with it — which is the mechanism in its weakest form, and it was mine.
