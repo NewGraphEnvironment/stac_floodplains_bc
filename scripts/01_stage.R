@@ -6,6 +6,13 @@
 # publish metrics (floodplain area, tree loss/gain/net) from the upstream transition layer.
 # Each WSG's `region` is the region roster that lists it.
 #
+# Every one of those metrics is derived TWICE (#98), because floodplains#144 split every
+# vector layer along the watershed group polygon: once over the layer's `in_wsg` rows, which
+# is the item's own ground and what the unsuffixed property publishes, and once over every
+# row, which is the whole footprint and what the `*_footprint_*` sibling publishes. A
+# regional total is then a sum over the first; the overlap between neighbouring groups is
+# the difference (floodplains#60).
+#
 # No modelling here: loss/gain/net are aggregations of the transition patches already
 # produced by the `floodplains` driver. They are computed once, at staging, and written
 # to `data/raw/<wsg>/meta.json` so the Python tag + register steps consume identical
@@ -192,19 +199,64 @@ message(length(wsgs), " WSG(s) to stage across ",
         length(unique(unlist(wsg_region[wsgs]))), " region(s): ",
         paste(wsgs, collapse = ", "))
 
+# --- The group line (`in_wsg`) --------------------------------------------
+# Since floodplains#144 every vector layer is split along the watershed group polygon, and
+# each piece carries `in_wsg`. The headline figures are the item's OWN group, so every metric
+# below is read over `in_wsg` rows and its `*_footprint_*` sibling over every row.
+#
+# The flag is REQUIRED, not defaulted. An absent column would make `tr$in_wsg` NULL, a
+# zero-length subscript, and every metric 0 -- a uniform loss on every item at once, which no
+# cross-item check can see. An NA is refused for the same reason in the other direction: it
+# would drop silently out of an `na.rm = TRUE` sum and under-report that item alone.
+#
+# `Integer(Boolean)` reaches sf as logical, but a plain Integer would not, so the cast is
+# explicit rather than relying on which subtype the producer happened to write.
+
+in_wsg_flag <- function(df, where) {
+  if (!"in_wsg" %in% names(df)) {
+    stop(where, ": no `in_wsg` column — the headline metrics are scoped to the item's own ",
+         "watershed group and cannot be read from this layer (upstream floodplains#53/#144)",
+         call. = FALSE)
+  }
+  flag <- as.logical(df$in_wsg)
+  if (anyNA(flag)) {
+    stop(where, ": ", sum(is.na(flag)), " of ", length(flag),
+         " row(s) have a missing `in_wsg` — refusing rather than dropping them from the sum",
+         call. = FALSE)
+  }
+  flag
+}
+
 # --- Metrics from the transition layer ------------------------------------
 # Gross loss  = tree-covered in 2017, something else in 2023.
 # Gross gain  = non-tree in 2017, tree-covered in 2023.
 # Net         = gain - loss (negative = net tree loss).
+#
+# The `in_wsg` figures are what this catalogue published before the split, because the
+# pre-split transition layer was clipped to the group (measured on BULK: the 9,210 in_wsg rows
+# and their 5,584.9 ha are the published layer exactly). So scoping here HOLDS the published
+# values, and the `*_footprint_*` siblings are the new statement.
 
 tree_transition_metrics <- function(gpkg, layer) {
   tr <- sf::st_read(gpkg, layer = layer, quiet = TRUE)
   tr <- sf::st_drop_geometry(tr)
-  loss <- sum(tr$area_ha[tr$from_class == "Trees" & tr$to_class != "Trees"], na.rm = TRUE)
-  gain <- sum(tr$area_ha[tr$to_class == "Trees" & tr$from_class != "Trees"], na.rm = TRUE)
-  list(gross_loss_ha = round(loss, 1),
-       gross_gain_ha = round(gain, 1),
-       net_ha = round(gain - loss, 1))
+  inw <- in_wsg_flag(tr, paste0(basename(gpkg), "/", layer))
+  is_loss <- tr$from_class == "Trees" & tr$to_class != "Trees"
+  is_gain <- tr$to_class == "Trees" & tr$from_class != "Trees"
+  # One helper per scope rather than two expressions, so a filter can never be applied to
+  # loss and forgotten on gain -- which is the shape item_validate.py's metric-scope arm
+  # exists to catch if it happens anyway.
+  tot <- function(keep) round(sum(tr$area_ha[keep], na.rm = TRUE), 1)
+  loss <- tot(is_loss & inw)
+  gain <- tot(is_gain & inw)
+  loss_fp <- tot(is_loss)
+  gain_fp <- tot(is_gain)
+  list(gross_loss_ha = loss,
+       gross_gain_ha = gain,
+       net_ha = round(gain - loss, 1),
+       gross_loss_footprint_ha = loss_fp,
+       gross_gain_footprint_ha = gain_fp,
+       net_footprint_ha = round(gain_fp - loss_fp, 1))
 }
 
 # --- Stage each WSG -------------------------------------------------------
@@ -630,15 +682,30 @@ for (wsg in wsgs) {
                     paste(setdiff(missing_layers, upstream), collapse = ", ")),
            call. = FALSE)
     }
-    read_area_km2 <- function(layer) {
+    # Two areas per flood factor. Unlike the transition layer, the delineation was NEVER
+    # clipped to the group, so `*_footprint_km2` is what this catalogue published before the
+    # split and `floodplain_ffNN_km2` is the new, smaller statement (measured on BULK:
+    # 659.99 -> 646.81; on PCEA 843.34 -> 491.38, 41.7% of its floodplain lying in
+    # Williston's PARS and FINA arms). That is the reverse direction from loss/gain/net
+    # above, which is why the two families are read by two functions and not one.
+    read_areas_km2 <- function(layer) {
       poly <- sf::st_read(fp_gpkg, layer = layer, quiet = TRUE)
-      round(as.numeric(sum(sf::st_area(poly))) / 1e6, 2)
+      inw <- in_wsg_flag(poly, paste0(basename(fp_gpkg), "/", layer))
+      km2 <- function(keep) round(as.numeric(sum(sf::st_area(poly[keep, ]))) / 1e6, 2)
+      list(in_wsg = km2(inw), footprint = km2(rep(TRUE, nrow(poly))))
     }
-    floodplain_ff02_km2 <- read_area_km2(ff_layers[["ff02"]])
-    floodplain_ff04_km2 <- read_area_km2(ff_layers[["ff04"]])
-    floodplain_ff06_km2 <- read_area_km2(ff_layers[["ff06"]])
+    ff_areas <- lapply(ff_layers, read_areas_km2)
+    floodplain_ff02_km2 <- ff_areas[["ff02"]]$in_wsg
+    floodplain_ff04_km2 <- ff_areas[["ff04"]]$in_wsg
+    floodplain_ff06_km2 <- ff_areas[["ff06"]]$in_wsg
+    floodplain_ff02_footprint_km2 <- ff_areas[["ff02"]]$footprint
+    floodplain_ff04_footprint_km2 <- ff_areas[["ff04"]]$footprint
+    floodplain_ff06_footprint_km2 <- ff_areas[["ff06"]]$footprint
 
     # Footprint geometry from the item's OWN headline-scenario layer (not necessarily ff04).
+    # Deliberately NOT scoped to `in_wsg`: the COGs cover the whole footprint and a STAC
+    # geometry must contain its assets. `st_union()` over the two pieces of what was one
+    # polygon is the same geometry, so the split does not move this.
     fp <- sf::st_read(fp_gpkg, layer = scenario, quiet = TRUE)
     epsg <- sf::st_crs(fp)$epsg
     fp_wgs <- sf::st_transform(sf::st_union(fp), 4326)
@@ -671,12 +738,21 @@ for (wsg in wsgs) {
       years = years,
       transition_span = TRANSITION_SPAN,
       epsg = epsg,
+      # Twelve figures in two scopes (#98). The unsuffixed six are the item's own watershed
+      # group (`in_wsg`); the `*_footprint_*` six are the unclipped footprint, which is the
+      # ground the COGs cover and the ground `geometry`/`bbox_wgs84` below describe.
       floodplain_ff02_km2 = floodplain_ff02_km2,
       floodplain_ff04_km2 = floodplain_ff04_km2,
       floodplain_ff06_km2 = floodplain_ff06_km2,
       gross_loss_ha = metrics$gross_loss_ha,
       gross_gain_ha = metrics$gross_gain_ha,
       net_ha = metrics$net_ha,
+      floodplain_ff02_footprint_km2 = floodplain_ff02_footprint_km2,
+      floodplain_ff04_footprint_km2 = floodplain_ff04_footprint_km2,
+      floodplain_ff06_footprint_km2 = floodplain_ff06_footprint_km2,
+      gross_loss_footprint_ha = metrics$gross_loss_footprint_ha,
+      gross_gain_footprint_ha = metrics$gross_gain_footprint_ha,
+      net_footprint_ha = metrics$net_footprint_ha,
       bbox_wgs84 = bbox,
       geometry = geometry
     )
@@ -733,10 +809,20 @@ for (wsg in wsgs) {
     has_prov <- any(!vapply(meta[PROV_FIELDS], function(v) length(v) == 1L && is.na(v),
                             logical(1)))
     if (has_prov) traced <- c(traced, item_id)
+    # Both scopes, in_wsg first and the footprint in parentheses beside it. The operator
+    # reading this line is the one who sets PROVENANCE_FLOOR and PROV_CENSUS from a build,
+    # and after #98 they are also the one who can see at a glance which groups straddle a
+    # group line (PCEA is 491.38 of 843.34 km2; most groups are within 1-3%).
     message(sprintf(
-      "STAGED %s (%s): ff02 %.2f / ff04 %.2f / ff06 %.2f km2, loss %.1f ha, gain %.1f ha, net %.1f ha%s",
-      item_id, scenario, floodplain_ff02_km2, floodplain_ff04_km2, floodplain_ff06_km2,
-      metrics$gross_loss_ha, metrics$gross_gain_ha, metrics$net_ha,
+      paste0("STAGED %s (%s): ff02 %.2f (%.2f) / ff04 %.2f (%.2f) / ff06 %.2f (%.2f) km2, ",
+             "loss %.1f (%.1f) ha, gain %.1f (%.1f) ha, net %.1f (%.1f) ha%s"),
+      item_id, scenario,
+      floodplain_ff02_km2, floodplain_ff02_footprint_km2,
+      floodplain_ff04_km2, floodplain_ff04_footprint_km2,
+      floodplain_ff06_km2, floodplain_ff06_footprint_km2,
+      metrics$gross_loss_ha, metrics$gross_loss_footprint_ha,
+      metrics$gross_gain_ha, metrics$gross_gain_footprint_ha,
+      metrics$net_ha, metrics$net_footprint_ha,
       if (has_prov) "" else " [no provenance]"))
     staged <- c(staged, item_id)
   }

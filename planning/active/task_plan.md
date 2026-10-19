@@ -32,14 +32,14 @@ No `--only`.
 
 ## Phase 1: Stage both scopes (`scripts/01_stage.R`)
 
-- [ ] `tree_transition_metrics()`: refuse when the transition layer carries no `in_wsg` column,
+- [x] `tree_transition_metrics()`: refuse when the transition layer carries no `in_wsg` column,
       then return six numbers — the existing three over `in_wsg` rows plus three `*_footprint_*`
       over all rows. Keep `round(, 1)`, keep `net = gain - loss` per scope.
-- [ ] `read_area_km2()`: same shape — require `in_wsg`, return the `in_wsg` area and the all-rows
+- [x] `read_area_km2()`: same shape — require `in_wsg`, return the `in_wsg` area and the all-rows
       area for each of ff02/ff04/ff06.
-- [ ] `meta` gains the six `*_footprint_*` fields.
-- [ ] Per-item STDOUT line prints both scopes.
-- [ ] Leave `fp` / `st_union` / `bbox` alone.
+- [x] `meta` gains the six `*_footprint_*` fields.
+- [x] Per-item STDOUT line prints both scopes.
+- [x] Leave `fp` / `st_union` / `bbox` alone.
 
 ## Phase 2: Publish surface
 
