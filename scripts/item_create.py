@@ -486,11 +486,13 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             f"`*_footprint_*` siblings sum every row. Also carries `in_open_water` and "
             f"`open_water_poly_id` (Freshwater Atlas lakes and manmade waterbodies, no "
             f"size cut-off), alongside the producer's existing `in_fire` / `in_harvest` / "
-            f"`in_wetland` / `in_alr` context flags. All of those CONTEXT flags are "
-            f"any-touch — `in_wsg` is not, it is a true partition — so read areas by a "
-            f"context flag from `composition_*` in floodplain_landcover.gpkg rather than "
-            f"summing `area_ha` over it, while `area_ha` summed over `in_wsg` is exactly "
-            f"this item's own headline figures."),
+            f"`in_wetland` / `in_alr` context lookups. Those are any-touch, so read areas "
+            f"by one of them from `composition_*` in floodplain_landcover.gpkg rather than "
+            f"summing `area_ha` over it. `in_wsg` is different in kind: it is a true "
+            f"partition of the patches, which is why this item's headline figures are sums "
+            f"of `area_ha` over its TRUE rows — under the `from_class`/`to_class` filters "
+            f"above, not over the whole layer, which holds every changed patch and not only "
+            f"the tree gains and losses."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "transition_vector.gpkg"),
     )

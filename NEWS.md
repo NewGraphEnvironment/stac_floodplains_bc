@@ -91,9 +91,11 @@ anyway.
 
 **What a consumer should change.** Filter on `in_wsg` or union the rows before using any
 scenario layer as a single feature. Sum the unsuffixed properties, not the `*_footprint_*`
-ones, for a regional total. Both new flags are **any-touch**, like `in_wetland`, so read areas
-by flag from the `composition_*` table (counted by cell centre) rather than summing `area_ha`
-over a flagged subset. The collection description and all three GeoPackage asset descriptions
+ones, for a regional total. `in_open_water` is **any-touch**, like `in_wetland`, so read
+open-water areas from the `composition_*` table (counted by cell centre) rather than summing
+`area_ha` over the flagged patches; `open_water_poly_id` is an identifier, not a flag.
+`in_wsg` is neither — it is a true **partition** of the patches, which is why the headline
+figures are sums over its TRUE rows and why a provincial total is their plain sum. The collection description and all three GeoPackage asset descriptions
 say all of this — `transition_vector.gpkg` had no description at all before this release and
 now carries one.
 

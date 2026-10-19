@@ -297,6 +297,16 @@ STAGED pcea_all_ff04: ff02 488.20 (840.16) / ff04 491.38 (843.34) / ff06 494.61 
 scopes rather than picking one, and it is also the concrete reason `net` is excluded from the
 in_wsg-at-most-footprint arm: a signed difference can legitimately sit either side.
 
+**The reason is the outside strip, not a concentration of change out there** — which is a
+correction, twice over (code-check rounds 1 and 2). Measured: PCEA's outside strip carries
+67.1 ha of gain against 10.8 ha of loss, so it is strongly net-positive while the inside is
+roughly balanced. The *change* is actually ~4x DENSER inside (0.92 ha/km2 against
+0.22 ha/km2), and **85.3% of PCEA's published gross tree change is inside** its own group
+(453.1 of 531.0 ha). The 69%-outside figure belongs to **total transition patch area**
+(754.4 of 2454.6 ha), which is a different quantity — the very conflation the A2 row above
+records as already corrected once in NEWS, and which round 1's own README fix then
+reintroduced in the other direction.
+
 The two watched value-set arms stayed green across the whole build: `test_pipeline.R`'s
 from->to pair arm (54 pairs on BULK, all named by the published classes) and
 `item_validate.py`'s per-layer `distinct(table, attr)` coverage arm, which reported no

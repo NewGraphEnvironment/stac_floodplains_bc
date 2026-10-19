@@ -180,10 +180,17 @@ it reads — it proves one KEY, not one population — which is what the separat
 `transition_*` additionally carries `in_open_water` and `open_water_poly_id` (FWA
 `fwa_lakes_poly` + `fwa_manmade_waterbodies_poly`, no size cut-off, a dammed lake filed as a
 lake so one flag covers both), `composition_*` carries `in_wsg` + `in_open_water`, and
-`patch_watercourse_*`'s key is now (`name_basin`, `patch_id`, `in_wsg`). Both new flags are
-**any-touch**, like `in_wetland`, so an AREA by flag comes from `composition_*` (cell centre)
-and never from summing `area_ha` over a flagged subset — which is what the asset descriptions
-say, because it is the one thing a consumer cannot see by opening the file.
+`patch_watercourse_*`'s key is now (`name_basin`, `patch_id`, `in_wsg`). `in_open_water` is
+**any-touch**, like `in_wetland`, so an AREA by it comes from `composition_*` (cell centre)
+and never from summing `area_ha` over the flagged patches — which is what the asset
+descriptions say, because it is the one thing a consumer cannot see by opening the file.
+`open_water_poly_id` is an identifier rather than a flag. **`in_wsg` is neither**: it is a
+true partition, so summing `area_ha` over its TRUE rows IS the right operation and is exactly
+what the headline figures do. Keeping those two kinds of column in one sentence is what made
+two separate claims wrong in review — "both new flags are any-touch" put `in_wsg` in the
+any-touch set, and a sibling sentence then said the raw `area_ha` sum over `in_wsg` equals the
+headline figures, which it does not (BULK 5584.9 against 4112.1: the layer holds every changed
+patch, and the figures are under the `from_class`/`to_class` filters).
 
 **All three are WRITTEN here, and each holds only its own item's layers** (#80). The first two
 used to be whole-file copies of the group's bundle, which was self-describing while a group's

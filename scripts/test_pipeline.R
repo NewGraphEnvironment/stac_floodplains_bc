@@ -508,11 +508,18 @@ for (mp in meta_paths) {
       # measured this layer.
       iw <- sf::st_read(gpkg, quiet = TRUE,
                         query = sprintf('SELECT DISTINCT in_wsg FROM "%s"', lyr))$in_wsg
-      if (!length(iw) || anyNA(iw) || !all(as.integer(iw) %in% c(0L, 1L))) {
+      # Compared as STRINGS against the four spellings, not through `as.integer()`, which the
+      # first version used: `as.integer("0")` is 0 and `as.integer(1.5)` is 1, so that form
+      # accepted exactly the shapes the message said it refused — a character column and a
+      # fractional value. This is the staged-side twin of `01_stage.R`'s cast arm, and a
+      # character `in_wsg` is the shape that makes every in_wsg figure 0 while the footprint
+      # figures stay right.
+      if (!length(iw) || anyNA(iw) ||
+            !all(as.character(iw) %in% c("0", "1", "TRUE", "FALSE"))) {
         stop("layer '", lyr, "' in ", gp, " has in_wsg value(s) ",
              paste(ifelse(is.na(iw), "NA", as.character(iw)), collapse = ", "),
-             " over ", length(iw), " distinct row(s), expected a non-empty subset of ",
-             "{FALSE, TRUE}")
+             " of type ", class(iw)[1], " over ", length(iw),
+             " distinct row(s), expected a non-empty subset of {FALSE, TRUE}")
       }
       # The scenario arm is a SET for floodplain.gpkg and a single value for the other two,
       # for the reason fp_gpkg.R's header gives: that file's ff02/ff06 delineations each

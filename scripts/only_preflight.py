@@ -88,6 +88,17 @@ METRIC_PROPERTIES = (
 FOOTPRINT_PROPERTIES = tuple(n for n in METRIC_PROPERTIES if "_footprint_" in n)
 
 
+def missing_footprint(live: dict, built: dict) -> list:
+    """The `*_footprint_*` keys this build publishes that the live item does not carry.
+
+    Non-empty is the un-rescoped window. Named rather than inlined so the refusal message can
+    report WHICH keys put the item inside it: the first version of that message said the live
+    item "carries no *_footprint_* key" while the condition is "at least one missing", so it
+    was wrong in exactly the half-rescoped case the docstring below reserves.
+    """
+    return [n for n in FOOTPRINT_PROPERTIES if n in built and n not in live]
+
+
 def metric_drift(live: dict, built: dict) -> list:
     """A figure whose MEANING may have moved — and only while that is still possible.
 
@@ -114,7 +125,7 @@ def metric_drift(live: dict, built: dict) -> list:
     Compared as floats where both parse, so `659.99` and `659.990` agree, with a string
     fallback for anything that does not — the same shape as item_validate's `_same()`.
     """
-    rescoped = [n for n in FOOTPRINT_PROPERTIES if n in built and n not in live]
+    rescoped = missing_footprint(live, built)
     if not rescoped:
         return []
     moved = []
@@ -207,10 +218,13 @@ def main(argv: list) -> int:
     # full-release change, and there is nothing to weigh it against.
     moved = metric_drift(live["properties"], built["properties"])
     if moved:
+        rescoped = missing_footprint(live["properties"], built["properties"])
         detail = "; ".join(f"{n}: live {a!r} -> build {b!r}" for n, a, b in moved)
         raise SystemExit(
             f"{len(moved)} headline figure(s) change value on this item, and the live item "
-            f"carries no *_footprint_* key, so it predates the two-scope contract: {detail}. "
+            f"is missing {len(rescoped)} of the {len(FOOTPRINT_PROPERTIES)} *_footprint_* "
+            f"key(s) this build publishes ({', '.join(rescoped)}), so it predates the "
+            f"two-scope contract: {detail}. "
             f"Those figures are a cross-item contract — one means the same thing on every item "
             f"or a cross-group aggregate is a lie — so republishing ONE item would leave the "
             f"other live items measuring something else, with no way to tell from the API. "

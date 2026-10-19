@@ -171,3 +171,26 @@ figure** on BULK, PCEA, DUNC and FRAN against the committed `meta.json` — so t
 in `data/` is still the tree this code produces.
 
 `prov_fields-check.py`: **60 assertions, 0 failed.**
+
+### code-check round 2 — 4 findings, two of them INSIDE round 1's fixes
+
+Report in `planning/active/review-round2.md`. The release gate passed throughout; every
+finding was about a published CLAIM, not a gate.
+
+| # | finding | verdict / fix |
+|---|---|---|
+| 1 | round 1's `README.Rmd` fix replaced a false "most" with a **different** false "most": "most of PCEA's gross change is outside its own group". Measured: **85.3% is inside** (453.1 of 531.0 ha), and the change is ~4x DENSER inside (0.92 vs 0.22 ha/km2). The 69%-outside figure belongs to total transition patch area (754.4 of 2454.6) — the exact conflation `NEWS.md` was written to stop and that the A2 row records as already corrected once | rewritten to drop the rationale entirely and give the measured reason: the outside strip is strongly net-positive (67 gain against 11 loss), which is why the two nets disagree |
+| 2 | the `transition_vector.gpkg` asset description I added in round 1 said "`area_ha` summed over `in_wsg` is exactly this item's own headline figures". **False**: BULK 5584.9 against 4112.1, PCEA 754.4 against 453.1. The layer holds every changed patch, not only tree gains and losses; the figures are exact only under the `from_class`/`to_class` filters the same description mentions two sentences earlier. One SQL query on the attached file disproves it | rewritten to say `in_wsg` is a true partition so the figures are sums over its TRUE rows UNDER those filters |
+| 3 | `in_wsg_flag()`'s new value-set arm validated `raw` and returned `as.logical(raw)` **unchecked**. A `character` or `factor` `in_wsg` of `"0"`/`"1"` clears both arms (`as.character` gives `"0"`/`"1"`) and yields an **all-NA mask**, so every in_wsg figure publishes 0 while the footprint siblings stay correct — and every downstream arm passes it (0 <= fp; 0 == 0-0; the straddle census *increments*). Latent only because all 269 staged columns are declared BOOLEAN | the cast is now checked (`anyNA(flag)` after `as.logical`). Both shapes refuse, proved. `test_pipeline.R`'s twin arm used `as.integer(iw) %in% c(0L,1L)`, which **accepted** `"0"`/`"1"` and truncated `1.5` despite its message claiming otherwise — now compared as strings against the four spellings |
+| 4 | `only_preflight.py`'s refusal message claimed the live item "carries no `*_footprint_*` key" while the condition is "at least one missing" — wrong in exactly the half-rescoped case its own docstring reserves. Same class round 1 flagged on the previous version of that message | `missing_footprint()` extracted and named, and the message now reports WHICH keys put the item inside the window |
+
+Plus the `NEWS.md` / `CLAUDE.md` "Both new flags are any-touch" sentence, where `in_wsg` is a
+plausible antecedent and `in_wsg` being any-touch is flatly false — a reader taking it that
+way stops trusting the one sum this release is built on. Both rewritten to separate the three
+kinds of column: `in_open_water` any-touch, `open_water_poly_id` an identifier, `in_wsg` a
+true partition.
+
+**Round 2's own verdict on round 1's fixes:** 4 of 6 sound and probed (the `metric_drift`
+window survived four attempts to fool it; `gpkg_required_columns()` is exact — `startswith`
+matches exactly the two patch layers across 69 files, 0 missing columns on 269 layers; the
+`absent`/`continue` flow is right; the tolerance regex survives a reflow).

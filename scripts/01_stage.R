@@ -245,7 +245,22 @@ in_wsg_flag <- function(df, where) {
          " — expected only TRUE/FALSE, and `as.logical()` would read anything non-zero as ",
          "in-group", call. = FALSE)
   }
-  as.logical(raw)
+  # The CAST, not just its input. Checking `raw` is not enough: `as.logical()` of a
+  # `character` or `factor` "0"/"1" is NA, and `as.character()` of those is "0"/"1", so such a
+  # column clears both arms above and yields an all-NA mask. Every figure read through it is
+  # then 0 while the `*_footprint_*` siblings stay correct — the uniform-loss shape this
+  # function exists to refuse, and one that every downstream arm passes: 0 <= footprint holds,
+  # 0 == 0 - 0 holds, and the straddle census INCREMENTS because 0 < footprint. Measured on
+  # both `character` and `factor`; latent today only because all 269 staged `in_wsg` columns
+  # are declared BOOLEAN, which is a property of the producer and not of this reader.
+  flag <- as.logical(raw)
+  if (anyNA(flag)) {
+    stop(where, ": `in_wsg` is ", class(raw)[1], " and does not cast to a logical — ",
+         sum(is.na(flag)), " of ", length(flag), " row(s) become NA, which would read as 0 ",
+         "for every figure scoped to it while the footprint figures stayed correct",
+         call. = FALSE)
+  }
+  flag
 }
 
 # --- Metrics from the transition layer ------------------------------------
