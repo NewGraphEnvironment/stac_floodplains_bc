@@ -529,9 +529,14 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         # regional or provincial total is their plain sum. The `*_footprint_*` six are the
         # unclipped footprint, which is the ground the COGs cover and the ground this
         # item's `geometry` and `bbox` describe. A pair's difference is ground outside this
-        # item's own group, and it is NOT simply a neighbour's: Measured on the v2.1.0 build: of the 519.16 km2 by which the footprint sum exceeds the in_wsg sum, only 50.58 km2 (9.7%) is another item's own ground, so summing footprints double-counts by 0.48% of that sum.
-        # The other 468.57 km2 (90.3%) lies outside EVERY rostered group and is in no item's in_wsg at all.
-        # So the unsuffixed sum counts no ground twice -- the union of the 23 in_wsg pieces equals their sum, 10,092.24 km2 -- and it is a total of the ROSTERED floodplain, not of the province's.
+        # item's own group, and it is NOT simply a neighbour's -- which is what every copy of
+        # this sentence said until code-check round 3 measured it. On the v2.1.0 build, of the
+        # 519.16 km2 by which the footprint sum exceeds the in_wsg sum, only 50.58 km2 (9.7%)
+        # is another item's own ground, so summing footprints double-counts by 0.48% of that
+        # sum; the other 468.57 km2 (90.3%) lies outside EVERY rostered group and is in no
+        # item's `in_wsg` at all. Both halves matter: the unsuffixed sum counts no ground twice
+        # -- the union of the 23 in_wsg pieces equals their sum, 10,092.24 km2 -- AND it is a
+        # total of the ROSTERED floodplain rather than of the province's.
         #
         # STAC items carry no per-property description, so what the two scopes mean is said
         # in the collection description and in the GeoPackage asset descriptions below.

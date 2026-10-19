@@ -471,3 +471,23 @@ are dropped rather than carried.** The conclusion they supported is unchanged an
 run agrees on: same locus, denser boundary, bbox unchanged on 23/23, area equal to live on
 23/23. A measurement restated without its method cannot be re-derived, so nothing downstream
 can disagree with it — which is the mechanism in its weakest form, and it was mine.
+
+### The corollary caught in my own round-3 fix, by my own check
+
+Round 3's second corollary is *a fix lands in the copies someone was looking at*. My round-3
+fix did exactly that, in the same commit that wrote the corollary down: the README paragraph at
+`:192` still read *"neighbouring groups share ground, so a sum of footprints would count it
+twice"*.
+
+The cause is worth recording because it is not a reasoning error. The batch asserted
+`s.count(old) == 1` for the third replacement and then wrote the file **without applying it** —
+`assert` and no `s = s.replace(...)`. The assertion passed, so the run reported success, and
+the two replacements either side of it did land. An assert that proves the target EXISTS is not
+an assert that the edit happened; the write needs `s2 != s`, which this one now does.
+
+Found by grepping for the claim's shape across every non-planning file rather than by
+re-reading the diff. Eight copies exist in all and all eight now carry the measured statement:
+`CLAUDE.md`, `NEWS.md`, two in `README.Rmd`, two in `item_create.py` (one PUBLISHED), plus
+`readme_functions.R` and `01_stage.R`. Checked for mutual consistency: the precise copies read
+519.16 / 50.58 (9.7%) / 468.57 (90.3%) / 0.48% / 10,092.24, the two rounded copies read
+519 / 51 / 469, and 50.58 / 10,611.35 = 0.48%.
