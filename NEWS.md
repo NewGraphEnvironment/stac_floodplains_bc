@@ -25,7 +25,7 @@ memory, and had to be recalled rather than read.
 > therefore *is* the release this paragraph reserves `v2.0.0` for — see the entry below. Nothing
 > about the condition changed; it simply became reachable.
 
-## v2.1.0 (unreleased)
+## v2.1.0 (2026-10-19)
 
 ### Items say which of their ground is their own, and the headline figures read it (#98)
 
