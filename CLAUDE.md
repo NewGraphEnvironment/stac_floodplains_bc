@@ -647,7 +647,14 @@ never stamps, and verifies the live version did not move; step 5 also reads the 
 `collection.json`, because rtj's reload-from-S3 is harmless only while bucket and API agree. Never
 register `collection.json` outside the release — a rebuilt one carries no version. Tags are cut by
 hand on the `NEWS.md` commit, as `stac_uav_bc` does; there is no `DESCRIPTION`, so
-`/gh-pr-merge`'s bump path does not apply here (tell it to skip its steps 6–9 at merge).
+`/gh-pr-merge`'s bump path does not apply here — and **nobody has to tell it that**: measured
+merging #99 (2026-10-19), its step-6 gate routed `NEWS_ONLY=1` by itself, skipping steps 6–9
+and 9b, on three independent signals it reads from this tree — `scripts/catalogue_release.sh`
+exists, `[tool.uv] package = false`, and `NEWS.md`'s preamble says versions describe the
+published catalogue. So no GitHub release is cut either, which is right: the tag is the
+catalogue's, not a package's. The one thing the merge still cannot do is close the issue
+whose last box is the republish — #98 was held open deliberately, and that trailer belongs on
+the NEWS-date commit the tag sits on.
 
 **A published null is invisible from the API.** pgstac stores an item property whose value is
 `null` (the row shows the key with `jsonb_typeof` null), and the API omits it on output, while
