@@ -412,7 +412,13 @@ my_dt_table <- function(dat,
 # separating from the group they are drawn on. Measured by looking at the render.
 REGION_COLS <- c(columbia = "#7570b3", fraser = "#1b9e77", peace = "#d95f02", skeena = "#e6ab02")
 
-# Floodplain ribbons are drawn in one dark ink rather than by region: at 7,273 km2 over a
+# An order of magnitude, deliberately, not a figure: the provincial ff04 total is rendered from
+# the live API a few lines below, and a literal here has already been wrong twice -- once when
+# the roster grew, and again at #98, which rescoped every item's `floodplain_ff04_km2` to its
+# own watershed group (10,611 -> 10,092 km2; of the 519 km2 difference only 51 km2 is another
+# item's own ground, the other 469 km2 lying outside every rostered group). The design argument
+# this number supports only needs the magnitude.
+# Floodplain ribbons are drawn in one dark ink rather than by region: at ~10,000 km2 over a
 # ~950,000 km2 province they read as threads, and a thread carrying its own hue on top of a
 # coloured group fill is less legible, not more. The group fill is what carries region.
 FLOODPLAIN_INK <- "#08306b"
@@ -435,7 +441,7 @@ fp_readme_check_regions <- function(props) {
 #' The provincial coverage figure
 #'
 #' Watershed groups filled by region with the item floodplains stroked over them. The groups
-#' are the layer that answers "what have we got" at this scale -- 7,273 km2 of floodplain over a
+#' are the layer that answers "what have we got" at this scale -- ~10,000 km2 of floodplain over a
 #' ~950,000 km2 province is ~1.2 km/px on a 1000 px-wide map, so a 500 m-wide ribbon is
 #' sub-pixel and cannot carry the answer on its own. The ribbons are drawn anyway, as fill AND
 #' stroke in the same ink, because they are the actual published extent.

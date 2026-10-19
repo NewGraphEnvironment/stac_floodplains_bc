@@ -138,7 +138,32 @@ for (mp in meta_paths) {
     "floodplain_ff04_km2 not positive" = isTRUE(meta$floodplain_ff04_km2 > 0),
     "floodplain_ff06_km2 not positive" = isTRUE(meta$floodplain_ff06_km2 > 0),
     "old floodplain_km2 still present (schema break incomplete)" = is.null(meta$floodplain_km2),
-    "gross_loss_ha missing" = !is.null(meta$gross_loss_ha)
+    "gross_loss_ha missing" = !is.null(meta$gross_loss_ha),
+    # The footprint scope (#98). Positive AND at least its in_wsg sibling: the staged pair is
+    # two sums over nested row sets, so the only way round this arm is reading one of them
+    # from the wrong layer. `item_validate.py`'s check_metric_scopes asserts the same shape on
+    # the PUBLISHED document plus the straddle census across the tree; this is the staged-side
+    # half, and it fires before anything has been tagged or hashed.
+    "floodplain_ff02_footprint_km2 below its in_wsg sibling" =
+      isTRUE(meta$floodplain_ff02_footprint_km2 >= meta$floodplain_ff02_km2),
+    "floodplain_ff04_footprint_km2 below its in_wsg sibling" =
+      isTRUE(meta$floodplain_ff04_footprint_km2 >= meta$floodplain_ff04_km2),
+    "floodplain_ff06_footprint_km2 below its in_wsg sibling" =
+      isTRUE(meta$floodplain_ff06_footprint_km2 >= meta$floodplain_ff06_km2),
+    "gross_loss_footprint_ha below its in_wsg sibling" =
+      isTRUE(meta$gross_loss_footprint_ha >= meta$gross_loss_ha),
+    "gross_gain_footprint_ha below its in_wsg sibling" =
+      isTRUE(meta$gross_gain_footprint_ha >= meta$gross_gain_ha),
+    # Both nets against their own scope. `net_ha` is excluded from the inequality above
+    # because it is signed, so this identity is what pins it. Three independent
+    # `round(x, 1)` calls in 01_stage.R, the net taken from the UNROUNDED sums, so the
+    # tolerance is three half-steps -- same constant and same reason as
+    # item_validate.METRIC_NET_TOLERANCE.
+    "net_ha is not gross_gain_ha - gross_loss_ha" =
+      isTRUE(abs((meta$gross_gain_ha - meta$gross_loss_ha) - meta$net_ha) <= 0.15),
+    "net_footprint_ha is not its scope's gain - loss" =
+      isTRUE(abs((meta$gross_gain_footprint_ha - meta$gross_loss_footprint_ha) -
+                   meta$net_footprint_ha) <= 0.15)
   )
 
   # Item-key contract (#9): upstream documents wsg/species/scenario as each being BOTH a STAC
@@ -199,6 +224,10 @@ for (mp in meta_paths) {
   meta_core <- c("wsg", "wsg_lower", "species", "scenario", "region", "item_id", "years",
                  "transition_span", "epsg", "floodplain_ff02_km2", "floodplain_ff04_km2",
                  "floodplain_ff06_km2", "gross_loss_ha", "gross_gain_ha", "net_ha",
+                 # The footprint scope of each of those six (#98).
+                 "floodplain_ff02_footprint_km2", "floodplain_ff04_footprint_km2",
+                 "floodplain_ff06_footprint_km2", "gross_loss_footprint_ha",
+                 "gross_gain_footprint_ha", "net_footprint_ha",
                  "bbox_wgs84", "geometry")
   staged_prov <- setdiff(names(meta), meta_core)
   if (!setequal(staged_prov, prov_fields)) {
@@ -446,14 +475,51 @@ for (mp in meta_paths) {
              paste(setdiff(c("wsg", "species", "scenario"), cols), collapse = "/"),
              " (upstream floodplains#30)")
       }
+      # `in_wsg` is required on every staged data layer since #98, and this is the only arm
+      # that says so per layer. 01_stage.R refuses an absent column on the two layers it
+      # MEASURES — the item's transition layer and the three delineations — which leaves every
+      # classified epoch, the per-blue-line-key breakdown and both aspatial tables uncovered.
+      # An absent flag there is not a wrong number, it is a published asset a consumer cannot
+      # separate at the group line while the item's own properties claim it is separable.
+      if (!"in_wsg" %in% cols) {
+        stop("layer '", lyr, "' in ", gpkg, " has no `in_wsg` column — every published data ",
+             "layer is split along the watershed group boundary and the item's asset ",
+             "description says so (#98, upstream floodplains#53/#144)")
+      }
       k <- sf::st_read(gpkg, quiet = TRUE,
                        query = sprintf(
                          'SELECT DISTINCT wsg, species, scenario FROM "%s"', lyr))
       # Row count first: a zero-feature layer would otherwise report empty values, and a
       # layer carrying two items' features would compare only its first.
+      #
+      # Still exactly 1 after #98, and the DISTINCT is deliberately NOT widened to include
+      # `in_wsg`: the split is geometric, so both sides carry the item's own key, and widening
+      # it would turn this arm into "exactly one side is present" — the opposite of true.
+      # Which does mean the arm is now weaker than it reads: it no longer proves the layer
+      # holds one population, only one KEY. The `in_wsg` value arm below is the other half.
       if (nrow(k) != 1L) {
         stop("layer '", lyr, "' in ", gp, " has ", nrow(k),
              " distinct (wsg, species, scenario) rows, expected exactly 1")
+      }
+      # The flag is a boolean, read as whatever sf makes of the producer's
+      # `Integer(Boolean)`. Asserted as a VALUE SET rather than a count: a third value, or an
+      # NA, is a layer whose rows cannot be partitioned at the group line, and an NA in
+      # particular would fall out of 01_stage.R's `na.rm = TRUE` sums if that script ever
+      # measured this layer.
+      iw <- sf::st_read(gpkg, quiet = TRUE,
+                        query = sprintf('SELECT DISTINCT in_wsg FROM "%s"', lyr))$in_wsg
+      # Compared as STRINGS against the four spellings, not through `as.integer()`, which the
+      # first version used: `as.integer("0")` is 0 and `as.integer(1.5)` is 1, so that form
+      # accepted exactly the shapes the message said it refused — a character column and a
+      # fractional value. This is the staged-side twin of `01_stage.R`'s cast arm, and a
+      # character `in_wsg` is the shape that makes every in_wsg figure 0 while the footprint
+      # figures stay right.
+      if (!length(iw) || anyNA(iw) ||
+            !all(as.character(iw) %in% c("0", "1", "TRUE", "FALSE"))) {
+        stop("layer '", lyr, "' in ", gp, " has in_wsg value(s) ",
+             paste(ifelse(is.na(iw), "NA", as.character(iw)), collapse = ", "),
+             " of type ", class(iw)[1], " over ", length(iw),
+             " distinct row(s), expected a non-empty subset of {FALSE, TRUE}")
       }
       # The scenario arm is a SET for floodplain.gpkg and a single value for the other two,
       # for the reason fp_gpkg.R's header gives: that file's ff02/ff06 delineations each
@@ -650,10 +716,18 @@ message("targets: ", length(want), " declared in area.yml, all staged (",
 message("\n=== SUMMARY ===")
 message(toupper(wsg), ": ", length(items), " item(s)")
 for (meta in items) {
+  # in_wsg first, footprint in parentheses, matching the STAGED line 01_stage.R prints.
+  # Both, because this is the line an operator eyeballs against the live item and the two
+  # scopes answer different questions of it: the unsuffixed figures should MATCH the live
+  # change figures and should be BELOW the live areas.
   message("  ", meta$item_id, " (", meta$scenario, "): ",
-          "ff02 ", meta$floodplain_ff02_km2, " / ff04 ", meta$floodplain_ff04_km2,
-          " / ff06 ", meta$floodplain_ff06_km2, " km2 | loss/gain/net ",
-          meta$gross_loss_ha, " / ", meta$gross_gain_ha, " / ", meta$net_ha, " ha")
+          "ff02 ", meta$floodplain_ff02_km2, " (", meta$floodplain_ff02_footprint_km2, ")",
+          " / ff04 ", meta$floodplain_ff04_km2, " (", meta$floodplain_ff04_footprint_km2, ")",
+          " / ff06 ", meta$floodplain_ff06_km2, " (", meta$floodplain_ff06_footprint_km2, ")",
+          " km2 | loss/gain/net ",
+          meta$gross_loss_ha, " (", meta$gross_loss_footprint_ha, ")",
+          " / ", meta$gross_gain_ha, " (", meta$gross_gain_footprint_ha, ")",
+          " / ", meta$net_ha, " (", meta$net_footprint_ha, ") ha")
 }
 message("\nPASS — ", toupper(wsg), " round-trips stage -> tag -> COG -> STAC locally.")
 message("This tree is a PARTIAL stage: its collection.json cannot be published. Either:")

@@ -462,6 +462,9 @@ SHARED_TAG_PROPERTIES = {
     "wsg", "species", "scenario", "region",
     "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
     "gross_loss_ha", "gross_gain_ha", "net_ha",
+    "floodplain_ff02_footprint_km2", "floodplain_ff04_footprint_km2",
+    "floodplain_ff06_footprint_km2",
+    "gross_loss_footprint_ha", "gross_gain_footprint_ha", "net_footprint_ha",
 }
 
 # The published provenance contract (#17, renamed off the `nge:` prefix in #74). Declared here
@@ -806,6 +809,346 @@ def check_processing_stamp(base: Path) -> list[str]:
                 f"from the producer's landcover run datetime_utc — fix it upstream rather "
                 f"than reformatting it here, or pystac refuses the item with a raw schema "
                 f"message after the whole tree has been hashed")
+    return problems
+
+
+# --- metric scopes (#98) --------------------------------------------------------------
+#
+# Each headline figure is published twice: unsuffixed over the layer's `in_wsg` rows, and
+# `*_footprint_*` over every row. Five of the six pairs are non-negative sums over nested row
+# sets, so `in_wsg <= footprint` holds by construction and a violation means the two were
+# swapped or one was read from the wrong layer. `net` is excluded from that arm deliberately —
+# it is a signed difference, so its two scopes can sit either side of each other.
+METRIC_SCOPE_PAIRS = (
+    ("floodplain_ff02_km2", "floodplain_ff02_footprint_km2"),
+    ("floodplain_ff04_km2", "floodplain_ff04_footprint_km2"),
+    ("floodplain_ff06_km2", "floodplain_ff06_footprint_km2"),
+    ("gross_loss_ha", "gross_loss_footprint_ha"),
+    ("gross_gain_ha", "gross_gain_footprint_ha"),
+)
+# Each in_wsg figure is at least this share of its footprint sibling.
+#
+# The arm that closes the hole every other arm here leaves open: an **inverted** `in_wsg`
+# filter. The census below was built for a filter that was DROPPED, which makes the two scopes
+# equal and the straddle count fall to 0. A filter applied with the wrong polarity does the
+# opposite — it publishes the OUTSIDE strip as the item's own figure, so `in_wsg <= footprint`
+# still holds, `gain - loss == net` still holds, and the straddle count RISES to 23/23.
+# Measured on a scratchpad copy of the real build with every unsuffixed figure replaced by its
+# outside complement: `check_metric_scopes` returned ZERO problems with straddle 23/23 while
+# BULK would have published `floodplain_ff04_km2` 13.18 against a live 659.99, and a `net_ha`
+# of +15.5 against a live -1474.6 — a sign flip.
+#
+# A literal a human sets, and a property of the roster rather than a guarantee, like
+# ALLOWED_YEAR_SETS: a group whose floodplain lay mostly outside its own line would fail this
+# honestly. Measured over 23 items x 5 pairs = 115 values on the v2.1.0 build: the minimum is
+# **0.5811** (PCEA's ff02, the group that straddles most) and the maximum inverted value is
+# **0.4189**, so 0.5 passes 115 of 115 real and refuses 115 of 115 inverted, with margin on
+# both sides. Re-take it from the build if a new group lands below it.
+METRIC_SCOPE_MAJORITY = 0.5
+# gain - loss = net, per scope. Both arms, because a filter dropped from ONE member of a
+# triple is the defect this exists for and it leaves the other two consistent.
+# Three independent `round(x, 1)` calls, so the identity holds to 3 x 0.05 and no tighter.
+# 01_stage.R takes the net from the unrounded sums deliberately (its own comment says why),
+# which is what makes this a tolerance rather than an equality.
+METRIC_NET_TOLERANCE = 0.15
+METRIC_NET_TRIPLES = (
+    ("gross_gain_ha", "gross_loss_ha", "net_ha"),
+    ("gross_gain_footprint_ha", "gross_loss_footprint_ha", "net_footprint_ha"),
+)
+# A literal a human sets from the build, the same shape and the same rule as PROVENANCE_FLOOR
+# and PROV_CENSUS: how many items STRADDLE their group line on each metric, i.e. carry
+# `in_wsg` strictly below `footprint`.
+#
+# "The same rule" includes WHEN it is asserted, which the first version of this got wrong: it
+# fired on `not --partial`, so every plain rebuild asserted 23/23 and an `ALLOW_SKIPPED=1`
+# rebuild of 22 groups — a documented state — failed on a tree nobody was releasing. The floor
+# and PROV_CENSUS are release-time for the reason check_provenance states above its own arm:
+# "a rebuild has no business asserting how many areas the producer has re-modelled". A straddle
+# count is the same kind of claim about the roster, so it is gated on `--expect-provenance`
+# too. The MEASUREMENT is printed either way (below), because the trap PROV_CENSUS's comment
+# records is a number nobody can read being a literal nobody updates.
+#
+# It exists because the per-item inequality above is satisfied by EQUALITY, so an `in_wsg`
+# filter dropped from the staging code publishes two identical scopes on every item and passes
+# every per-item arm — a uniform loss, which is exactly what the per-field census was
+# introduced for in #74. Per metric and not per item, for the same reason that census is: a
+# group can legitimately straddle on area and not on change.
+#
+# Measured on the floodplains#144 tree, 2026-10-19: all 23 rostered groups straddle on all
+# five. That it is 23/23 today is a property of the roster, not a guarantee — a group wholly
+# inside its own boundary would read 22 and be correct — so re-take it from the build a
+# release is cut from and never carry it between releases.
+METRIC_SCOPE_CENSUS = {
+    "floodplain_ff02_km2": 23,
+    "floodplain_ff04_km2": 23,
+    "floodplain_ff06_km2": 23,
+    "gross_loss_ha": 23,
+    "gross_gain_ha": 23,
+}
+assert set(METRIC_SCOPE_CENSUS) == {inw for inw, _ in METRIC_SCOPE_PAIRS}, (
+    "METRIC_SCOPE_CENSUS and METRIC_SCOPE_PAIRS disagree on which metrics have two scopes")
+# Every metric that must be present and numeric on every item: both members of every pair,
+# plus the two nets.
+METRIC_PROPERTIES = sorted(
+    {k for pair in METRIC_SCOPE_PAIRS for k in pair} | {"net_ha", "net_footprint_ha"})
+assert set(METRIC_PROPERTIES) <= SHARED_TAG_PROPERTIES, (
+    "a metric property is not tagged into the COGs: "
+    f"{sorted(set(METRIC_PROPERTIES) - SHARED_TAG_PROPERTIES)}")
+
+
+def check_metric_scopes(base: Path, census: bool = True
+                        ) -> tuple[list[str], dict[str, int], int]:
+    """The two scopes of every headline figure are consistent, per item and across the tree.
+
+    Four arms, and the fourth is the one that cannot be done per item:
+
+      * every metric present and numeric on every item. An absent one is the uniform-loss
+        shape: `01_stage.R` writes all twelve on every item, so a missing key is a staging
+        bug, and `item_create.py` would already have raised on it — this catches a tree built
+        before it did, and a hand-edited document.
+      * `in_wsg <= footprint` on the five non-negative pairs. Catches a swapped pair.
+      * `gain - loss == net` in BOTH scopes, within METRIC_NET_TOLERANCE. 01_stage.R rounds
+        the three independently -- the net from the UNROUNDED sums, as it always has -- so
+        the identity holds only to three half-steps, not exactly. Still worth three orders
+        of magnitude: a scope mix-up is off by hundreds of hectares.
+      * the straddle census against METRIC_SCOPE_CENSUS. This is the arm that fails when an
+        `in_wsg` filter is dropped: the per-item arms are all satisfied by two identical
+        scopes.
+
+    Returns `(problems, straddle, seen)` so main() can print the measurement whether or not
+    it asserted it — the release sets the literal from that line.
+
+    `census=False` for a rebuild or a partial tree, where the count is the subset's or the
+    roster's rather than the release's, and says nothing.
+    """
+    problems: list[str] = []
+    straddle = {k: 0 for k in METRIC_SCOPE_CENSUS}
+    seen = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc.get("id", path.stem)
+        props = doc.get("properties") or {}
+        seen += 1
+        # bool is a subclass of int, so it is excluded explicitly: a metric published as
+        # `true` would otherwise compare and subtract as 1 and pass every arm below.
+        bad_type = False
+        for name in METRIC_PROPERTIES:
+            value = props.get(name, _ABSENT)
+            if value is _ABSENT:
+                problems.append(
+                    f"{item_id}: metric property {name!r} is missing — every item publishes "
+                    f"both scopes of every headline figure (#98)")
+                bad_type = True
+            elif isinstance(value, bool) or not isinstance(value, (int, float)):
+                problems.append(
+                    f"{item_id}: metric property {name!r} is {value!r}, expected a number")
+                bad_type = True
+        if bad_type:
+            continue
+
+        for inw, fp in METRIC_SCOPE_PAIRS:
+            # Positivity first, on BOTH members. Without it `0 == 0` satisfies the ordering
+            # arm, the majority arm (gated on a truthy footprint) and the net identity, and
+            # the census sees it only on a full release — so a pair zeroed on every item was
+            # refused by nothing in a rebuild. `test_pipeline.R` has `> 0` arms for the three
+            # areas and none for loss/gain, and it is outside the release path besides.
+            # Every rostered group has a floodplain and some tree change, so a zero here is
+            # a reader that found nothing, which is what the whole #98 guard family is about.
+            if props[inw] <= 0 or props[fp] <= 0:
+                problems.append(
+                    f"{item_id}: {inw} is {props[inw]} and {fp} is {props[fp]} — a figure "
+                    f"at or below zero is a reader that found nothing, not a measurement; "
+                    f"every rostered group has a floodplain and some tree change")
+                continue
+            if props[inw] > props[fp]:
+                problems.append(
+                    f"{item_id}: {inw} is {props[inw]} but {fp} is {props[fp]} — the "
+                    f"in_wsg figure is a sum over a SUBSET of the footprint's rows and "
+                    f"cannot exceed it; the two scopes look swapped")
+            else:
+                if props[inw] < props[fp]:
+                    straddle[inw] += 1
+                # The polarity arm. Its scope, measured by mutation rather than reasoned —
+                # two earlier versions of this comment were wrong in opposite directions:
+                #   * a footprint of 0 with a POSITIVE in_wsg figure never reaches here at
+                #     all; the ordering arm above catches it (in_wsg > footprint).
+                #   * `footprint == in_wsg == 0` passes every per-item arm, but it is NOT
+                #     invisible to the census: a zero pair stops straddling, so the count
+                #     drops and `check_metric_scopes(census=True)` refuses it (measured:
+                #     zeroing one item's ff04 pair gives "22 of 23 item(s) straddle …
+                #     expected exactly 23"). It is invisible only under `census=False` —
+                #     a plain rebuild and `--only` — which is the gap, and a narrower one
+                #     than either earlier comment claimed.
+                # Not reachable on this build: all 115 footprint values are non-zero.
+                if props[fp] and props[inw] < METRIC_SCOPE_MAJORITY * props[fp]:
+                    problems.append(
+                        f"{item_id}: {inw} is {props[inw]}, only "
+                        f"{props[inw] / props[fp]:.1%} of {fp} ({props[fp]}) — an item's own "
+                        f"watershed group is the majority of its footprint on every rostered "
+                        f"group (minimum {METRIC_SCOPE_MAJORITY:.0%} by literal, 58.1% "
+                        f"measured), so this reads as an INVERTED in_wsg filter publishing "
+                        f"the outside strip as the item's own figure. Every other arm here "
+                        f"passes that: the ordering holds, the net identity holds, and the "
+                        f"straddle census RISES")
+
+        for gain, loss, net in METRIC_NET_TRIPLES:
+            if abs((props[gain] - props[loss]) - props[net]) > METRIC_NET_TOLERANCE:
+                problems.append(
+                    f"{item_id}: {net} is {props[net]} but {gain} - {loss} is "
+                    f"{round(props[gain] - props[loss], 1)} — one of the three was read "
+                    f"over a different row set than the other two")
+
+    if not census:
+        return problems, straddle, seen
+    for name, want in sorted(METRIC_SCOPE_CENSUS.items()):
+        got = straddle[name]
+        if got != want:
+            problems.append(
+                f"{name}: {got} of {seen} item(s) straddle their group line (in_wsg below "
+                f"footprint), expected exactly {want}. Below is an in_wsg filter that was "
+                f"dropped somewhere in staging — which every per-item arm passes, because "
+                f"two identical scopes are consistent. Above is a literal nobody re-took "
+                f"from the build")
+    return problems, straddle, seen
+
+
+# --- the group-line column (#98) -----------------------------------------------------
+#
+# `in_wsg` on every data layer of every published GeoPackage, and nothing but TRUE/FALSE in it.
+#
+# This arm exists because the published asset descriptions now ASSERT it -- "every data layer
+# carries wsg/species/scenario ... and `in_wsg`" on 23 items -- and the only check of that
+# claim was `test_pipeline.R`, which runs one group and which neither `run_pipeline.sh` nor
+# `catalogue_release.sh` calls. A published claim about 269 data layers — 11 on each of 19
+# items and 15 on each of the 4 annual-span ones, measured — was being checked on one item, by
+# a script outside the release path. `01_stage.R`'s own refusal is narrower
+# still: `in_wsg_flag()` is reached only from the two families the stage MEASURES -- the item's
+# transition layer and the three delineations -- so the seven classified epochs, the
+# per-blue-line-key breakdown and both aspatial tables were covered by nothing here.
+#
+# Read through sqlite3 rather than GDAL, like check_layer_styles, and over the SAME
+# STYLED_GPKGS triple: these are the three files published, not three files that happen to be
+# styled. Aspatial tables are included deliberately (`composition_*`, `patch_watercourse_*`
+# carry the flag and are published), which is why the filter is the data_type pair and not
+# `features` alone -- the opposite choice from check_layer_styles, whose subject is styles.
+GPKG_LAYER_TYPES = ("features", "attributes")
+IN_WSG_COLUMN = "in_wsg"
+# What the published asset descriptions CLAIM, per file, so the guard's scope is the claim's
+# scope. A single `in_wsg` constant was the first version, and it left the six columns the same
+# release started claiming watched by nothing — the B5 defect class re-introduced in the commit
+# that fixed it. `item_create.py` is the other copy; if a description grows a column name, it
+# grows here.
+#
+# Every layer of every file carries the item key plus `in_wsg`. The transition patches carry
+# the context flags on top, which is why the extras are keyed on a layer-name prefix rather
+# than on the file: `floodplain_landcover.gpkg` holds `classified_*` and `composition_*` beside
+# its `transition_*`, and only the last of those is what the description calls "the transition
+# patches". Anchored with `startswith`, matching the producer's `transition_<sp>_<scen>_<y1>_<y2>`
+# and the staged `transition_vector.gpkg`'s single `transition` layer.
+GPKG_BASE_COLUMNS = ("wsg", "species", "scenario", IN_WSG_COLUMN)
+TRANSITION_LAYER_PREFIX = "transition"
+# And the composition table, which the landcover description now sends consumers to BY NAME,
+# for a cell-centre area filtered on `in_floodplain`. Added because the claim grew in #98's
+# round-3 fix and this map did not — the third instance in this issue of a published claim
+# outrunning the guard that checks it, which is the whole reason the map exists. `in_floodplain`
+# is the load-bearing one: the table covers the touched ring as well as the floodplain, so a
+# consumer who does not filter on it reads 2.9% to 11.1% high, by item (measured on all 23).
+COMPOSITION_LAYER_PREFIX = "composition"
+COMPOSITION_COLUMNS = ("in_floodplain", "in_open_water", "in_wetland", "in_alr",
+                       "status", "ha")
+# Presence only, deliberately. The descriptions claim these are PRESENT and any-touch; they
+# make no claim about their domain, and `open_water_poly_id` is an id, not a flag. `in_wsg` is
+# the one whose VALUES the published figures depend on, so it is the one with a value arm.
+#
+# `in_fire_prior`, `area_ha`, `from_class` and `to_class` are here because the descriptions
+# name them too — `in_fire_prior` in the "for those three the patch flag is all there is"
+# clause, and the other three in the sentence that tells a consumer the headline figures are
+# `area_ha` summed over `in_wsg` under the class filters. Four more instances of one class in
+# one issue: the claim grew and this map did not, each time.
+TRANSITION_COLUMNS = ("in_open_water", "open_water_poly_id",
+                      "in_fire", "in_harvest", "in_fire_prior", "in_wetland", "in_alr",
+                      "area_ha", "from_class", "to_class")
+
+
+def gpkg_required_columns(layer: str) -> tuple:
+    """The columns an item's asset description claims for this layer."""
+    if layer.startswith(TRANSITION_LAYER_PREFIX):
+        extra = TRANSITION_COLUMNS
+    elif layer.startswith(COMPOSITION_LAYER_PREFIX):
+        extra = COMPOSITION_COLUMNS
+    else:
+        extra = ()
+    return GPKG_BASE_COLUMNS + extra
+
+
+def check_gpkg_columns(base: Path) -> list[str]:
+    """Every published data layer carries the columns its asset description claims.
+
+    Two arms, and the second is not implied by the first: a column of all-NULL is present and
+    useless, and an NA would fall out of `01_stage.R`'s `na.rm = TRUE` sums if that script ever
+    measured the layer. `{}` is refused too -- a zero-row layer proves nothing and is already
+    a defect the layer-set arms would not see.
+
+    The value arm is `in_wsg` alone, because it is the only one of these columns a published
+    FIGURE is computed from. The rest are claimed as present and any-touch, and that is what
+    is checked.
+    """
+    problems: list[str] = []
+    compared = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc["id"]
+        for gname in STYLED_GPKGS:
+            gpkg = base / item_id / gname
+            if not gpkg.is_file():
+                continue  # absence is already reported by check_checksums / check_layer_styles
+            con = sqlite3.connect(f"file:{gpkg}?mode=ro", uri=True)
+            try:
+                layers = [r[0] for r in con.execute(
+                    "SELECT table_name FROM gpkg_contents WHERE data_type IN (?, ?) "
+                    "AND table_name <> ?", (*GPKG_LAYER_TYPES, STYLE_TABLE))]
+                if not layers:
+                    problems.append(
+                        f"{item_id}/{gname} registers no data layer in gpkg_contents, so "
+                        f"every per-layer arm below it is vacuous")
+                    continue
+                for lyr in layers:
+                    compared += 1
+                    cols = {r[1] for r in con.execute(f'PRAGMA table_info("{lyr}")')}
+                    want = gpkg_required_columns(lyr)
+                    absent = [c for c in want if c not in cols]
+                    if absent:
+                        problems.append(
+                            f"{item_id}/{gname} layer {lyr!r} has no "
+                            f"{', '.join(repr(c) for c in absent)} column(s), and this "
+                            f"item's asset description says it carries them (#98)")
+                        if IN_WSG_COLUMN in absent:
+                            continue
+                    vals = {r[0] for r in con.execute(
+                        f'SELECT DISTINCT "{IN_WSG_COLUMN}" FROM "{lyr}"')}
+                    if not vals or not vals <= {0, 1}:
+                        # Sorted on str(v), not v: SQLite stores any type in any column
+                        # whatever its declaration, so a stray 'true' beside 0 and 1 would
+                        # make a bare sort raise TypeError and this guard would die with a
+                        # traceback instead of naming the values. Fail-closed either way,
+                        # but the diagnosis is the whole point of the message.
+                        shown = ", ".join("NULL" if v is None else repr(v)
+                                          for v in sorted(vals,
+                                                          key=lambda v: (v is None, str(v))))
+                        problems.append(
+                            f"{item_id}/{gname} layer {lyr!r} holds {IN_WSG_COLUMN} "
+                            f"value(s) {{{shown}}}, expected a non-empty subset of "
+                            f"{{0, 1}} — its rows cannot be partitioned at the group line")
+            finally:
+                con.close()
+    if not compared:
+        problems.append(
+            "no published GeoPackage layer was read, so this check asserted nothing — the "
+            "item glob or the gpkg_contents filter is wrong")
     return problems
 
 
@@ -2156,6 +2499,42 @@ def main() -> int:
     print(f"field names: every namespaced field sits under one of "
           f"{', '.join(sorted(FIELD_PREFIXES))}, each declaring its schema where it has one; "
           f"processing extension declared iff the item carries a processing: field")
+
+    # --- metric scopes: are the in_wsg and footprint figures consistent? (#98) ---
+    # Before the checksum re-read, like the two above, so a dropped in_wsg filter is named in
+    # seconds rather than after ~1.3 GB has been hashed.
+    #
+    # The census arm is release-time, gated the same way PROV_CENSUS and the floor are and for
+    # the same reason — see METRIC_SCOPE_CENSUS. The MEASUREMENT prints either way, in the
+    # same format as the `straddle:` literal, because that line is what a release sets the
+    # literal from and a number nobody can read is a literal nobody updates.
+    assert_straddle = args.expect_provenance is not None and not args.partial
+    bad_metrics, straddle, n_metric = check_metric_scopes(args.base, census=assert_straddle)
+    if bad_metrics:
+        print(f"FAILED: {len(bad_metrics)} metric-scope problem(s)", file=sys.stderr)
+        for msg in bad_metrics:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    bad_cols = check_gpkg_columns(args.base)
+    if bad_cols:
+        print(f"FAILED: {len(bad_cols)} GeoPackage column problem(s)", file=sys.stderr)
+        for msg in bad_cols:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    print(f"gpkg columns: every data layer of {len(STYLED_GPKGS)} GeoPackages per item carries "
+          f"{', '.join(GPKG_BASE_COLUMNS)} — with {IN_WSG_COLUMN} holding only TRUE/FALSE — "
+          f"every {TRANSITION_LAYER_PREFIX}* layer also carries "
+          f"{', '.join(TRANSITION_COLUMNS)}, and every {COMPOSITION_LAYER_PREFIX}* layer "
+          f"{', '.join(COMPOSITION_COLUMNS)}, which is what the asset descriptions claim")
+
+    print("straddle: " + ", ".join(f"{k} {straddle[k]}"
+                                   for k in sorted(METRIC_SCOPE_CENSUS))
+          + f" of {n_metric} item(s) carry in_wsg below footprint")
+    print(f"metric scopes: every item publishes all {len(METRIC_PROPERTIES)} figures, "
+          f"no in_wsg figure exceeds its footprint sibling, gain - loss = net in both scopes"
+          + ("; the straddle count above is asserted against METRIC_SCOPE_CENSUS"
+             if assert_straddle
+             else "; the straddle count above is printed, not asserted (a rebuild, or --only)"))
 
     # --- deprecation: are the over-mapped items marked, and only them? (#26) ---
     # Here rather than after check_checksums, for the same reason as the premise check above:

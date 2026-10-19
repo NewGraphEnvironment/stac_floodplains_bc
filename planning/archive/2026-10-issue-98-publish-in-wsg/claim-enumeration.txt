@@ -1,0 +1,72 @@
+70 numeric/identity claims verified against the artifacts; 1 WRONG
+
+  ok   bulk floodplain_ff04_km2 in_wsg                got=646.81 want=646.81
+  ok   bulk floodplain_ff04_footprint_km2             got=659.99 want=659.99
+  ok   bulk outside share %                           got=2.0 want=2.0
+  ok   pcea floodplain_ff04_km2 in_wsg                got=491.38 want=491.38
+  ok   pcea floodplain_ff04_footprint_km2             got=843.34 want=843.34
+  ok   pcea outside share %                           got=41.7 want=41.7
+  ok   lchl floodplain_ff04_km2 in_wsg                got=412.92 want=412.92
+  ok   lchl floodplain_ff04_footprint_km2             got=426.81 want=426.81
+  ok   lchl outside share %                           got=3.3 want=3.3
+  ok   tabr floodplain_ff04_km2 in_wsg                got=258.73 want=258.73
+  ok   tabr floodplain_ff04_footprint_km2             got=267.19 want=267.19
+  ok   tabr outside share %                           got=3.2 want=3.2
+  ok   mcgr floodplain_ff04_km2 in_wsg                got=344.61 want=344.61
+  ok   mcgr floodplain_ff04_footprint_km2             got=355.33 want=355.33
+  ok   mcgr outside share %                           got=3.0 want=3.0
+  ok   unth floodplain_ff04_km2 in_wsg                got=233.03 want=233.03
+  ok   unth floodplain_ff04_footprint_km2             got=234.93 want=234.93
+  ok   unth outside share %                           got=0.8 want=0.8
+  ok   bulk outside % = 2.0                           got=2.0 want=2.0
+  ok   pcea outside % = 41.7                          got=41.7 want=41.7
+  ok   lchl outside % = 3.3                           got=3.3 want=3.3
+  ok   tabr outside % = 3.2                           got=3.2 want=3.2
+  ok   mcgr outside % = 3.0                           got=3.0 want=3.0
+  ok   unth outside % = 0.8                           got=0.8 want=0.8
+  ok   bulk gross_loss_ha                             got=2793.4 want=2793.4
+  ok   bulk gross_gain_ha                             got=1318.7 want=1318.7
+  ok   bulk net_ha                                    got=-1474.6 want=-1474.6
+  ok   pcea gross_loss_ha                             got=227.7 want=227.7
+  ok   pcea gross_loss_footprint_ha                   got=238.5 want=238.5
+  ok   pcea gross_gain_ha                             got=225.4 want=225.4
+  ok   pcea gross_gain_footprint_ha                   got=292.5 want=292.5
+  ok   pcea net_ha ~ -2.3                             got=-2.3 want=-2.3
+  ok   pcea net_footprint_ha ~ 54.1                   got=54.1 want=54.1
+  ok   pcea loss +4.7%                                got=4.7 want=4.7
+  ok   pcea gain +29.8%                               got=29.8 want=29.8
+  ok   pcea outside gain 67 ha                        got=67 want=67
+  ok   pcea outside loss 11 ha                        got=11 want=11
+  ok   pcea gross change inside 85.3%                 got=85.3 want=85.3
+  ok   bulk raw area_ha in_wsg 5584.9                 got=5584.9 want=5584.9
+  ok   bulk tree loss+gain 4112.1                     got=4112.1 want=4112.1
+  ok   pcea raw area_ha in_wsg 754.4                  got=754.4 want=754.4
+  ok   pcea raw area_ha all 2454.6                    got=2454.6 want=2454.6
+  ok   pcea raw ratio 3.3x                            got=3.3 want=3.3
+  ok   bulk in_wsg transition rows 9210               got=9210 want=9210
+  ok   ff04 in_wsg sum 10092.27                       got=10092.27 want=10092.27
+  ok   ff04 footprint sum 10611.35                    got=10611.35 want=10611.35
+  ok   ff04 diff 519.08                               got=519.08 want=519.08
+  ok   item count 23                                  got=23 want=23
+  ok   upstream whole-network layers with in_wsg = 246 got=246 want=246
+  ok   upstream layers without in_wsg = 222           got=222 want=222
+  ok   staged data layers = 269                       got=269 want=269
+  ok   published gpkg files = 69                      got=69 want=69
+  ok   bulk live coords 433852                        got=433852 want=433852
+  ok   bulk built coords 434116                       got=434116 want=434116
+  ok   min coord delta = 8 (DUNC)                     got=8 want=8
+  ok   max coord delta = 364 (FRAN)                   got=364 want=364
+  ok   min delta is dunc                              got='dunc_all_ff04' want='dunc_all_ff04'
+  ok   max delta is fran                              got='fran_all_ff04' want='fran_all_ff04'
+  ok   all 23 gain coords                             got=23 want=23
+  ok   none byte-identical                            got=0 want=0
+  ok   max pct <= 0.13                                got=0.13 want=0.13
+  ok   min pct rounds to 0.00                         got=0.0 want=0.0
+  ok   bbox moves = 0                                 got=0 want=0
+  ok   live items with a footprint key = 0            got=0 want=0
+  ok   in_wsg change figures == live on all 23        got=23 want=23
+  ok   footprint areas == live areas on all 23        got=23 want=23
+  ok   straddle 23 on all five                        got=115 want=115
+  ok   22 groups in [0.8,3.3] outside                 got=22 want=22
+  ok   23rd is pcea at 41.7                           got=41.7 want=41.7
+  WRONG  18 unnamed groups span 0.8-2.7 max             got=2.6 want=2.7

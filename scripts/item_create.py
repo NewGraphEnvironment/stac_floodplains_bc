@@ -13,8 +13,10 @@ for both the staging dir (`data/{raw,stac}/<item_id>/`) and the S3 asset prefix.
                 floodplain_landcover.gpkg vector, the floodplain.gpkg
                 delineations (ff02/ff04/ff06 extents), and transition_vector.gpkg
                 (the transition layer alone, without the classified epochs)
-  - labelled properties: wsg, species, region, floodplain_ff02/04/06_km2, and the
-    tree loss/gain/net figures staged from the transition layer.
+  - labelled properties: wsg, species, region, and the floodplain areas and tree
+    loss/gain/net figures staged from the transition layer, each published in TWO
+    scopes (#98) -- unsuffixed for the item's own watershed group (the layers' `in_wsg`
+    rows) and `*_footprint_*` for the unclipped footprint.
   - `classification:classes` on every raster asset (#34/#35), generated from the same
     data/raw/classes.json that 02_raster_tag.py builds the embedded RAT from, so the
     STAC surface and the COG surface cannot disagree.
@@ -425,7 +427,19 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             # unqualified claim was already visibly false to anyone running `ogrinfo`.
             f"Land-cover and transition layers for {meta['item_id']} alone — every data "
             f"layer carries wsg/species/scenario, so items merged into one file stay "
-            f"separable."),
+            f"separable, and `in_wsg` (#98), which is TRUE for the part inside this "
+            f"item's own watershed group. Every data layer is split along that boundary, "
+            f"so a layer that was one row is now one per side; filter on `in_wsg` or "
+            f"union the rows. The transition patches also carry `in_open_water`, which is "
+            f"an any-touch flag, and `open_water_poly_id`, which is an identifier rather "
+            f"than a flag. For an AREA by land-cover class and `in_open_water` read the "
+            f"`composition_*` table in this file, which is counted by cell centre and "
+            f"carries `in_wsg`, `in_open_water`, `in_wetland` and `in_alr`. **Filter it on "
+            f"`in_floodplain = 1`**: the table also covers the ring the floodplain raster "
+            f"only touches, so an unfiltered `SUM(ha)` runs above the floodplain itself — "
+            f"between 2.9% and 11.1% across this collection's 23 items, measured, median "
+            f"7.1%. `status` splits each row into `change` / `stable` / `sieved`, so filter "
+            f"that too unless you want all three."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain_landcover.gpkg"),
     )
@@ -447,7 +461,10 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             f"the producer's per-blue-line-key breakdown of the headline scenario where one "
             f"exists. Each data layer records its own flood factor in `scenario`, so several "
             f"values appear under one item; read the feature layers rather than assuming "
-            f"three."),
+            f"three. Each is also split along the watershed group boundary and carries "
+            f"`in_wsg` (#98), so a delineation is one row per side rather than one row; "
+            f"the item's `floodplain_ff0N_km2` is the `in_wsg` area and "
+            f"`floodplain_ff0N_footprint_km2` is both sides."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain.gpkg"),
     )
@@ -463,6 +480,32 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         href=s3_href(f"{meta['item_id']}/transition_vector.gpkg"),
         media_type=GPKG_MEDIA_TYPE,
         title="Land-cover transition patches (GeoPackage)",
+        # The only published GeoPackage that had no description, which stopped being
+        # tenable at #98: this is the file the headline change figures are aggregated from,
+        # and since floodplains#144 it is also the one whose row count changed meaning --
+        # the patches are no longer clipped to the group, so it carries pieces a consumer
+        # summing blind would add to its own group's.
+        description=(
+            f"The {span[0]}-{span[1]} changed patches for {meta['item_id']} alone, the "
+            f"layer this item's `gross_loss_ha` / `gross_gain_ha` / `net_ha` are "
+            f"aggregated from. No longer clipped to the watershed group: each patch "
+            f"carries `in_wsg`, and the headline properties sum the TRUE rows while the "
+            f"`*_footprint_*` siblings sum every row. Also carries `in_open_water` and "
+            f"`open_water_poly_id` (Freshwater Atlas lakes and manmade waterbodies, no "
+            f"size cut-off), alongside the producer's existing `in_fire` / `in_harvest` / "
+            f"`in_wetland` / `in_alr` context columns. Every one of those is ANY-TOUCH: a "
+            f"patch is flagged if it touches the overlay at all, so summing `area_ha` over "
+            f"a flagged subset overstates the flagged area. `composition_*` in "
+            f"floodplain_landcover.gpkg gives cell-centre areas for `in_open_water`, "
+            f"`in_wetland` and `in_alr` — but NOT for `in_fire`, `in_harvest` or "
+            f"`in_fire_prior`, which it does not carry, so for those three the patch flag "
+            f"is all there is. Filter `composition_*` on `in_floodplain = 1` when you do "
+            f"read it, because it also covers the ring the raster only touches (2.9% to "
+            f"11.1% of its `ha` across this collection). `in_wsg` is "
+            f"different in kind: it is a true partition of the patches, which is why this "
+            f"item's headline figures are sums of `area_ha` over its TRUE rows — under the "
+            f"`from_class`/`to_class` filters above, not over the whole layer, which holds "
+            f"every changed patch and not only the tree gains and losses."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "transition_vector.gpkg"),
     )
@@ -488,12 +531,36 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         "scenario": meta["scenario"],
         "flood_factor": flood_factor(meta["scenario"]),
         "region": meta["region"],
+        # Twelve figures in two scopes (#98). The unsuffixed six are the item's OWN
+        # watershed group -- the `in_wsg` rows of the layer they are read from -- so a
+        # regional or provincial total is their plain sum. The `*_footprint_*` six are the
+        # unclipped footprint, which is the ground the COGs cover and the ground this
+        # item's `geometry` and `bbox` describe. A pair's difference is ground outside this
+        # item's own group, and it is NOT simply a neighbour's -- which is what every copy of
+        # this sentence said until code-check round 3 measured it. On the v2.1.0 build, of the
+        # 519.16 km2 by which the ff04 footprint geometry exceeds the ff04 in_wsg geometry
+        # (BC Albers, `planning/active/neighbour-measure.R`), only 50.58 km2 (9.7%) is another
+        # item's own ground, so summing footprints double-counts by 50.58 km2 -- 0.48% of the
+        # FOOTPRINT sum of 10,611.35, not of the in_wsg sum, where 0.48% would be 48.44. The
+        # other 468.57 km2 (90.3%) lies outside EVERY rostered group and is in no item's
+        # `in_wsg` at all. Both halves matter: the unsuffixed sum counts no ground twice -- the
+        # union of the 23 in_wsg pieces equals their sum, 10,092.24 km2 -- AND it is a total of
+        # the ROSTERED floodplain rather than of the whole province's.
+        #
+        # STAC items carry no per-property description, so what the two scopes mean is said
+        # in the collection description and in the GeoPackage asset descriptions below.
         "floodplain_ff02_km2": meta["floodplain_ff02_km2"],
         "floodplain_ff04_km2": meta["floodplain_ff04_km2"],
         "floodplain_ff06_km2": meta["floodplain_ff06_km2"],
         "gross_loss_ha": meta["gross_loss_ha"],
         "gross_gain_ha": meta["gross_gain_ha"],
         "net_ha": meta["net_ha"],
+        "floodplain_ff02_footprint_km2": meta["floodplain_ff02_footprint_km2"],
+        "floodplain_ff04_footprint_km2": meta["floodplain_ff04_footprint_km2"],
+        "floodplain_ff06_footprint_km2": meta["floodplain_ff06_footprint_km2"],
+        "gross_loss_footprint_ha": meta["gross_loss_footprint_ha"],
+        "gross_gain_footprint_ha": meta["gross_gain_footprint_ha"],
+        "net_footprint_ha": meta["net_footprint_ha"],
         "start_datetime": start_dt.isoformat(),
         "end_datetime": end_dt.isoformat(),
         "proj:epsg": epsg,
@@ -699,6 +766,31 @@ collection = pystac.Collection(
         "extents), and the transition layer on its own for consumers that do not need "
         "the classified epochs. Floodplain area per flood-factor and tree loss/gain/net properties "
         "are aggregated from the layers produced by the `floodplains` driver. "
+        # Appended, never woven into the sentences above: item_validate.py asserts
+        # DERIVATION_STATEMENT as a whole substring of this description, so adding text is
+        # safe and rewording what is already here is not.
+        "Every vector layer is split along the watershed group boundary and each piece "
+        "carries `in_wsg`, so a floodplain can cross into a neighbouring group. The "
+        "headline properties are the item's own group: `floodplain_ff0N_km2` and "
+        "`gross_loss_ha` / `gross_gain_ha` / `net_ha` are read over `in_wsg` rows, which "
+        "makes a regional or provincial total their plain sum. The `*_footprint_*` "
+        "siblings are the same figures over the item's whole footprint — the ground its "
+        "rasters cover and its `geometry` describes. A pair's difference is ground outside "
+        "the item's own group, and on the published catalogue most of it is published by "
+        "nobody: measured on the ff04 delineations in BC Albers, of the 519.16 km2 by which "
+        "the ff04 footprint exceeds the ff04 in_wsg extent, 50.58 km2 (9.7%) is another "
+        "item's own ground and 468.57 km2 (90.3%) falls outside every watershed group this "
+        "collection covers. So summing the unsuffixed figures counts no ground twice and is "
+        "the right total across the groups covered here, while summing the footprint figures "
+        "double-counts that 50.58 km2, which is 0.48% of the footprint sum of 10,611.35. "
+        "Neither is a total of the province's floodplain, because ground outside every "
+        "covered group is in no item's in_wsg at all. "
+        "The transition patches additionally carry `in_open_water` and "
+        "`open_water_poly_id` from the Freshwater Atlas lakes and manmade waterbodies, "
+        "with no size cut-off and a dammed lake filed as a lake; the flag is any-touch, "
+        "so open-water AREAS are read from the `composition_*` table — filtered on "
+        "`in_floodplain = 1`, because that table also covers the ring the raster only "
+        "touches — rather than summed off the patches. "
         + DERIVATION_STATEMENT
     ),
     extent=pystac.Extent(spatial=spatial_extent, temporal=temporal_extent),

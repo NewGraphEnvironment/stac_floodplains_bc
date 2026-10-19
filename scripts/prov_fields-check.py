@@ -23,6 +23,7 @@ Sibling of `year_sets-check.py` and `fp_provenance-check.R`; like them it is NOT
 import ast
 import hashlib
 import json
+import io
 import pathlib
 import re
 import shutil
@@ -36,9 +37,11 @@ import rasterio
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import only_preflight as op  # noqa: E402
 from item_validate import (  # noqa: E402
-    PROV_CENSUS, PROV_FIELDS, PROV_PREFIXES, PROV_PROPERTIES, PROV_SOFTWARE,
-    SOFTWARE_PROPERTY, SHARED_TAG_PROPERTIES, check_cog_tags, check_field_prefixes,
-    check_processing_stamp, check_provenance,
+    METRIC_PROPERTIES as METRIC_PROPERTIES_V,
+    METRIC_NET_TOLERANCE,
+    METRIC_SCOPE_CENSUS, METRIC_SCOPE_PAIRS, PROV_CENSUS, PROV_FIELDS, PROV_PREFIXES,
+    PROV_PROPERTIES, PROV_SOFTWARE, SOFTWARE_PROPERTY, SHARED_TAG_PROPERTIES, check_cog_tags,
+    check_field_prefixes, check_metric_scopes, check_processing_stamp, check_provenance,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -94,11 +97,25 @@ STAGED = {
     "landcover_key": "sha256:97095d",
     "landcover_item_hash": "sha256:f83e23",
 }
+# The non-provenance half of every item: published as properties AND tagged into the COG, so
+# this fixture has to cover SHARED_TAG_PROPERTIES exactly or check_cog_tags reports a missing
+# property rather than the thing a case is testing. Pinned below rather than trusted, which is
+# also what keeps the import of that name honest.
+#
+# The `*_footprint_*` values are deliberately LARGER than their unsuffixed siblings and the
+# nets are consistent per scope, so this fixture satisfies check_metric_scopes and a case
+# that breaks it has to say so.
 SHARED = {
     "wsg": "aaaa", "species": "ch", "scenario": "ff04", "region": "Test",
     "floodplain_ff02_km2": 1.0, "floodplain_ff04_km2": 2.0, "floodplain_ff06_km2": 3.0,
     "gross_loss_ha": 1.5, "gross_gain_ha": 0.5, "net_ha": -1.0,
+    "floodplain_ff02_footprint_km2": 1.2, "floodplain_ff04_footprint_km2": 2.2,
+    "floodplain_ff06_footprint_km2": 3.2,
+    "gross_loss_footprint_ha": 1.9, "gross_gain_footprint_ha": 0.7, "net_footprint_ha": -1.2,
 }
+assert set(SHARED) == SHARED_TAG_PROPERTIES, (
+    "SHARED fixture and item_validate.SHARED_TAG_PROPERTIES disagree: "
+    f"{sorted(set(SHARED) ^ SHARED_TAG_PROPERTIES)}")
 PROCESSING_EXT = "https://stac-extensions.github.io/processing/v1.2.0/schema.json"
 OTHER_EXTS = ["https://stac-extensions.github.io/projection/v1.1.0/schema.json",
               "https://stac-extensions.github.io/file/v2.1.0/schema.json",
@@ -226,6 +243,42 @@ expect_clean("PROV_CENSUS matches the live catalogue measured for this release",
              else [f"PROV_CENSUS is {PROV_CENSUS}"])
 
 
+def _drift_msg(live_rescoped: bool = False):
+    """`only_preflight.main`'s refusal message, or None — the arm, driven end to end.
+
+    Through `main()` and not `metric_drift()` alone: the value arm is only a guard if main
+    REACHES it before the provenance comparison, and that ordering is the thing that was
+    missing. stdin is the live document, as the release pipes it.
+
+    `live_rescoped` picks which side of the window the live item sits on. False is the real
+    pre-v2.1.0 shape — measured 2026-10-19, 0 of the 23 live items carried a `*_footprint_*`
+    key — and True is every item after that release, where a moved figure is an ordinary
+    re-run and must NOT refuse.
+    """
+    item = {"type": "Feature", "id": "aaaa_ch_ff04",
+            "properties": dict(SHARED, **{"datetime": "2023-12-31T00:00:00Z"})}
+    live = json.loads(json.dumps(item))
+    if not live_rescoped:
+        for name in op.FOOTPRINT_PROPERTIES:
+            live["properties"].pop(name, None)
+    live["properties"]["floodplain_ff04_km2"] = SHARED["floodplain_ff04_km2"] + 1.0
+    d = pathlib.Path(tempfile.mkdtemp(prefix="prov_fields_only_"))
+    try:
+        (d / "built.json").write_text(json.dumps(item))
+        (d / "bucket.json").write_text(json.dumps(item))
+        stdin = sys.stdin
+        sys.stdin = io.StringIO(json.dumps(live))
+        try:
+            op.main(["only_preflight.py", str(d / "built.json"), str(d / "bucket.json")])
+            return None
+        except SystemExit as e:
+            return e.code
+        finally:
+            sys.stdin = stdin
+    finally:
+        shutil.rmtree(d)
+
+
 def literal(path: pathlib.Path, name: str):
     """A module-level literal, read statically — the two copies of the map cannot import."""
     for node in ast.parse(path.read_text()).body:
@@ -293,6 +346,36 @@ expect_clean("02_raster_tag.py tags exactly the fields the map publishes",
              [] if set(_tag_fields) == set(PROV_FIELDS)
              else [f"02_raster_tag.py tags {sorted(set(_tag_fields) ^ set(PROV_FIELDS))} "
                    f"differently"])
+# The same join for the SHARED (non-provenance) half, which had none — and needs one more than
+# the provenance half does, because check_cog_tags is asymmetric for these names. Its `managed`
+# set is `want | {tags starting NGE_} - bridged`, and 02_raster_tag.py writes the shared fields
+# UNPREFIXED (`f.upper()`), so a shared tag present in a COG with no entry in
+# SHARED_TAG_PROPERTIES falls in neither half and is invisible at runtime. For the NGE_ family
+# the union makes the check symmetric; here this static arm is the only thing watching the add
+# direction.
+_tag_shared = literal(ROOT / "scripts" / "02_raster_tag.py", "SHARED_FIELDS")
+expect_clean("02_raster_tag.py tags exactly the shared properties item_validate declares",
+             [] if set(_tag_shared) == SHARED_TAG_PROPERTIES
+             else [f"02_raster_tag.py and item_validate.py disagree on "
+                   f"{sorted(set(_tag_shared) ^ SHARED_TAG_PROPERTIES)}"])
+# The net-identity tolerance, duplicated across the language boundary: `item_validate.py` names
+# it METRIC_NET_TOLERANCE and `test_pipeline.R` can only hardcode the number, because R cannot
+# import it. The R comment claims they are the same constant, so something has to hold them
+# there. The direction that matters is silent both ways — a looser R arm passes a build the
+# release then refuses, a tighter one fails a build that is fine.
+#
+# Read from R CODE with comments stripped, for the reason `_code_only` gives: the number also
+# appears in the comment that explains why it must stay, so a regression that deletes the code
+# and leaves the prose would still match a naive grep.
+_tp_code = _code_only((ROOT / "scripts" / "test_pipeline.R").read_text())
+# Both nets, so a change applied to one arm and not the other is caught too. The count is the
+# assertion: any OTHER `<= <number>` in that file would have to be this same number to pass,
+# and the two that are there are the net identities.
+_tp_tols = re.findall(r"meta\$net[A-Za-z_]*\)\s*<=\s*([0-9]*\.?[0-9]+)\)", _tp_code)
+expect_clean("test_pipeline.R's two net tolerances are item_validate.METRIC_NET_TOLERANCE",
+             [] if _tp_tols == [str(METRIC_NET_TOLERANCE)] * 2
+             else [f"test_pipeline.R's net arms read {_tp_tols}, expected two copies of "
+                   f"{METRIC_NET_TOLERANCE} (item_validate.METRIC_NET_TOLERANCE)"])
 
 # The fifth copy of the fact: `only_preflight.py`, which canonicalises a live item and a build
 # into staged field names for `catalogue_release.sh --only`. IMPORTED, not parsed — until #74's
@@ -309,6 +392,25 @@ expect_clean("...and the same software entries",
 expect_clean("...over the published prefixes plus the retired one",
              [] if set(op.PREFIXES) == {f"{p}:" for p in PROV_PREFIXES} | {"nge:"}
              else [f"the preflight scans {sorted(op.PREFIXES)}"])
+# The sixth copy, and the only one about the UNPREFIXED figures (#98): the preflight's own
+# refusal arm, which the four prefixes above cannot reach.
+expect_clean("...and refuses on exactly the metric properties item_validate guards",
+             [] if set(op.METRIC_PROPERTIES) == set(METRIC_PROPERTIES_V)
+             else [f"the preflight guards "
+                   f"{sorted(set(op.METRIC_PROPERTIES) ^ set(METRIC_PROPERTIES_V))} "
+                   f"differently"])
+expect_clean("a build that does not move a figure is not refused",
+             [] if not op.metric_drift({"floodplain_ff04_km2": 2.0, "net_ha": -1.0},
+                                       {"floodplain_ff04_km2": 2, "net_ha": -1.0})
+             else ["an unchanged pair read as drift"])
+expect_problem("a redefined figure IS refused while the live item predates the contract",
+               [str(e) for e in [_drift_msg()] if e], "floodplain_ff04_km2")
+# The expiry, which is the half that stops this being over-refusal: once the live item carries
+# the footprint siblings, a moved figure is an ordinary upstream re-run — the case --only
+# exists for, and the case the `gained` arm cites by name.
+expect_clean("...and goes quiet once the live item carries the footprint siblings",
+             [] if _drift_msg(live_rescoped=True) is None
+             else [f"refused a re-run: {_drift_msg(live_rescoped=True)}"])
 # And that the release still CALLS it. Extracting the program removed a whole class of shell
 # defect; reverting it to an inline `python3 -c` would bring the class back, and the three
 # assertions above would keep passing against a module nothing runs.
@@ -631,6 +733,50 @@ shutil.rmtree(b)
 b = tree([{"item_id": "aaaa_ch_ff04"}])
 expect_problem("a tree with no COG asset is not a pass", check_cog_tags(b),
                "no COG assets compared")
+shutil.rmtree(b)
+
+# --- the metric scopes (#98) -----------------------------------------------------------
+#
+# The SHARED fixture is built to SATISFY check_metric_scopes, so without these cases the
+# newest guard in the release path would be the only one with no restore-the-bug proof —
+# exactly what this file exists to prevent. `census=False` on the per-item cases so only the
+# arm under test can speak; the census case needs the default.
+print("\nthe metric scopes (#98)")
+
+_inw, _fp = METRIC_SCOPE_PAIRS[1]   # floodplain_ff04_km2 / floodplain_ff04_footprint_km2
+b = tree([{"item_id": "aaaa_ch_ff04",
+           "props_extra": {_inw: SHARED[_fp], _fp: SHARED[_inw]}}])
+expect_problem("a swapped scope pair is refused",
+               check_metric_scopes(b, census=False)[0], "look swapped")
+shutil.rmtree(b)
+
+b = tree([{"item_id": "aaaa_ch_ff04", "props_extra": {"net_ha": SHARED["net_ha"] + 5}}])
+expect_problem("a net inconsistent with its own scope is refused",
+               check_metric_scopes(b, census=False)[0], "different row set")
+shutil.rmtree(b)
+
+b = tree([{"item_id": "aaaa_ch_ff04", "props_extra": {"gross_gain_footprint_ha": 99.0}}])
+expect_problem("...and the footprint scope's net is checked too, not just the in_wsg one",
+               check_metric_scopes(b, census=False)[0], "net_footprint_ha")
+shutil.rmtree(b)
+
+# The one that matters: an in_wsg filter dropped in staging publishes two IDENTICAL scopes on
+# every item, which satisfies every per-item arm above. Only the census can see it.
+b = tree([{"item_id": f"same{i:02d}_ch_ff04",
+           "props_extra": {inw: SHARED[fp] for inw, fp in METRIC_SCOPE_PAIRS}}
+          for i in range(3)])
+expect_problem("two identical scopes on every item is refused by the census",
+               check_metric_scopes(b)[0], "straddle their group line")
+shutil.rmtree(b)
+
+# And the measurement is returned whether or not it asserted, because that is what a release
+# sets the literal from.
+b = tree([{"item_id": "aaaa_ch_ff04"}])
+_, _straddle, _seen = check_metric_scopes(b, census=False)
+expect_clean("the straddle counts are returned even when not asserted",
+             [] if (_seen == 1 and set(_straddle) == set(METRIC_SCOPE_CENSUS)
+                    and set(_straddle.values()) == {1})
+             else [f"straddle={_straddle} seen={_seen}"])
 shutil.rmtree(b)
 
 print(f"\n{N} assertions, {FAILS} failed")

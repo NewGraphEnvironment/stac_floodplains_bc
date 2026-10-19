@@ -37,6 +37,18 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   `pyproj` via `morecantile` and forced `requires-python` to `>=3.11`; siblings copying this
   `pyproject.toml` inherit that floor. `osgeo` is not available under uv (`uv pip install gdal`
   has no usable wheels), and rasterio has no RAT API — both are why the RAT is written as PAM XML.
+- `scripts/claim_drift-check.py` — the sibling of `attribution_drift-check.py`, for #98's
+  claim set rather than the licence literals. It exists because five `/code-check` rounds on
+  that issue found 38 defects of which **19 were inside a previous round's fix**, all one
+  shape: a claim corrected in the copies that were open and left standing in the others. The
+  set lives in nine places, and nothing joined them. Four arms — 14 retired phrasings that must
+  appear nowhere; a RULE that any file naming `composition_*` as a source of area must also
+  name the `in_floodplain` filter (so it covers a copy that does not exist yet); every prose
+  number re-derived from `data/stac` **and** required to appear in a claim file, so a corrected
+  copy beside a stale one fails; and the Albers figures quotable only by a file that names the
+  projection. It found five more real problems on its first run, two of them regressions I had
+  just made. Hand-run, like its sibling; `planning/` is excluded because it keeps the wrong
+  turns on purpose.
 - `styles/` — the three QGIS layer styles (#46), generated from `data/raw/classes.json` by
   `style_qml-write.py` and **committed**, so a human reviews what ships. `04_gpkg_style.py`
   embeds them in each GeoPackage's `layer_styles` table and copies them beside the assets;
@@ -66,11 +78,14 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   there and pinned, `test_pipeline.R` that `sf::st_layers()` still LISTS it, and the hand-run
   `style_reach-check.py` what QGIS actually draws — because the NULL `f_table_schema` trap
   `04_gpkg_style.py` documents is the standing proof that a listed, well-formed row still
-  opens unstyled. **Five** staged-side readers
+  opens unstyled. **Six** staged-side readers
   exclude `layer_styles` BY NAME now, which the `data_type` filter used to do structurally:
   the two `feature_layers()` copies in `04_gpkg_style.py` and `style_reach-check.py`,
-  `test_pipeline.R`'s `keyed_layers()`, `gpkg_determinism-check.R`, and `item_validate.py`'s
-  `data_type='features'` reader. The two `feature_layers()` copies are what code-check rounds
+  `test_pipeline.R`'s `keyed_layers()`, `gpkg_determinism-check.R`, `item_validate.py`'s
+  `data_type='features'` reader, and since #98 `item_validate.check_gpkg_columns`, which reads
+  the `('features','attributes')` pair and so would otherwise pick the style table up —
+  measured 2026-10-19 on a published `floodplain_landcover.gpkg`, where `layer_styles` is one
+  of its three `attributes` rows. The two `feature_layers()` copies are what code-check rounds
   1 and 2 each had to add, one per round, which is why the count is written down. A
   name-based exclusion is only safe paired with that positive listing arm.
 - **Landing page + site** — `README.Rmd` is the single source, rendering `README.md`
@@ -157,6 +172,44 @@ groups measured, and the ratio rises wherever the bundle shrank). Every DATA lay
 all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages stay separable by
 attribute — "every layer" is what the asset description said until #95, and GDAL lists
 `layer_styles` beside them, which carries no key and never did.
+
+**Every data layer also carries `in_wsg`, and that is now a required column here** (#98,
+upstream floodplains#53/#138 in floodplains#144, backfilled 2026-10-18). Each layer is split
+along the watershed group polygon and each piece flagged, so a layer that was one row is one
+row per side — `all_ff04` is **two** features, `all_ff04_by_blue_line_key` one row per (key,
+side), each `classified_*` one per (class, side). The `wsg`/`species`/`scenario` key is the
+item's own on **both** sides, which is exactly why the change is silent: `fp_gpkg.R`'s
+`nrow(k) != 1L` arm and `01_stage.R`'s foreign-`wsg` refusal both still pass, and nothing
+upstream of `test_pipeline.R`'s new column arm would notice an absent flag. Measured on the
+floodplains#144 tree: all **246** whole-network layers over the 23 rostered groups carry it —
+a count over the SOURCE bundles, where the staged set is 269 because
+`transition_vector.gpkg` adds one copied layer per item —
+and the 222 that do not are the retired per-species layers #80 never stages — so the
+quantifier is about the staged set, not about the files. The `DISTINCT wsg, species, scenario`
+arm is deliberately NOT widened to include it: the split is geometric, so widening would
+assert that only one side is present, the opposite of true. That does make the arm weaker than
+it reads — it proves one KEY, not one population — which is what the separate value arm
+(a non-empty subset of `{FALSE, TRUE}`) is for.
+
+`transition_*` additionally carries `in_open_water` and `open_water_poly_id` (FWA
+`fwa_lakes_poly` + `fwa_manmade_waterbodies_poly`, no size cut-off, a dammed lake filed as a
+lake so one flag covers both), `composition_*` carries `in_wsg` + `in_open_water`, and
+`patch_watercourse_*` gains `in_wsg`. #98's body calls that its new key,
+`(name_basin, patch_id, in_wsg)`, and it is not one: measured on BULK, 29,986 rows against
+9,275 distinct triples, with `blue_line_key` completing it and `in_wsg` adding **0**
+combinations, because a patch lies on one side of the line or the other. Carried verbatim from
+the issue body is how it got in. `in_open_water` is
+**any-touch**, like `in_wetland`, so an AREA by it comes from `composition_*` (cell centre,
+**filtered on `in_floodplain = 1`** — that table also covers the touched ring, 2.9% to 11.1%
+of its `ha` by item) and never from summing `area_ha` over the flagged patches — which is what the asset
+descriptions say, because it is the one thing a consumer cannot see by opening the file.
+`open_water_poly_id` is an identifier rather than a flag. **`in_wsg` is neither**: it is a
+true partition, so summing `area_ha` over its TRUE rows IS the right operation and is exactly
+what the headline figures do. Keeping those two kinds of column in one sentence is what made
+two separate claims wrong in review — "both new flags are any-touch" put `in_wsg` in the
+any-touch set, and a sibling sentence then said the raw `area_ha` sum over `in_wsg` equals the
+headline figures, which it does not (BULK 5584.9 against 4112.1: the layer holds every changed
+patch, and the figures are under the `from_class`/`to_class` filters).
 
 **All three are WRITTEN here, and each holds only its own item's layers** (#80). The first two
 used to be whole-file copies of the group's bundle, which was self-describing while a group's
@@ -372,6 +425,100 @@ layer names are deliberately year-free so QGIS `path|layername=` styles survive 
 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace
 directly to the model.
+
+**Every headline figure is published in two scopes, and the two families moved in opposite
+directions** (#98). The unsuffixed six — `floodplain_ff02/04/06_km2`, `gross_loss_ha`,
+`gross_gain_ha`, `net_ha` — are the item's own watershed group, read over `in_wsg` rows, so a
+regional total is their plain sum; the six `*_footprint_*` siblings are the same figures over
+the whole footprint. **A pair's difference is not simply a neighbour's ground**, which an
+earlier draft of every copy of this sentence said: measured on the v2.1.0 build in BC Albers,
+of the 519.16 km2 by which the ff04 footprint geometry exceeds the ff04 in_wsg geometry, only
+**50.58 km2 (9.7%)** is another item's own ground, and **468.57 km2 (90.3%)** falls outside
+every rostered group and is in nobody's `in_wsg`. The union of the 23 in_wsg pieces equals
+their sum (10,092.24 km2), so the unsuffixed total genuinely counts no ground twice; summing
+footprints double-counts by 50.58 km2, which is **0.48% of the footprint sum** (10,611.35) —
+name that denominator, because 0.48% of the in_wsg sum is 48.44 km2 and the nearest antecedent
+in an earlier draft of this sentence was the wrong one. Both halves matter and only one was
+written down: the unsuffixed sum is the right **regional** total, AND it is a total of the
+rostered floodplain rather than of the whole province's (floodplains#60).
+
+**The measurement is ff04, in BC Albers, over the staged `all_ff04` layers**
+(`planning/active/neighbour-measure.R`), which is why 519.16 is not exactly the 519.08 you get
+by summing the published `floodplain_ff04_footprint_km2 - floodplain_ff04_km2`: those are
+per-item UTM areas rounded to 2 dp. From the same published properties the other flood factors
+differ by 505.82 (ff02) and 528.90 (ff06) km2 and the change pairs by 908.40 and 620.20 ha, so
+the figure is a property of ff04 and not of "a pair". **Quote the Albers number and the
+published-property numbers as the different things they are** — an earlier draft put
+505.82/528.90 beside 519.16 as if all three came from one measurement, which is the same defect
+one sentence after naming it. Stating the method is the remedy a withdrawn measurement in this
+same issue earned. The opposite directions are the part worth writing down, because it
+is the reason two functions read them rather than one: the pre-split transition layer **was**
+clipped, so scoping loss/gain/net to `in_wsg` HELD every published value (BULK 2793.4 / 1318.7
+/ −1474.6, reproduced exactly), while the delineation layer was **never** clipped, so
+`floodplain_ffNN_km2` was already the whole footprint and became the smaller figure (BULK
+659.99 → 646.81; PCEA 843.34 → 491.38, 41.7% of its floodplain lying in the arms of Williston
+Reservoir). So the catalogue's own silent-switch risk was only ever on the change figures, and
+the deliberate value move was only ever on the areas.
+
+**PCEA's outside strip is the case that shows what the two scopes are for, and the upstream
+log's attribution of it must not be repeated verbatim.** That log says the ground lies in
+Williston's `PARA` and `FINA` arms. Neither is in this collection's roster — measured against
+`config/regions/*.yml`, which names PARS but neither PARA nor FINA — so that ground is
+published by **no item at all**, and an earlier draft here made it worse by "correcting" PARA
+to the rostered-looking PARS. Which is the sharp version of the rule: the unsuffixed sum is
+the right total **across the groups this collection covers**, because it counts no ground
+twice — and it is NOT a total of the province's floodplain, because ground outside every
+rostered group is in nobody's `in_wsg`. Those two sentences used the same word for both things
+in an earlier draft, which read as a contradiction.
+
+`geometry`, `bbox_wgs84` and `proj:bbox` are deliberately NOT rescoped: the rasters cover the
+whole footprint and a STAC geometry must contain its assets. `proj:*` comes off the raster, so
+it cannot move at all.
+
+**`geometry` does move, though, and not only in the last digit.** It is a `st_union()` of the
+scenario layer, which is now two pieces of what was one polygon, and the union keeps the nodes
+the cut inserted where the group boundary crosses the floodplain outline. Measured against the
+live catalogue over all 23 items at v2.1.0: **every** item's geometry gains coordinates — 8
+(DUNC) to 364 (FRAN), 0.00% to 0.13%, BULK 433,852 -> 434,116 — and **no** item's geometry is
+byte-identical to the published one. What does NOT move is the ground: `bbox` and `proj:bbox`
+are unchanged on all 23, and every `*_footprint_km2` equals the live item's unsuffixed area
+exactly. The footprint is the same locus with a denser boundary.
+
+**The residual itself is deliberately NOT written down here, and that is a finding.** A first
+pass recorded a symmetric difference of 11.9 m2 and a Hausdorff distance of 0.0099 m on BULK;
+a second, independent pass over the same two geometries got 0.01 m2 and 0.0000 m — three
+orders of magnitude apart — and neither run had recorded the CRS it projected to or whether
+`st_make_valid()` had rewritten geometry that was already valid (`code-check-spatial.md` says
+it does). The items are UTM, not BC Albers, so the projection choice moves both numbers. A
+measurement restated without the method that produced it cannot be re-derived, so nothing
+downstream can disagree with it; the figure is dropped rather than carried. What every run
+agrees on, and what to pin, is the bbox (unchanged on 23/23) and the area (equal to the live
+item's on 23/23). A plan review reported
+this as an identical vertex count with a ~1e-11 perturbation, measured on one group; the
+whole-catalogue measurement says otherwise, and the reason to prefer it is that it compares
+the build against the **live** item rather than against another build. Do not assert byte or
+vertex equality on this geometry — assert the bbox and the area.
+
+Both scopes are tagged into every COG (`SHARED_FIELDS` / `SHARED_TAG_PROPERTIES`), not just
+the published one, because the unsuffixed tags **changed meaning**: a COG downloaded before
+v2.1.0 carries a whole-footprint value under a name that now means `in_wsg`, and a sibling
+beside it is the only way that redefinition is legible inside the file. It was free —
+rescoping the three area values rewrites every COG's bytes anyway, so the siblings rode along
+in the same re-upload. `flood_factor` remains the standing precedent for a published property
+with no tag, had we wanted to avoid it.
+
+**`METRIC_SCOPE_CENSUS` in `item_validate.py` is the arm that matters**, and it is a literal a
+human sets from the build, the same shape and the same re-take rule as `PROVENANCE_FLOOR`: how
+many items **straddle** their group line on each of the five non-negative metrics, i.e. carry
+`in_wsg` strictly below `footprint`. `check_metric_scopes`'s three per-item arms (all twelve
+present and numeric, no `in_wsg` figure above its sibling, `gain − loss = net` per scope) are
+every one of them satisfied by **two identical scopes**, so a dropped `in_wsg` filter publishes
+a uniform loss that passes all three — the same shape #74's per-field census was introduced
+for. Per metric and not per item, because a group can legitimately straddle on area and not on
+change. Measured 23/23 on all five at v2.1.0; that it is 23/23 is a property of the roster, not
+a guarantee — a group wholly inside its own boundary would read 22 and be correct. `net` is
+excluded from the inequality arm because it is signed and its two scopes can sit either side
+of each other.
 
 **No item publishes `deprecated: true`, and the literals are empty** (#26, emptied at v2.0.0 by
 #89). `mcgr_ch_ff04` and `pine_bt_ff04` carried the marker: over-mapped by the pre-fix `flooded`
