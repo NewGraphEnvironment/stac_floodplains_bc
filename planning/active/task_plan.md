@@ -28,7 +28,14 @@ cover that ground, and a STAC geometry must contain its assets. `st_union()` ove
 what was one polygon is the same geometry, so this is a no-change to verify, not a change to make.
 
 `DEPRECATED_ITEMS` / `RETIRED_ITEMS` stay empty. No item id moves, no asset is added or retired.
-No `--only`.
+
+**`--only` is not merely declined, it is unusable** (plan review G2): `only_preflight.py`'s
+value and shape arms both filter on the four declared prefixes, and every metric property is
+unprefixed, so a `--only` republish in the window before v2.1.0 would print `0 lost` and
+publish one item whose `floodplain_ff04_km2` means something different from the other 22 live
+items — permanently, on a bucket with versioning Suspended. Phase 3 adds the metric names to
+that file's shape arm so the construct refuses itself. `--skip-sync` is unusable too: all three
+asset families change.
 
 ## Phase 1: Stage both scopes (`scripts/01_stage.R`)
 
@@ -68,6 +75,43 @@ No `--only`.
 - [x] `test_pipeline.R` `meta_core` += the six.
 - [x] `test_pipeline.R` positive-metric arms extended to the siblings, plus both net identities.
 
+## Phase 3b: What the plan review found (spawned at scaffold, landed mid-Phase-4)
+
+Verified each before acting; the ones I disproved or reclassified are named in `findings.md`.
+
+- [ ] **B2** `METRIC_SCOPE_CENSUS` is asserted on a plain rebuild, unlike every literal it
+      claims to copy: `PROV_CENSUS` is asserted only under `--expect-provenance`. Gate it the
+      same way, and correct the comment that says it already is.
+- [ ] **B3** The measured straddle counts are never printed, only the literal — the exact trap
+      `PROV_CENSUS`'s own comment records ("a number nobody can read is a literal nobody
+      updates"). Print them unconditionally beside the `census:` line.
+- [ ] **B4** Nothing pins `02_raster_tag.SHARED_FIELDS` to `item_validate.SHARED_TAG_PROPERTIES`,
+      and the add direction is unguarded for these tags: `check_cog_tags`'s `managed` set unions
+      `NGE_`-prefixed tags only, so an unprefixed tag with no entry in the literal is invisible.
+      Add the static pin in `prov_fields-check.py`, modelled on the `PROV_FIELDS` arm.
+- [ ] **B5** The `in_wsg` claim the asset descriptions now publish on 23 items is checked on
+      ONE item, by `test_pipeline.R`, which neither `run_pipeline.sh` nor `catalogue_release.sh`
+      runs. Add the column + value-set arm to `item_validate.py`.
+- [ ] **Acc1** Nothing proves `check_metric_scopes` fires — the `SHARED` fixture is built to
+      satisfy it. Add restore-the-bug cases: a swapped pair, an inconsistent net, and two
+      identical scopes across the tree (the census arm).
+- [ ] **G2** Add the metric names to `only_preflight.py`'s shape arm (see above).
+- [ ] **G3/G5** `01_stage.R`: the `in_wsg` refusal covers two layer families, not every data
+      layer — B5 is the fix, not a second staging arm. And the "seventeen fields" comment is now
+      23.
+
+Accepted without change, recorded because they are checked non-claims:
+
+- **O2** No `styles/` regeneration: the outside rows draw from the same 10-class vocabulary, so
+  `EXPECTED_STYLE_CATEGORIES` (10 / 91) cannot find a new uncategorized value, and
+  `EXPECTED_RAT_ROWS` describes drift's encoding rather than any item's data.
+- **Acc4** Nothing in `item_validate.py` compares a published area against a bbox, a geometry or
+  a raster window, so scoping the areas while leaving the footprint geometry is internally
+  consistent. `proj:*` comes off the raster and cannot move.
+- **G1** `readme_functions.R` needs no functional change — the rescoping is what makes its
+  provincial total correct. Its two `7,273 km2` comment literals were already stale and are now
+  an order of magnitude instead of a figure.
+
 ## Phase 4: Prose
 
 - [x] `README.Rmd` — key-column contract, the "filter before summing" warning, the totals sentence.
@@ -77,13 +121,39 @@ No `--only`.
 
 ## Phase 5: Rebuild and verify (no network writes)
 
-- [ ] `bash scripts/run_pipeline.sh`
-- [ ] `Rscript scripts/test_pipeline.R`
+**Order is load-bearing, and the plan had it backwards** (plan review B1). `test_pipeline.R`
+re-runs the real `01_stage.R`, which wipes both staging trees and drops `PARTIAL_STAGE`, so a
+single-group smoke test AFTER the full rebuild destroys it: `gpkg_determinism-check.R` and
+`style_determinism-check.py` default to `ITEM=sloc_all_ff04` and would stop, the 23-item
+continuity measurement would have one item, and `catalogue_release.sh` refuses the marker.
+**Nothing may re-run `01_stage.R` after the full rebuild.** `prov_census-measure.R` is the one
+exemption — it reads `$FLOODPLAINS_DATA` and never touches `data/`.
+
+- [x] `WSG=bulk Rscript scripts/test_pipeline.R` — single group, first, while the tree is
+      disposable
+- [ ] `WSG=pcea Rscript scripts/test_pipeline.R` — the straddle outlier, where the two scopes
+      are 42% apart
+- [ ] `bash scripts/run_pipeline.sh` — and nothing single-group after it
 - [ ] Hand-run `prov_fields-check.py`, `gpkg_determinism-check.R`, `style_determinism-check.py`,
-      `year_sets-check.py`
-- [ ] `prov_census-measure.R`, then re-take `PROVENANCE_FLOOR` + `PROV_CENSUS` from this build
-- [ ] Continuity measurement over all 23 items into `findings.md`
+      `year_sets-check.py`, `attribution_drift-check.py`, `catalogue_release-check.sh`
+- [ ] `stage_years-check.R` — the only thing that exercises `in_wsg_flag()`'s refusals on a
+      tree that is not `data/`. Its `PIN_META_SHA256` arm is expected to print SKIP (the pin is
+      `ufra_ch_ff04`'s build and floodplains#125 moved UFRA to `all_ff04`), so the skip is not
+      a regression
+- [ ] `prov_census-measure.R`, then run the RELEASE-shaped validate (`--expect-provenance 23`)
+      and expect **no** census movement: `run.datetime_utc` is untouched upstream and every
+      raster's mtime predates its landcover stamp, so nothing should have moved. Re-take only a
+      number that actually moved, and name it in NEWS with the reason
+- [ ] Continuity measurement over all **23** items against the **live API**, item by item, into
+      `findings.md`: `in_wsg` loss/gain/net equal to live; `*_footprint_km2` equal to live
+      `floodplain_ffNN_km2`; and `bbox_wgs84` plus the geometry coordinate count diffed, with a
+      note on whether any *printed* coordinate moved (the split/union round trip perturbs at
+      ~1e-11 and `digits = 10` sits on that boundary — so this is measured, not asserted)
 - [ ] Sanity-check the two watched value-set arms; record BULK + PCEA numbers
+- [ ] **Do NOT render `README.md` / `index.html`.** The new prose says the column totals count
+      no ground twice, while the cache is v2.0.1 and the committed table reads 10,611 km² — the
+      footprint sum. Measured: in_wsg 10,092.27, footprint 10,611.35, difference 519.08 km²;
+      loss and gain do not move. The regen is release step 6, after the release
 
 ## Phase 6: Release v2.1.0
 

@@ -412,8 +412,15 @@ FINA arms). So the catalogue's own silent-switch risk was only ever on the chang
 the deliberate value move was only ever on the areas.
 
 `geometry`, `bbox_wgs84` and `proj:bbox` are deliberately NOT rescoped: the rasters cover the
-whole footprint and a STAC geometry must contain its assets. `st_union()` over the two pieces
-of what was one polygon is the same geometry, so the split does not move them.
+whole footprint and a STAC geometry must contain its assets. `proj:*` comes off the raster, so
+it cannot move at all. `geometry` and `bbox_wgs84` are a `st_union()` of the scenario layer,
+which is now two pieces of what was one polygon — the same geometry to every figure anyone
+reads, but **not** byte-identical: the split/union round trip perturbs coordinates at ~1e-11
+and `01_stage.R` writes with `digits = 10`, which is right at that boundary. Measured on BULK
+at v2.1.0: identical vertex count, area equal to 4 dp, WGS84 bbox agreeing to 4.9e-11 degrees,
+and `identical()` against the published geometry FALSE. So this is a no-change in every sense
+a consumer can see and a possible one-digit churn in the item JSON; it is not a thing to
+assert byte equality on.
 
 Both scopes are tagged into every COG (`SHARED_FIELDS` / `SHARED_TAG_PROPERTIES`), not just
 the published one, because the unsuffixed tags **changed meaning**: a COG downloaded before

@@ -162,3 +162,55 @@ floodplains NewGraphEnvironment/floodplains#53 and NewGraphEnvironment/floodplai
 - [ ] Any reader of a scenario layer that assumes one row: union the rows, or filter to `in_wsg`.
 
 
+
+---
+
+## Plan review (Plan agent, spawned at scaffold, landed mid-Phase-4)
+
+Reproduced every finding I acted on. Verdicts below; the remedies are tracked as Phase 3b in
+`task_plan.md`.
+
+### Confirmed, acted on
+
+| # | finding | how I confirmed it |
+|---|---|---|
+| B1 | Phase 5's ordering destroyed the build it then measured | `01_stage.R:92-93` wipes both trees, `:196` drops `PARTIAL_STAGE`; `gpkg_determinism-check.R` and `style_determinism-check.py` both default `ITEM=sloc_all_ff04`. My actual execution order happened to be right (smoke first, then rebuild); the plan TEXT was wrong, and is rewritten |
+| B2 | the straddle census is asserted on a plain rebuild | read `item_validate.py:715-718`: *"Both the census and the floor are release-time: a rebuild has no business asserting how many areas the producer has re-modelled, and `floor is None` is how the release says this is a rebuild"*. My arm used `not args.partial`, so an `ALLOW_SKIPPED=1` 22-group rebuild would fail spuriously |
+| B3 | measured straddle counts never printed | confirmed: reported only on mismatch, and the success print names the literal. `PROV_CENSUS`'s own comment records the trap |
+| B4 | nothing pins `02_raster_tag.SHARED_FIELDS` to `item_validate.SHARED_TAG_PROPERTIES` | confirmed, and the reason it matters: `check_cog_tags`'s `managed` set is `want | {NGE_-prefixed tags} - bridged`, so an unprefixed tag absent from the literal is in neither half and is invisible. **My own `findings.md` claim that the fixture "pins against all three copies" was wrong** — it pins against one |
+| B5 | the published `in_wsg` claim is checked on one item by a script the release path never runs | `grep -n in_wsg scripts/item_validate.py` returns comments only; no `test_pipeline` reference in `run_pipeline.sh` or `catalogue_release.sh`. This is the sharpest finding: the asset descriptions now assert something about 23 items x 13 layers that the gate does not read |
+| Acc1 | nothing proves `check_metric_scopes` fires | the `SHARED` fixture is deliberately built to satisfy it, and there is no breaking case. The newest guard in the release path had no restore-the-bug proof |
+| G2 | `--only` is blind to the whole change | `only_preflight.py:60` filters on four prefixes and every metric is unprefixed, so a `--only` republish would print `0 lost` and leave one item redefined against 22 others, irreversibly |
+| A2 | "PCEA's gross change would roughly triple" names the wrong quantity | measured: PCEA transition patch area 754.4 -> 2454.6 ha (3.3x), but published tree loss 227.7 -> 238.5 (+4.7%) and tree gain 225.4 -> 292.5 (+29.8%). The issue's phrase is about total change; I had repeated it of the published figures. Corrected in NEWS |
+| A1 | the `st_union` no-change is approximate, not exact | the split/union round trip perturbs coordinates at ~1e-11 and `01_stage.R` writes `digits = 10`, which sits on that boundary. Softened in `CLAUDE.md` and moved into the Phase 5 measurement rather than asserted |
+| G1 | two `7,273 km2` comment literals in `readme_functions.R` were already stale | independently computed from the per-group table: footprint sum **10,611.35**, in_wsg sum **10,092.27**, difference **519.08** km2. The committed `README.md:81` reads 10,611 - the double-counted figure |
+| O1 | do not re-render the landing page in this PR | the new prose asserts the no-double-count property; the cache is v2.0.1 and would render 10,611 beside it. Regen stays at release step 6 |
+| S1 | `year_sets-check.py` needs no fixture change | already measured and corrected before the review landed: it imports `check_checksums` alone |
+| S2 | the containment test is in `check_collection_metadata`, not `check_citation_premise` | confirmed. The conclusion (append safe, reword not) was right; the attribution was not, which matters to anyone restoring the bug against it |
+
+### Confirmed, deliberately not acted on
+
+- **G3** `in_wsg_flag()` covers two layer families, not every data layer. True, and B5 is the
+  fix rather than a second staging arm: a check in `item_validate.py` runs in the rebuild AND
+  is the release gate, where a staging arm is neither.
+- **O2** No `styles/` regeneration. Checked both paths it could have forced:
+  `EXPECTED_STYLE_CATEGORIES` is 10 / 91 and the outside rows draw from the same 10-class
+  vocabulary, so the coverage arm cannot find a new uncategorized value; `EXPECTED_RAT_ROWS`
+  describes drift's encoding, not any item's data. Recorded as a checked non-change.
+- **O3** Expect **no** `PROVENANCE_FLOOR` / `PROV_CENSUS` movement rather than re-taking
+  blind: `run.datetime_utc` is untouched upstream, so `processing:datetime` cannot move. Phase 5
+  now says to run the release-shaped validate and re-take only a number that moved.
+- **G4** `data/readme_items.rds` carries no footprint columns, so `fp_req` must NOT start
+  requiring them or the `update_query = FALSE` render becomes a hard stop. It does not.
+- **Acc4** Nothing compares a published area against a bbox, geometry or raster window, so the
+  scoping asymmetry is internally consistent. `proj:*` comes off the raster.
+- **Acc2** `stage_years-check.R` added to Phase 5, with a note that its `PIN_META_SHA256` arm
+  is expected to SKIP (the pin is `ufra_ch_ff04` and floodplains#125 moved UFRA to `all_ff04`).
+
+### Quantifiers the review checked against the data
+
+"Every data layer carries `in_wsg`" is TRUE for the 8 published families x 23 groups and FALSE
+for the retired per-species layers still on disk upstream — which is the same split my own
+246 / 222 measurement found, from the other direction. The asset descriptions scope the claim
+to the item (*"every data layer"* of a file that holds only this item's layers), which is the
+true reading; `CLAUDE.md` says so explicitly.

@@ -51,8 +51,13 @@ double-counts and summing the unsuffixed figures does not (floodplains#60).
 part worth knowing.** The pre-split transition layer **was** clipped to the group, so the
 `in_wsg` change figures are exactly what was already live — BULK reproduces 2793.4 / 1318.7 /
 −1474.6 ha. Not scoping them would have been the silent regression this release exists to
-avoid: PCEA carries 1,700.3 ha of change outside its group against 754.4 ha inside, so its
-gross change would have roughly tripled. The delineation layer was **never** clipped, so
+avoid. **How large that regression would be depends on which figure you mean**, and #98's
+"roughly triple" is the total, not the published tree figures: PCEA's transition patches sum
+754.4 ha inside its group and 2,454.6 ha unclipped, which is 3.3x — but the two figures this
+catalogue publishes are tree loss, 227.7 -> 238.5 ha (+4.7%), and tree gain, 225.4 -> 292.5 ha
+(+29.8%). A 30% move on a published figure is still the regression worth avoiding; it is not a
+tripling, and the two quantities should not be quoted for each other. The delineation layer
+was **never** clipped, so
 `floodplain_ffNN_km2` was already a whole-footprint number and is now the smaller `in_wsg`
 one. That is a deliberate change of value on all 23 items:
 
