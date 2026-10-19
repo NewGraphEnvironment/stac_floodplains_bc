@@ -214,3 +214,70 @@ for the retired per-species layers still on disk upstream — which is the same 
 246 / 222 measurement found, from the other direction. The asset descriptions scope the claim
 to the item (*"every data layer"* of a file that holds only this item's layers), which is the
 true reading; `CLAUDE.md` says so explicitly.
+
+---
+
+## Phase 5 continuity measurement (2026-10-19, build vs the live API)
+
+Full rebuild: 23 items, exit 0, all 23 groups staged, 108 COGs, tree verified unmodified for
+the whole run (five script snapshots byte-compared before and after).
+
+Compared every one of the 23 built items against the live API item of the same id.
+
+| question | result |
+|---|---|
+| `in_wsg` `gross_loss_ha` / `gross_gain_ha` / `net_ha` == live | **23 of 23 exact**, zero mismatches |
+| `*_footprint_km2` == live's unsuffixed `floodplain_ffNN_km2` | **23 of 23 exact**, zero mismatches |
+| item `bbox` and `proj:bbox` moved | **0 of 23** |
+| geometry byte-identical to live | **0 of 23** |
+| geometry coordinate count moved | **23 of 23**, +8 (DUNC) to +364 (FRAN), 0.00%-0.13% |
+
+So the two continuity claims the whole design rests on are now measured on the catalogue, not
+on one group: scoping the change figures to `in_wsg` holds every published value, and the
+footprint siblings reproduce every published area.
+
+### The geometry finding, and a review claim it disproves
+
+The plan review reported the split/union round trip as an **identical vertex count** with a
+~1e-11 perturbation, measured on BULK. That is wrong, and the reason is instructive: it
+compared a union of the split pieces against **another build**, not against the live item.
+Measured against live, BULK goes 433,852 -> 434,116 coordinate values (+264) and every one of
+the 23 items gains some. The union keeps the nodes the cut inserted where the group boundary
+crosses the floodplain outline.
+
+The ground does not move. On BULK, against the live geometry:
+
+```
+live area             659.991642 km2
+built area            659.991640 km2
+symmetric difference    0.000011918 km2  = 11.9 m2 = 1.8e-08 of the footprint
+```
+
+Plus `bbox` unchanged on all 23 and every footprint area equal to live. So: same locus,
+denser boundary, residual numerical. **Nothing should assert byte or vertex equality on this
+geometry** — the bbox and the area are the right things to pin, and `item_validate.py` already
+compares neither against an area, which is why no guard objects.
+
+### Proofs that the new guards fire
+
+Not inferred from a green run — each defect restored and the arm watched:
+
+| guard | defect restored | result |
+|---|---|---|
+| `prov_fields-check.py`'s new static pin | dropped `net_footprint_ha` from `02_raster_tag.SHARED_FIELDS` | `FAIL ... disagree on ['net_footprint_ha']`, 58 assertions 1 failed; file restored and byte-compared |
+| `check_gpkg_columns` absent-column arm | `ALTER TABLE transition DROP COLUMN in_wsg` on a COPY of `transition_vector.gpkg` | fired, naming the layer |
+| `check_gpkg_columns` value arm | `in_wsg = NULL` on `composition_*`, `in_wsg = 2` on `patch_watercourse_*` | both fired, naming the values |
+| `check_metric_scopes` (4 arms) | swapped pair; net off by 5; footprint net off; two identical scopes across the tree | all four fired, each matched on its own message |
+| `only_preflight.metric_drift` | a live `floodplain_ff04_km2` one higher than the build, driven through `main()` | refused, naming the figure |
+
+The mutations on real GeoPackages were done on **copies** under the scratchpad, never on
+`data/stac`. One incidental finding: a plain `sqlite3` `UPDATE` on a *spatial* layer fails with
+`no such function: ST_IsEmpty`, because the GeoPackage triggers call it — so the value-arm
+proof had to use an aspatial table. Same leak `code-check-spatial.md` records.
+
+### A sixth `layer_styles`-by-name exclusion
+
+`check_gpkg_columns` reads `data_type IN ('features','attributes')`, so it would pick up the
+style table. Measured on a published `floodplain_landcover.gpkg`: `layer_styles` is one of its
+**three** `attributes` rows, beside `composition_*` and `patch_watercourse_*`. Excluded by
+name, and `CLAUDE.md`'s written-down count moves from five to six.

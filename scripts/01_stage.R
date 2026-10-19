@@ -807,7 +807,9 @@ for (wsg in wsgs) {
     # pass every schema check, and `{}` additionally passes Python's `is not None`. The
     # NULL case is the one that bites the provenance reader: indexing a missing key in a
     # nested list yields NULL, so a leaf that upstream renamed would publish as `{}`.
-    # Measured; both are byte-inert on the seventeen fields above.
+    # Measured; both are byte-inert on the fields above (seventeen when measured, 23 since
+    # #98 added the six footprint figures — the measurement is about the WRITER, not the
+    # count, which is why the count moving does not invalidate it).
     jsonlite::write_json(meta, file.path(dst_raw, "meta.json"),
                          auto_unbox = TRUE, pretty = TRUE, digits = 10,
                          na = "null", null = "null")

@@ -7,7 +7,7 @@ Prints one `|`-separated line for the shell to read:
 
     <live value count>|<built value count>|<lost fields>|<dropped keys>|<gained keys>
 
-Counts and KEY NAMES only — never a value. That is what makes the `|` protocol safe: a
+Counts and KEY NAMES only on stdout — never a value. That is what makes the `|` protocol safe: a
 provenance value is a free-form string that could contain anything, while the names come from
 this repo's own declared map and the document being compared. (A key carrying a `|` would
 corrupt its own field, which is one of the fields that refuses, so it cannot turn a refusal
@@ -58,6 +58,56 @@ SOFTWARE = {
 # build be compared against an item published before the rename: scanning for either naming
 # scheme alone would compare a full item against an empty one and report nothing lost.
 PREFIXES = ("nge:", "processing:", "link:", "landcover:")
+
+# The headline figures, which carry NO prefix and so are invisible to everything above (#98).
+# Declared, not imported, for the same reason the map is — and the sixth copy of this fact,
+# joined to the validator's by `prov_fields-check.py`.
+#
+# They need their own arm because the two arms above cannot see a RESCOPING. #98 changed what
+# `floodplain_ffNN_km2` MEANS without changing any key: the live item would carry every key
+# this build carries, with a different value, and `canon()` would report `0 lost`. A `--only`
+# republish would then leave one item measuring its own watershed group while the other 22
+# measured their whole footprint — permanently, on a bucket with versioning Suspended, which
+# is the harm the `lost` and `dropped` arms exist to prevent. So a value move here REFUSES
+# rather than printing a count: a redefinition is a full-release change by construction.
+#
+# Not an equality on every property, deliberately. Only these twelve are a cross-item
+# CONTRACT: a figure means the same thing on every item or a cross-group aggregate is a lie.
+# A per-item value that legitimately moves when one area is re-run — a checksum, a provenance
+# digest, a year set — is exactly what `--only` exists to publish.
+METRIC_PROPERTIES = (
+    "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
+    "gross_loss_ha", "gross_gain_ha", "net_ha",
+    "floodplain_ff02_footprint_km2", "floodplain_ff04_footprint_km2",
+    "floodplain_ff06_footprint_km2",
+    "gross_loss_footprint_ha", "gross_gain_footprint_ha", "net_footprint_ha",
+)
+
+
+def metric_drift(live: dict, built: dict) -> list:
+    """Metric properties whose MEANING may have moved: present on both sides, different value.
+
+    Absent on one side is NOT drift — it is the forward-only state these six siblings were in
+    before they existed, and it is reported by the shape arm as a gain. Only a value move on a
+    key both documents carry can be a redefinition.
+
+    Compared as floats where both parse, so `659.99` and `659.990` agree, with a string
+    fallback for anything that does not — the same shape as item_validate's `_same()`.
+    """
+    moved = []
+    for name in METRIC_PROPERTIES:
+        if name not in live or name not in built:
+            continue
+        a, b = live[name], built[name]
+        if a == b:
+            continue
+        try:
+            if float(a) == float(b):
+                continue
+        except (TypeError, ValueError):
+            pass
+        moved.append((name, a, b))
+    return moved
 
 
 def canon(props: dict) -> dict:
@@ -129,6 +179,18 @@ def main(argv: list) -> int:
                              f"{doc.get('type')!r}, properties="
                              f"{type(doc.get('properties')).__name__}) — refusing to compare "
                              f"against it rather than reporting nothing lost")
+
+    # Before the provenance arms, because this one refuses outright: a redefined figure is a
+    # full-release change, and there is nothing to weigh it against.
+    moved = metric_drift(live["properties"], built["properties"])
+    if moved:
+        detail = "; ".join(f"{n}: live {a!r} -> build {b!r}" for n, a, b in moved)
+        raise SystemExit(
+            f"{len(moved)} headline figure(s) change value on this item: {detail}. These are "
+            f"a cross-item contract — a figure means the same thing on every item or a "
+            f"cross-group aggregate is a lie — so republishing ONE item would leave the other "
+            f"live items measuring something else, with no way to tell from the API. That is a "
+            f"full-release change. Refusing before anything is written.")
 
     live_values = canon(live["properties"])
     built_values = canon(built["properties"])

@@ -66,11 +66,14 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   there and pinned, `test_pipeline.R` that `sf::st_layers()` still LISTS it, and the hand-run
   `style_reach-check.py` what QGIS actually draws — because the NULL `f_table_schema` trap
   `04_gpkg_style.py` documents is the standing proof that a listed, well-formed row still
-  opens unstyled. **Five** staged-side readers
+  opens unstyled. **Six** staged-side readers
   exclude `layer_styles` BY NAME now, which the `data_type` filter used to do structurally:
   the two `feature_layers()` copies in `04_gpkg_style.py` and `style_reach-check.py`,
-  `test_pipeline.R`'s `keyed_layers()`, `gpkg_determinism-check.R`, and `item_validate.py`'s
-  `data_type='features'` reader. The two `feature_layers()` copies are what code-check rounds
+  `test_pipeline.R`'s `keyed_layers()`, `gpkg_determinism-check.R`, `item_validate.py`'s
+  `data_type='features'` reader, and since #98 `item_validate.check_gpkg_columns`, which reads
+  the `('features','attributes')` pair and so would otherwise pick the style table up —
+  measured 2026-10-19 on a published `floodplain_landcover.gpkg`, where `layer_styles` is one
+  of its three `attributes` rows. The two `feature_layers()` copies are what code-check rounds
   1 and 2 each had to add, one per round, which is why the count is written down. A
   name-based exclusion is only safe paired with that positive listing arm.
 - **Landing page + site** — `README.Rmd` is the single source, rendering `README.md`
@@ -413,14 +416,22 @@ the deliberate value move was only ever on the areas.
 
 `geometry`, `bbox_wgs84` and `proj:bbox` are deliberately NOT rescoped: the rasters cover the
 whole footprint and a STAC geometry must contain its assets. `proj:*` comes off the raster, so
-it cannot move at all. `geometry` and `bbox_wgs84` are a `st_union()` of the scenario layer,
-which is now two pieces of what was one polygon — the same geometry to every figure anyone
-reads, but **not** byte-identical: the split/union round trip perturbs coordinates at ~1e-11
-and `01_stage.R` writes with `digits = 10`, which is right at that boundary. Measured on BULK
-at v2.1.0: identical vertex count, area equal to 4 dp, WGS84 bbox agreeing to 4.9e-11 degrees,
-and `identical()` against the published geometry FALSE. So this is a no-change in every sense
-a consumer can see and a possible one-digit churn in the item JSON; it is not a thing to
-assert byte equality on.
+it cannot move at all.
+
+**`geometry` does move, though, and not only in the last digit.** It is a `st_union()` of the
+scenario layer, which is now two pieces of what was one polygon, and the union keeps the nodes
+the cut inserted where the group boundary crosses the floodplain outline. Measured against the
+live catalogue over all 23 items at v2.1.0: **every** item's geometry gains coordinates — 8
+(DUNC) to 364 (FRAN), 0.00% to 0.13%, BULK 433,852 -> 434,116 — and **no** item's geometry is
+byte-identical to the published one. What does NOT move is the ground: `bbox` and `proj:bbox`
+are unchanged on all 23, and every `*_footprint_km2` equals the live item's unsuffixed area
+exactly. On BULK, measured against the live geometry: area 659.991642 -> 659.991640 km2 and a
+symmetric difference of **11.9 m2**, which is 1.8e-08 of the footprint. So the footprint is the
+same locus with a denser boundary, and the residual is numerical, not ground. A plan review reported
+this as an identical vertex count with a ~1e-11 perturbation, measured on one group; the
+whole-catalogue measurement says otherwise, and the reason to prefer it is that it compares
+the build against the **live** item rather than against another build. Do not assert byte or
+vertex equality on this geometry — assert the bbox and the area.
 
 Both scopes are tagged into every COG (`SHARED_FIELDS` / `SHARED_TAG_PROPERTIES`), not just
 the published one, because the unsuffixed tags **changed meaning**: a COG downloaded before

@@ -99,3 +99,43 @@ published figure moving for a reason that is not the one the release is about is
   opposite-directions finding, the COG-tag reasoning and the census rule.
 - `NEWS.md`: `## v2.1.0 (unreleased)`, dated at release.
 - `test_pipeline.R`'s SUMMARY line now prints both scopes, matching the STAGED line.
+
+### Phase 3b - the review fixes, with each guard proved to fire
+
+- **B2** `METRIC_SCOPE_CENSUS` is now gated on `--expect-provenance`, like `PROV_CENSUS` and the
+  floor, whose own comment says why: "a rebuild has no business asserting how many areas the
+  producer has re-modelled". The old gate (`not --partial`) would have failed an
+  `ALLOW_SKIPPED=1` 22-group rebuild - a documented state - on a tree nobody was releasing.
+- **B3** The MEASUREMENT prints either way, on its own `straddle:` line, in the format a
+  release sets the literal from. `check_metric_scopes` returns `(problems, straddle, seen)`.
+- **B4** New static pin: `02_raster_tag.SHARED_FIELDS` against `SHARED_TAG_PROPERTIES`. It
+  needs one more than the provenance half does, because `check_cog_tags`'s `managed` set unions
+  only `NGE_`-prefixed tags and the shared fields are written unprefixed - so for these names
+  the add direction had nothing watching it at all.
+- **B5** New `check_gpkg_columns` in `item_validate.py`: `in_wsg` present on every data layer of
+  all three published GeoPackages, holding only TRUE/FALSE. This is the arm that makes the
+  published asset description true - it was a claim about 23 items x 13 layers checked on one
+  item by a script the release path never runs.
+- **Acc1** Five new cases in `prov_fields-check.py` drive `check_metric_scopes`, including the
+  census arm, which is the only one that can see a dropped filter.
+- **G2** `only_preflight.py` gains `metric_drift()` and REFUSES on a changed figure rather than
+  counting it. A rescoping changes no KEY, so `canon()` would have printed `0 lost` and let
+  `--only` publish one item measuring something different from the other 22, irreversibly.
+
+### Phase 5 - every check, on the build a release would be cut from
+
+| check | result |
+|---|---|
+| `run_pipeline.sh` (full, 23 groups) | exit 0, 06:12:21Z; tree verified unmodified for the whole run |
+| `item_validate.py --expect 23 --expect-provenance 23` | exit 0; `gpkg columns` arm live; `straddle ... 23 of 23` asserted; `floor 23 and the per-field census asserted` |
+| `prov_fields-check.py` | 58 assertions, 0 failed |
+| `gpkg_determinism-check.R` | PASS, 3 arms byte-identical across rebuilds |
+| `style_determinism-check.py` | PASS, 3 GeoPackages byte-identical, re-run a no-op |
+| `year_sets-check.py` | 16 assertions, 0 failed |
+| `attribution_drift-check.py` | PASS, citation 770 chars |
+| `catalogue_release-check.sh` | ALL PASS (shimmed; `data/stac` intact after) |
+| `stage_years-check.R` | 13 assertions, 0 failed, 1 skipped - exactly the predicted `PIN_META_SHA256` skip - and its own guard reports the repo `data/` tree untouched by all four runs |
+| `prov_census-measure.R` | agrees with the build line field for field; `PROVENANCE_FLOOR` stays 23 and `PROV_CENSUS` does not move |
+
+So **no literal needed re-taking** except the new `METRIC_SCOPE_CENSUS`, whose measured value
+on the build is exactly the 23 I set it to before the build ran.
