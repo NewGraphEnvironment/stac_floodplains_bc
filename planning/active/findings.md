@@ -312,3 +312,62 @@ from->to pair arm (54 pairs on BULK, all named by the published classes) and
 `item_validate.py`'s per-layer `distinct(table, attr)` coverage arm, which reported no
 uncategorized value on any of the 23 items. All 23 items printed the expected #65 line (two
 aspatial tables staged, undescribed here).
+
+---
+
+## The mechanism, and the enumeration that terminates it
+
+Across the plan review and two code-check rounds, **ten of the fourteen findings were one
+class**, and two of them were found *inside* the previous round's fix:
+
+> **A prose claim that names a quantity which is not the one measured.**
+
+The instances: "most of that item's floodplain" (41.7% is a minority); "most of PCEA's gross
+change is outside" (85.3% is inside — total patch area is the quantity that is 69% outside);
+"`area_ha` summed over `in_wsg` is exactly this item's headline figures" (5584.9 against
+4112.1 — true only under the `from_class`/`to_class` filters); "the live item carries no
+`*_footprint_*` key" (the condition is *at least one* missing); "both new flags are any-touch"
+(`in_wsg` is a partition, not a flag); "`st_union()` … does not move this" (all 23 move);
+"PCEA's gross change would roughly triple" (total change, not the published figures); the two
+`7,273 km2` literals; "identical vertex count" (from the plan review); "stage_years-check.R
+exercises `in_wsg_flag()`'s refusals" (it does not restore them).
+
+Why this branch and not others: it adds **310 claim-bearing lines across 12 published or
+durable files** — the collection description and four asset descriptions that go out on all 23
+items, the public landing page, NEWS, CLAUDE.md, `scripts/README.md`, and code comments that
+state measurements. Every one of them names a figure, and the figures now come in two scopes
+over two different row sets, with a third quantity (raw `area_ha`) that looks like both.
+
+### Terminating by enumeration, not by a reviewer saying it is complete
+
+A reviewer's quiet round and an exhausted reviewer look identical, so the loop is ended by a
+count over an enumerated set instead. Mechanically extracted every added line in those 12
+files carrying a number or a quantifier (`every`, `each`, `all`, `both`, `only`, `most`,
+`exactly`, `none`, `never`, `always`, `cannot`, `the same`), then resolved the distinct
+numeric/identity assertions and **measured each against the artifacts** — `data/stac`,
+`$FLOODPLAINS_DATA`, the GeoPackages through `sqlite3`, the item JSON, and the live API
+snapshot.
+
+**70 claims measured. 70 correct.** The full run is committed as
+`planning/active/claim-enumeration.txt`. It covers: the six named per-group area pairs and
+their outside shares; BULK's and PCEA's loss/gain/net in both scopes; the raw-`area_ha` sums
+that the round-2 finding was about (5584.9 / 4112.1 / 754.4 / 2454.6 / 3.3x); PCEA's
++4.7% / +29.8% / 85.3%-inside / 67-vs-11 ha strip; the provincial totals
+(10,092.27 / 10,611.35 / 519.08); the layer counts (246 / 222 / 269 / 69); every geometry claim
+against the **live** items (433,852 -> 434,116, min +8 = DUNC, max +364 = FRAN, 23 of 23
+gaining, 0 byte-identical, max 0.13%, 0 bbox moves); the two continuity claims (23 of 23 each);
+the straddle census (115 = 23 x 5); and the distribution claims (22 groups in [0.8, 3.3], PCEA
+41.7, 18 unnamed groups inside their stated bounds).
+
+One claim was **loose but true** and has been tightened: NEWS said the 18 unnamed groups span
+"0.8% to 2.7%" where the measured maximum is BOWR at 2.6488%, so the table now reads 2.6%. A
+round-2 note had called that span "0.8%-2.6%", which as a *span* would have been false — which
+is itself the mechanism, one more time, in a reviewer's own sentence.
+
+### What the enumeration deliberately excludes, and why
+
+`planning/active/*.md` — 448 of the 757 candidate lines. Those are the record of the work, not
+claims the repo makes about its data: they carry the corrections themselves, dated, and a
+reader is meant to see the wrong turn as well as the verdict (`planning.md`, "Keep the wrong
+turns"). Numbers there are historical by construction; the files above are the ones a consumer
+or a future session reads as current.

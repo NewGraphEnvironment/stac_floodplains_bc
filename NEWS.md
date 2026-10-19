@@ -67,7 +67,7 @@ one. That is a deliberate change of value on all 23 items:
 | LCHL | 426.81 | 412.92 | 3.3% |
 | TABR | 267.19 | 258.73 | 3.2% |
 | MCGR | 355.33 | 344.61 | 3.0% |
-| … 18 more between 0.8% and 2.7% | | | |
+| … 18 more between 0.8% and 2.6% | | | |
 | UNTH | 234.93 | 233.03 | 0.8% |
 
 The old value is still published, as `floodplain_ff04_footprint_km2`.
