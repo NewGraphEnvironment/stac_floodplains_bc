@@ -38,6 +38,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import only_preflight as op  # noqa: E402
 from item_validate import (  # noqa: E402
     METRIC_PROPERTIES as METRIC_PROPERTIES_V,
+    METRIC_NET_TOLERANCE,
     METRIC_SCOPE_CENSUS, METRIC_SCOPE_PAIRS, PROV_CENSUS, PROV_FIELDS, PROV_PREFIXES,
     PROV_PROPERTIES, PROV_SOFTWARE, SOFTWARE_PROPERTY, SHARED_TAG_PROPERTIES, check_cog_tags,
     check_field_prefixes, check_metric_scopes, check_processing_stamp, check_provenance,
@@ -242,16 +243,24 @@ expect_clean("PROV_CENSUS matches the live catalogue measured for this release",
              else [f"PROV_CENSUS is {PROV_CENSUS}"])
 
 
-def _drift_msg():
+def _drift_msg(live_rescoped: bool = False):
     """`only_preflight.main`'s refusal message, or None — the arm, driven end to end.
 
     Through `main()` and not `metric_drift()` alone: the value arm is only a guard if main
     REACHES it before the provenance comparison, and that ordering is the thing that was
     missing. stdin is the live document, as the release pipes it.
+
+    `live_rescoped` picks which side of the window the live item sits on. False is the real
+    pre-v2.1.0 shape — measured 2026-10-19, 0 of the 23 live items carried a `*_footprint_*`
+    key — and True is every item after that release, where a moved figure is an ordinary
+    re-run and must NOT refuse.
     """
     item = {"type": "Feature", "id": "aaaa_ch_ff04",
             "properties": dict(SHARED, **{"datetime": "2023-12-31T00:00:00Z"})}
     live = json.loads(json.dumps(item))
+    if not live_rescoped:
+        for name in op.FOOTPRINT_PROPERTIES:
+            live["properties"].pop(name, None)
     live["properties"]["floodplain_ff04_km2"] = SHARED["floodplain_ff04_km2"] + 1.0
     d = pathlib.Path(tempfile.mkdtemp(prefix="prov_fields_only_"))
     try:
@@ -349,6 +358,24 @@ expect_clean("02_raster_tag.py tags exactly the shared properties item_validate 
              [] if set(_tag_shared) == SHARED_TAG_PROPERTIES
              else [f"02_raster_tag.py and item_validate.py disagree on "
                    f"{sorted(set(_tag_shared) ^ SHARED_TAG_PROPERTIES)}"])
+# The net-identity tolerance, duplicated across the language boundary: `item_validate.py` names
+# it METRIC_NET_TOLERANCE and `test_pipeline.R` can only hardcode the number, because R cannot
+# import it. The R comment claims they are the same constant, so something has to hold them
+# there. The direction that matters is silent both ways — a looser R arm passes a build the
+# release then refuses, a tighter one fails a build that is fine.
+#
+# Read from R CODE with comments stripped, for the reason `_code_only` gives: the number also
+# appears in the comment that explains why it must stay, so a regression that deletes the code
+# and leaves the prose would still match a naive grep.
+_tp_code = _code_only((ROOT / "scripts" / "test_pipeline.R").read_text())
+# Both nets, so a change applied to one arm and not the other is caught too. The count is the
+# assertion: any OTHER `<= <number>` in that file would have to be this same number to pass,
+# and the two that are there are the net identities.
+_tp_tols = re.findall(r"meta\$net[A-Za-z_]*\)\s*<=\s*([0-9]*\.?[0-9]+)\)", _tp_code)
+expect_clean("test_pipeline.R's two net tolerances are item_validate.METRIC_NET_TOLERANCE",
+             [] if _tp_tols == [str(METRIC_NET_TOLERANCE)] * 2
+             else [f"test_pipeline.R's net arms read {_tp_tols}, expected two copies of "
+                   f"{METRIC_NET_TOLERANCE} (item_validate.METRIC_NET_TOLERANCE)"])
 
 # The fifth copy of the fact: `only_preflight.py`, which canonicalises a live item and a build
 # into staged field names for `catalogue_release.sh --only`. IMPORTED, not parsed — until #74's
@@ -376,8 +403,14 @@ expect_clean("a build that does not move a figure is not refused",
              [] if not op.metric_drift({"floodplain_ff04_km2": 2.0, "net_ha": -1.0},
                                        {"floodplain_ff04_km2": 2, "net_ha": -1.0})
              else ["an unchanged pair read as drift"])
-expect_problem("a redefined figure IS refused, naming the figure",
+expect_problem("a redefined figure IS refused while the live item predates the contract",
                [str(e) for e in [_drift_msg()] if e], "floodplain_ff04_km2")
+# The expiry, which is the half that stops this being over-refusal: once the live item carries
+# the footprint siblings, a moved figure is an ordinary upstream re-run — the case --only
+# exists for, and the case the `gained` arm cites by name.
+expect_clean("...and goes quiet once the live item carries the footprint siblings",
+             [] if _drift_msg(live_rescoped=True) is None
+             else [f"refused a re-run: {_drift_msg(live_rescoped=True)}"])
 # And that the release still CALLS it. Extracting the program removed a whole class of shell
 # defect; reverting it to an inline `python3 -c` would bring the class back, and the three
 # assertions above would keep passing against a module nothing runs.

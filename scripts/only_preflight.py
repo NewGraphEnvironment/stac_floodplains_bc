@@ -84,16 +84,39 @@ METRIC_PROPERTIES = (
 )
 
 
-def metric_drift(live: dict, built: dict) -> list:
-    """Metric properties whose MEANING may have moved: present on both sides, different value.
+# The six names whose presence says the live item was published UNDER the two-scope contract.
+FOOTPRINT_PROPERTIES = tuple(n for n in METRIC_PROPERTIES if "_footprint_" in n)
 
-    Absent on one side is NOT drift — it is the forward-only state these six siblings were in
-    before they existed, and it is reported by the shape arm as a gain. Only a value move on a
-    key both documents carry can be a redefinition.
+
+def metric_drift(live: dict, built: dict) -> list:
+    """A figure whose MEANING may have moved — and only while that is still possible.
+
+    **Scoped to the un-rescoped window, and it expires by its own mechanism.** The first
+    version refused ANY `--only` whose twelve figures differed from the live item, which was
+    over-refusal with no way past it: after #98 is published, the ordinary reason to republish
+    one item is that its area was RE-RUN upstream, and a re-run moves loss/gain/net and the
+    three areas without redefining anything. That is the case this module's own docstring says
+    `--only` exists for, and the case the `gained` arm below cites by name — kotl/larl/sloc
+    gain `link_run_uid` precisely BY being re-run, and the same re-run moves the metrics. Two
+    arms disagreeing about one event is the shape a guard that fails toward refusal takes.
+
+    So the discriminator is read off the live document rather than assumed: a live item that
+    carries no `*_footprint_*` key predates the rescoping, and only then can a value move be a
+    redefinition rather than a re-run. Measured 2026-10-19, before v2.1.0: 0 of the 23 live
+    items carry one. Once the release has published them the arm goes quiet on its own, the
+    way the `deprecated` marker expired at v2.0.0 — which is the point of it, not a tidy-up.
+    A HALF-rescoped live item (some footprint keys, not all) is still inside the window.
+
+    Absent on one side is not drift — it is the forward-only state these six siblings were in
+    before they existed, and the shape arm reports it as a gain. Only a value move on a key
+    both documents carry can be a redefinition.
 
     Compared as floats where both parse, so `659.99` and `659.990` agree, with a string
     fallback for anything that does not — the same shape as item_validate's `_same()`.
     """
+    rescoped = [n for n in FOOTPRINT_PROPERTIES if n in built and n not in live]
+    if not rescoped:
+        return []
     moved = []
     for name in METRIC_PROPERTIES:
         if name not in live or name not in built:
@@ -186,11 +209,14 @@ def main(argv: list) -> int:
     if moved:
         detail = "; ".join(f"{n}: live {a!r} -> build {b!r}" for n, a, b in moved)
         raise SystemExit(
-            f"{len(moved)} headline figure(s) change value on this item: {detail}. These are "
-            f"a cross-item contract — a figure means the same thing on every item or a "
-            f"cross-group aggregate is a lie — so republishing ONE item would leave the other "
-            f"live items measuring something else, with no way to tell from the API. That is a "
-            f"full-release change. Refusing before anything is written.")
+            f"{len(moved)} headline figure(s) change value on this item, and the live item "
+            f"carries no *_footprint_* key, so it predates the two-scope contract: {detail}. "
+            f"Those figures are a cross-item contract — one means the same thing on every item "
+            f"or a cross-group aggregate is a lie — so republishing ONE item would leave the "
+            f"other live items measuring something else, with no way to tell from the API. "
+            f"That is a full-release change: publish the whole collection once, after which "
+            f"this arm goes quiet on its own and an ordinary re-run can be published with "
+            f"--only again. Refusing before anything is written.")
 
     live_values = canon(live["properties"])
     built_values = canon(built["properties"])

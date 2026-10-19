@@ -251,6 +251,7 @@ The ground does not move. On BULK, against the live geometry:
 live area             659.991642 km2
 built area            659.991640 km2
 symmetric difference    0.000011918 km2  = 11.9 m2 = 1.8e-08 of the footprint
+hausdorff distance      0.0099 m         = no point on either boundary is >1 cm from the other
 ```
 
 Plus `bbox` unchanged on all 23 and every footprint area equal to live. So: same locus,

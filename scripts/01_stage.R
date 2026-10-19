@@ -218,13 +218,34 @@ in_wsg_flag <- function(df, where) {
          "watershed group and cannot be read from this layer (upstream floodplains#53/#144)",
          call. = FALSE)
   }
-  flag <- as.logical(df$in_wsg)
-  if (anyNA(flag)) {
-    stop(where, ": ", sum(is.na(flag)), " of ", length(flag),
+  # A zero-row layer, refused BEFORE the flag is read. `anyNA(logical(0))` is FALSE and
+  # `sum(numeric(0))` is 0, so an empty layer would pass every arm below and publish 0 for
+  # every figure it feeds — and two zeroes satisfy `item_validate.py`'s
+  # in_wsg-at-most-footprint arm, so only `test_pipeline.R`'s `> 0` would have caught it,
+  # which the release path does not run. Zero-length, empty and unset are three different
+  # things and this is the one that looks like a measurement.
+  if (!nrow(df)) {
+    stop(where, ": the layer has no rows, so every figure read from it would be 0 — a ",
+         "measurement and an absence are not the same thing", call. = FALSE)
+  }
+  raw <- df$in_wsg
+  if (anyNA(raw)) {
+    stop(where, ": ", sum(is.na(raw)), " of ", length(raw),
          " row(s) have a missing `in_wsg` — refusing rather than dropping them from the sum",
          call. = FALSE)
   }
-  flag
+  # The VALUE SET, not just `as.logical()`. `as.logical(2L)` is TRUE, so a corrupt flag would
+  # be counted as in-group and the figures would be quietly wrong. Downstream arms
+  # (`check_gpkg_columns`, `test_pipeline.R`) do catch a stray value, but they run after the
+  # metrics have been computed and published into meta.json, so the message that names the
+  # cause would not be the one that fires.
+  bad <- setdiff(unique(as.character(raw)), c("0", "1", "TRUE", "FALSE"))
+  if (length(bad)) {
+    stop(where, ": `in_wsg` holds value(s) ", paste(bad, collapse = ", "),
+         " — expected only TRUE/FALSE, and `as.logical()` would read anything non-zero as ",
+         "in-group", call. = FALSE)
+  }
+  as.logical(raw)
 }
 
 # --- Metrics from the transition layer ------------------------------------
@@ -710,8 +731,15 @@ for (wsg in wsgs) {
 
     # Footprint geometry from the item's OWN headline-scenario layer (not necessarily ff04).
     # Deliberately NOT scoped to `in_wsg`: the COGs cover the whole footprint and a STAC
-    # geometry must contain its assets. `st_union()` over the two pieces of what was one
-    # polygon is the same geometry, so the split does not move this.
+    # geometry must contain its assets.
+    #
+    # The split DOES move these bytes, which the first version of this comment got wrong.
+    # Measured against the live catalogue over all 23 items (#98): every geometry gains
+    # coordinates (BULK 433,852 -> 434,116; +8 to +364), because the union keeps the nodes the
+    # cut inserted, and none is byte-identical to the published one. The GROUND does not move
+    # — `bbox` unchanged on all 23, and on BULK a symmetric difference of 11.9 m2 out of
+    # 660 km2 with a Hausdorff distance of 1 cm. So expect a geometry diff on this release and
+    # do not assert byte or vertex equality on it; the bbox and the area are what to pin.
     fp <- sf::st_read(fp_gpkg, layer = scenario, quiet = TRUE)
     epsg <- sf::st_crs(fp)$epsg
     fp_wgs <- sf::st_transform(sf::st_union(fp), 4326)

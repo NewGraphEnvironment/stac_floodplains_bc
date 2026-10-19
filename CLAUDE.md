@@ -426,8 +426,10 @@ live catalogue over all 23 items at v2.1.0: **every** item's geometry gains coor
 byte-identical to the published one. What does NOT move is the ground: `bbox` and `proj:bbox`
 are unchanged on all 23, and every `*_footprint_km2` equals the live item's unsuffixed area
 exactly. On BULK, measured against the live geometry: area 659.991642 -> 659.991640 km2 and a
-symmetric difference of **11.9 m2**, which is 1.8e-08 of the footprint. So the footprint is the
-same locus with a denser boundary, and the residual is numerical, not ground. A plan review reported
+symmetric difference of **11.9 m2**, which is 1.8e-08 of the footprint, and a **Hausdorff
+distance of 0.0099 m** — so no point on either boundary is more than a centimetre from the
+other. The footprint is the same locus with a denser boundary, and the residual is numerical,
+not ground. A plan review reported
 this as an identical vertex count with a ~1e-11 perturbation, measured on one group; the
 whole-catalogue measurement says otherwise, and the reason to prefer it is that it compares
 the build against the **live** item rather than against another build. Do not assert byte or

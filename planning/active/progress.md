@@ -139,3 +139,35 @@ published figure moving for a reason that is not the one the release is about is
 
 So **no literal needed re-taking** except the new `METRIC_SCOPE_CENSUS`, whose measured value
 on the build is exactly the 23 I set it to before the build ran.
+
+### code-check round 1 — 6 findings, all fixed
+
+Findings in `planning/active/review-round1.md`. Every one reproduced before acting.
+
+| # | finding | fix |
+|---|---|---|
+| 1 | `metric_drift()` refused **any** `--only` whose figures moved, permanently and with no override — but the hazard is #98's one-time rescoping, and after it the ordinary reason to republish one item is an upstream RE-RUN, which moves those same figures without redefining anything. The module's own docstring and its `gained`-arm comment both name that case | scoped to the un-rescoped window and it now **expires by its own mechanism**: refuse only while the live item carries no `*_footprint_*` key. Measured 2026-10-19, 0 of 23 live items carry one; after v2.1.0 all 23 will, and the arm goes quiet. Proved in all four directions, and `prov_fields-check.py` now has both the refusal case and the expiry case |
+| 2 | `README.Rmd` said "**most** of that item's floodplain lies in Williston's arms" — 41.73% outside is a MINORITY, and the same sentence says 42% one clause earlier. The public landing page | rewritten. Most of PCEA's *change* is outside while most of its *floodplain* is inside, which is the real and sharper statement, so the sentence now says that and gives the two nets |
+| 3 | the release began publishing a claim about `in_open_water`, `open_water_poly_id`, `in_fire`, `in_harvest`, `in_wetland`, `in_alr` that **nothing read** — `check_gpkg_columns` was hardcoded to `IN_WSG_COLUMN`. The B5 defect class, re-introduced in the commit that fixed it | `check_gpkg_columns` now takes its required columns from `gpkg_required_columns(layer)` — the item key plus `in_wsg` on every layer, plus the six context columns on every `transition*` layer. 0 problems on the real build; the success line no longer over-claims |
+| 4 | `01_stage.R`'s new comment said `st_union()` "is the same geometry, so the split does not move this" — disproved by this branch own measurement | rewritten with the measurement (0 of 23 byte-identical, +8 to +364 coords, 11.9 m2 / 1 cm on the ground) |
+| 5 | `check_gpkg_columns`'s failure path raised `TypeError` on a mixed-type `in_wsg`, which SQLite permits in any column — the guard died with a traceback instead of naming the values | sorted on `str(v)`. Fail-closed either way; the diagnosis was the point |
+| 6 | `test_pipeline.R` hardcoded `0.15` while `item_validate.py` names it `METRIC_NET_TOLERANCE`, with the R comment claiming they are the same constant and nothing joining them | static arm in `prov_fields-check.py` reads both net tolerances out of R source with comments stripped and compares them to the Python constant |
+
+Three minors, all taken:
+
+- `in_wsg_flag()` validated presence and NA but not the VALUE SET, and `as.logical(2L)` is TRUE
+  — a corrupt flag would have been counted as in-group with the figures silently wrong.
+- **My own finding, independent of the review:** `in_wsg_flag()` accepted a **zero-row** layer.
+  `anyNA(logical(0))` is FALSE and `sum(numeric(0))` is 0, so an empty layer published `0` for
+  every figure, two zeroes satisfy `check_metric_scopes`'s inequality, and the only arm that
+  would have caught it is `test_pipeline.R`'s `> 0` — which the release path does not run.
+- `task_plan.md` claimed `stage_years-check.R` "exercises `in_wsg_flag()`'s refusals". It
+  re-runs `01_stage.R` so the function executes, but restores none of them. Corrected to record
+  the gap rather than paper over it.
+
+All four refusals proved to fire (no column / zero rows / NA / value 2), both valid shapes
+(`0`/`1` and `TRUE`/`FALSE`) pass, and the stricter function **reproduces every published
+figure** on BULK, PCEA, DUNC and FRAN against the committed `meta.json` — so the staged tree
+in `data/` is still the tree this code produces.
+
+`prov_fields-check.py`: **60 assertions, 0 failed.**

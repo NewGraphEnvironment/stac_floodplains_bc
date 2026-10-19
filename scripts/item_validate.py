@@ -979,15 +979,44 @@ def check_metric_scopes(base: Path, census: bool = True
 # `features` alone -- the opposite choice from check_layer_styles, whose subject is styles.
 GPKG_LAYER_TYPES = ("features", "attributes")
 IN_WSG_COLUMN = "in_wsg"
+# What the published asset descriptions CLAIM, per file, so the guard's scope is the claim's
+# scope. A single `in_wsg` constant was the first version, and it left the six columns the same
+# release started claiming watched by nothing — the B5 defect class re-introduced in the commit
+# that fixed it. `item_create.py` is the other copy; if a description grows a column name, it
+# grows here.
+#
+# Every layer of every file carries the item key plus `in_wsg`. The transition patches carry
+# the context flags on top, which is why the extras are keyed on a layer-name prefix rather
+# than on the file: `floodplain_landcover.gpkg` holds `classified_*` and `composition_*` beside
+# its `transition_*`, and only the last of those is what the description calls "the transition
+# patches". Anchored with `startswith`, matching the producer's `transition_<sp>_<scen>_<y1>_<y2>`
+# and the staged `transition_vector.gpkg`'s single `transition` layer.
+GPKG_BASE_COLUMNS = ("wsg", "species", "scenario", IN_WSG_COLUMN)
+TRANSITION_LAYER_PREFIX = "transition"
+# Presence only, deliberately. The descriptions claim these are PRESENT and any-touch; they
+# make no claim about their domain, and `open_water_poly_id` is an id, not a flag. `in_wsg` is
+# the one whose VALUES the published figures depend on, so it is the one with a value arm.
+TRANSITION_COLUMNS = ("in_open_water", "open_water_poly_id",
+                      "in_fire", "in_harvest", "in_wetland", "in_alr")
+
+
+def gpkg_required_columns(layer: str) -> tuple:
+    """The columns an item's asset description claims for this layer."""
+    extra = TRANSITION_COLUMNS if layer.startswith(TRANSITION_LAYER_PREFIX) else ()
+    return GPKG_BASE_COLUMNS + extra
 
 
 def check_gpkg_columns(base: Path) -> list[str]:
-    """Every published data layer carries `in_wsg`, holding only TRUE/FALSE.
+    """Every published data layer carries the columns its asset description claims.
 
     Two arms, and the second is not implied by the first: a column of all-NULL is present and
     useless, and an NA would fall out of `01_stage.R`'s `na.rm = TRUE` sums if that script ever
     measured the layer. `{}` is refused too -- a zero-row layer proves nothing and is already
     a defect the layer-set arms would not see.
+
+    The value arm is `in_wsg` alone, because it is the only one of these columns a published
+    FIGURE is computed from. The rest are claimed as present and any-touch, and that is what
+    is checked.
     """
     problems: list[str] = []
     compared = 0
@@ -1013,17 +1042,26 @@ def check_gpkg_columns(base: Path) -> list[str]:
                 for lyr in layers:
                     compared += 1
                     cols = {r[1] for r in con.execute(f'PRAGMA table_info("{lyr}")')}
-                    if IN_WSG_COLUMN not in cols:
+                    want = gpkg_required_columns(lyr)
+                    absent = [c for c in want if c not in cols]
+                    if absent:
                         problems.append(
-                            f"{item_id}/{gname} layer {lyr!r} has no {IN_WSG_COLUMN!r} "
-                            f"column, and this item's asset description says every data "
-                            f"layer carries one (#98)")
-                        continue
+                            f"{item_id}/{gname} layer {lyr!r} has no "
+                            f"{', '.join(repr(c) for c in absent)} column(s), and this "
+                            f"item's asset description says it carries them (#98)")
+                        if IN_WSG_COLUMN in absent:
+                            continue
                     vals = {r[0] for r in con.execute(
                         f'SELECT DISTINCT "{IN_WSG_COLUMN}" FROM "{lyr}"')}
                     if not vals or not vals <= {0, 1}:
+                        # Sorted on str(v), not v: SQLite stores any type in any column
+                        # whatever its declaration, so a stray 'true' beside 0 and 1 would
+                        # make a bare sort raise TypeError and this guard would die with a
+                        # traceback instead of naming the values. Fail-closed either way,
+                        # but the diagnosis is the whole point of the message.
                         shown = ", ".join("NULL" if v is None else repr(v)
-                                          for v in sorted(vals, key=lambda v: (v is None, v)))
+                                          for v in sorted(vals,
+                                                          key=lambda v: (v is None, str(v))))
                         problems.append(
                             f"{item_id}/{gname} layer {lyr!r} holds {IN_WSG_COLUMN} "
                             f"value(s) {{{shown}}}, expected a non-empty subset of "
@@ -2407,8 +2445,9 @@ def main() -> int:
             print(f"  {msg}", file=sys.stderr)
         return 1
     print(f"gpkg columns: every data layer of {len(STYLED_GPKGS)} GeoPackages per item carries "
-          f"{IN_WSG_COLUMN!r}, holding only TRUE/FALSE — which is what the asset descriptions "
-          f"claim")
+          f"{', '.join(GPKG_BASE_COLUMNS)} — with {IN_WSG_COLUMN} holding only TRUE/FALSE — and "
+          f"every {TRANSITION_LAYER_PREFIX}* layer also carries "
+          f"{', '.join(TRANSITION_COLUMNS)}, which is what the asset descriptions claim")
 
     print("straddle: " + ", ".join(f"{k} {straddle[k]}"
                                    for k in sorted(METRIC_SCOPE_CENSUS))

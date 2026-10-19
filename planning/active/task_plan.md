@@ -138,10 +138,13 @@ exemption — it reads `$FLOODPLAINS_DATA` and never touches `data/`.
 - [x] `bash scripts/run_pipeline.sh` — and nothing single-group after it
 - [x] Hand-run `prov_fields-check.py`, `gpkg_determinism-check.R`, `style_determinism-check.py`,
       `year_sets-check.py`, `attribution_drift-check.py`, `catalogue_release-check.sh`
-- [x] `stage_years-check.R` — the only thing that exercises `in_wsg_flag()`'s refusals on a
-      tree that is not `data/`. Its `PIN_META_SHA256` arm is expected to print SKIP (the pin is
-      `ufra_ch_ff04`'s build and floodplains#125 moved UFRA to `all_ff04`), so the skip is not
-      a regression
+- [x] `stage_years-check.R` — re-runs the real `01_stage.R` in a sandbox, so `in_wsg_flag()`
+      EXECUTES there, but it restores none of its refusals: the claim that it "exercises" them
+      was wrong (code-check round 1; `grep in_wsg scripts/stage_years-check.R` is empty). The
+      three refusals are proved by hand in `findings.md` and are not reproducible from the
+      repo — recorded as a gap rather than papered over. Its `PIN_META_SHA256` arm is expected
+      to print SKIP (the pin is `ufra_ch_ff04`'s build and floodplains#125 moved UFRA to
+      `all_ff04`), so the skip is not a regression
 - [x] `prov_census-measure.R`, then run the RELEASE-shaped validate (`--expect-provenance 23`)
       and expect **no** census movement: `run.datetime_utc` is untouched upstream and every
       raster's mtime predates its landcover stamp, so nothing should have moved. Re-take only a
