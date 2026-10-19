@@ -1,0 +1,164 @@
+# Findings — Publish in_wsg and in_open_water (#98)
+
+## Measured before planning (2026-10-19, UTC)
+
+Upstream tree: `../floodplains` at `2fe7a74`, floodplains#144 merged (`0e4cbf9`).
+Backfill log: `floodplains/scripts/floodplain_lcc/logs/20261018_wsg_split_backfill.md`.
+
+### The split is on disk, and the item key is uniform across it
+
+`bulk/floodplain.gpkg`:
+
+```
+all_ff02  2 features   in_wsg=1: 598.5193 km2   in_wsg=0: 12.3881 km2
+all_ff04  2 features   in_wsg=1: 646.81   km2   in_wsg=0: 13.1816 km2
+all_ff06  2 features   in_wsg=1: 685.146  km2   in_wsg=0: 13.7913 km2
+all_ff04_by_blue_line_key  2454 features, in_wsg present
+```
+
+`wsg`/`species`/`scenario` are `BULK`/`all`/`all_ff04` on **both** sides of the split, on the
+scenario layer and on the transition layer. So `fp_gpkg.R:156-166`'s `nrow(k) != 1L` arm and
+`01_stage.R:312-330`'s key refusals all still pass — **nothing refuses, the change is silent.**
+
+New columns confirmed present:
+
+| layer | new columns |
+|---|---|
+| `all_ff0N`, `all_ff04_by_blue_line_key`, `classified_*` | `in_wsg` |
+| `transition_*` | `in_wsg`, `in_open_water`, `open_water_poly_id` |
+| `composition_*` | `in_wsg`, `in_open_water` |
+| `patch_watercourse_*` | `in_wsg` |
+
+### The two headline-metric populations move in opposite directions
+
+`transition_all_ff04_2017_2023`, BULK: `in_wsg=1` is 9,210 rows / 5,584.9 ha, `in_wsg=0` is 76
+rows / 82.1 ha. The upstream log's "(was)" column is 9210 / 5,584.9 — so **the inside rows are
+exactly the layer that was published**, and scoping loss/gain/net to `in_wsg` holds today's
+published values. `name_basin` is NULL on all 76 outside rows and on none of the inside rows.
+
+`floodplain_ffNN_km2` is the opposite: the delineation layer was **never** clipped, so today's
+published value is the whole footprint. Measured per group, `all_ff04`, `in_wsg` / total km²
+and `gross_loss_ha` `in_wsg` / total:
+
+```
+bowr  379.66 / 389.99     586.5 / 609.1
+bulk  646.81 / 659.99    2793.4 / 2821.8
+dunc  183.17 / 185.21     116.9 / 122.2
+fran 1084.07 / 1096.31  10139.8 / 10323.6
+kisp  321.14 / 324.4      350.5 / 355.5
+kotl  744.90 / 754.14     643.1 / 658.4
+larl  372.07 / 375.51     379.4 / 380.9
+lchl  412.92 / 426.81    1526.4 / 1631.9
+lnth  379.47 / 388.56     746.5 / 762.4
+lsal  284.73 / 290.88    1003.9 / 1038.1
+mcgr  344.61 / 355.33     776.7 / 818.1
+mork  655.52 / 667.04    1063.0 / 1086.8
+morr  473.37 / 479.32     659.5 / 684.7
+necr  749.44 / 759.59    4463.8 / 4598.4
+pars  553.11 / 559.44    1753.0 / 1775.1
+pcea  491.38 / 843.34     227.7 / 238.5
+pine  479.00 / 488.87    1033.0 / 1081.8
+sloc  153.21 / 154.49     119.7 / 123.0
+tabr  258.73 / 267.19     634.6 / 659.3
+thom  251.43 / 257.04    1169.1 / 1247.9
+ufra  298.00 / 301.73     827.2 / 840.0
+unth  233.03 / 234.93     672.9 / 678.6
+will  342.50 / 351.24     679.3 / 738.2
+```
+
+Every total above equals the item's live `floodplain_ff04_km2` / `gross_loss_ha`? **No** — only
+the floodplain column does. BULK live `floodplain_ff04_km2` is 659.99 (= total) while live
+`gross_loss_ha` is 2793.4 (= `in_wsg`). That asymmetry is the whole point of the issue, and it is
+why the two metric families need opposite handling.
+
+PCEA is the outlier the issue names: 41.7% of its floodplain is outside the group, in Williston's
+PARS and FINA arms, and 1,700.3 ha of its change against 754.4 ha inside.
+
+### Provenance moved only where the issue says
+
+`bulk/provenance.json`, section `landcover.all_ff04`:
+
+- `outputs.transition_patches` 9210 → 9286, `outputs_hash` moved.
+- `run.repairs[0]` records `kind: wsg_split`, `issue: 53`, `previous_outputs.transition_patches:
+  9210`, `repaired_utc: 2026-10-18T20:55:31Z`.
+- `run.datetime_utc` unchanged at `2026-10-14T13:33:49Z` — so `processing:datetime`
+  (`nge:produced_datetime`) does not move, and `fp_prov_rasters_current()`'s mtime arm still has
+  its reference.
+- `composition.inputs.overlays.wsg` added; `overlays.open_water` names
+  `whse_basemapping.fwa_lakes_poly` + `fwa_manmade_waterbodies_poly`.
+
+**Nothing in this repo reads `transition_patches`, `outputs_hash` or `run.repairs`**, and
+`fp_provenance.R:165-173`'s unknown-key refusal is at the document root only, so the new
+section-level siblings are inert. `schema_version` is still 2.
+
+## Why there is no "property description" to write
+
+Item properties in `item_create.py:479-503` are a bare `dict` — no per-property description,
+no `item_assets`, no property metadata block. So the issue's "state that in the property
+description" has to land in the collection `description` and the GeoPackage asset descriptions.
+`item_validate.check_citation_premise` tests `EXPECTED_DERIVATION_STATEMENT` by **containment**,
+so appending sentences is safe; rewording the existing text is not.
+
+## The coupling that decides the COG re-upload
+
+`02_raster_tag.py:69-73` `SHARED_FIELDS` writes the six metrics into every COG as
+`NGE_<FIELD>`, and `item_validate.py:461-465` `SHARED_TAG_PROPERTIES` is its absolute twin
+(`check_cog_tags`, `:916-922`). Changing a metric's **value** therefore rewrites every COG's
+bytes and so every published `file:checksum`. Measured bucket composition:
+
+```
+tif   108    154.6 MB
+gpkg   69   1179.2 MB
+other  93    257.1 MB      total 270 objects / 1.5 GiB
+```
+
+The GeoPackages change regardless (the split), so the COG rewrite adds ~155 MB to a sync that
+was always going to be ~1.3 GB. That makes adding the six sibling tags free, and
+`flood_factor` is the standing precedent for a published property with no tag if we had wanted
+to avoid it.
+
+`prov_fields-check.py:97-101` pins a static `SHARED` fixture against all three copies, so the
+six names have to land in four places at once.
+
+## Errors Encountered
+
+| Error | Resolution |
+|-------|------------|
+
+## Issue context
+
+## What changes if we do it
+
+Published items say which of their ground is inside their own watershed group (`in_wsg`) and which is open water (`in_open_water`). A regional total becomes a sum over `in_wsg`, and the double count between neighbouring items is a query a consumer can run.
+
+## What happens if we never do
+
+The gpkg assets already carry the new columns once they are restaged, but the item schema does not describe them. The headline metrics also switch silently from clipped to whole-footprint figures: PCEA's gross change would roughly triple, because most of the change in that item lies in Williston's arms in PARA and FINA.
+
+## What changed upstream
+
+floodplains NewGraphEnvironment/floodplains#53 and NewGraphEnvironment/floodplains#138, in NewGraphEnvironment/floodplains#144. The outputs of all 23 region groups were backfilled on 2026-10-18 (log `scripts/floodplain_lcc/logs/20261018_wsg_split_backfill.md`).
+
+- **Every vector layer is split along the group polygon.** Each piece carries `in_wsg` (logical; TRUE inside the item's own group):
+  - `<wsg>_all_ffNN` is now **two rows** (inside and outside), not one. Both stay MULTIPOLYGON.
+  - `all_ff04_by_blue_line_key` has one row per (key, side).
+  - Each `classified_*` layer has one row per (class, side).
+- **`transition_*` change patches are no longer clipped to the group.** The outside pieces are new rows with `name_basin` NA. Inside rows are byte-identical to what was published (WKB, `patch_id`, `area_ha`). `transition_patches` in provenance now counts pieces (rows).
+- **New context columns on the patches:** `in_open_water` (logical) and `open_water_poly_id`. They come from FWA `fwa_lakes_poly` + `fwa_manmade_waterbodies_poly`, with no size cut-off. Lakes and reservoirs share one flag because FWA files a dammed lake as a lake. Like `in_wetland`, the flag is any-touch, so areas are read from the composition table.
+- **`composition_*` gains `in_wsg` and `in_open_water` columns,** counted by cell centre.
+- **`patch_watercourse_*` gains `in_wsg`.** The patch key is now (`name_basin`, `patch_id`, `in_wsg`).
+- **Provenance changes:**
+  - `landcover[<scen>].outputs.transition_patches` and its `outputs_hash` moved. `run.repairs` records a `wsg_split` repair holding the previous values.
+  - `run.datetime_utc` (`nge:produced_datetime`) did **not** move: no raster was rewritten.
+  - The composition sibling was rebuilt and records the group polygon under `inputs.overlays.wsg`.
+  - The rasters, their digests and every `inputs` field are unchanged.
+
+## What to do here
+
+- [ ] Item schema: describe `in_wsg`, `in_open_water` and `open_water_poly_id`.
+- [ ] Headline metrics: compute gross loss/gain/net (`01_stage.R`'s patch sums) and `floodplain_ffNN_km2` over `in_wsg` rows, and state that in the property description. The whole-footprint figure can sit beside it under its own name.
+- [ ] Any README or region sum in this repo that adds per-item floodplain areas: sum over `in_wsg`. Today's sums count shared ground twice (floodplains#60).
+- [ ] Restage and republish every whole-network item (`run_pipeline.sh` rebuild, then `catalogue_release.sh`).
+- [ ] Any reader of a scenario layer that assumes one row: union the rows, or filter to `in_wsg`.
+
+
