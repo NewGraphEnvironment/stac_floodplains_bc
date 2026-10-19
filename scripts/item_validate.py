@@ -462,6 +462,9 @@ SHARED_TAG_PROPERTIES = {
     "wsg", "species", "scenario", "region",
     "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
     "gross_loss_ha", "gross_gain_ha", "net_ha",
+    "floodplain_ff02_footprint_km2", "floodplain_ff04_footprint_km2",
+    "floodplain_ff06_footprint_km2",
+    "gross_loss_footprint_ha", "gross_gain_footprint_ha", "net_footprint_ha",
 }
 
 # The published provenance contract (#17, renamed off the `nge:` prefix in #74). Declared here
@@ -806,6 +809,133 @@ def check_processing_stamp(base: Path) -> list[str]:
                 f"from the producer's landcover run datetime_utc — fix it upstream rather "
                 f"than reformatting it here, or pystac refuses the item with a raw schema "
                 f"message after the whole tree has been hashed")
+    return problems
+
+
+# --- metric scopes (#98) --------------------------------------------------------------
+#
+# Each headline figure is published twice: unsuffixed over the layer's `in_wsg` rows, and
+# `*_footprint_*` over every row. Five of the six pairs are non-negative sums over nested row
+# sets, so `in_wsg <= footprint` holds by construction and a violation means the two were
+# swapped or one was read from the wrong layer. `net` is excluded from that arm deliberately —
+# it is a signed difference, so its two scopes can sit either side of each other.
+METRIC_SCOPE_PAIRS = (
+    ("floodplain_ff02_km2", "floodplain_ff02_footprint_km2"),
+    ("floodplain_ff04_km2", "floodplain_ff04_footprint_km2"),
+    ("floodplain_ff06_km2", "floodplain_ff06_footprint_km2"),
+    ("gross_loss_ha", "gross_loss_footprint_ha"),
+    ("gross_gain_ha", "gross_gain_footprint_ha"),
+)
+# gain - loss = net, per scope. Both arms, because a filter dropped from ONE member of a
+# triple is the defect this exists for and it leaves the other two consistent.
+METRIC_NET_TRIPLES = (
+    ("gross_gain_ha", "gross_loss_ha", "net_ha"),
+    ("gross_gain_footprint_ha", "gross_loss_footprint_ha", "net_footprint_ha"),
+)
+# A literal a human sets from the build, the same shape and the same rule as PROVENANCE_FLOOR
+# and PROV_CENSUS: how many items STRADDLE their group line on each metric, i.e. carry
+# `in_wsg` strictly below `footprint`.
+#
+# It exists because the per-item inequality above is satisfied by EQUALITY, so an `in_wsg`
+# filter dropped from the staging code publishes two identical scopes on every item and passes
+# every per-item arm — a uniform loss, which is exactly what the per-field census was
+# introduced for in #74. Per metric and not per item, for the same reason that census is: a
+# group can legitimately straddle on area and not on change.
+#
+# Measured on the floodplains#144 tree, 2026-10-19: all 23 rostered groups straddle on all
+# five. That it is 23/23 today is a property of the roster, not a guarantee — a group wholly
+# inside its own boundary would read 22 and be correct — so re-take it from the build a
+# release is cut from and never carry it between releases.
+METRIC_SCOPE_CENSUS = {
+    "floodplain_ff02_km2": 23,
+    "floodplain_ff04_km2": 23,
+    "floodplain_ff06_km2": 23,
+    "gross_loss_ha": 23,
+    "gross_gain_ha": 23,
+}
+assert set(METRIC_SCOPE_CENSUS) == {inw for inw, _ in METRIC_SCOPE_PAIRS}, (
+    "METRIC_SCOPE_CENSUS and METRIC_SCOPE_PAIRS disagree on which metrics have two scopes")
+# Every metric that must be present and numeric on every item: both members of every pair,
+# plus the two nets.
+METRIC_PROPERTIES = sorted(
+    {k for pair in METRIC_SCOPE_PAIRS for k in pair} | {"net_ha", "net_footprint_ha"})
+assert set(METRIC_PROPERTIES) <= SHARED_TAG_PROPERTIES, (
+    "a metric property is not tagged into the COGs: "
+    f"{sorted(set(METRIC_PROPERTIES) - SHARED_TAG_PROPERTIES)}")
+
+
+def check_metric_scopes(base: Path, census: bool = True) -> list[str]:
+    """The two scopes of every headline figure are consistent, per item and across the tree.
+
+    Four arms, and the fourth is the one that cannot be done per item:
+
+      * every metric present and numeric on every item. An absent one is the uniform-loss
+        shape: `01_stage.R` writes all twelve on every item, so a missing key is a staging
+        bug, and `item_create.py` would already have raised on it — this catches a tree built
+        before it did, and a hand-edited document.
+      * `in_wsg <= footprint` on the five non-negative pairs. Catches a swapped pair.
+      * `gain - loss == net` in BOTH scopes, within one rounding step. 01_stage.R rounds the
+        sums before subtracting, so the identity is exact up to float, not approximate.
+      * the straddle census against METRIC_SCOPE_CENSUS. This is the arm that fails when an
+        `in_wsg` filter is dropped: the per-item arms are all satisfied by two identical
+        scopes.
+
+    `census=False` for a partial tree, where the count is the subset's and says nothing.
+    """
+    problems: list[str] = []
+    straddle = {k: 0 for k in METRIC_SCOPE_CENSUS}
+    seen = 0
+    for path in sorted(base.glob("*.json")):
+        doc = json.loads(path.read_text())
+        if doc.get("type") != "Feature":
+            continue
+        item_id = doc.get("id", path.stem)
+        props = doc.get("properties") or {}
+        seen += 1
+        # bool is a subclass of int, so it is excluded explicitly: a metric published as
+        # `true` would otherwise compare and subtract as 1 and pass every arm below.
+        bad_type = False
+        for name in METRIC_PROPERTIES:
+            value = props.get(name, _ABSENT)
+            if value is _ABSENT:
+                problems.append(
+                    f"{item_id}: metric property {name!r} is missing — every item publishes "
+                    f"both scopes of every headline figure (#98)")
+                bad_type = True
+            elif isinstance(value, bool) or not isinstance(value, (int, float)):
+                problems.append(
+                    f"{item_id}: metric property {name!r} is {value!r}, expected a number")
+                bad_type = True
+        if bad_type:
+            continue
+
+        for inw, fp in METRIC_SCOPE_PAIRS:
+            if props[inw] > props[fp]:
+                problems.append(
+                    f"{item_id}: {inw} is {props[inw]} but {fp} is {props[fp]} — the "
+                    f"in_wsg figure is a sum over a SUBSET of the footprint's rows and "
+                    f"cannot exceed it; the two scopes look swapped")
+            elif props[inw] < props[fp]:
+                straddle[inw] += 1
+
+        for gain, loss, net in METRIC_NET_TRIPLES:
+            if abs((props[gain] - props[loss]) - props[net]) > 0.05:
+                problems.append(
+                    f"{item_id}: {net} is {props[net]} but {gain} - {loss} is "
+                    f"{round(props[gain] - props[loss], 1)} — one of the three was read "
+                    f"over a different row set than the other two")
+
+    if not census:
+        return problems
+    for name, want in sorted(METRIC_SCOPE_CENSUS.items()):
+        got = straddle[name]
+        if got != want:
+            problems.append(
+                f"{name}: {got} of {seen} item(s) straddle their group line (in_wsg below "
+                f"footprint), expected exactly {want}. Below is an in_wsg filter that was "
+                f"dropped somewhere in staging — which every per-item arm passes, because "
+                f"two identical scopes are consistent. Above is a literal nobody re-took "
+                f"from the build")
     return problems
 
 
@@ -2156,6 +2286,26 @@ def main() -> int:
     print(f"field names: every namespaced field sits under one of "
           f"{', '.join(sorted(FIELD_PREFIXES))}, each declaring its schema where it has one; "
           f"processing extension declared iff the item carries a processing: field")
+
+    # --- metric scopes: are the in_wsg and footprint figures consistent? (#98) ---
+    # Before the checksum re-read, like the two above, so a dropped in_wsg filter is named in
+    # seconds rather than after ~1.3 GB has been hashed. The census arm is dropped under
+    # --partial, where a straddle count is the subset's and says nothing about the catalogue.
+    bad_metrics = check_metric_scopes(args.base, census=not args.partial)
+    if bad_metrics:
+        print(f"FAILED: {len(bad_metrics)} metric-scope problem(s)", file=sys.stderr)
+        for msg in bad_metrics:
+            print(f"  {msg}", file=sys.stderr)
+        return 1
+    if args.partial:
+        print(f"metric scopes: every item publishes all {len(METRIC_PROPERTIES)} figures, "
+              f"no in_wsg figure exceeds its footprint sibling, and gain - loss = net in "
+              f"both scopes; --partial, so the straddle census is not asserted")
+    else:
+        print(f"metric scopes: every item publishes all {len(METRIC_PROPERTIES)} figures, "
+              f"no in_wsg figure exceeds its footprint sibling, gain - loss = net in both "
+              f"scopes, and the straddle count is exactly "
+              f"{', '.join(f'{k} {v}' for k, v in sorted(METRIC_SCOPE_CENSUS.items()))}")
 
     # --- deprecation: are the over-mapped items marked, and only them? (#26) ---
     # Here rather than after check_checksums, for the same reason as the premise check above:

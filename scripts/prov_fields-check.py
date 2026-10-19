@@ -94,11 +94,25 @@ STAGED = {
     "landcover_key": "sha256:97095d",
     "landcover_item_hash": "sha256:f83e23",
 }
+# The non-provenance half of every item: published as properties AND tagged into the COG, so
+# this fixture has to cover SHARED_TAG_PROPERTIES exactly or check_cog_tags reports a missing
+# property rather than the thing a case is testing. Pinned below rather than trusted, which is
+# also what keeps the import of that name honest.
+#
+# The `*_footprint_*` values are deliberately LARGER than their unsuffixed siblings and the
+# nets are consistent per scope, so this fixture satisfies check_metric_scopes and a case
+# that breaks it has to say so.
 SHARED = {
     "wsg": "aaaa", "species": "ch", "scenario": "ff04", "region": "Test",
     "floodplain_ff02_km2": 1.0, "floodplain_ff04_km2": 2.0, "floodplain_ff06_km2": 3.0,
     "gross_loss_ha": 1.5, "gross_gain_ha": 0.5, "net_ha": -1.0,
+    "floodplain_ff02_footprint_km2": 1.2, "floodplain_ff04_footprint_km2": 2.2,
+    "floodplain_ff06_footprint_km2": 3.2,
+    "gross_loss_footprint_ha": 1.9, "gross_gain_footprint_ha": 0.7, "net_footprint_ha": -1.2,
 }
+assert set(SHARED) == SHARED_TAG_PROPERTIES, (
+    "SHARED fixture and item_validate.SHARED_TAG_PROPERTIES disagree: "
+    f"{sorted(set(SHARED) ^ SHARED_TAG_PROPERTIES)}")
 PROCESSING_EXT = "https://stac-extensions.github.io/processing/v1.2.0/schema.json"
 OTHER_EXTS = ["https://stac-extensions.github.io/projection/v1.1.0/schema.json",
               "https://stac-extensions.github.io/file/v2.1.0/schema.json",

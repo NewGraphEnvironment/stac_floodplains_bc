@@ -66,10 +66,21 @@ RAT_FIELDS = [
 ]
 
 # Scalar tags shared by every asset in a WSG.
+#
+# The six metrics appear TWICE since #98: the unsuffixed name is the item's own watershed
+# group (`in_wsg`) and the `*_footprint_*` sibling is the unclipped footprint. Both are
+# tagged, not just the published scope, because the unsuffixed tags CHANGED MEANING in that
+# release — a COG downloaded before it carries a whole-footprint value under a name that now
+# means in_wsg, and a tag whose sibling sits beside it is the only way the redefinition is
+# legible inside the file. It cost nothing to add: rescoping the three area values rewrites
+# every COG's bytes anyway, so the sibling tags ride along in the same re-upload.
 SHARED_FIELDS = [
     "wsg", "species", "scenario", "region",
     "floodplain_ff02_km2", "floodplain_ff04_km2", "floodplain_ff06_km2",
     "gross_loss_ha", "gross_gain_ha", "net_ha",
+    "floodplain_ff02_footprint_km2", "floodplain_ff04_footprint_km2",
+    "floodplain_ff06_footprint_km2",
+    "gross_loss_footprint_ha", "gross_gain_footprint_ha", "net_footprint_ha",
 ]
 
 # Run provenance (#17), mirrored so a downloaded COG is self-describing. Same field names as

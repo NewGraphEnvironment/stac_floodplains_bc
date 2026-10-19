@@ -43,26 +43,30 @@ No `--only`.
 
 ## Phase 2: Publish surface
 
-- [ ] `02_raster_tag.py` `SHARED_FIELDS` += the six.
-- [ ] `item_create.py` publishes the six beside the existing six.
-- [ ] `item_create.py` prose — module docstring, collection `description` (APPEND, never reword:
+- [x] `02_raster_tag.py` `SHARED_FIELDS` += the six.
+- [x] `item_create.py` publishes the six beside the existing six.
+- [x] `item_create.py` prose — module docstring, collection `description` (APPEND, never reword:
       `check_citation_premise` tests `EXPECTED_DERIVATION_STATEMENT` by containment), and all three
       GeoPackage asset descriptions. `transition_vector` has no description today and gains one.
-- [ ] `item_validate.py` `SHARED_TAG_PROPERTIES` += the six.
-- [ ] `prov_fields-check.py` static `SHARED` fixture += the six.
-- [ ] Synthetic `meta.json` fixtures in `prov_fields-check.py` / `year_sets-check.py` gain the six.
+- [x] `item_validate.py` `SHARED_TAG_PROPERTIES` += the six.
+- [x] `prov_fields-check.py` static `SHARED` fixture += the six, pinned by a new
+      `assert set(SHARED) == SHARED_TAG_PROPERTIES` (the name was imported and unused).
+- [x] ~~Synthetic `meta.json` fixtures in `year_sets-check.py`~~ — measured false: it imports
+      `check_checksums` alone and builds item JSON, never `meta.json`, so nothing to change.
 
 ## Phase 3: Guards
 
-- [ ] `item_validate.py` — new per-item arm over the twelve metrics: all twelve present; each
+- [x] `item_validate.py` — new `check_metric_scopes()`, four arms (see progress.md): all twelve present; each
       `in_wsg` figure within its footprint sibling in the right direction; `net == gain - loss`
       within rounding in both scopes.
-- [ ] `test_pipeline.R` — `in_wsg` joins the required column set for every staged data layer.
-- [ ] `test_pipeline.R` — keep `DISTINCT wsg, species, scenario` at one row; add an arm that every
+- [x] `test_pipeline.R` — `in_wsg` joins the required column set for every staged data layer
+      (measured: all 246 whole-network layers over the 23 rostered groups carry it; the 222
+      that do not are the retired species layers #80 never stages).
+- [x] `test_pipeline.R` — keep `DISTINCT wsg, species, scenario` at one row; add an arm that every
       distinct `in_wsg` value is 0 or 1 with at least one row. Leave the source-side twin keyed on
       the three columns only (it *selects* on `nrow(k) == 1L`).
-- [ ] `test_pipeline.R` `meta_core` += the six.
-- [ ] `test_pipeline.R` positive-metric arms extended to the siblings.
+- [x] `test_pipeline.R` `meta_core` += the six.
+- [x] `test_pipeline.R` positive-metric arms extended to the siblings, plus both net identities.
 
 ## Phase 4: Prose
 
