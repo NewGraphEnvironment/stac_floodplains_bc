@@ -587,3 +587,68 @@ own strip is another item's ground. Per ITEM the neighbour-covered share runs to
 80.9% (SLOC), 67.8% (WILL), 62.9% (MORR), so `NEWS.md`'s "true of a tenth of it" is true by
 AREA and false by item for 4 of 23. Excluding PCEA the split is 29.5/70.5, so "most of it is
 published by nobody" survives either way.
+
+---
+
+## code-check round 5 — 11 findings, NINE inside round-4 fixes, and the structural fix
+
+Report: `planning/active/review-round5.md`. Five rounds, 38 findings, **19 inside a previous
+round's fix**. That is not nineteen different mistakes. It is one shape, repeated:
+
+> Each round corrected a claim in the copies that happened to be open and left it standing in
+> the others.
+
+The claim set lives in **eight to nine places** — the published collection description, two
+published asset descriptions, `README.Rmd` twice, `NEWS.md`, `CLAUDE.md`, `scripts/README.md`,
+`readme_functions.R`, `01_stage.R`, plus comments in `item_validate.py` — and **nothing joined
+them**, in a repo that pins its licence literals with `attribution_drift-check.py` and four
+copies of its provenance map with `prov_fields-check.py`. So the terminating move was not a
+sixth round. It was to make the class mechanically impossible.
+
+### `scripts/claim_drift-check.py`
+
+Four arms, 156 assertions, and it found five more real problems **on its first run** — two of
+which I had just finished believing I had fixed:
+
+| arm | what it pins | proved by mutation |
+|---|---|---|
+| 1 RETIRED | 14 phrasings measured false during this review must appear in no claim file | inserting "both flags are any-touch" into `NEWS.md` -> FAIL naming the line |
+| 2 CO-OCCURRENCE | any file naming `composition_*` as a source of AREA must also name the `in_floodplain` filter — a rule, so it covers a copy that does not exist yet | removing the filter clause from `CLAUDE.md` -> FAIL |
+| 3 MEASURED, both ways | every prose number re-derived from `data/stac`, AND required to appear in at least one claim file, so a corrected copy beside a stale one fails | changing 10,611.35 everywhere -> FAIL "no claim file quotes it" |
+| 4 METHOD | the Albers figures (519.16 / 50.58 / 468.57 / 10,092.24) may only be quoted by a file that names the projection — the remedy a withdrawn measurement earned in round 3 | removing "BC Albers" -> FAIL |
+
+Its first run found: an **eighth** `PARS` copy in `01_stage.R`; a `NEWS.md` paragraph still
+telling consumers to read areas from `composition_*` with no filter; and **two numbers where I
+had mixed the Albers measurement with the published-property sums** — 10,611.40 where the
+published sum is 10,611.35, and 10,092.24 (Albers) quoted where the sentence was about the
+published sum of 10,092.27. The in_wsg sum is now deliberately out of the derived list, with
+the reason written down, and arm 4 pins the Albers figures on their METHOD instead.
+
+`planning/` is excluded and the reason is stated: it is the record and deliberately keeps the
+wrong turns. Lines that quote a retired phrasing in order to record it AS retired are exempt
+through a listed marker set.
+
+### The eleven findings
+
+| # | finding | measured |
+|---|---|---|
+| 1 | the published composition range `3-10%` was derived from three items and published as if they bracketed 23 | **false on 2 of 23**: PCEA 2.95%, UNTH 11.11%, median 7.11%. Now "2.9% to 11.1%, median 7.1%" |
+| 2 | the **collection** description still read open-water areas from `composition_*` with no filter — the copy round 4 called the only finding reaching a consumer's numbers. Four copies, two fixed | fixed in all four |
+| 3 | the collection description still carried `519.16` with no method, and round 4 had named that copy FIRST | fixed; arm 4 now pins it |
+| 4 | both `README.Rmd` copies kept the unscoped claim, one of them cited by line in round 4's report | fixed |
+| 5 | the provincial/province self-contradiction `e42ca5e` removed from `CLAUDE.md` survived in `NEWS.md` six lines below its own hunk | fixed |
+| 6 | the replacement polarity-arm comment was wrong in the **opposite** direction | proved by mutation: zeroing BULK's ff04 pair gives `census=True` -> 1 problem ("22 of 23 straddle"), `census=False` -> 0. A zero pair IS visible to the census; only the rebuild/`--only` path was blind |
+| 7 | the staged-side mitigation that comment leaned on covers 3 of 5 pairs, and **no positivity arm existed on any `*_footprint_*` figure** despite a comment claiming "Positive AND at least its in_wsg sibling" | added; the zero pair now fails in rebuild mode too (0 -> 1 problem) |
+| 8 | `TRANSITION_COLUMNS` did not grow with the claim the same commit grew — **fourth** instance of the class | `in_fire_prior`, `area_ha`, `from_class`, `to_class` added; 0 problems on the build |
+| 9 | the sentence written to state the method quoted the OTHER method's ff02/ff06 numbers | both now labelled as published-property sums |
+| 10 | the insertion orphaned a pre-existing sentence | rewritten |
+| 11 | the fetch overwrote two **tracked** artifacts before the version guard could refuse, and the guard's remedy is that command | the floor is now checked against the FETCH before any write and against the cache after, from one `fp_readme_version_ok()` declared once |
+
+### And one self-inflicted loss, recovered
+
+Proving arm 4 by mutation, I ran `git checkout -- scripts/item_create.py` to undo a probe edit
+on a file that also held five **uncommitted** fixes. It restores from the index, which held
+nothing, so HEAD won — and five edits went. `code-check-shell.md` records exactly this ("`git
+checkout <path>` restores from the index, not from HEAD"). The claim check caught the
+regression immediately and named both halves of it, which is the first time in five rounds that
+a lost fix was found by a guard rather than by a reviewer. All five redone and verified.

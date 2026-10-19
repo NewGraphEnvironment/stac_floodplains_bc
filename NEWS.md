@@ -57,9 +57,12 @@ staged `all_ff04` layers), **50.58 km2 (9.7%)** is another item's own ground and
 **468.57 km2 (90.3%)** falls outside every rostered watershed group. So summing the unsuffixed
 figures counts no ground twice — the union of the 23 in_wsg pieces equals their sum,
 10,092.24 km2 — while summing footprints double-counts by 50.58 km2, or 0.48% of the
-**footprint** sum of 10,611.40 (floodplains#60). The other flood factors differ by 505.82
-(ff02) and 528.90 (ff06) km2, so this is an ff04 figure rather than a property of every pair.
-The unsuffixed provincial total is therefore a total of the **rostered** floodplain, not of the
+**footprint** sum of 10,611.35 (floodplains#60). The other flood factors differ by 505.82
+(ff02) and 528.90 (ff06) km2 and the change pairs by 908.40 and 620.20 ha, all from the
+published per-item properties — so this is an ff04 figure rather than a property of every
+pair. (519.16 is the Albers geometry measurement; the same quantity from the published
+per-item areas is 519.08, those being UTM and rounded to 2 dp.) The unsuffixed total is
+therefore a total of the floodplain across the groups this collection covers, not of the
 province's; an earlier draft of this entry said the shared ground was a neighbour's, which is
 true of a tenth of it **by area** and of rather more of it per item — PCEA alone is 351.97 of
 the 519.16 km2 and only 0.35% of its own strip is another item's ground, while DUNC's strip is
@@ -117,8 +120,10 @@ anyway.
 **What a consumer should change.** Filter on `in_wsg` or union the rows before using any
 scenario layer as a single feature. Sum the unsuffixed properties, not the `*_footprint_*`
 ones, for a regional total. `in_open_water` is **any-touch**, like `in_wetland`, so read
-open-water areas from the `composition_*` table (counted by cell centre) rather than summing
-`area_ha` over the flagged patches; `open_water_poly_id` is an identifier, not a flag.
+open-water areas from the `composition_*` table (counted by cell centre) **filtered on
+`in_floodplain = 1`** — it also covers the ring the raster only touches, 2.9% to 11.1% of its
+`ha` by item — rather than summing `area_ha` over the flagged patches; `open_water_poly_id` is
+an identifier, not a flag.
 `in_wsg` is neither — it is a true **partition** of the patches, which is why the headline
 figures are sums over its TRUE rows and why a provincial total is their plain sum. The collection description says all of this, and so do the
 `floodplain_landcover.gpkg` and `transition_vector.gpkg` asset descriptions;

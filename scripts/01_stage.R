@@ -728,8 +728,9 @@ for (wsg in wsgs) {
     # Two areas per flood factor. Unlike the transition layer, the delineation was NEVER
     # clipped to the group, so `*_footprint_km2` is what this catalogue published before the
     # split and `floodplain_ffNN_km2` is the new, smaller statement (measured on BULK:
-    # 659.99 -> 646.81; on PCEA 843.34 -> 491.38, 41.7% of its floodplain lying in
-    # Williston's PARS and FINA arms). That is the reverse direction from loss/gain/net
+    # 659.99 -> 646.81; on PCEA 843.34 -> 491.38, 41.7% of its floodplain lying in the arms
+    # of Williston Reservoir, in watershed groups no roster covers). That is the reverse
+    # direction from loss/gain/net
     # above, which is why the two families are read by two functions and not one.
     read_areas_km2 <- function(layer) {
       poly <- sf::st_read(fp_gpkg, layer = layer, quiet = TRUE)

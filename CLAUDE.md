@@ -37,6 +37,18 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   `pyproj` via `morecantile` and forced `requires-python` to `>=3.11`; siblings copying this
   `pyproject.toml` inherit that floor. `osgeo` is not available under uv (`uv pip install gdal`
   has no usable wheels), and rasterio has no RAT API — both are why the RAT is written as PAM XML.
+- `scripts/claim_drift-check.py` — the sibling of `attribution_drift-check.py`, for #98's
+  claim set rather than the licence literals. It exists because five `/code-check` rounds on
+  that issue found 38 defects of which **19 were inside a previous round's fix**, all one
+  shape: a claim corrected in the copies that were open and left standing in the others. The
+  set lives in nine places, and nothing joined them. Four arms — 14 retired phrasings that must
+  appear nowhere; a RULE that any file naming `composition_*` as a source of area must also
+  name the `in_floodplain` filter (so it covers a copy that does not exist yet); every prose
+  number re-derived from `data/stac` **and** required to appear in a claim file, so a corrected
+  copy beside a stale one fails; and the Albers figures quotable only by a file that names the
+  projection. It found five more real problems on its first run, two of them regressions I had
+  just made. Hand-run, like its sibling; `planning/` is excluded because it keeps the wrong
+  turns on purpose.
 - `styles/` — the three QGIS layer styles (#46), generated from `data/raw/classes.json` by
   `style_qml-write.py` and **committed**, so a human reviews what ships. `04_gpkg_style.py`
   embeds them in each GeoPackage's `layer_styles` table and copies them beside the assets;
@@ -187,8 +199,9 @@ lake so one flag covers both), `composition_*` carries `in_wsg` + `in_open_water
 9,275 distinct triples, with `blue_line_key` completing it and `in_wsg` adding **0**
 combinations, because a patch lies on one side of the line or the other. Carried verbatim from
 the issue body is how it got in. `in_open_water` is
-**any-touch**, like `in_wetland`, so an AREA by it comes from `composition_*` (cell centre)
-and never from summing `area_ha` over the flagged patches — which is what the asset
+**any-touch**, like `in_wetland`, so an AREA by it comes from `composition_*` (cell centre,
+**filtered on `in_floodplain = 1`** — that table also covers the touched ring, 2.9% to 11.1%
+of its `ha` by item) and never from summing `area_ha` over the flagged patches — which is what the asset
 descriptions say, because it is the one thing a consumer cannot see by opening the file.
 `open_water_poly_id` is an identifier rather than a flag. **`in_wsg` is neither**: it is a
 true partition, so summing `area_ha` over its TRUE rows IS the right operation and is exactly
@@ -423,7 +436,7 @@ of the 519.16 km2 by which the ff04 footprint geometry exceeds the ff04 in_wsg g
 **50.58 km2 (9.7%)** is another item's own ground, and **468.57 km2 (90.3%)** falls outside
 every rostered group and is in nobody's `in_wsg`. The union of the 23 in_wsg pieces equals
 their sum (10,092.24 km2), so the unsuffixed total genuinely counts no ground twice; summing
-footprints double-counts by 50.58 km2, which is **0.48% of the footprint sum** (10,611.40) —
+footprints double-counts by 50.58 km2, which is **0.48% of the footprint sum** (10,611.35) —
 name that denominator, because 0.48% of the in_wsg sum is 48.44 km2 and the nearest antecedent
 in an earlier draft of this sentence was the wrong one. Both halves matter and only one was
 written down: the unsuffixed sum is the right **regional** total, AND it is a total of the
@@ -432,9 +445,13 @@ rostered floodplain rather than of the whole province's (floodplains#60).
 **The measurement is ff04, in BC Albers, over the staged `all_ff04` layers**
 (`planning/active/neighbour-measure.R`), which is why 519.16 is not exactly the 519.08 you get
 by summing the published `floodplain_ff04_footprint_km2 - floodplain_ff04_km2`: those are
-per-item UTM areas rounded to 2 dp. The other two flood factors differ by 505.82 (ff02) and
-528.90 (ff06) km2, so the figure is a property of ff04 and not of "a pair". Stating the method
-is the remedy a withdrawn measurement in this same issue earned. The opposite directions are the part worth writing down, because it
+per-item UTM areas rounded to 2 dp. From the same published properties the other flood factors
+differ by 505.82 (ff02) and 528.90 (ff06) km2 and the change pairs by 908.40 and 620.20 ha, so
+the figure is a property of ff04 and not of "a pair". **Quote the Albers number and the
+published-property numbers as the different things they are** — an earlier draft put
+505.82/528.90 beside 519.16 as if all three came from one measurement, which is the same defect
+one sentence after naming it. Stating the method is the remedy a withdrawn measurement in this
+same issue earned. The opposite directions are the part worth writing down, because it
 is the reason two functions read them rather than one: the pre-split transition layer **was**
 clipped, so scoping loss/gain/net to `in_wsg` HELD every published value (BULK 2793.4 / 1318.7
 / −1474.6, reproduced exactly), while the delineation layer was **never** clipped, so

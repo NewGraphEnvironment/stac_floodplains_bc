@@ -436,9 +436,10 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             f"`composition_*` table in this file, which is counted by cell centre and "
             f"carries `in_wsg`, `in_open_water`, `in_wetland` and `in_alr`. **Filter it on "
             f"`in_floodplain = 1`**: the table also covers the ring the floodplain raster "
-            f"only touches, so an unfiltered `SUM(ha)` is 3-10% above the floodplain itself "
-            f"(7.4% on this collection's BULK item). `status` splits each row into "
-            f"`change` / `stable` / `sieved`, so filter that too unless you want all three."),
+            f"only touches, so an unfiltered `SUM(ha)` runs above the floodplain itself — "
+            f"between 2.9% and 11.1% across this collection's 23 items, measured, median "
+            f"7.1%. `status` splits each row into `change` / `stable` / `sieved`, so filter "
+            f"that too unless you want all three."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain_landcover.gpkg"),
     )
@@ -499,7 +500,8 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             f"`in_wetland` and `in_alr` — but NOT for `in_fire`, `in_harvest` or "
             f"`in_fire_prior`, which it does not carry, so for those three the patch flag "
             f"is all there is. Filter `composition_*` on `in_floodplain = 1` when you do "
-            f"read it, because it also covers the ring the raster only touches. `in_wsg` is "
+            f"read it, because it also covers the ring the raster only touches (2.9% to "
+            f"11.1% of its `ha` across this collection). `in_wsg` is "
             f"different in kind: it is a true partition of the patches, which is why this "
             f"item's headline figures are sums of `area_ha` over its TRUE rows — under the "
             f"`from_class`/`to_class` filters above, not over the whole layer, which holds "
@@ -539,7 +541,7 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         # 519.16 km2 by which the ff04 footprint geometry exceeds the ff04 in_wsg geometry
         # (BC Albers, `planning/active/neighbour-measure.R`), only 50.58 km2 (9.7%) is another
         # item's own ground, so summing footprints double-counts by 50.58 km2 -- 0.48% of the
-        # FOOTPRINT sum of 10,611.40, not of the in_wsg sum, where 0.48% would be 48.44. The
+        # FOOTPRINT sum of 10,611.35, not of the in_wsg sum, where 0.48% would be 48.44. The
         # other 468.57 km2 (90.3%) lies outside EVERY rostered group and is in no item's
         # `in_wsg` at all. Both halves matter: the unsuffixed sum counts no ground twice -- the
         # union of the 23 in_wsg pieces equals their sum, 10,092.24 km2 -- AND it is a total of
@@ -775,17 +777,20 @@ collection = pystac.Collection(
         "siblings are the same figures over the item's whole footprint — the ground its "
         "rasters cover and its `geometry` describes. A pair's difference is ground outside "
         "the item's own group, and on the published catalogue most of it is published by "
-        "nobody: of the 519.16 km2 by which the footprint areas exceed the in_wsg areas, "
-        "50.58 km2 (9.7%) is another item's own ground and 468.57 km2 (90.3%) falls outside "
-        "every watershed group this collection covers. So summing the unsuffixed figures "
-        "counts no ground twice and is the right regional total, while summing the footprint "
-        "figures double-counts by about half a percent and still omits nothing — read it as "
-        "the rostered floodplain rather than the province's. "
+        "nobody: measured on the ff04 delineations in BC Albers, of the 519.16 km2 by which "
+        "the ff04 footprint exceeds the ff04 in_wsg extent, 50.58 km2 (9.7%) is another "
+        "item's own ground and 468.57 km2 (90.3%) falls outside every watershed group this "
+        "collection covers. So summing the unsuffixed figures counts no ground twice and is "
+        "the right total across the groups covered here, while summing the footprint figures "
+        "double-counts that 50.58 km2, which is 0.48% of the footprint sum of 10,611.35. "
+        "Neither is a total of the province's floodplain, because ground outside every "
+        "covered group is in no item's in_wsg at all. "
         "The transition patches additionally carry `in_open_water` and "
         "`open_water_poly_id` from the Freshwater Atlas lakes and manmade waterbodies, "
         "with no size cut-off and a dammed lake filed as a lake; the flag is any-touch, "
-        "so open-water AREAS are read from the `composition_*` table rather than summed "
-        "off the patches. "
+        "so open-water AREAS are read from the `composition_*` table — filtered on "
+        "`in_floodplain = 1`, because that table also covers the ring the raster only "
+        "touches — rather than summed off the patches. "
         + DERIVATION_STATEMENT
     ),
     extent=pystac.Extent(spatial=spatial_extent, temporal=temporal_extent),

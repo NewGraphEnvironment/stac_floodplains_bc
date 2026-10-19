@@ -949,6 +949,19 @@ def check_metric_scopes(base: Path, census: bool = True
             continue
 
         for inw, fp in METRIC_SCOPE_PAIRS:
+            # Positivity first, on BOTH members. Without it `0 == 0` satisfies the ordering
+            # arm, the majority arm (gated on a truthy footprint) and the net identity, and
+            # the census sees it only on a full release — so a pair zeroed on every item was
+            # refused by nothing in a rebuild. `test_pipeline.R` has `> 0` arms for the three
+            # areas and none for loss/gain, and it is outside the release path besides.
+            # Every rostered group has a floodplain and some tree change, so a zero here is
+            # a reader that found nothing, which is what the whole #98 guard family is about.
+            if props[inw] <= 0 or props[fp] <= 0:
+                problems.append(
+                    f"{item_id}: {inw} is {props[inw]} and {fp} is {props[fp]} — a figure "
+                    f"at or below zero is a reader that found nothing, not a measurement; "
+                    f"every rostered group has a floodplain and some tree change")
+                continue
             if props[inw] > props[fp]:
                 problems.append(
                     f"{item_id}: {inw} is {props[inw]} but {fp} is {props[fp]} — the "
@@ -957,16 +970,18 @@ def check_metric_scopes(base: Path, census: bool = True
             else:
                 if props[inw] < props[fp]:
                     straddle[inw] += 1
-                # The polarity arm, and its scope stated correctly — the first version of this
-                # comment claimed it covered a footprint of 0 with a positive in_wsg figure,
-                # which it cannot: that case never enters this `else` because the ordering arm
-                # above catches it. What NOTHING here sees is `footprint == in_wsg == 0`, which
-                # passes every per-item arm and is invisible to the census too (a zero pair
-                # does not straddle, and the census is release-gated). Measured by mutation.
-                # It is not reachable on this build — all 115 footprint values are non-zero —
-                # and `test_pipeline.R`'s `> 0` arms catch it on the staged side, outside the
-                # release path. Left as a known gap rather than guarded, and named so the next
-                # reader does not take the comment for coverage.
+                # The polarity arm. Its scope, measured by mutation rather than reasoned —
+                # two earlier versions of this comment were wrong in opposite directions:
+                #   * a footprint of 0 with a POSITIVE in_wsg figure never reaches here at
+                #     all; the ordering arm above catches it (in_wsg > footprint).
+                #   * `footprint == in_wsg == 0` passes every per-item arm, but it is NOT
+                #     invisible to the census: a zero pair stops straddling, so the count
+                #     drops and `check_metric_scopes(census=True)` refuses it (measured:
+                #     zeroing one item's ff04 pair gives "22 of 23 item(s) straddle …
+                #     expected exactly 23"). It is invisible only under `census=False` —
+                #     a plain rebuild and `--only` — which is the gap, and a narrower one
+                #     than either earlier comment claimed.
+                # Not reachable on this build: all 115 footprint values are non-zero.
                 if props[fp] and props[inw] < METRIC_SCOPE_MAJORITY * props[fp]:
                     problems.append(
                         f"{item_id}: {inw} is {props[inw]}, only "
@@ -1039,15 +1054,22 @@ TRANSITION_LAYER_PREFIX = "transition"
 # round-3 fix and this map did not — the third instance in this issue of a published claim
 # outrunning the guard that checks it, which is the whole reason the map exists. `in_floodplain`
 # is the load-bearing one: the table covers the touched ring as well as the floodplain, so a
-# consumer who does not filter on it reads 3-10% high.
+# consumer who does not filter on it reads 2.9% to 11.1% high, by item (measured on all 23).
 COMPOSITION_LAYER_PREFIX = "composition"
 COMPOSITION_COLUMNS = ("in_floodplain", "in_open_water", "in_wetland", "in_alr",
                        "status", "ha")
 # Presence only, deliberately. The descriptions claim these are PRESENT and any-touch; they
 # make no claim about their domain, and `open_water_poly_id` is an id, not a flag. `in_wsg` is
 # the one whose VALUES the published figures depend on, so it is the one with a value arm.
+#
+# `in_fire_prior`, `area_ha`, `from_class` and `to_class` are here because the descriptions
+# name them too — `in_fire_prior` in the "for those three the patch flag is all there is"
+# clause, and the other three in the sentence that tells a consumer the headline figures are
+# `area_ha` summed over `in_wsg` under the class filters. Four more instances of one class in
+# one issue: the claim grew and this map did not, each time.
 TRANSITION_COLUMNS = ("in_open_water", "open_water_poly_id",
-                      "in_fire", "in_harvest", "in_wetland", "in_alr")
+                      "in_fire", "in_harvest", "in_fire_prior", "in_wetland", "in_alr",
+                      "area_ha", "from_class", "to_class")
 
 
 def gpkg_required_columns(layer: str) -> tuple:

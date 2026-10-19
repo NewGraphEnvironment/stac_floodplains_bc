@@ -253,6 +253,7 @@ fixture, which **must** be seen to sweep `collection.json` by the same greps; wi
 
 ```bash
 bash scripts/catalogue_release-check.sh      # no network, no credentials; exit = failed assertions
+uv run python scripts/claim_drift-check.py   # the #98 claim set, pinned across all nine copies
 ```
 
 The tree-loss numbers (`gross_loss_ha`, `gross_gain_ha`, `net_ha`) are computed once, during
