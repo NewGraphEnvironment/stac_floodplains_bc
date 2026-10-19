@@ -52,13 +52,19 @@ because a patch lies on one side of the line or the other.)
 so a regional or provincial total is their plain sum. Six new `*_footprint_*` siblings hold
 the same figures over the whole footprint. A pair's difference is ground outside the item's own
 group — and measured on this build, most of it is published by nobody: of the 519.16 km2 by
-which the footprint areas exceed the in_wsg areas, **50.58 km2 (9.7%)** is another item's own
-ground and **468.57 km2 (90.3%)** falls outside every rostered watershed group. So summing the
-unsuffixed figures counts no ground twice — the union of the 23 in_wsg pieces equals their sum,
-10,092.24 km2 — while summing footprints double-counts by 0.48% of that sum (floodplains#60).
+which the **ff04** footprint geometry exceeds the ff04 in_wsg geometry (BC Albers, over the
+staged `all_ff04` layers), **50.58 km2 (9.7%)** is another item's own ground and
+**468.57 km2 (90.3%)** falls outside every rostered watershed group. So summing the unsuffixed
+figures counts no ground twice — the union of the 23 in_wsg pieces equals their sum,
+10,092.24 km2 — while summing footprints double-counts by 50.58 km2, or 0.48% of the
+**footprint** sum of 10,611.40 (floodplains#60). The other flood factors differ by 505.82
+(ff02) and 528.90 (ff06) km2, so this is an ff04 figure rather than a property of every pair.
 The unsuffixed provincial total is therefore a total of the **rostered** floodplain, not of the
 province's; an earlier draft of this entry said the shared ground was a neighbour's, which is
-true of a tenth of it.
+true of a tenth of it **by area** and of rather more of it per item — PCEA alone is 351.97 of
+the 519.16 km2 and only 0.35% of its own strip is another item's ground, while DUNC's strip is
+89.0% another item's, SLOC's 80.9%, WILL's 67.8% and MORR's 62.9%. Excluding PCEA the split is
+29.5 / 70.5, so "mostly published by nobody" holds either way.
 
 **One of those two families changed value and the other did not, and which is which is the
 part worth knowing.** The pre-split transition layer **was** clipped to the group, so the

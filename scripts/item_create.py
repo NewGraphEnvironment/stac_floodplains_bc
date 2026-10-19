@@ -433,9 +433,12 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             f"union the rows. The transition patches also carry `in_open_water`, which is "
             f"an any-touch flag, and `open_water_poly_id`, which is an identifier rather "
             f"than a flag. For an AREA by land-cover class and `in_open_water` read the "
-            f"`composition_*` table in this file, which is counted by cell centre; it "
-            f"carries `in_wsg`, `in_open_water`, `in_wetland` and `in_alr`, and no other "
-            f"context column."),
+            f"`composition_*` table in this file, which is counted by cell centre and "
+            f"carries `in_wsg`, `in_open_water`, `in_wetland` and `in_alr`. **Filter it on "
+            f"`in_floodplain = 1`**: the table also covers the ring the floodplain raster "
+            f"only touches, so an unfiltered `SUM(ha)` is 3-10% above the floodplain itself "
+            f"(7.4% on this collection's BULK item). `status` splits each row into "
+            f"`change` / `stable` / `sieved`, so filter that too unless you want all three."),
         roles=["data"],
         extra_fields=file_meta(wsg_dir / "floodplain_landcover.gpkg"),
     )
@@ -493,8 +496,10 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
             f"patch is flagged if it touches the overlay at all, so summing `area_ha` over "
             f"a flagged subset overstates the flagged area. `composition_*` in "
             f"floodplain_landcover.gpkg gives cell-centre areas for `in_open_water`, "
-            f"`in_wetland` and `in_alr` — but NOT for `in_fire` or `in_harvest`, which it "
-            f"does not carry, so for those two the patch flag is all there is. `in_wsg` is "
+            f"`in_wetland` and `in_alr` — but NOT for `in_fire`, `in_harvest` or "
+            f"`in_fire_prior`, which it does not carry, so for those three the patch flag "
+            f"is all there is. Filter `composition_*` on `in_floodplain = 1` when you do "
+            f"read it, because it also covers the ring the raster only touches. `in_wsg` is "
             f"different in kind: it is a true partition of the patches, which is why this "
             f"item's headline figures are sums of `area_ha` over its TRUE rows — under the "
             f"`from_class`/`to_class` filters above, not over the whole layer, which holds "
@@ -531,12 +536,14 @@ def build_item(wsg_dir: Path, meta: dict) -> pystac.Item:
         # item's `geometry` and `bbox` describe. A pair's difference is ground outside this
         # item's own group, and it is NOT simply a neighbour's -- which is what every copy of
         # this sentence said until code-check round 3 measured it. On the v2.1.0 build, of the
-        # 519.16 km2 by which the footprint sum exceeds the in_wsg sum, only 50.58 km2 (9.7%)
-        # is another item's own ground, so summing footprints double-counts by 0.48% of that
-        # sum; the other 468.57 km2 (90.3%) lies outside EVERY rostered group and is in no
-        # item's `in_wsg` at all. Both halves matter: the unsuffixed sum counts no ground twice
-        # -- the union of the 23 in_wsg pieces equals their sum, 10,092.24 km2 -- AND it is a
-        # total of the ROSTERED floodplain rather than of the province's.
+        # 519.16 km2 by which the ff04 footprint geometry exceeds the ff04 in_wsg geometry
+        # (BC Albers, `planning/active/neighbour-measure.R`), only 50.58 km2 (9.7%) is another
+        # item's own ground, so summing footprints double-counts by 50.58 km2 -- 0.48% of the
+        # FOOTPRINT sum of 10,611.40, not of the in_wsg sum, where 0.48% would be 48.44. The
+        # other 468.57 km2 (90.3%) lies outside EVERY rostered group and is in no item's
+        # `in_wsg` at all. Both halves matter: the unsuffixed sum counts no ground twice -- the
+        # union of the 23 in_wsg pieces equals their sum, 10,092.24 km2 -- AND it is a total of
+        # the ROSTERED floodplain rather than of the whole province's.
         #
         # STAC items carry no per-property description, so what the two scopes mean is said
         # in the collection description and in the GeoPackage asset descriptions below.

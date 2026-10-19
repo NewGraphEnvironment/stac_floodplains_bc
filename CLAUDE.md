@@ -169,7 +169,9 @@ side), each `classified_*` one per (class, side). The `wsg`/`species`/`scenario`
 item's own on **both** sides, which is exactly why the change is silent: `fp_gpkg.R`'s
 `nrow(k) != 1L` arm and `01_stage.R`'s foreign-`wsg` refusal both still pass, and nothing
 upstream of `test_pipeline.R`'s new column arm would notice an absent flag. Measured on the
-floodplains#144 tree: all **246** whole-network layers over the 23 rostered groups carry it,
+floodplains#144 tree: all **246** whole-network layers over the 23 rostered groups carry it —
+a count over the SOURCE bundles, where the staged set is 269 because
+`transition_vector.gpkg` adds one copied layer per item —
 and the 222 that do not are the retired per-species layers #80 never stages — so the
 quantifier is about the staged set, not about the files. The `DISTINCT wsg, species, scenario`
 arm is deliberately NOT widened to include it: the split is geometric, so widening would
@@ -417,13 +419,22 @@ directions** (#98). The unsuffixed six — `floodplain_ff02/04/06_km2`, `gross_l
 regional total is their plain sum; the six `*_footprint_*` siblings are the same figures over
 the whole footprint. **A pair's difference is not simply a neighbour's ground**, which an
 earlier draft of every copy of this sentence said: measured on the v2.1.0 build in BC Albers,
-of the 519.16 km2 by which the footprint sum exceeds the in_wsg sum, only **50.58 km2 (9.7%)**
-is another item's own ground, and **468.57 km2 (90.3%)** falls outside every rostered group and
-is in nobody's `in_wsg`. The union of the 23 in_wsg pieces equals their sum (10,092.24 km2), so
-the unsuffixed total genuinely counts no ground twice; summing footprints double-counts by
-0.48% of that sum. Both halves matter and only one was written down: the unsuffixed sum is the
-right regional total, AND it is a total of the rostered floodplain rather than the province's
-(floodplains#60). The opposite directions are the part worth writing down, because it
+of the 519.16 km2 by which the ff04 footprint geometry exceeds the ff04 in_wsg geometry, only
+**50.58 km2 (9.7%)** is another item's own ground, and **468.57 km2 (90.3%)** falls outside
+every rostered group and is in nobody's `in_wsg`. The union of the 23 in_wsg pieces equals
+their sum (10,092.24 km2), so the unsuffixed total genuinely counts no ground twice; summing
+footprints double-counts by 50.58 km2, which is **0.48% of the footprint sum** (10,611.40) —
+name that denominator, because 0.48% of the in_wsg sum is 48.44 km2 and the nearest antecedent
+in an earlier draft of this sentence was the wrong one. Both halves matter and only one was
+written down: the unsuffixed sum is the right **regional** total, AND it is a total of the
+rostered floodplain rather than of the whole province's (floodplains#60).
+
+**The measurement is ff04, in BC Albers, over the staged `all_ff04` layers**
+(`planning/active/neighbour-measure.R`), which is why 519.16 is not exactly the 519.08 you get
+by summing the published `floodplain_ff04_footprint_km2 - floodplain_ff04_km2`: those are
+per-item UTM areas rounded to 2 dp. The other two flood factors differ by 505.82 (ff02) and
+528.90 (ff06) km2, so the figure is a property of ff04 and not of "a pair". Stating the method
+is the remedy a withdrawn measurement in this same issue earned. The opposite directions are the part worth writing down, because it
 is the reason two functions read them rather than one: the pre-split transition layer **was**
 clipped, so scoping loss/gain/net to `in_wsg` HELD every published value (BULK 2793.4 / 1318.7
 / −1474.6, reproduced exactly), while the delineation layer was **never** clipped, so
@@ -438,8 +449,10 @@ Williston's `PARA` and `FINA` arms. Neither is in this collection's roster — m
 `config/regions/*.yml`, which names PARS but neither PARA nor FINA — so that ground is
 published by **no item at all**, and an earlier draft here made it worse by "correcting" PARA
 to the rostered-looking PARS. Which is the sharp version of the rule: the unsuffixed sum is
-the right provincial total because it counts no ground twice, and it is NOT a total of the
-province's floodplain, because ground outside every rostered group is in nobody's `in_wsg`.
+the right total **across the groups this collection covers**, because it counts no ground
+twice — and it is NOT a total of the province's floodplain, because ground outside every
+rostered group is in nobody's `in_wsg`. Those two sentences used the same word for both things
+in an earlier draft, which read as a contradiction.
 
 `geometry`, `bbox_wgs84` and `proj:bbox` are deliberately NOT rescoped: the rasters cover the
 whole footprint and a STAC geometry must contain its assets. `proj:*` comes off the raster, so

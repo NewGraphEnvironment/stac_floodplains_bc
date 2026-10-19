@@ -957,8 +957,16 @@ def check_metric_scopes(base: Path, census: bool = True
             else:
                 if props[inw] < props[fp]:
                     straddle[inw] += 1
-                # The polarity arm. Checked even where the two are equal, so a footprint of 0
-                # with a positive in_wsg figure cannot slip through as "not straddling".
+                # The polarity arm, and its scope stated correctly — the first version of this
+                # comment claimed it covered a footprint of 0 with a positive in_wsg figure,
+                # which it cannot: that case never enters this `else` because the ordering arm
+                # above catches it. What NOTHING here sees is `footprint == in_wsg == 0`, which
+                # passes every per-item arm and is invisible to the census too (a zero pair
+                # does not straddle, and the census is release-gated). Measured by mutation.
+                # It is not reachable on this build — all 115 footprint values are non-zero —
+                # and `test_pipeline.R`'s `> 0` arms catch it on the staged side, outside the
+                # release path. Left as a known gap rather than guarded, and named so the next
+                # reader does not take the comment for coverage.
                 if props[fp] and props[inw] < METRIC_SCOPE_MAJORITY * props[fp]:
                     problems.append(
                         f"{item_id}: {inw} is {props[inw]}, only "
@@ -1026,6 +1034,15 @@ IN_WSG_COLUMN = "in_wsg"
 # and the staged `transition_vector.gpkg`'s single `transition` layer.
 GPKG_BASE_COLUMNS = ("wsg", "species", "scenario", IN_WSG_COLUMN)
 TRANSITION_LAYER_PREFIX = "transition"
+# And the composition table, which the landcover description now sends consumers to BY NAME,
+# for a cell-centre area filtered on `in_floodplain`. Added because the claim grew in #98's
+# round-3 fix and this map did not — the third instance in this issue of a published claim
+# outrunning the guard that checks it, which is the whole reason the map exists. `in_floodplain`
+# is the load-bearing one: the table covers the touched ring as well as the floodplain, so a
+# consumer who does not filter on it reads 3-10% high.
+COMPOSITION_LAYER_PREFIX = "composition"
+COMPOSITION_COLUMNS = ("in_floodplain", "in_open_water", "in_wetland", "in_alr",
+                       "status", "ha")
 # Presence only, deliberately. The descriptions claim these are PRESENT and any-touch; they
 # make no claim about their domain, and `open_water_poly_id` is an id, not a flag. `in_wsg` is
 # the one whose VALUES the published figures depend on, so it is the one with a value arm.
@@ -1035,7 +1052,12 @@ TRANSITION_COLUMNS = ("in_open_water", "open_water_poly_id",
 
 def gpkg_required_columns(layer: str) -> tuple:
     """The columns an item's asset description claims for this layer."""
-    extra = TRANSITION_COLUMNS if layer.startswith(TRANSITION_LAYER_PREFIX) else ()
+    if layer.startswith(TRANSITION_LAYER_PREFIX):
+        extra = TRANSITION_COLUMNS
+    elif layer.startswith(COMPOSITION_LAYER_PREFIX):
+        extra = COMPOSITION_COLUMNS
+    else:
+        extra = ()
     return GPKG_BASE_COLUMNS + extra
 
 
@@ -2478,9 +2500,10 @@ def main() -> int:
             print(f"  {msg}", file=sys.stderr)
         return 1
     print(f"gpkg columns: every data layer of {len(STYLED_GPKGS)} GeoPackages per item carries "
-          f"{', '.join(GPKG_BASE_COLUMNS)} — with {IN_WSG_COLUMN} holding only TRUE/FALSE — and "
+          f"{', '.join(GPKG_BASE_COLUMNS)} — with {IN_WSG_COLUMN} holding only TRUE/FALSE — "
           f"every {TRANSITION_LAYER_PREFIX}* layer also carries "
-          f"{', '.join(TRANSITION_COLUMNS)}, which is what the asset descriptions claim")
+          f"{', '.join(TRANSITION_COLUMNS)}, and every {COMPOSITION_LAYER_PREFIX}* layer "
+          f"{', '.join(COMPOSITION_COLUMNS)}, which is what the asset descriptions claim")
 
     print("straddle: " + ", ".join(f"{k} {straddle[k]}"
                                    for k in sorted(METRIC_SCOPE_CENSUS))

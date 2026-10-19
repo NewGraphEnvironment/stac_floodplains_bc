@@ -491,3 +491,99 @@ re-reading the diff. Eight copies exist in all and all eight now carry the measu
 `readme_functions.R` and `01_stage.R`. Checked for mutual consistency: the precise copies read
 519.16 / 50.58 (9.7%) / 468.57 (90.3%) / 0.48% / 10,092.24, the two rounded copies read
 519 / 51 / 469, and 50.58 / 10,611.35 = 0.48%.
+
+---
+
+## code-check round 4 — 7 findings, SIX inside round-3 fixes
+
+Report: `planning/active/review-round4.md`. The round that most earned itself.
+
+### F1, the worst: my cache guard could never pass, and it blocked release step 6
+
+The round-3 cache-vintage guard tested for a `*_footprint_*` column in `cached$props`.
+`fp_readme_props()` builds a **fixed 13-column tibble** and the footprint figures are not among
+them, so the test is FALSE for every cache that can exist — measured both ways: the committed
+v2.0.1 cache lacks the column, and the 23 **built v2.1.0 items** pushed through that function
+give the same 13 columns. So the guard aborted *every* render including the
+`update_query = TRUE` one its own error message prescribes as the remedy, leaving the page on
+the pre-#98 prose: **the exact state it was written to prevent, reached by the guard itself.**
+A guard that refuses its own remedy is worse than no guard.
+
+Fixed to discriminate on the cache's own `version`, which it already carries, against a
+`README_MIN_VERSION <- "2.1.0"` literal. Proved across versions: fires on 2.0.1 (the committed
+cache), passes on 2.1.0, 2.1.1 and 3.0.0.
+
+### F2, the only finding that reaches a consumer's numbers
+
+The round-3 landcover description said `composition_*` "carries `in_wsg`, `in_open_water`,
+`in_wetland` and `in_alr`, and no other context column". It also carries **`in_floodplain`**,
+and that is the consequential one — the table spans the touched ring as well as the floodplain,
+so an unfiltered `SUM(ha)` reads high:
+
+```
+BULK  70,884.0 all   vs 65,980.8 at in_floodplain=1   (+7.4%)
+UFRA  33,025.3        vs 30,170.8                      (+9.5%)
+PCEA  86,752.0        vs 84,270.0                      (+2.9%)
+```
+
+A consumer doing exactly what the published description said would be 3-10% high. `status`
+(`change` / `stable` / `sieved`) was unmentioned too. Both now named, with the filter.
+
+### F3, the third instance of one class in one issue
+
+Round 3 grew the published `composition_*` claim and did **not** grow
+`gpkg_required_columns()` — which is the defect the comment directly above `GPKG_BASE_COLUMNS`
+describes, in the commit that fixed its second instance. `COMPOSITION_COLUMNS` added
+(`in_floodplain`, `in_open_water`, `in_wetland`, `in_alr`, `status`, `ha`); 0 problems on the
+build. Also "for those **two** the patch flag is all there is" is three — the transition layer
+carries `in_fire_prior` as well as `in_fire` and `in_harvest`.
+
+### F4 and F5, the measured-but-misattributed pair
+
+- **"0.48% of that sum" named the wrong sum.** 50.5831/10,611.3951 = 0.4767% (footprint sum)
+  but 50.5831/10,092.2377 = 0.5012% (in_wsg sum), and the nearest antecedent was the in_wsg
+  one — named in the same sentence in two of the three copies. 0.48% of that is 48.44 km2, not
+  50.58. All three copies now name the denominator.
+- **519.16 is an ff04, BC-Albers figure and no copy said so**, while the prose attached it to
+  "a pair's difference". The published per-pair differences are ff02 505.82, **ff04 519.08**,
+  ff06 528.90 km2, gross_loss 908.40 ha, gross_gain 620.20 ha — so a consumer checking against
+  the published ff04 properties gets 519.08, the gap being Albers geometry against rounded
+  per-item UTM areas. Exactly the "restated without its method" objection that withdrew the
+  Hausdorff figure one round earlier, and I had written the remedy down and not applied it
+  here. Method now stated in every copy.
+
+### F6, a comment that described coverage the arm does not have
+
+The polarity arm's comment claimed it covered "a footprint of 0 with a positive in_wsg
+figure". It cannot: that case never enters the `else`, because the ordering arm catches it
+first. The case **nothing** sees is `footprint == in_wsg == 0` — it passes every per-item arm
+and does not straddle, so the census misses it too. Unreachable on this build (all 115
+footprint values non-zero) and caught on the staged side by `test_pipeline.R`'s `> 0` arms,
+which are outside the release path. Recorded as a known gap rather than guarded, and the
+comment now states the arm's real scope.
+
+### F7, two internal contradictions
+
+`CLAUDE.md` asserted "the right **provincial** total" two lines above "it is NOT a total of the
+province's floodplain" — the same word for two different things. And it quoted the 246
+source-bundle count while concluding "the quantifier is about the staged set", which is 269.
+Both fixed.
+
+### Re-derived and correct
+
+Round 4 independently reproduced, to the digit: `METRIC_SCOPE_MAJORITY`'s separation (min
+0.581080, max inverted 0.418920, 115/115 both ways, by EXECUTING the check on an inverted
+copy); the neighbour measurement (519.1574 / 50.5831 / 468.5743 / union == sum 10,092.2377);
+**eight** neighbour copies and no ninth; 246 assets = 69 style + 177 others, and against live
+69 byte-identical / 177 changed / 0 new; 468 = 246 + 222; 269 = 11x19 + 15x4; the geometry
+deltas and the 23/23 bbox identity; `patch_watercourse` 29,986 / 9,275; `dunc`'s datetime as
+the only mover; the NEWS value table; PCEA's ratios; and that the withdrawal of the 11.9 m2
+figure reached `01_stage.R` **and** `NEWS.md`.
+
+### One observation worth keeping
+
+The 90.3/9.7 split is dominated by PCEA — 351.97 of the 519.16 km2, and only 0.35% of PCEA's
+own strip is another item's ground. Per ITEM the neighbour-covered share runs to 89.0% (DUNC),
+80.9% (SLOC), 67.8% (WILL), 62.9% (MORR), so `NEWS.md`'s "true of a tenth of it" is true by
+AREA and false by item for 4 of 23. Excluding PCEA the split is 29.5/70.5, so "most of it is
+published by nobody" survives either way.

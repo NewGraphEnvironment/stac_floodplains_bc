@@ -70,21 +70,33 @@ if (isTRUE(params$update_query)) {
 if (!file.exists(CACHE)) {
   stop(CACHE, " is missing — render once with params$update_query = TRUE", call. = FALSE)
 }
-# And a cache from BEFORE #98 must stop it too, rather than render the new prose over the old
-# numbers. The prose below now asserts that every figure in the table is the item's own
-# watershed group and that the totals count no ground twice; a pre-#98 cache holds the
-# whole-footprint values, which are the double-counted ones, so an `update_query = FALSE`
-# render would state the property while displaying its negation. Presence of the footprint
-# property is the discriminator because `item_create.py` publishes all twelve figures or
-# none. Deliberately NOT a `fp_req()` requirement: the figures themselves are not read from
-# the cache's footprint columns, and the remedy belongs in the message.
-if (!"floodplain_ff04_footprint_km2" %in% names(readRDS(CACHE)$props)) {
-  stop(CACHE, " predates #98 (no floodplain_ff04_footprint_km2) — the prose in this document ",
-       "describes in_wsg-scoped figures and this cache holds whole-footprint ones. Render ",
-       "with params$update_query = TRUE, after the v2.1.0 release has published.",
-       call. = FALSE)
-}
 cached <- readRDS(CACHE)
+# And a cache from BEFORE #98 must stop it too, rather than render the new prose over the old
+# numbers. The prose below asserts that every figure in the table is the item's own watershed
+# group and that the totals count no ground twice; a pre-#98 cache holds the whole-footprint
+# values, which are the double-counted ones, so an `update_query = FALSE` render would state
+# the property while displaying its negation.
+#
+# The discriminator is the CACHE'S OWN `version` — the catalogue version the API served when it
+# was written — and the first version of this guard got that wrong in the most expensive
+# direction. It tested for a `*_footprint_*` column in `cached$props`, which
+# `fp_readme_props()` can never produce: that function builds a fixed 13-column tibble and the
+# footprint figures are not among them. So the test was FALSE for every cache that can exist,
+# including one written from a correct post-release fetch, and it aborted release step 6 — the
+# command its own error message prescribes as the remedy. A guard whose remedy it refuses is
+# worse than no guard: it leaves the page on the pre-#98 prose, which is the state it exists to
+# prevent. Measured both ways (the committed cache, and the 23 built v2.1.0 items pushed
+# through `fp_readme_props()`): neither carries the column.
+README_MIN_VERSION <- "2.1.0"
+if (is.null(cached$version) ||
+      package_version(cached$version) < package_version(README_MIN_VERSION)) {
+  stop(CACHE, " was written from catalogue version ",
+       if (is.null(cached$version)) "<none>" else cached$version,
+       ", before v", README_MIN_VERSION, " rescoped every headline figure to `in_wsg` (#98). ",
+       "This document's prose describes the rescoped figures and that cache holds the ",
+       "whole-footprint ones. Render with params$update_query = TRUE once the v",
+       README_MIN_VERSION, " release has published.", call. = FALSE)
+}
 props <- cached$props
 wsg <- cached$wsg
 assets <- cached$assets
