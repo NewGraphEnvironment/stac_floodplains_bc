@@ -158,6 +158,30 @@ all three carries `wsg`/`species`/`scenario`, so merged multi-item GeoPackages s
 attribute — "every layer" is what the asset description said until #95, and GDAL lists
 `layer_styles` beside them, which carries no key and never did.
 
+**Every data layer also carries `in_wsg`, and that is now a required column here** (#98,
+upstream floodplains#53/#138 in floodplains#144, backfilled 2026-10-18). Each layer is split
+along the watershed group polygon and each piece flagged, so a layer that was one row is one
+row per side — `all_ff04` is **two** features, `all_ff04_by_blue_line_key` one row per (key,
+side), each `classified_*` one per (class, side). The `wsg`/`species`/`scenario` key is the
+item's own on **both** sides, which is exactly why the change is silent: `fp_gpkg.R`'s
+`nrow(k) != 1L` arm and `01_stage.R`'s foreign-`wsg` refusal both still pass, and nothing
+upstream of `test_pipeline.R`'s new column arm would notice an absent flag. Measured on the
+floodplains#144 tree: all **246** whole-network layers over the 23 rostered groups carry it,
+and the 222 that do not are the retired per-species layers #80 never stages — so the
+quantifier is about the staged set, not about the files. The `DISTINCT wsg, species, scenario`
+arm is deliberately NOT widened to include it: the split is geometric, so widening would
+assert that only one side is present, the opposite of true. That does make the arm weaker than
+it reads — it proves one KEY, not one population — which is what the separate value arm
+(a non-empty subset of `{FALSE, TRUE}`) is for.
+
+`transition_*` additionally carries `in_open_water` and `open_water_poly_id` (FWA
+`fwa_lakes_poly` + `fwa_manmade_waterbodies_poly`, no size cut-off, a dammed lake filed as a
+lake so one flag covers both), `composition_*` carries `in_wsg` + `in_open_water`, and
+`patch_watercourse_*`'s key is now (`name_basin`, `patch_id`, `in_wsg`). Both new flags are
+**any-touch**, like `in_wetland`, so an AREA by flag comes from `composition_*` (cell centre)
+and never from summing `area_ha` over a flagged subset — which is what the asset descriptions
+say, because it is the one thing a consumer cannot see by opening the file.
+
 **All three are WRITTEN here, and each holds only its own item's layers** (#80). The first two
 used to be whole-file copies of the group's bundle, which was self-describing while a group's
 layers were all one species' — and stopped being so the moment a group went whole-network,
@@ -372,6 +396,45 @@ layer names are deliberately year-free so QGIS `path|layername=` styles survive 
 
 Loss/gain/net are computed from the transition layer during staging, so published figures trace
 directly to the model.
+
+**Every headline figure is published in two scopes, and the two families moved in opposite
+directions** (#98). The unsuffixed six — `floodplain_ff02/04/06_km2`, `gross_loss_ha`,
+`gross_gain_ha`, `net_ha` — are the item's own watershed group, read over `in_wsg` rows, so a
+regional total is their plain sum; the six `*_footprint_*` siblings are the same figures over
+the whole footprint, and a pair's difference is ground a neighbouring group's own item also
+publishes (floodplains#60). The opposite directions are the part worth writing down, because it
+is the reason two functions read them rather than one: the pre-split transition layer **was**
+clipped, so scoping loss/gain/net to `in_wsg` HELD every published value (BULK 2793.4 / 1318.7
+/ −1474.6, reproduced exactly), while the delineation layer was **never** clipped, so
+`floodplain_ffNN_km2` was already the whole footprint and became the smaller figure (BULK
+659.99 → 646.81; PCEA 843.34 → 491.38, 41.7% of its floodplain lying in Williston's PARS and
+FINA arms). So the catalogue's own silent-switch risk was only ever on the change figures, and
+the deliberate value move was only ever on the areas.
+
+`geometry`, `bbox_wgs84` and `proj:bbox` are deliberately NOT rescoped: the rasters cover the
+whole footprint and a STAC geometry must contain its assets. `st_union()` over the two pieces
+of what was one polygon is the same geometry, so the split does not move them.
+
+Both scopes are tagged into every COG (`SHARED_FIELDS` / `SHARED_TAG_PROPERTIES`), not just
+the published one, because the unsuffixed tags **changed meaning**: a COG downloaded before
+v2.1.0 carries a whole-footprint value under a name that now means `in_wsg`, and a sibling
+beside it is the only way that redefinition is legible inside the file. It was free —
+rescoping the three area values rewrites every COG's bytes anyway, so the siblings rode along
+in the same re-upload. `flood_factor` remains the standing precedent for a published property
+with no tag, had we wanted to avoid it.
+
+**`METRIC_SCOPE_CENSUS` in `item_validate.py` is the arm that matters**, and it is a literal a
+human sets from the build, the same shape and the same re-take rule as `PROVENANCE_FLOOR`: how
+many items **straddle** their group line on each of the five non-negative metrics, i.e. carry
+`in_wsg` strictly below `footprint`. `check_metric_scopes`'s three per-item arms (all twelve
+present and numeric, no `in_wsg` figure above its sibling, `gain − loss = net` per scope) are
+every one of them satisfied by **two identical scopes**, so a dropped `in_wsg` filter publishes
+a uniform loss that passes all three — the same shape #74's per-field census was introduced
+for. Per metric and not per item, because a group can legitimately straddle on area and not on
+change. Measured 23/23 on all five at v2.1.0; that it is 23/23 is a property of the roster, not
+a guarantee — a group wholly inside its own boundary would read 22 and be correct. `net` is
+excluded from the inequality arm because it is signed and its two scopes can sit either side
+of each other.
 
 **No item publishes `deprecated: true`, and the literals are empty** (#26, emptied at v2.0.0 by
 #89). `mcgr_ch_ff04` and `pine_bt_ff04` carried the marker: over-mapped by the pre-fix `flooded`

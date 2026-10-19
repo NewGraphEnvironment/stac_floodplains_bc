@@ -70,10 +70,10 @@ No `--only`.
 
 ## Phase 4: Prose
 
-- [ ] `README.Rmd` — key-column contract, the "filter before summing" warning, the totals sentence.
-- [ ] `scripts/README.md` metric-derivation paragraph gains the `in_wsg` qualifier.
-- [ ] `CLAUDE.md` Collection model.
-- [ ] `NEWS.md` v2.1.0 entry.
+- [x] `README.Rmd` — key-column contract, the "filter before summing" warning, the totals sentence.
+- [x] `scripts/README.md` metric-derivation paragraph gains the `in_wsg` qualifier.
+- [x] `CLAUDE.md` Collection model.
+- [x] `NEWS.md` v2.1.0 entry (dated on release).
 
 ## Phase 5: Rebuild and verify (no network writes)
 

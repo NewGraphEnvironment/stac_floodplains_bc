@@ -261,6 +261,28 @@ staging, from each WSG's `transition_<sp>_ff04_2017_2023` gpkg layer (`from_clas
 steps publish identical figures that trace directly to the modelled transition patches. Metrics
 are computed in R (step 01) because the publish Python env carries no vector reader.
 
+Each of them, and each of the three `floodplain_ff0N_km2` areas, is computed **twice** (#98),
+because floodplains#144 split every vector layer along the watershed group polygon: once over
+the layer's `in_wsg` rows, which is the published unsuffixed property, and once over every row,
+which is the `*_footprint_*` sibling. `01_stage.R`'s `in_wsg_flag()` refuses an absent column
+and refuses an NA rather than letting either fall out of an `na.rm = TRUE` sum — an absent
+column would make every metric 0 on every item at once, which no cross-item check can see.
+
+The two families moved in **opposite** directions at that release, which is why they are read by
+two functions rather than one. The pre-split transition layer WAS clipped to the group, so
+scoping loss/gain/net to `in_wsg` held every published value. The delineation layer was NEVER
+clipped, so `floodplain_ff0N_km2` was already the whole footprint and became the smaller
+`in_wsg` figure (BULK 659.99 → 646.81 km²; PCEA 843.34 → 491.38). `geometry`, `bbox_wgs84` and
+`proj:bbox` are deliberately NOT rescoped: the COGs cover the whole footprint and a STAC
+geometry must contain its assets.
+
+`item_validate.py`'s `check_metric_scopes` is the gate. Three arms are per item — all twelve
+figures present and numeric, no `in_wsg` figure above its footprint sibling, `gain - loss = net`
+in both scopes — and the fourth, `METRIC_SCOPE_CENSUS`, is the only one that can catch an
+`in_wsg` filter dropped in staging, because two identical scopes satisfy the other three. It is
+a literal a human sets from the build, the same shape and the same re-take rule as
+`PROVENANCE_FLOOR`.
+
 ## Smoke test
 
 `test_pipeline.R` runs one watershed group end-to-end (`stage → tag → COG → build → validate`),

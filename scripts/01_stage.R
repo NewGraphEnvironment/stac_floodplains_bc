@@ -246,16 +246,22 @@ tree_transition_metrics <- function(gpkg, layer) {
   # One helper per scope rather than two expressions, so a filter can never be applied to
   # loss and forgotten on gain -- which is the shape item_validate.py's metric-scope arm
   # exists to catch if it happens anyway.
-  tot <- function(keep) round(sum(tr$area_ha[keep], na.rm = TRUE), 1)
+  #
+  # Rounded at ASSEMBLY, never inside `tot()`: the net has always been
+  # `round(gain - loss, 1)` over the UNROUNDED sums, and rounding first moves it by up to
+  # 0.1 ha. Measured on BULK: rounding first published -1474.7 where the live item serves
+  # -1474.6. A tenth of a hectare is nothing, and a published figure moving for a reason
+  # that is not the one the release is about is exactly what makes a diff unreadable.
+  tot <- function(keep) sum(tr$area_ha[keep], na.rm = TRUE)
   loss <- tot(is_loss & inw)
   gain <- tot(is_gain & inw)
   loss_fp <- tot(is_loss)
   gain_fp <- tot(is_gain)
-  list(gross_loss_ha = loss,
-       gross_gain_ha = gain,
+  list(gross_loss_ha = round(loss, 1),
+       gross_gain_ha = round(gain, 1),
        net_ha = round(gain - loss, 1),
-       gross_loss_footprint_ha = loss_fp,
-       gross_gain_footprint_ha = gain_fp,
+       gross_loss_footprint_ha = round(loss_fp, 1),
+       gross_gain_footprint_ha = round(gain_fp, 1),
        net_footprint_ha = round(gain_fp - loss_fp, 1))
 }
 

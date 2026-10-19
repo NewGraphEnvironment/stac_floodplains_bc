@@ -828,6 +828,10 @@ METRIC_SCOPE_PAIRS = (
 )
 # gain - loss = net, per scope. Both arms, because a filter dropped from ONE member of a
 # triple is the defect this exists for and it leaves the other two consistent.
+# Three independent `round(x, 1)` calls, so the identity holds to 3 x 0.05 and no tighter.
+# 01_stage.R takes the net from the unrounded sums deliberately (its own comment says why),
+# which is what makes this a tolerance rather than an equality.
+METRIC_NET_TOLERANCE = 0.15
 METRIC_NET_TRIPLES = (
     ("gross_gain_ha", "gross_loss_ha", "net_ha"),
     ("gross_gain_footprint_ha", "gross_loss_footprint_ha", "net_footprint_ha"),
@@ -874,8 +878,10 @@ def check_metric_scopes(base: Path, census: bool = True) -> list[str]:
         bug, and `item_create.py` would already have raised on it — this catches a tree built
         before it did, and a hand-edited document.
       * `in_wsg <= footprint` on the five non-negative pairs. Catches a swapped pair.
-      * `gain - loss == net` in BOTH scopes, within one rounding step. 01_stage.R rounds the
-        sums before subtracting, so the identity is exact up to float, not approximate.
+      * `gain - loss == net` in BOTH scopes, within METRIC_NET_TOLERANCE. 01_stage.R rounds
+        the three independently -- the net from the UNROUNDED sums, as it always has -- so
+        the identity holds only to three half-steps, not exactly. Still worth three orders
+        of magnitude: a scope mix-up is off by hundreds of hectares.
       * the straddle census against METRIC_SCOPE_CENSUS. This is the arm that fails when an
         `in_wsg` filter is dropped: the per-item arms are all satisfied by two identical
         scopes.
@@ -919,7 +925,7 @@ def check_metric_scopes(base: Path, census: bool = True) -> list[str]:
                 straddle[inw] += 1
 
         for gain, loss, net in METRIC_NET_TRIPLES:
-            if abs((props[gain] - props[loss]) - props[net]) > 0.05:
+            if abs((props[gain] - props[loss]) - props[net]) > METRIC_NET_TOLERANCE:
                 problems.append(
                     f"{item_id}: {net} is {props[net]} but {gain} - {loss} is "
                     f"{round(props[gain] - props[loss], 1)} — one of the three was read "

@@ -25,6 +25,80 @@ memory, and had to be recalled rather than read.
 > therefore *is* the release this paragraph reserves `v2.0.0` for — see the entry below. Nothing
 > about the condition changed; it simply became reachable.
 
+## v2.1.0 (unreleased)
+
+### Items say which of their ground is their own, and the headline figures read it (#98)
+
+**All 23 items republish, every asset.** Upstream NewGraphEnvironment/floodplains#144 (issues
+#53 and #138, backfilled 2026-10-18) split **every** vector layer in both source bundles along
+the watershed group polygon and flagged each piece `in_wsg`. A floodplain follows its river, so
+it crosses the group line: a layer that was one row is now one row per side, `all_ff04` is two
+features, `all_ff04_by_blue_line_key` has one row per (key, side), and each `classified_*` one
+per (class, side). The transition patches additionally carry `in_open_water` and
+`open_water_poly_id` (FWA lakes plus manmade waterbodies, no size cut-off — a dammed lake is
+filed as a lake, so one flag covers both); `composition_*` gains `in_wsg` and `in_open_water`,
+and `patch_watercourse_*`'s key becomes (`name_basin`, `patch_id`, `in_wsg`).
+
+**Every headline figure is now published in two scopes.** The unsuffixed six —
+`floodplain_ff02_km2`, `floodplain_ff04_km2`, `floodplain_ff06_km2`, `gross_loss_ha`,
+`gross_gain_ha`, `net_ha` — are the item's **own watershed group**, read over `in_wsg` rows,
+so a regional or provincial total is their plain sum. Six new `*_footprint_*` siblings hold
+the same figures over the whole footprint. A pair's difference is ground shared with a
+neighbour, which that neighbour's own item also publishes, so summing footprints across groups
+double-counts and summing the unsuffixed figures does not (floodplains#60).
+
+**One of those two families changed value and the other did not, and which is which is the
+part worth knowing.** The pre-split transition layer **was** clipped to the group, so the
+`in_wsg` change figures are exactly what was already live — BULK reproduces 2793.4 / 1318.7 /
+−1474.6 ha. Not scoping them would have been the silent regression this release exists to
+avoid: PCEA carries 1,700.3 ha of change outside its group against 754.4 ha inside, so its
+gross change would have roughly tripled. The delineation layer was **never** clipped, so
+`floodplain_ffNN_km2` was already a whole-footprint number and is now the smaller `in_wsg`
+one. That is a deliberate change of value on all 23 items:
+
+| group | `floodplain_ff04_km2` was | now | outside |
+|---|---:|---:|---:|
+| PCEA | 843.34 | 491.38 | 41.7% |
+| LCHL | 426.81 | 412.92 | 3.3% |
+| TABR | 267.19 | 258.73 | 3.2% |
+| MCGR | 355.33 | 344.61 | 3.0% |
+| … 18 more between 0.8% and 2.7% | | | |
+| UNTH | 234.93 | 233.03 | 0.8% |
+
+The old value is still published, as `floodplain_ff04_footprint_km2`.
+
+**`geometry`, `bbox` and `proj:bbox` are unchanged**, and deliberately not rescoped: the COGs
+cover the whole footprint and a STAC item's geometry must contain its assets.
+
+**Both scopes are tagged into every COG**, which is why every raster's `file:checksum` moves
+even though no raster was re-derived. The unsuffixed `NGE_FLOODPLAIN_FF0N_KM2` tags **changed
+meaning** in this release, so a COG downloaded before it carries a whole-footprint value under
+a name that now means `in_wsg`; the sibling tag beside it is the only way that is legible
+inside the file. It cost nothing, because rescoping the three area values rewrote every COG
+anyway.
+
+**What a consumer should change.** Filter on `in_wsg` or union the rows before using any
+scenario layer as a single feature. Sum the unsuffixed properties, not the `*_footprint_*`
+ones, for a regional total. Both new flags are **any-touch**, like `in_wetland`, so read areas
+by flag from the `composition_*` table (counted by cell centre) rather than summing `area_ha`
+over a flagged subset. The collection description and all three GeoPackage asset descriptions
+say all of this — `transition_vector.gpkg` had no description at all before this release and
+now carries one.
+
+**New guard: `METRIC_SCOPE_CENSUS` in `item_validate.py`**, a literal a human sets from the
+build, the same shape and the same re-take rule as `PROVENANCE_FLOOR` — how many items
+straddle their group line on each of the five non-negative metrics. It exists because
+`check_metric_scopes`'s three per-item arms are every one of them satisfied by two **identical**
+scopes, so an `in_wsg` filter dropped in staging would publish a uniform loss and pass them
+all. 23 of 23 at this release; that it is 23/23 is a property of the roster, not a guarantee.
+`test_pipeline.R` now also requires `in_wsg` on every staged data layer (all 246 whole-network
+layers over the 23 groups carry it) and asserts its distinct values are a non-empty subset of
+`{FALSE, TRUE}`.
+
+Provenance did not move: `run.datetime_utc` is unchanged upstream, so `processing:datetime` is
+too. Only `transition_patches` and its `outputs_hash` moved there, under a `wsg_split` repair
+record, and nothing here reads either.
+
 ## v2.0.1 (2026-10-17)
 
 ### Every published GeoPackage's embedded style is reachable again (#95)

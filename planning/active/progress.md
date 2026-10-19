@@ -60,3 +60,42 @@ Measurements taken this phase:
 Gap noted, out of scope: `only_preflight.py` compares PROVENANCE properties only, so a
 `--only` republish would not see a changed metric value. That was already true before #98
 (the metrics are unprefixed and `canon()` only reads the four prefixes).
+
+### BULK smoke test, and one correction
+
+`WSG=bulk Rscript scripts/test_pipeline.R` PASSED end to end (exit 0, 05:49:54Z), through the
+real `item_validate.py --partial` gate. Published properties on `bulk_all_ff04`:
+
+```
+floodplain_ff02_km2  598.52   footprint  610.91   (live today: 610.91)
+floodplain_ff04_km2  646.81   footprint  659.99   (live today: 659.99)
+floodplain_ff06_km2  685.15   footprint  698.94   (live today: 698.94)
+gross_loss_ha       2793.4    footprint 2821.8    (live today: 2793.4)
+gross_gain_ha       1318.7    footprint 1362.6    (live today: 1318.7)
+net_ha             -1474.6    footprint -1459.2   (live today: -1474.6)
+```
+
+The watched from->to arm stayed green: 54 upstream pairs, all named by the published classes.
+
+**Correction caught by that run.** The first version of `tree_transition_metrics()` rounded
+inside `tot()`, so `net_ha` came from rounded gain and loss and published -1474.7 where the
+live item serves -1474.6. The net has always been `round(gain - loss, 1)` over the UNROUNDED
+sums. Restored, and the net identity in both guards is now a tolerance of 0.15 (three
+independent `round(x, 1)` calls, so three half-steps) rather than 0.05, with the constant
+named `METRIC_NET_TOLERANCE` so the two copies say why. A tenth of a hectare is nothing; a
+published figure moving for a reason that is not the one the release is about is not.
+
+### Phase 4 - prose
+
+- `README.Rmd`: a new paragraph on the group-line split and the two new flags (any-touch, so
+  areas come from `composition_*`), a new paragraph on the two metric scopes naming PCEA as
+  the 42% case, and the totals sentence now says the columns are in_wsg figures and that the
+  footprints are deliberately not totalled.
+- `scripts/README.md`: the metric-derivation paragraph now records the twice-computed shape,
+  the opposite directions of the two families, and that `check_metric_scopes`'s census is the
+  only arm that catches a dropped filter.
+- `CLAUDE.md`: two new blocks under Collection model - the required `in_wsg` column with the
+  246/222 measurement and why the DISTINCT arm is not widened, and the two scopes with the
+  opposite-directions finding, the COG-tag reasoning and the census rule.
+- `NEWS.md`: `## v2.1.0 (unreleased)`, dated at release.
+- `test_pipeline.R`'s SUMMARY line now prints both scopes, matching the STAGED line.

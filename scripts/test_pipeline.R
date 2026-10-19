@@ -155,12 +155,15 @@ for (mp in meta_paths) {
     "gross_gain_footprint_ha below its in_wsg sibling" =
       isTRUE(meta$gross_gain_footprint_ha >= meta$gross_gain_ha),
     # Both nets against their own scope. `net_ha` is excluded from the inequality above
-    # because it is signed, so this identity is what pins it.
+    # because it is signed, so this identity is what pins it. Three independent
+    # `round(x, 1)` calls in 01_stage.R, the net taken from the UNROUNDED sums, so the
+    # tolerance is three half-steps -- same constant and same reason as
+    # item_validate.METRIC_NET_TOLERANCE.
     "net_ha is not gross_gain_ha - gross_loss_ha" =
-      isTRUE(abs((meta$gross_gain_ha - meta$gross_loss_ha) - meta$net_ha) < 0.05),
+      isTRUE(abs((meta$gross_gain_ha - meta$gross_loss_ha) - meta$net_ha) <= 0.15),
     "net_footprint_ha is not its scope's gain - loss" =
       isTRUE(abs((meta$gross_gain_footprint_ha - meta$gross_loss_footprint_ha) -
-                   meta$net_footprint_ha) < 0.05)
+                   meta$net_footprint_ha) <= 0.15)
   )
 
   # Item-key contract (#9): upstream documents wsg/species/scenario as each being BOTH a STAC
@@ -706,10 +709,18 @@ message("targets: ", length(want), " declared in area.yml, all staged (",
 message("\n=== SUMMARY ===")
 message(toupper(wsg), ": ", length(items), " item(s)")
 for (meta in items) {
+  # in_wsg first, footprint in parentheses, matching the STAGED line 01_stage.R prints.
+  # Both, because this is the line an operator eyeballs against the live item and the two
+  # scopes answer different questions of it: the unsuffixed figures should MATCH the live
+  # change figures and should be BELOW the live areas.
   message("  ", meta$item_id, " (", meta$scenario, "): ",
-          "ff02 ", meta$floodplain_ff02_km2, " / ff04 ", meta$floodplain_ff04_km2,
-          " / ff06 ", meta$floodplain_ff06_km2, " km2 | loss/gain/net ",
-          meta$gross_loss_ha, " / ", meta$gross_gain_ha, " / ", meta$net_ha, " ha")
+          "ff02 ", meta$floodplain_ff02_km2, " (", meta$floodplain_ff02_footprint_km2, ")",
+          " / ff04 ", meta$floodplain_ff04_km2, " (", meta$floodplain_ff04_footprint_km2, ")",
+          " / ff06 ", meta$floodplain_ff06_km2, " (", meta$floodplain_ff06_footprint_km2, ")",
+          " km2 | loss/gain/net ",
+          meta$gross_loss_ha, " (", meta$gross_loss_footprint_ha, ")",
+          " / ", meta$gross_gain_ha, " (", meta$gross_gain_footprint_ha, ")",
+          " / ", meta$net_ha, " (", meta$net_footprint_ha, ") ha")
 }
 message("\nPASS — ", toupper(wsg), " round-trips stage -> tag -> COG -> STAC locally.")
 message("This tree is a PARTIAL stage: its collection.json cannot be published. Either:")
