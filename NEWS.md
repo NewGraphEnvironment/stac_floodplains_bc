@@ -72,6 +72,13 @@ one. That is a deliberate change of value on all 23 items:
 
 The old value is still published, as `floodplain_ff04_footprint_km2`.
 
+**PCEA is also the case that shows why both scopes are published rather than one.** Its two
+nets disagree on the *direction* of change: `net_ha` is **-2.3 ha** (net tree loss inside its
+own group) while `net_footprint_ha` is **+54.1 ha** (net tree gain over the whole footprint).
+Neither is wrong; they answer different questions, and a consumer reading only one of them
+would state the opposite of the other. It is also why `net` is the one figure excluded from
+the validator's in_wsg-at-most-footprint arm — a signed difference can sit either side.
+
 **`geometry`, `bbox` and `proj:bbox` are unchanged**, and deliberately not rescoped: the COGs
 cover the whole footprint and a STAC item's geometry must contain its assets.
 

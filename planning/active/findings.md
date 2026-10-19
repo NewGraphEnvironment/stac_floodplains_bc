@@ -281,3 +281,23 @@ proof had to use an aspatial table. Same leak `code-check-spatial.md` records.
 style table. Measured on a published `floodplain_landcover.gpkg`: `layer_styles` is one of its
 **three** `attributes` rows, beside `composition_*` and `patch_watercourse_*`. Excluded by
 name, and `CLAUDE.md`'s written-down count moves from five to six.
+
+### The two scopes on the build, for the two groups that matter
+
+```
+STAGED bulk_all_ff04: ff02 598.52 (610.91) / ff04 646.81 (659.99) / ff06 685.15 (698.94) km2,
+                      loss 2793.4 (2821.8) ha, gain 1318.7 (1362.6) ha, net -1474.6 (-1459.2) ha
+STAGED pcea_all_ff04: ff02 488.20 (840.16) / ff04 491.38 (843.34) / ff06 494.61 (846.59) km2,
+                      loss  227.7 ( 238.5) ha, gain  225.4 ( 292.5) ha, net    -2.3 (   54.1) ha
+```
+
+**PCEA's two nets disagree on the direction of change** — -2.3 ha inside its own group against
++54.1 ha over the whole footprint. That is the strongest single argument for publishing both
+scopes rather than picking one, and it is also the concrete reason `net` is excluded from the
+in_wsg-at-most-footprint arm: a signed difference can legitimately sit either side.
+
+The two watched value-set arms stayed green across the whole build: `test_pipeline.R`'s
+from->to pair arm (54 pairs on BULK, all named by the published classes) and
+`item_validate.py`'s per-layer `distinct(table, attr)` coverage arm, which reported no
+uncategorized value on any of the 23 items. All 23 items printed the expected #65 line (two
+aspatial tables staged, undescribed here).
