@@ -172,6 +172,10 @@ Outside the PR mandate — run by the user, or on explicit instruction.
 ## Validation
 
 - [x] `run_pipeline.sh` + `test_pipeline.R` pass
-- [ ] `/code-check branch` clean (three-round floor)
-- [ ] PWF checkboxes match landed work
-- [ ] `/planning-archive` on completion
+- [x] `/code-check branch` — **five rounds**, past the three-round floor and past
+      `agent-operations.md` §2's ~five-agent bound, because every round found a defect inside
+      the previous round's fix. 38 findings, 19 of them inside a fix. Terminated by
+      enumeration made MECHANICAL (`scripts/claim_drift-check.py`, 156 arms, each proved by
+      mutation), not by a quiet round
+- [x] PWF checkboxes match landed work
+- [x] `/planning-archive` on completion

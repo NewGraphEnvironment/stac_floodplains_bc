@@ -194,3 +194,49 @@ true partition.
 window survived four attempts to fool it; `gpkg_required_columns()` is exact — `startswith`
 matches exactly the two patch layers across 69 files, 0 missing columns on 269 layers; the
 `absent`/`continue` flow is right; the tolerance regex survives a reflow).
+
+### How the review loop ended, and what it cost
+
+Five `/code-check` rounds plus the plan review — **six reviewer agents**, past
+`agent-operations.md` §2's bound of about five. Stated rather than hidden, as the skill
+requires:
+
+| round | findings | inside a previous fix |
+|---|---|---|
+| plan review | 14 | — |
+| 1 | 6 | — |
+| 2 | 4 | 2 |
+| 3 | 10 | 4 |
+| 4 | 7 | 6 of 7 |
+| 5 | 11 | 9 of 11 |
+
+**Rounds 2-5 found 32 of the 38, and every one that reached published text.** The three that
+would have shipped and mattered:
+
+1. A guard of mine that **could never pass and blocked the release** — the cache-vintage check
+   tested for a column `fp_readme_props()` never produces, aborting the very render its own
+   error message prescribed as the remedy.
+2. A published description that made a consumer **3-10% wrong** — `composition_*` also carries
+   `in_floodplain`, the denominator, and an unfiltered `SUM(ha)` reads 2.9% to 11.1% high.
+3. A guard **blind to the mirror of the failure it was built for** — `check_metric_scopes`
+   passed an inverted `in_wsg` filter on all 23 items, BULK publishing 13.18 km2 against a live
+   659.99 with `net_ha`'s sign flipped and straddle reporting 23/23.
+
+The loop was NOT ended by a reviewer saying it was complete. It was ended by turning the
+enumeration into a guard: `claim_drift-check.py` pins the claim set across all nine copies, and
+it caught five more problems on its first run including two regressions made minutes earlier.
+
+**The residual, stated honestly:** that check pins the claims this review retired and the
+numbers this build measures. It cannot catch a NEW claim nobody has thought to retire. What it
+does change is that a claim fixed in some copies and not others now fails a check rather than
+waiting for a sixth reviewer.
+
+### What is NOT in this PR
+
+- The **v2.1.0 release** (Phase 6): a NEWS date, a hand-cut tag, and
+  `AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 bash scripts/catalogue_release.sh`.
+- The **landing-page regen** (release step 6), which the new version floor now refuses until
+  v2.1.0 is live — deliberately, and before it can overwrite the tracked cache and figure.
+- A **full-release build-vs-live VALUE comparison**. Step 0 compares id sets only, so the
+  continuity this release rests on was measured by hand. The gap predates #98; filed and named
+  in the PR rather than fixed here.
