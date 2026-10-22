@@ -3,7 +3,7 @@
 Publish layer for the floodplain land-cover-change collection `stac-floodplains-bc`. Takes the
 per-watershed-group outputs produced by the [`floodplains`](https://github.com/NewGraphEnvironment/floodplains)
 driver, converts rasters to COGs, uploads to `s3://stac-floodplains-bc` (us-west-2), and
-registers a STAC collection served by the shared `geoserv` pgstac/titiler stack at
+registers a STAC collection served by the shared pgstac/titiler stack at
 `images.a11s.one`.
 
 ## Core principle
@@ -587,7 +587,7 @@ The route is: hand-write the PAM XML (stdlib `ElementTree`, in `02_raster_tag.py
 `CreateCopy` absorb it. `rio_cogeo.cog_translate` is **not** equivalent — it drops the RAT — and
 `SetCategoryNames` writes a sidecar on every GDAL tested up to 3.13, so neither is a shortcut.
 A sidecar is not an option here: `catalogue_release.sh` excludes `*.aux.xml` from the sync and
-geoserv's titiler sets `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff"`, so it could never
+the server's titiler sets `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif,.TIF,.tiff"`, so it could never
 fetch one. The transition raster's 100 `from -> to` combinations are coloured by destination class
 with the no-change diagonal held back, because no-change is ~91% of valid cells.
 
@@ -596,8 +596,8 @@ with the no-change diagonal held back, because no-change is ~91% of valid cells.
 **Repo-owned since #14** — `catalogue_release.sh` registers over SSH with `pypgstac`, which the
 server build installs on the host. The API is deliberately read-only (transactions extension off,
 `POST` returns 405), so writes go through `pypgstac` rather than the API. Host is
-`${GEOSERV_HOST:-root@geopro}` — the tailnet node name, because the reserved IP changes on a
-droplet rebuild.
+`$GEOSERV_HOST`, whose default in the script is a host name rather than an IP, because the IP
+changes on a server rebuild.
 
 Registration is an **upsert**: nothing is deleted implicitly, and there is no window where the
 collection serves zero items. An item dropped from a build therefore stays live unless something
@@ -624,7 +624,7 @@ row can be put back — fetched to a local file first, since `item_register.sh` 
 and followed by a re-run of the release, since the published `collection.json` no longer links it
 and an API/bucket disagreement is what a reload-from-S3 turns into an empty collection. That script is the irreversible half, needs `--yes`, and
 refuses while the API serves the item, while the bucket `collection.json` still links it, or while
-the build still produces it — the middle one because rtj's reload-from-S3 `DELETE`s a collection's
+the build still produces it — the middle one because the infrastructure repo's reload-from-S3 `DELETE`s a collection's
 rows before discovering a linked href 404s, which is how `stac-dem-bc` came to serve zero items.
 **`stac-dem-bc` is a retired id**, not a live collection: that repo's elevation collection serves as
 `stac-elevation-bc`, and `imagery-uav-bc-prod` became `stac-imagery-uav-bc` the same way (#97) — measured
@@ -644,7 +644,7 @@ would be the previous tag), and `git describe` on a tagless clone would otherwis
 fallback. `item_create.py` never writes a version; `item_validate.py` accepts an unstamped build
 and a stamped release but refuses half a stamp. `--only` never publishes the collection, so it
 never stamps, and verifies the live version did not move; step 5 also reads the bucket's
-`collection.json`, because rtj's reload-from-S3 is harmless only while bucket and API agree. Never
+`collection.json`, because the infrastructure repo's reload-from-S3 is harmless only while bucket and API agree. Never
 register `collection.json` outside the release — a rebuilt one carries no version. Tags are cut by
 hand on the `NEWS.md` commit, as `stac_uav_bc` does; there is no `DESCRIPTION`, so
 `/gh-pr-merge`'s bump path does not apply here — and **nobody has to tell it that**: measured
@@ -669,7 +669,7 @@ only on the COGs, as `NGE_PROVENANCE_NULL`, and on whatever items `deprecated: t
 none, since v2.0.0 emptied that literal.
 
 The bucket and the server itself are still managed in
-[`rtj`](https://github.com/NewGraphEnvironment/rtj), whose `stac_register-all.sh` can reload this
+the infrastructure repo, whose `stac_register-all.sh` can reload this
 collection **from S3** — harmless, because the release syncs the JSON before registering it, so
 bucket and API always agree.
 
@@ -711,7 +711,7 @@ calling a sibling R-only after it grew Python scripts.
 **How to apply:** one command, re-run whenever the question comes up:
 
 ```bash
-for r in ~/Projects/repo/stac_*_bc; do
+for r in ../stac_*_bc; do
   printf '%-22s %s %s %s\n' "$(basename "$r")" \
     "$([ -f "$r/pyproject.toml" ] && echo pyproject || echo -)" \
     "$(find "$r" -maxdepth 1 -name 'environment.y*ml' -exec basename {} \; | head -1)" \
