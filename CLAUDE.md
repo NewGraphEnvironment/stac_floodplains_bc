@@ -102,7 +102,13 @@ COG-converts, tags, uploads, and registers. If a number needs recomputing, fix i
   carry every asset's download link, hrefs read from the API and never constructed (the key is
   `style_classified`, the file is `classified.qml`). Regenerating is release step 6, past the tag;
   #55 tracks doing it automatically on a version tag, which matters because those links outlive
-  the figures beside them.
+  the figures beside them. **`README_MIN_VERSION` makes that render a release gate rather than a
+  chore**: `README.Rmd` refuses any render while the API serves below it, so step 6 cannot run
+  early and a successful render is itself evidence the release landed and is being served. It is
+  raised by hand in the same commit as the rescoping it describes — a floor nobody raised would
+  let the page render against the old catalogue — and the caption the render writes names the
+  version the table describes, which is how a page built before the release is told from one
+  built after it.
 - `data/` — gitignored (`raw/` staged inputs, `stac/` COG + item outputs) **except
   `data/readme_items.rds`**, the render cache, negated in `.gitignore` so it is tracked.
 - `fig/` — the committed coverage map plus two QGIS screenshots. `ATTRIBUTION.md` holds the

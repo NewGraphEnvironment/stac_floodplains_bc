@@ -120,7 +120,9 @@ git push origin vX.Y.Z
 #    the tag by design (the tag marks the catalogue's state, not the README), so it can happen
 #    later, and on a DIFFERENT machine than the one that cut the release -- it needs R and
 #    rstac, which a release-only machine has no reason to hold. The caption the render writes
-#    names the version the table describes.
+#    names the version the table describes. README.Rmd's README_MIN_VERSION refuses to render
+#    at all while the API serves below it, so this step cannot run early and a render that
+#    SUCCEEDS is itself evidence the release is live and being served.
 Rscript -e 'rmarkdown::render("README.Rmd", "github_document", params = list(rmd_on = FALSE, update_query = TRUE))'
 Rscript -e 'rmarkdown::render("README.Rmd", "html_document", output_file = "index.html", params = list(rmd_on = TRUE, update_query = FALSE))'
 ```
