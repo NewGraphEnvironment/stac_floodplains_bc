@@ -45,42 +45,46 @@ One **item** per watershed group, id `<wsg>_all_ff04` — the floodplain of the 
 
 Every asset publishes `file:checksum` and `file:size`, so you can confirm a download arrived intact and pin which build a figure came from. (A checksum answers *are my bytes current*, not *did the values change* — a re-encode moves every checksum.) Every GeoPackage **data** layer carries `wsg`, `species` and `scenario`, so items merged into one file stay separable by attribute. (Each file also holds a `layer_styles` table, which is QGIS’s own and carries no key — it is what makes the layers open already coloured.)
 
+**Every data layer is split at the watershed group boundary, and carries `in_wsg`.** A floodplain follows its river, so it crosses into the neighbouring group; `in_wsg` is `TRUE` for the part inside the item’s own group. A layer that would once have been one row is one row per side, so **union the rows or filter on `in_wsg`** rather than assuming a single feature. The transition patches also carry `in_open_water`, from the Freshwater Atlas lakes and manmade waterbodies with no size cut-off — a dammed lake is filed as a lake, so one flag covers both — plus `open_water_poly_id`, which is an identifier rather than a flag. `in_open_water` is **any-touch**, like `in_wetland`: a patch is flagged if it touches a waterbody at all, so read open-water **areas** from the `composition_*` table (counted by cell centre) rather than summing `area_ha` over the flagged patches — and **filter that table on `in_floodplain = 1`**, because it also covers the ring the floodplain raster only touches, which is 2.9% to 11.1% of its `ha` depending on the item. `in_wsg` is not any-touch — it is a true partition, which is why the headline figures *are* sums over its `TRUE` rows.
+
 **Each item’s GeoPackages hold only that item’s layers.** Merging *N* items therefore gives you *N* copies of the same layer families and nothing retired — no second floodplain model from a target the group no longer publishes. `floodplain.gpkg` is the one place several `scenario` values appear under one item, because the ff02, ff04 and ff06 delineations each record their own flood factor.
 
 **Every item is `ff04`**, the functional floodplain. `floodplain.gpkg` also carries the `ff02` and `ff06` (wider valley bottom) delineations, so compare those inside an item rather than across the catalogue. If a group ever publishes a second flood factor, filter on the `flood_factor` property before comparing or summing groups — an unfiltered aggregate would add different extents together.
 
+**Every headline figure is published in two scopes.** `floodplain_ff02_km2` / `floodplain_ff04_km2` / `floodplain_ff06_km2` and `gross_loss_ha` / `gross_gain_ha` / `net_ha` are the item’s **own watershed group** — the `in_wsg` rows of the layer each is read from — so a regional or provincial total is their plain sum. Each has a `*_footprint_*` sibling (`floodplain_ff04_footprint_km2`, `gross_loss_footprint_ha`, …) holding the same figure over the item’s **whole footprint**, which is the ground its rasters cover and its `geometry` describes. The difference between a pair is ground outside the item’s own group — and mostly ground **no item publishes**: of the 519 km² by which the **ff04** footprint extent exceeds the ff04 in_wsg extent across the catalogue (measured on the delineations in BC Albers), 51 km² (9.7%) is another item’s own ground and 469 km² (90.3%) falls outside every watershed group here. So summing the unsuffixed figures counts no ground twice and is the right regional total; summing the footprint figures double-counts by about half a percent. The gap is usually 1–3%; for `pcea_all_ff04` it is 42%, because that much of the item’s floodplain lies in the arms of Williston Reservoir, in watershed groups this collection does not cover. Its two nets even disagree on the **direction** of change — `net_ha` is −2 ha, `net_footprint_ha` is +54 ha — because that outside strip is strongly net-positive (67 ha of gain against 11 ha of loss) while the inside is not. Both figures are right about their own ground; only one of them belongs in a provincial sum.
+
 ## Coverage
 
-*Generated from the live API on 2026-10-17: 23 items across 23 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 2.0.1.*
+*Generated from the live API on 2026-10-22: 23 items across 23 watershed groups in 4 regions (Columbia, Fraser, Peace, Skeena), catalogue version 2.1.0.*
 
 | WSG | Region | Species | Flood factor | Floodplain (km²) | Gross loss (ha) | Gross gain (ha) | Net (ha) |
 |:---|:---|:---|:---|---:|---:|---:|---:|
-| DUNC | Columbia | whole network | ff04 | 185 | 117 | 214 | +97 |
-| KOTL | Columbia | whole network | ff04 | 754 | 643 | 444 | -199 |
-| LARL | Columbia | whole network | ff04 | 376 | 379 | 198 | -182 |
-| SLOC | Columbia | whole network | ff04 | 154 | 120 | 84 | -36 |
-| BOWR | Fraser | whole network | ff04 | 390 | 586 | 466 | -120 |
-| FRAN | Fraser | whole network | ff04 | 1,096 | 10,140 | 1,056 | -9,084 |
-| LCHL | Fraser | whole network | ff04 | 427 | 1,526 | 2,172 | +646 |
-| LNTH | Fraser | whole network | ff04 | 389 | 746 | 489 | -257 |
-| LSAL | Fraser | whole network | ff04 | 291 | 1,004 | 1,016 | +13 |
-| MCGR | Fraser | whole network | ff04 | 355 | 777 | 1,046 | +269 |
-| MORK | Fraser | whole network | ff04 | 667 | 1,063 | 1,408 | +345 |
-| NECR | Fraser | whole network | ff04 | 760 | 4,464 | 2,199 | -2,264 |
-| TABR | Fraser | whole network | ff04 | 267 | 635 | 426 | -208 |
-| THOM | Fraser | whole network | ff04 | 257 | 1,169 | 178 | -991 |
-| UFRA | Fraser | whole network | ff04 | 302 | 827 | 907 | +80 |
-| UNTH | Fraser | whole network | ff04 | 235 | 673 | 356 | -316 |
-| WILL | Fraser | whole network | ff04 | 351 | 679 | 694 | +14 |
-| PARS | Peace | whole network | ff04 | 559 | 1,753 | 3,348 | +1,595 |
-| PCEA | Peace | whole network | ff04 | 843 | 228 | 225 | -2 |
-| PINE | Peace | whole network | ff04 | 489 | 1,033 | 1,627 | +594 |
-| BULK | Skeena | whole network | ff04 | 660 | 2,793 | 1,319 | -1,475 |
-| KISP | Skeena | whole network | ff04 | 324 | 350 | 1,012 | +662 |
-| MORR | Skeena | whole network | ff04 | 479 | 660 | 780 | +121 |
-| **Total** |  |  |  | **10,611** | **32,366** | **21,667** | **-10,699** |
+| DUNC | Columbia | whole network | ff04 | 183 | 117 | 214 | +97 |
+| KOTL | Columbia | whole network | ff04 | 745 | 643 | 444 | -199 |
+| LARL | Columbia | whole network | ff04 | 372 | 379 | 198 | -182 |
+| SLOC | Columbia | whole network | ff04 | 153 | 120 | 84 | -36 |
+| BOWR | Fraser | whole network | ff04 | 380 | 586 | 466 | -120 |
+| FRAN | Fraser | whole network | ff04 | 1,084 | 10,140 | 1,056 | -9,084 |
+| LCHL | Fraser | whole network | ff04 | 413 | 1,526 | 2,172 | +646 |
+| LNTH | Fraser | whole network | ff04 | 379 | 746 | 489 | -257 |
+| LSAL | Fraser | whole network | ff04 | 285 | 1,004 | 1,016 | +13 |
+| MCGR | Fraser | whole network | ff04 | 345 | 777 | 1,046 | +269 |
+| MORK | Fraser | whole network | ff04 | 656 | 1,063 | 1,408 | +345 |
+| NECR | Fraser | whole network | ff04 | 749 | 4,464 | 2,199 | -2,264 |
+| TABR | Fraser | whole network | ff04 | 259 | 635 | 426 | -208 |
+| THOM | Fraser | whole network | ff04 | 251 | 1,169 | 178 | -991 |
+| UFRA | Fraser | whole network | ff04 | 298 | 827 | 907 | +80 |
+| UNTH | Fraser | whole network | ff04 | 233 | 673 | 356 | -316 |
+| WILL | Fraser | whole network | ff04 | 342 | 679 | 694 | +14 |
+| PARS | Peace | whole network | ff04 | 553 | 1,753 | 3,348 | +1,595 |
+| PCEA | Peace | whole network | ff04 | 491 | 228 | 225 | -2 |
+| PINE | Peace | whole network | ff04 | 479 | 1,033 | 1,627 | +594 |
+| BULK | Skeena | whole network | ff04 | 647 | 2,793 | 1,319 | -1,475 |
+| KISP | Skeena | whole network | ff04 | 321 | 350 | 1,012 | +662 |
+| MORR | Skeena | whole network | ff04 | 473 | 660 | 780 | +121 |
+| **Total** |  |  |  | **10,092** | **32,366** | **21,667** | **-10,699** |
 
-Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. `Floodplain (km²)` is each item’s **own** extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **10,611 km²** of floodplain, **32,366 ha** lost, **21,667 ha** gained, **-10,699 ha** net. That km² total counts each group’s `ff04` extent once, so it stays correct if a group ever publishes two items over one physical floodplain, while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total.
+Gross loss is area tree-covered in 2017 but not 2023, gross gain the reverse, net is gain minus loss — so a negative number is net tree loss. Every figure in this table is the item’s **own watershed group**: each is read over the `in_wsg` rows of its layer, so the column totals are real sums and count no ground twice. `Floodplain (km²)` is each item’s own extent at its own flood factor, which is why the `Flood factor` column matters. Across the catalogue: **10,092 km²** of floodplain, **32,366 ha** lost, **21,667 ha** gained, **-10,699 ha** net. That km² total still counts each group’s `ff04` extent once, so it stays correct if a group ever publishes two items over one physical floodplain, while the tree-change figures sum every item; rows are rounded, so a column need not sum exactly to its unrounded total. The `*_footprint_*` properties are the same figures unclipped, and they are deliberately **not** totalled here: of the 519 km² by which the **ff04** footprint extent exceeds the ff04 in_wsg extent, 51 km² is ground another item already counts and 469 km² lies outside every group listed above — so a footprint total would count some ground twice and still not be a provincial figure. (The tree-change columns have their own gaps: 908 ha of loss and 620 ha of gain.)
 
 ## Query it
 

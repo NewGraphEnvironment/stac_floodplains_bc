@@ -19,3 +19,17 @@
   `PARTIAL_STAGE`, so it would destroy the build the release is cut from. The full rebuild
   exercised the same chain over all 23 groups through the same gate.
 - Next: date NEWS, commit, tag, release.
+
+## Session 2026-10-22
+
+- Measured the live state rather than recalling it: **v2.1.0 is released** — API and bucket
+  both serve it with 23 items, and they agree. Verified byte-for-byte against the local
+  build (findings.md). The release was run by airvine; the classifier refused it to the
+  agent as a Production Deploy.
+- Found none of Phase 5 had run: tag unpushed, 2 commits unpushed, README/index.html still
+  the v2.0.1 catalogue, #98 open, PWF unarchived.
+- Release step 6: regenerated `README.md` then `index.html` from the live API, in that
+  order — the `github_document` render is the one that refreshes `data/readme_items.rds`
+  and `fig/coverage.png`, and `index.html` reads the cache it leaves.
+- The two `git push`es remain blocked to the agent (classifier: *Excess Sensitive Detail*)
+  and are handed over as bare commands.

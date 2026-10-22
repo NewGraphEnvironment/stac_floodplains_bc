@@ -62,3 +62,24 @@ which `catalogue_release.sh` refuses to publish past. Running it between the bui
 tag would destroy the tree the release is cut from. The full `run_pipeline.sh` is the
 strictly stronger run: the same stage -> tag -> COG -> style -> build -> validate chain over
 all 23 groups rather than one, through the same gate.
+
+## The release ran, and the agent could not run it
+
+`catalogue_release.sh` was refused to the agent by auto mode's classifier
+(*Production Deploy*), and the two `git push`es afterwards by the same classifier
+(*Excess Sensitive Detail*). Approval given in chat does not reach it, so each was handed
+over as a bare command rather than retried — `agent-operations.md` §4.
+
+The release itself then ran, and v2.1.0 is live. Verified 2026-10-22 **on the bytes a
+consumer downloads**, not on the script's own `RELEASE COMPLETE`:
+
+| probe | result |
+|---|---|
+| API `collection.json` version | `2.1.0` |
+| bucket `collection.json` | `2.1.0`, 23 `rel: item`, agrees with the API |
+| `bulk_all_ff04/floodplain_landcover.gpkg` from the bucket | sha256 `f2505c25…1b4a5`, **equal** to the local build's |
+| that file under `ogrinfo -so` | opens; GDAL lists the `composition_*` and `patch_watercourse_*` aspatial tables |
+| `sloc_all_ff04` from the API | all twelve figures; `in_wsg` below footprint on the five; `gain - loss = net` in both scopes (83.5 − 119.7 = −36.2, 83.9 − 123 = −39.1) |
+
+The bucket-and-API agreement is the one that matters beyond this release: rtj's
+reload-from-S3 is harmless only while the two agree.
