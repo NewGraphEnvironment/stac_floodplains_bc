@@ -28,4 +28,4 @@ Published already (8): fran, lchl, lsal, mork, necr, tabr, ufra, will (all ch_ff
 - `01_stage.R` hardcodes `REGION <- "fraser"` and reads a single region yml — the only change point.
 
 ## Downstream (out of this repo)
-- After republish, the geoserv pypgstac load must re-run to register the 5 new items (rtj, as rtj#177).
+- After republish, the geoserv pypgstac load must re-run to register the 5 new items (rtj, as an internal issue).

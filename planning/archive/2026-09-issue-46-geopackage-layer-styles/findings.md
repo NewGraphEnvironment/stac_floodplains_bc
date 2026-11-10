@@ -19,7 +19,7 @@ Everything derives from the one `data/raw/classes.json` that already feeds the R
 1. **Generate two QML renderers per item at staging**, from `classes.json`:
    - `classified_*` layers: categorized on `class_name`, colour per class, label = class name.
    - `transition*` layers, **two styles**. The default is tree-focused: `Trees -> <other>` (the gross-loss patches) and `<other> -> Trees` (gain) drawn, everything else receded — it is the map of the figures we publish (`gross_loss_ha` / `gross_gain_ha` / `net_ha`). The second is the full palette: categorized on `transition`, destination-coloured (the same choice as the transition COG); label = `transition` string.
-2. **Embed them in each GeoPackage's `layer_styles` table** as the default style, so QGIS applies them on load. Layer names carry `<sp>_ff0N` / years, so the rows are written per item. **Both traps below are now measured in this repo's own data rather than inherited from rfp#17 — see "Measured".** `f_table_schema` must be `''`, not NULL; and **two** timestamps churn, not one.
+2. **Embed them in each GeoPackage's `layer_styles` table** as the default style, so QGIS applies them on load. Layer names carry `<sp>_ff0N` / years, so the rows are written per item. **Both traps below are now measured in this repo's own data rather than inherited from an internal issue — see "Measured".** `f_table_schema` must be `''`, not NULL; and **two** timestamps churn, not one.
 4. **Publish the `.qml` files as STAC assets** (`roles: ["style"]`) on every item, for merged multi-item GeoPackages and for consumers that disable default styles. Names year-free (`landcover_class.qml`, `transition.qml`) for the same reason `transition_vector.gpkg` is: a `path|layername=` style survives a change of span.
 5. `item_validate.py`: assert every GeoPackage carries a `layer_styles` row per layer and that the QML's categories equal `classification:classes` on the same item — the absolute check that keeps the vector palette tied to the raster one.
 
@@ -42,7 +42,7 @@ All figures from `data/stac/kotl_bt_ff04` and QGIS 4.2.1 via PyQGIS, opening lay
 | `''` | `QgsCategorizedSymbolRenderer`, 73 categories, 8 on | yes |
 | `NULL` | `QgsSingleSymbolRenderer` | no |
 
-The NULL case logs nothing. It is the rfp#17 failure exactly, now reproduced on this repo's data.
+The NULL case logs nothing. It is the internal issue failure exactly, now reproduced on this repo's data.
 
 **Two churn vectors, not one.** `OGR_CURRENT_DATE` pins the `transition` row in `gpkg_contents` to `2000-01-01T00:00:00.000Z`, but QGIS's style writer does not go through OGR, so it lands two live wall-clock stamps:
 
@@ -116,7 +116,7 @@ Same file, same style, one column different:
 | `''` | `QgsCategorizedSymbolRenderer`, 73 categories, 8 on | yes |
 | `NULL` | `QgsSingleSymbolRenderer` | no |
 
-The NULL case logs nothing. rfp#17 reproduced on this repo's data.
+The NULL case logs nothing. An internal issue reproduced on this repo's data.
 
 ### Two churn vectors, not one
 

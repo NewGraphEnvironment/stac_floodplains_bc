@@ -75,7 +75,7 @@ Disturbance attribution (per-patch `in_fire` / `GROSS_LOSS_FIRE_HA` etc.) is a *
 concern tracked in #6, gated on floodplains#19. It is orthogonal to the item-discovery model here and
 should not be folded in.
 
-Relates to #8, floodplains#23. Do not edit rtj#190 until the new item is published (its reload loads
+Relates to #8, floodplains#23. Do not edit an internal issue until the new item is published (its reload loads
 the then-current collection.json).
 
 

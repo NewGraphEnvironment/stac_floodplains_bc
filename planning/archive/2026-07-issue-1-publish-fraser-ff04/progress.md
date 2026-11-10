@@ -44,7 +44,7 @@
   requests), a COG reads remotely as valid GeoTIFF with overviews [2,4,8,16,32] + embedded tags,
   collection.json links 8 items. Region totals reproduce the issue headline exactly — gross loss
   15,022.3 ha, floodplain 3,366 km².
-- Catalog load DONE via **rtj#177** (CLOSED 2026-07-11, by a parallel session): floodplains added
+- Catalog load DONE via **an internal issue** (CLOSED 2026-07-11, by a parallel session): floodplains added
   to `stac_register-all.sh` COLLECTIONS + rtj CLAUDE.md, pypgstac load run on geopro. **Collection
   is LIVE** — verified `GET images.a11s.one/collections/stac-floodplains-bc` → 200 and `/items` →
   all 8 with correct loss/gain/net. End-to-end round-trip (S3 → pgstac → STAC API) confirmed.

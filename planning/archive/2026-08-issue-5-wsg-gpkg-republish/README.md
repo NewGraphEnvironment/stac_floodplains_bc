@@ -24,5 +24,5 @@ Also codified: `aws s3 sync` in `04_s3_upload.R` has no `--size-only` and that o
 "optimization" would silently skip it). And `ogrinfo -so` appends `(Multi Polygon)` to only some
 layer names — never `$`-anchor a layer-name regex.
 
-Closed by: PR #15 (commits f8feaeb, fbd0e3a, bddfb1c). Catalog reload tracked in rtj#202.
+Closed by: PR #15 (commits f8feaeb, fbd0e3a, bddfb1c). Catalog reload tracked in an internal issue.
 Also closes #13 (publish KISP).

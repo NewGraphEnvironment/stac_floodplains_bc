@@ -72,7 +72,7 @@ Decisions: **config-driven** discovery (declare targets in `area.yml`, don't inf
 - [x] `run_pipeline.sh` — 16 items published to S3 under item-keyed paths; collection.json links 16.
 - [x] Positive check across 16 (dry-run + S3): three ff areas + `floodplain` asset + no
       `floodplain_km2`, every href under `<item_id>/`; morr_ch_ff06 verified on S3.
-- [x] **rtj pgstac reload (rtj#198) — RUN.** Live now serves 16; all 16 verified item-keyed;
+- [x] **rtj pgstac reload — RUN.** Live now serves 16; all 16 verified item-keyed;
       morr_co_ff04 + morr_ch_ff06 both present.
 - [ ] Clean up old flat prefixes (90 objects / 0.4 GB): `aws s3 rm --recursive s3://…/<wsg>/`
       with a **trailing slash**. Reload gate PASSED and dry-run verified (90 objects, zero

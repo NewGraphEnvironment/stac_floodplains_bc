@@ -127,7 +127,7 @@ being folded into the plan. What changed:
 | bucket copy unchecked | → mirror the read-back on S3, same argument the file already makes for `version` |
 | my own figure of "20 published item links" | → **23**. Corrected |
 
-Its finding that a hand-edit of `collection.json` proves only the validator (rfp#243,
+Its finding that a hand-edit of `collection.json` proves only the validator (an internal issue,
 "guard the chooser") is why Phase 3 mutates the constant in `item_create.py` and rebuilds.
 
 ## Why the release harness needed negative cases, not just a fixture update

@@ -31,10 +31,10 @@
 - S3-side acceptance: 17/17 floodplain_landcover.gpkg refreshed after publish start (proves the
   sync was not a silent no-op); gpkgs downloaded from S3 carry correct wsg (LCHL/PARS/KISP).
 - Positive check across 17 item JSONs: PASS; kisp_ch_ff04 present.
-- rtj#202 filed for the pgstac reload. No cleanup step (paths already item-keyed).
+- An internal issue filed for the pgstac reload. No cleanup step (paths already item-keyed).
 
 ### Phase 5 close-out — reload verified live
-- Reload was run from the M4 (rtj#202). Live catalog now serves **17** items including
+- Reload was run from the M4. Live catalog now serves **17** items including
   `kisp_ch_ff04`; collection spatial extent widened to cover Kispiox.
 - KISP's live properties match the independent recompute exactly, so the published figures trace
   back to the model with no drift through COG -> tag -> STAC -> pgstac.

@@ -219,7 +219,7 @@ ended `; echo DONE`. The failures were only visible in the log. Read the log, no
 ## The code-check loop, and what actually terminated it
 
 Five rounds. Rounds 2, 3 and 4 each found a defect **inside the previous round's fix** — the
-trap#28 shape, where a fix written under the same assumption reproduces the defect one axis over.
+an internal issue shape, where a fix written under the same assumption reproduces the defect one axis over.
 
 | round | findings | inside previous fix? | the axis it moved along |
 |---|---|---|---|

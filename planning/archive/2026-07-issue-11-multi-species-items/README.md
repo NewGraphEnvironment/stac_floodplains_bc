@@ -36,7 +36,7 @@ ff areas, both gpkg assets, no `floodplain_km2`, every href under `<item_id>/`);
 with all items item-keyed; code-check clean.
 
 Closed by: commits 5fe1ad8 → edc96b5 on branch `11-publish-multiple-species-items-per-water`.
-Related: floodplains#25 (targets), floodplains#23 (multi-species outputs), rtj#198 (pgstac reload,
+Related: floodplains#25 (targets), floodplains#23 (multi-species outputs), an internal issue (pgstac reload,
 run), #8 (the schema this builds on).
 
 **Outstanding:** the 90 orphaned objects (0.4 GB) at the old flat `s3://stac-floodplains-bc/<wsg>/`

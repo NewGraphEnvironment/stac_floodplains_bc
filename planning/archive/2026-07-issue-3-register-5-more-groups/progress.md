@@ -16,6 +16,6 @@
 - Phase 3: WSG=pcea (bt, region=peace) + WSG=bowr (ch, region=fraser) smoke tests PASS; metrics
   match independent recompute.
 - Phase 4: published all 13 (run_pipeline.sh, 263s). S3 has 79 objects, collection.json → 13 links,
-  new COGs verified public+valid. Live API returns 13 only after **rtj#183** (pypgstac re-load) runs.
+  new COGs verified public+valid. Live API returns 13 only after **an internal issue** (pypgstac re-load) runs.
 - Phase 5: README table → 13 rows (region+species cols), totals 5,887 km² / 18,296 ha loss.
-- Next: /code-check, /planning-archive, open PR. Ping/run rtj#183 to make the 5 new live.
+- Next: /code-check, /planning-archive, open PR. Ping/run an internal issue to make the 5 new live.

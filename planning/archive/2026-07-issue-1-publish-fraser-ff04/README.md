@@ -19,8 +19,8 @@ Key decisions / learnings:
 - **Partial-publish guard.** A `WSG_ONLY` single-group stage drops a `PARTIAL_STAGE` marker that
   `05` refuses to upload past (unless `SKIP_S3_UPLOAD`), so a smoke-test / one-off run can never
   clobber the live multi-item collection.
-- Catalog load is an `rtj` step (rtj#177, done by a parallel session) — this repo's boundary ends
+- Catalog load is an `rtj` step (an internal issue, done by a parallel session) — this repo's boundary ends
   at S3 + validated collection JSON.
 
 Closed by: commits d8f688f → 2793945 on branch `1-publish-fraser-ff04` (PR pending).
-Related: `stac_dem_bc#16` (uv), `rtj#177` (geoserv registration), `rtj#172/#173` (bucket).
+Related: `stac_dem_bc#16` (uv), an internal issue (geoserv registration), `an internal issue/#173` (bucket).

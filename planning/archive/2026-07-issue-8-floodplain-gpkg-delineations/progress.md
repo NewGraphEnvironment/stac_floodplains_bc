@@ -38,5 +38,5 @@
   collection.json links 15; validated. Verified bulk + fran carry floodplain_ff0{2,4,6}_km2 + both
   gpkg assets on S3.
 - Local positive check: 15/15 pass (three nested ff areas > 0, floodplain asset, no floodplain_km2).
-- Commented on rtj#190 — one pgstac reload subsumes the coho load AND the schema migration.
+- Commented on an internal issue — one pgstac reload subsumes the coho load AND the schema migration.
 - Remaining: rtj runs the reload (out-of-repo) → verify images.a11s.one serves 15 w/ new schema.

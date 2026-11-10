@@ -60,7 +60,7 @@ Per the #46 row: **grep the output for the expected message, never just the exit
 this file now has many guards and each of them exits 1.
 
 - [x] Positive control first: clean tree, validator green, the new summary line prints
-- [x] Mutate the constant in **`item_create.py`**, rebuild, then validate — not a hand-edit of `collection.json`. A hand-edit proves only the validator; it stays green forever if the build never applies the constant (rfp#243, "guard the chooser")
+- [x] Mutate the constant in **`item_create.py`**, rebuild, then validate — not a hand-edit of `collection.json`. A hand-edit proves only the validator; it stays green forever if the build never applies the constant (an internal issue, "guard the chooser")
 - [x] One proof per guard, **8 of 8 fired their own message**. One had to be retargeted: "extension declared with `sci:citation` dropped" came back `*** WRONG GUARD` because pystac rejects that state first — a premise I had written into three files was wrong, read from a schema dump truncated mid-word. The reachable direction is the mirror: `sci:citation` kept, extension not declared. Table in `findings.md`
 - [x] Record each as *mutation → message matched* in `findings.md`, and assert the mutation actually took before trusting the result
 

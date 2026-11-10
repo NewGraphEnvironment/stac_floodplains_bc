@@ -18,8 +18,8 @@ Key points / learnings:
 - **Verified per-group** with the `WSG=<g>` smoke test (`test_pipeline.R`) + independent GDAL-sqlite
   recompute before the full publish.
 - **Catalog load is out-of-repo:** the geoserv pypgstac re-load (ssh to prod) is rtj's job — filed
-  **rtj#183**, which has since run (CLOSED). **All 13 items are now live** on
+  **an internal issue**, which has since run (CLOSED). **All 13 items are now live** on
   `images.a11s.one` (verified: the 5 new return with correct region + loss/gain/net).
 
 Closed by: commits 6c439e0 → f80ab6d on branch `3-register-5-more-groups-peace-bull-trout` (PR pending).
-Related: floodplains#17/#18 (roster), rtj#183 (pgstac re-load), rtj#177 (initial registration), #1.
+Related: floodplains#17/#18 (roster), an internal issue (pgstac re-load), an internal issue (initial registration), #1.

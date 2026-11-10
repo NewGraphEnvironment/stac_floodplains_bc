@@ -17,7 +17,7 @@ Three things here are deliberate and each was measured:
 
   * `f_table_schema` is `''`, NEVER NULL. QGIS matches the row with `= ''`, and NULL
     never equals anything, so a NULL row is written successfully, logs nothing, and
-    the layer opens with a single symbol. (rfp#17, reproduced on this repo's data.)
+    the layer opens with a single symbol. (Reproduced on this repo's data.)
 
   * `layer_styles` IS registered in `gpkg_contents`, with `last_change` pinned. Until #95
     it was not, on a measurement that "GDAL lists `layer_styles` as a layer either way, so

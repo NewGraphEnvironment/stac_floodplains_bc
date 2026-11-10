@@ -5,7 +5,7 @@
 Registration currently ends with `scp` + `ssh root@geopro` running rtj's
 `stac_register-pypgstac.sh`. Issue #14 proposes adopting the stac_uav_bc system (#16, #18):
 repo-owned registration, a validation gate, versioned releases, a retraction flow, and `noun_verb`
-script naming (soul#62). Related: stac_dem_bc#27, floodplains#32.
+script naming. Related: stac_dem_bc#27, floodplains#32.
 
 ## Reference implementation
 

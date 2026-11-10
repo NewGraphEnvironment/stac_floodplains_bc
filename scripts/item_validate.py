@@ -1925,7 +1925,7 @@ def check_layer_styles(base: Path) -> list[str]:
     can; that is what `classes.json` being ferried from `drift::dft_class_table()`
     rather than retyped is for.
 
-    What it does prove independently: the style loads (the rfp#17 NULL trap), it is the
+    What it does prove independently: the style loads (the NULL trap), it is the
     renderer that style is supposed to be, it paints something, and every value the
     layer actually holds has a category.
     """
@@ -2087,7 +2087,7 @@ def check_layer_styles(base: Path) -> list[str]:
                     where = f"{item_id}/{gname} style for '{table}'"
                     # NULL here is written successfully, logs nothing, and makes QGIS
                     # fall back to a single symbol: it matches with `= ''` and NULL
-                    # never equals. The failure this check exists to catch (rfp#17).
+                    # never equals. The failure this check exists to catch.
                     if schema != "":
                         problems.append(
                             f"{where} has f_table_schema={schema!r}, expected '' — "

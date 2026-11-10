@@ -46,7 +46,7 @@ have *moved* the live items into it. The dry run then exercised the whole orches
 ascending blast radius — register before unregister — meant the restore path was proven before
 anything was deleted.
 
-Unblocking required rtj#193 (m1 not authorized on geopro), which had been open since 2026-07-19 and
+Unblocking required an internal issue (m1 not authorized on geopro), which had been open since 2026-07-19 and
 had already forced stac-dem-bc's registration onto the M4. Commented there rather than closing: only
 step 1 (manual key append) is done, and it does not survive a droplet rebuild.
 

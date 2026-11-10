@@ -41,7 +41,7 @@ meaningful. `ff04` = functional floodplain, `ff06` = valley bottom.
 
 Bare `scenario`, not `nge:scenario`. Its siblings (`wsg`, `species`, `region`) are all bare, and
 introducing a namespace for one property while three unprefixed ones sit beside it is worse than
-either convention applied consistently. soul#62 proposes namespaced domain metadata across the stac
+either convention applied consistently. An internal issue proposes namespaced domain metadata across the stac
 family — that is a migration of its own, not something to start mid-dict.
 
 ## Backfill path

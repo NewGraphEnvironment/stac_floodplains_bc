@@ -34,7 +34,7 @@ Since #11, MORR publishes two items sharing one gpkg (`morr_co_ff04` + `morr_ch_
 scenario stay separable via the existing generic layer names (`classified_ch_ff06_2017`), so `wsg`
 alone is sufficient — no per-species column needed.
 
-Blocked by NewGraphEnvironment/floodplains#30. Prior reload precedent: rtj#198.
+Blocked by NewGraphEnvironment/floodplains#30. Prior reload precedent: an internal issue.
 
 
 ## Exploration + Plan-agent review (2026-08-05)

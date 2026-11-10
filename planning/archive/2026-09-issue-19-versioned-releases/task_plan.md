@@ -22,7 +22,7 @@ version.
 **2. Release ordering follows uav:** tag the NEWS commit on the feature branch, release from it,
 commit the evidence, then merge. `/gh-pr-merge`'s bookkeeping reads `Version:` from
 `DESCRIPTION`, which this repo (like uav and dem) does not have — recorded in findings, surfaced
-at merge, owned by soul#62.
+at merge, owned by an internal issue.
 
 **Assumption:** first versioned release is **v1.0.0**.
 
@@ -113,7 +113,7 @@ collection URL (it would 404 into the fixture path) and `git` would read the rea
       reads into `progress.md`
 - [x] Note for merge: `/gh-pr-merge` bookkeeping is n/a (tag already cut on the release commit,
       no `DESCRIPTION`); open a soul issue if the skill mis-handles a NEWS-only repo, referencing
-      soul#62
+      an internal issue
 
 ## Validation
 

@@ -75,7 +75,7 @@ Regression guard, **not** red-green TDD — it passes immediately (columns alrea
 
 ## Phase 5: Reload + close out
 
-- [x] Filed the rtj reload follow-on: **rtj#202**.
+- [x] Filed the rtj reload follow-on: **an internal issue**.
 - [x] Reload run from the M4. Live verified: **17 items**, `kisp_ch_ff04` present (HTTP 200) on
       both `/items` and `POST /search`. KISP properties match the independent recompute exactly
       (ff02 210.86 / ff04 246.74 / ff06 274.74; loss 267.9 / gain 937.2 / net +669.3). All 17

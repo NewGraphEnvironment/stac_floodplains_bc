@@ -6,7 +6,7 @@ The `geoserv` droplet serves all collections in the shared `stac` DB through one
 `stac-dem-bc`, `stac-airphoto-bc`, `imagery-uav-bc-prod` there. One other collection has its
 own DB + subdomain (see the private `rtj` geoserv notes) — isolation for a large dataset.
 `stac-floodplains-bc` (8 items) belongs in the shared `stac` DB — **no `floodplains.a11s.one`
-subdomain, no DNS/Caddy change.** The bucket (rtj#172) was the whole infra footprint.
+subdomain, no DNS/Caddy change.** The bucket was the whole infra footprint.
 
 ## Bucket
 `s3://stac-floodplains-bc`, region **us-west-2** → base URL

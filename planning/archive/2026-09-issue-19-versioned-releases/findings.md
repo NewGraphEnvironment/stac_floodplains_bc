@@ -22,7 +22,7 @@ State today: `git tag -l` is empty, no `NEWS.md`, and the collection carries no 
 2. **`NEWS.md`** with a `## vX.Y.Z (YYYY-MM-DD)` entry per release, matching the `stac_uav_bc` format.
 3. **Git tags per release**, cut on the NEWS-entry commit (uav tags the NEWS commit, then runs the release, then commits the verification evidence).
 4. **Strengthen `catalogue_release.sh` verify** — assert the live collection's `version` matches the release, in addition to the existing set-identity check. This is the payoff: the release becomes self-verifying rather than only self-consistent.
-5. **Rename `05_stac_register.py`.** It registers nothing since #14 — it only builds JSON. The rename was deliberately deferred to here so its ~10 references move once rather than twice. `item_create.py` matches the converging convention (soul#62).
+5. **Rename `05_stac_register.py`.** It registers nothing since #14 — it only builds JSON. The rename was deliberately deferred to here so its ~10 references move once rather than twice. `item_create.py` matches the converging convention.
 
 ## Consequence worth flagging before starting
 
@@ -39,7 +39,7 @@ Version says **which release** an item belongs to; provenance (#17) says **which
 - `NEWS.md` and `git tag -l` agree with the live version
 - `05_stac_register.py` renamed with all references updated
 
-Follow-on from #14 (item 3). Relates to NewGraphEnvironment/soul#62, NewGraphEnvironment/stac_dem_bc#27.
+Follow-on from #14 (item 3). Relates to an internal issue, NewGraphEnvironment/stac_dem_bc#27.
 
 
 
@@ -95,7 +95,7 @@ Reading `~/.claude/commands/gh-pr-merge/SKILL.md:147-204`: the gate is
 but step 6 then runs `CURRENT_VERSION=$(grep '^Version:' DESCRIPTION ...)`, which errors on a
 repo without `DESCRIPTION`, and step 7 edits `DESCRIPTION`. Neither uav nor dem has one, and
 neither's tags came from the skill. So on this repo the skill will not cleanly auto-tag; the
-tag is cut by the release flow (uav ordering). Convention owner: soul#62 ("Convention: stac
+tag is cut by the release flow (uav ordering). Convention owner: an internal issue ("Convention: stac
 catalog repos … versioned registry"), still OPEN.
 
 ### Check harness gaps the version work must close (`catalogue_release-check.sh`)

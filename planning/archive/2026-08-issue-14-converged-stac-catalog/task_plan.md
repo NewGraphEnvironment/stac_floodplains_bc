@@ -68,7 +68,7 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
       three missing ids; the override works.
 - [x] Docs: root `README.md` + `scripts/README.md` both describe the new order and carry an
       env-flag table marking which two flags disable interlocks.
-- [x] Preflight geopro — done in Phase 1 once rtj#193 step 1 unblocked SSH (see below).
+- [x] Preflight geopro — done in Phase 1 once an internal issue step 1 unblocked SSH (see below).
 - [ ] **OPEN FOLLOW-UP:** file an rtj issue to re-enable bucket versioning. Still Suspended, and it
       is the single thing that would make any of this recoverable. Not a blocker for #14; every
       guard added here exists *because* it is Suspended.
@@ -98,7 +98,7 @@ its `DELETE` and its load the collection serves **zero items**. Upsert removes t
       rejects `;`-bearing ids; usage guards exit 1; local temp cleaned by trap; the remote
       count-guard logic refuses a simulated 12-of-17 truncation.
 - [x] **Unblocked:** `ssh root@geopro` was `Permission denied (publickey)` from the M1 — already
-      diagnosed as **rtj#193** (open since 2026-07-19; the same gap forced stac-dem-bc's
+      diagnosed as **an internal issue** (open since 2026-07-19; the same gap forced stac-dem-bc's
       registration onto the M4 on 2026-07-18). Fixed via that issue's step 1, appending the M1 key
       to geopro's root `authorized_keys` from the M4. The durable `ssh_key_ids` fix stays open
       there because it can plan as a droplet replacement.

@@ -72,7 +72,7 @@ break — no back-compat alias. Item count stays 15; ff04 stays the footprint.
       all 15 `floodplain.gpkg` uploaded; item JSONs carry the new schema (verified `bulk`+`fran`).
 - [x] Positive check: all 15 local `data/stac/*.json` carry the `floodplain` asset + three
       nested `floodplain_ff0{2,4,6}_km2` (> 0); zero `floodplain_km2` in generated JSON.
-- [x] rtj reload updated — commented on rtj#190 (one reload now subsumes the coho load AND the
+- [x] rtj reload updated — commented on an internal issue (one reload now subsumes the coho load AND the
       schema migration).
 - [ ] **Pending (out-of-repo):** rtj runs the pgstac reload → then verify `images.a11s.one`
       serves 15 with `floodplain_ff0{2,4,6}_km2` + `floodplain` asset.

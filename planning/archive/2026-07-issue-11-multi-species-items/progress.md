@@ -42,7 +42,7 @@
 - run_pipeline.sh: 16 items published to s3://stac-floodplains-bc under item-keyed <item_id>/ paths;
   64 COGs; collection.json links 16; all valid. Verified morr_ch_ff06 on S3 (species ch, region
   skeena, item-keyed hrefs, chinook loss/gain/net 482/731/+248).
-- Live still 15 (rtj#190's reload ran earlier); rtj#198 filed for the 16 + item-keyed reload.
+- Live still 15 (an internal issue's reload ran earlier); an internal issue filed for the 16 + item-keyed reload.
 - Old flat <wsg>/ prefixes intact — HELD cleanup until reload verified (live 15 still reference them).
 - Note: main has c4b35f8 = /claude-md-init --public-clean (repo flipped toward public). #11 branch
   predates it; reconcile CLAUDE.md/.claude/visibility at merge (do NOT clobber the public-clean state).

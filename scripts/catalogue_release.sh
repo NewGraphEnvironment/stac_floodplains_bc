@@ -365,7 +365,7 @@ n_local=$(printf '%s\n' "$local_ids" | grep -c . || true)
 
 # Fail before the sync if the host is unreachable, rather than after ~1.3 GB is up.
 ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" true 2>/dev/null \
-  || { echo "Cannot ssh to $HOST — see rtj#193 for key authorization." >&2; exit 1; }
+  || { echo "Cannot ssh to $HOST — authorize this machine's key there first." >&2; exit 1; }
 
 # Registration is upsert-only, so an item dropped from the build is NOT removed
 # from the API. Detect that here and make the operator act on it deliberately —

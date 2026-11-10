@@ -26,7 +26,7 @@ primary-species prefix, never positionally, so a second species' layers in the s
 `floodplain.gpkg` are ignored.
 
 Closed by: commits ff8e55d → 5e77ec4 on branch `8-publish-floodplain-gpkg-delineations-ff0`
-(PR pending). Live step out-of-repo: the geoserv pgstac reload (rtj#190, updated to subsume both
+(PR pending). Live step out-of-repo: the geoserv pgstac reload (an internal issue, updated to subsume both
 the coho load and this schema migration) — once it runs, `images.a11s.one` serves 15 items with
 the new asset + properties.
-Related: #8, rtj#190, floodplains#23 (multi-species data), #5 (wsg tagging, out of scope here).
+Related: #8, an internal issue, floodplains#23 (multi-species data), #5 (wsg tagging, out of scope here).

@@ -65,7 +65,7 @@ over-mapped. One tagged release at the end of #26 carries #46, #47 and the rebui
       `useAsDefault = 1`.
 - [x] **`f_table_schema` must be `''`, never NULL.** Measured on this repo's own data:
       the empty string auto-styles (73 categories, 8 on), NULL falls back to single-symbol
-      and logs nothing. This is rfp#17 reproduced here.
+      and logs nothing. This is an internal issue reproduced here.
 - [x] **Pin both timestamps to `GPKG_EPOCH` (`2000-01-01T00:00:00.000Z`, `scripts/fp_gpkg.R`).**
       Measured: QGIS's writer does not go through OGR, so `OGR_CURRENT_DATE` misses it and
       two live wall-clock stamps land — `layer_styles.update_time` and the

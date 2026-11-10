@@ -25,11 +25,11 @@ needs generalizing. Coho (`morr`, `neexdzii`, `co_ff04`) is out of scope.
 ## Phase 4: Publish all 13 + verify live
 - [x] `bash scripts/run_pipeline.sh` (263s) → 13 staged, 52 COGs, 79 S3 objects, 13 items +
       collection valid, 14 JSON synced. 8 existing unchanged; collection.json → 13 item links.
-- [x] Re-load filed as **rtj#183** (operational re-run on geoserv; wiring already in from #177). The
+- [x] Re-load filed as **an internal issue** (operational re-run on geoserv; wiring already in from #177). The
       geoserv ssh/pypgstac step is not runnable from this repo.
 - [x] S3-side verified: 79 objects, 25 new-group objects present, new COGs public (206) + valid with
       overviews + correct tags; PARS (1438.9/3232.8) and PCEA (100.6/210.0) recompute exactly.
-      **API returns 13 only after rtj#183 runs** (still 8 until then).
+      **API returns 13 only after an internal issue runs** (still 8 until then).
 
 ## Phase 5: Document + wrap
 - [x] README coverage table → 13 rows with Region + Species columns; totals recomputed (5,887 km²,
