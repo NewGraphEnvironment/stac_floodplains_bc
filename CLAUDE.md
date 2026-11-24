@@ -734,8 +734,7 @@ grep its scripts for `conda run -n` before calling it env-free.
 # Agent Operating Rules
 
 How an agent session works here: clocks and waiting, subagents, evidence, and when to come
-back to the user. Sections 5–8 of `karpathy.md` until 2026-10-11. Worked commands
-and background, under the same headings, are in
+back to the user. Worked commands and background, under the same headings, are in
 soul's `conventions/reference/agent-operations.md`, which no `CLAUDE.md` loads.
 
 Citations sit in `<!-- evidence -->` blocks, which a repo's `CLAUDE.md` omits; the full text
@@ -747,10 +746,8 @@ remedy stays in the rule (`code-check.md`'s header; `/compact-prep` step 5).
 **Every duration claim comes from `date`, never from how much waiting felt like
 it happened.**
 
-Background `sleep` returns immediately from the agent's side, and the number of
-times you have polled is not evidence of elapsed time. Two consecutive tool
-calls can be 15 seconds apart by the clock while feeling like ten minutes of
-waiting.
+Background `sleep` returns at once, and a count of polls is not elapsed time: two tool calls
+15 seconds apart by the clock can feel like ten minutes of waiting.
 
 **How to apply:** before saying *any* duration — "still running after N
 minutes", "this has been X a while", "longer than usual" — run `date -u` and
@@ -762,14 +759,16 @@ The same rule covers process state: `ps` and task-status listings have both been
 wrong. Check the artifact (an output file's size, its mtime, the service's own API), not the
 wrapper, and the file, not a link to it (`ls -lL`; §2, "Don't trust status").
 
-**Measure in UTC; report clock times to the user in Vancouver time, and name the zone.**
-An ETA or a "finished at" for the user reads `9:22 AM PDT`, not `16:22Z`; add UTC only when the
-exact instant matters. Convert with a tool, never by hand (PDT and PST alternate):
-`TZ=America/Vancouver date`, or the converter in the reference file for a given instant; keep
+**Measure in UTC; report clock times to the user in Vancouver time, and write those words.**
+An ETA or a "finished at" for the user reads `9:22 AM Vancouver time`, not `16:22Z`, and never
+the tz abbreviation, which prints `MST` since BC dropped the clock change; add UTC only when the
+exact instant matters. Convert with a tool, never by hand, on a host whose tz database knows BC's
+change (`TZ=America/Vancouver date +%z` reads `-0700` in winter; `-0800` means a stale one):
+`TZ=America/Vancouver date '+%-I:%M %p Vancouver time'`, or the converter in the reference file for a given instant; keep
 an input's trailing `Z`, because a time with no offset is read as machine-local. Durations need
 no zone. Stored artifacts stay in UTC: commits, logs, filenames, `research/`, PR and issue bodies.
 
-*14 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+*16 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### The same blind spot picks the wrong waiting tool
 
@@ -783,45 +782,36 @@ waiting when it is not. Pick the instrument by how many answers you need:
 | a value you must have before the next step | a **foreground** call, so the blocking is explicit |
 | a long job that notifies when it exits | `Bash(run_in_background)` with the command as plain foreground text: no `&`, no `nohup` |
 
-A repeated `sleep N; grep` is right in none of them. **Tell: if you are about to
-spawn a second waiter for the same thing, the first one was the wrong shape.**
+A repeated `sleep N; grep` suits none of them. **Every background loop has a deadline**
+(`timeout 6h …`, or a count), never a `pgrep -f` gate. **Tell: if you are about to spawn a
+second waiter for the same thing, the first was the wrong shape.**
 
-**An `until` waiter is only as good as the exit status its probe reads, and `ssh` to
-a Mac on the tailnet does not carry one:** it exits 0 whatever the remote command returned.
-Put the loop on the remote side and gate on what it prints, or test a probe's output, never
-its status (`code-check-shell.md`, "Over Tailscale SSH to a Mac, `ssh` exits 0").
+**An `until` waiter over `ssh` to a Mac exits 0 whatever the remote command did:** gate on
+what it prints (`code-check-shell.md`, "Over Tailscale SSH to a Mac, `ssh` exits 0").
 
 **And a waiter's notification is a wrapper's exit too.** Re-read the condition and the job's
 own state in a foreground call before reporting it done, against a marker only this run's end
 can produce: clear it at launch, or check it is newer than a stamp touched at launch
-(`code-check.md`, "A wrapper's exit is not the work"). A string grepped out of a log is weaker
-than either: a traced script writes it when it reads the line, and an `EXIT` trap prints it
-on failure.
+(`code-check.md`, "A wrapper's exit is not the work"), never a string grepped out of a log.
 
-A `Monitor` filter must also match the failure states, not just the success
-one — silence looks identical to "still running", so a watcher that greps only
-for the happy path stays quiet through a crash.
+A `Monitor` filter must match failure states too: silence reads as "still running".
 
-**Never end a backgrounded call's command with a trailing `&`.** A trailing `&` (or
-`nohup … &`) with nothing in the same command waiting on it, sent with `run_in_background`,
-lets the wrapper exit at once, so the notification reports **exit 0** whatever the job
-then does. Pick one mechanism from the table, never two.
+**Never end a backgrounded call's command with a trailing `&`.** Nothing in it waits on the
+job, so the call's wrapper exits at once and notifies **exit 0** whatever the job then does. Pick one mechanism from the table, never two.
 
-*20 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+*22 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### Don't edit files a long-running suite is still reading
 
-`devtools::test()` and its equivalents load each test file **when they reach it**,
-not at launch, so edits made mid-run are half-applied and the result describes a tree
-that never existed. **The tell is a moving denominator:** 3490 passes, then 3496, then
-3500, on "the same" tree. `Rscript file.R` parses incrementally too, and there the tell is
-a **syntax error quoting a line that does not exist**.
+`devtools::test()` and its equivalents load each test file **when they reach it**, so edits
+made mid-run are half-applied and the result describes a tree that never existed. **The tell
+is a moving denominator:** 3490 passes, then 3496, then 3500, on "the same" tree.
+`Rscript file.R` parses incrementally too, and there the tell is a **syntax error quoting a
+line that does not exist**.
 
-Before a long run, commit. While it runs, do work that touches nothing it reads —
-issue bodies, PR text, reading, planning. If an edit cannot wait, kill the run
-rather than let it produce a result that has to be re-litigated. And when a long run
-fails, get the `file:line` before forming any theory: a mid-flight edit and a real
-regression look identical in a summary line.
+Before a long run, commit. While it runs, touch nothing it reads: do issue bodies, PR text,
+reading, planning. If an edit cannot wait, kill the run rather than keep a result that has to be re-litigated. When a long run fails, get the `file:line` before forming any theory: a
+mid-flight edit and a real regression look identical in a summary line.
 
 *9 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
@@ -866,36 +856,37 @@ inline.
 - **Report after, not before.** Say what you spawned, and relay what it found — a subagent's
   report never reaches the user on its own.
 
-**What is genuinely the user's call is budget, not mechanism.** Two or three reviewers is
-not that — it is just doing the work.
-
 *10 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### Don't block
 
-Spawn a background subagent, then keep working on the lowest-risk part of the
-task — scaffolding, data files, tests. When findings arrive, treat them as a
-review of landed work rather than a precondition for starting it. If a result genuinely
-must precede the next step, run it synchronously (`run_in_background: false`) so the
-blocking is explicit and visible.
+Spawn a background subagent, then keep working on the lowest-risk part of the task
+(scaffolding, data files, tests). Treat findings as a review of landed work, not a
+precondition. If a result must precede the next step, run it synchronously
+(`run_in_background: false`) so the blocking is explicit.
 
 *8 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
+### When your own queue is empty, wait; a new move starts elsewhere
+
+With nothing of the task left while a review or a long run is in flight, wait or finish without
+asking, and name the free moves (`planning/backlog.md`, `umbrella.sh next`) in the report. A
+waiting session starts none; a move starts in a fresh session.
+
+*7 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+
 ### Don't trust status
 
-**Never report an agent as stalled, or as still working, on status alone.** Agent
-status and `TaskList` have both been observed to be wrong, and a subagent's
+**Never report an agent as stalled, or as still working, on status alone.** A subagent's
 `tasks/<id>.output` is a symlink that `ls -l` reports as frozen; `ls -lL` follows it.
-Never read the transcript itself, it overflows the context. Even a growing transcript shows
-activity, not that a report will arrive. So decide nothing on it; wait for the event,
-against a clock:
+Never read the transcript itself, it overflows the context; even a growing one shows activity,
+not that a report will arrive. Decide nothing on it; wait for the event, against a clock:
 
 - **Note the spawn time with `date -u`** (§1) and wait for the completion notification, not a
   file waiter. Until it arrives, the report is "spawned at T, no notification yet", never
   "stalled". Keep working, outside the diff.
 - **Deadline:** 60 minutes from the spawn for a `/code-check` round; none for a background
-  Plan review. Check expiry by subtracting the spawn time from `date -u` at each wake; with
-  nothing else to do, one backgrounded `sleep <remaining>; echo DEADLINE` is the timer.
+  Plan review, checked against `date -u` at each wake.
 - A replacement gets its own findings path, and is a spawn, so it counts toward the bound. The
   original may still deliver: read whichever arrives, both if both do.
 
@@ -909,17 +900,16 @@ spawn idles instead of completing.
 ### Verify claims, in both directions
 
 Subagent output is evidence, not verdict: acting on a wrong finding and dismissing a late
-review wholesale both happen. **Cheap probe first, then act.** Reproduce the claim before
-you fix it, and before you dismiss it. A finding you cannot reproduce is a finding you do
-not yet understand.
+review wholesale both happen. **Cheap probe first, then act.** Reproduce the claim before you fix it
+and before you dismiss it: a finding you cannot reproduce is one you do not yet understand.
 
 *5 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### Fan out inside one process
 
-A workflow that shells out **once per item** costs one permission prompt per item; the same
-work **inside one process** costs one prompt total. An unattended run that stops for
-approval on item 3 of 200 has gone idle, and the wrapper reports nothing.
+A workflow that shells out **once per item** costs one permission prompt per item; **inside
+one process** it costs one. An unattended run that stops for approval on item 3 of 200 has
+gone idle, and the wrapper reports nothing.
 
 - **Prefer one process doing N items over N processes doing one.** Loop inside the
   language runtime; shell out once, for the batch.
@@ -932,12 +922,12 @@ approval on item 3 of 200 has gone idle, and the wrapper reports nothing.
 
 ### A subagent that must not know the answer must be a Plan or Explore type
 
-A `general-purpose` subagent carries the project's `CLAUDE.md`, and `Plan` and `Explore` do not, so a
-blind reader, a blind reviewer or any control that must not see prior results is spawned as `Plan` or
-`Explore`. Check it rather than trusting the brief: a canary of each type, given no tools and asked only
-whether its context mentions the term in question, settles it in seconds. Neither type can write, so take
-its output from the transcript by script, not by retyping, and audit the transcript's tool calls for reads
-outside what it was given.
+A `general-purpose` subagent carries the project's `CLAUDE.md`; `Plan` and `Explore` do not.
+So a blind reader, a blind reviewer or any control that must not see prior results is spawned
+as `Plan` or `Explore`. Check it rather than trusting the brief: a canary of each type, given
+no tools and asked whether its context mentions the term, settles it in seconds. Neither
+type can write, so take its output from the transcript by script, not by retyping, and audit
+the transcript's tool calls for reads outside what it was given.
 
 *4 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
@@ -960,11 +950,16 @@ anything git-backed, `git fetch` first: reading a local clone and reporting it a
 with a longer fuse. **And before hand-rolling a parser for a probe, check whether the code
 already has one**: a bespoke parser silently narrows the population it can see.
 
-**A host that times out from one machine is not blocked until the local link is ruled out**:
-ping the gateway (`ping -c 30 -i 0.2 <gateway>`) and try a second machine. A lossy link passes
-short exchanges and kills long ones, which mimics a selective block.
+**It also carries the artifact it was taken from, so two measurements that contradict are
+usually two artifacts rather than one wrong number.** A schema and a migrated database, a
+changelog and the code, a freshly built table and the persisted one it writes into: each
+answers differently, and a rule written from one is wrong about the other. Name the artifact
+each was taken from, and which one the claim is about, before calling either wrong.
 
-*15 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+**A host that times out from one machine is not blocked until the local link is ruled out**:
+ping the gateway, try a second machine.
+
+*23 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### A share is not robust to an unresolved definition until you measure the spread
 
@@ -1074,9 +1069,9 @@ says, not just what exists**: an issue that already assigned the boundary settle
 
 #### The storage version: one store is not the world
 
-A negative result is only ever as wide as the store you looked in. **`aws s3` and `s3cmd`
-address different clouds and are invisible to each other**, so enumerate the stores before
-searching them, and prefer the job that stages data to whatever a bucket happens to hold.
+A negative result is only as wide as the store you looked in. **`aws s3` and `s3cmd` address
+different clouds and are invisible to each other**, so enumerate the stores before searching
+them, and prefer the job that stages data to whatever a bucket happens to hold.
 The same holds for **checkouts**: a local `grep` across the local checkouts answers a question
 about this disk. Use `gh api -X GET search/code -f q="org:NewGraphEnvironment <term>"`,
 which indexes **default branches only**: a file on a feature branch needs
@@ -1092,21 +1087,20 @@ S3 tool lists only its own provider's buckets; the backup script names the rest.
 an extractor reading its output, automation keyed to its layout), **search the peer repo's
 open issues and PRs for work that changes it**, and read the body of each adjacent hit, not
 only its title. Unquoted words match anywhere; a quoted phrase must match exactly and misses
-rewordings. A full 100 rows means the list was cut: narrow the words.
+rewordings. A full 100 rows of either type means the list was cut: narrow the words.
 
 ```bash
-gh search issues --include-prs --repo NewGraphEnvironment/<peer> --state open --limit 100 <artifact words>
+for t in issue pr; do gh api -X GET search/issues -f q="repo:NewGraphEnvironment/<peer> is:$t is:open <artifact words>" -f per_page=100 --jq '.items[] | "\(.number) \(.title)"'; done
 ```
 
-*12 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+*15 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ## 4. Decisions Up Front, Then Run
 
 **Ask at the plan gate. After approval, run to the PR. Before a plan exists, a question wants an answer.**
 
-The first three subsections are one rule on one axis — *when* to come back to the
-user — and they are only correct as a set. The rest decide what the user is handed when
-you do come back.
+The first three subsections are one rule on one axis, *when* to come back to the user, and
+are only correct as a set. The rest decide what the user is handed when you do.
 
 ### After plan approval, run every phase to the PR
 
@@ -1114,7 +1108,8 @@ Plan approval is the authorization for every mechanical step after it. Run every
 phase, commit atomically per phase, archive the PWF, push, open the PR, and report
 **once**, at the end. Do not stop between phases to report progress. **The merge is a
 separate instruction** — *to the PR* ends at the open PR, and `/gh-pr-merge` runs when the
-user invokes it or the instruction says so.
+user invokes it or the instruction says so. One exception: soul's `/coordinator` merges a PR
+that passes its every merge gate, and builds a parked plan that passes its plan gate.
 
 - **Inside it:** correcting the plan when a review disproves it (reported in the summary),
   unless the correction is itself a fork of the kind below; filing issues, opening PRs and
@@ -1124,122 +1119,186 @@ user invokes it or the instruction says so.
   its own gate — the merge, a change to the machine (`newgraph.md`), a push into an artifact
   a human is testing on (`code-check.md`).
 
-*8 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+*9 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### Before a plan exists, a question wants an answer
 
-The same terseness that means "go" after approval means "answer me" before it. A
-turn that ends in a question mark, with no approved plan, gets an answer and a
-one-line offer of the work — not the first commit toward it. When the ask is to understand
-something, keep it short and concrete; a worked example beats a taxonomy. **The mandate
-starts at plan approval.**
+The same terseness that means "go" after approval means "answer me" before it. A turn that
+ends in a question mark, with no approved plan, gets an answer and a one-line offer of the
+work, not the first commit toward it. To explain something, be short and concrete: a worked
+example beats a taxonomy. **The mandate starts at plan approval.**
 
-*4 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+**When the owner agrees a plan or a scope change about an open issue, write it into #N's body**
+as `## Plan` / `## Decisions` (a fold names both issues) and say so in the reply: the next
+session reads the body, not this conversation.
+
+*6 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### What still interrupts, and where it goes
 
 A decision that permanently shapes stored data — a key, an identifier, a schema
 choice, a deprecation shim versus a hard rename — is the user's, and it goes to the
 **plan gate**, batched, as two or three concrete options with the recommended one
-first and the consequence stated. Found mid-run, it is still not the agent's to decide:
-ask it the same way — options, recommendation first, phone-answerable — commit, and
-continue on the phases that do not depend on it while the answer is outstanding
-(`planning.md`, "When Something Keeps Failing" — escalating is not stopping).
+first and the consequence stated, including a word or field an upstream contract lacks. Found mid-run, it is still the user's:
+ask it the same way, commit, and continue on the phases that do not depend on it
+(`planning.md`, "When Something Keeps Failing": escalating is not stopping).
 
-In plan mode, collect the "this changes what I build" forks and ask them together before
-`ExitPlanMode`. Mechanism is never a question (§2), nor is anything with a conventional
-default: pick it, say so, move on.
+In plan mode, ask the "this changes what I build" forks together before `ExitPlanMode`.
+**Ask only a real fork** (stored data, a post outside our repos, a machine change, a merge, scope
+and priority); do anything else and report it. A question opens with what is happening (what
+started, where, what it does first) and a link to catch up from, then the options.
+
+*8 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+
+### Record the owner's answers; promote a class only on the record
+
+A hook (`settings/hooks/answers_log.py`) records each `AskUserQuestion`; record a question
+asked in prose with its `--manual` form. `/backlog-sweep` in soul proposes a class after 5
+recommended answers in a row; an issue writes an accepted one here. The real forks above,
+scope included, are never proposed; work under a promoted class is still reported. The coordinator's gated merge is not a promotion.
+
+**Promoted 2026-11-22: mechanism** (decide it, name it in the report; one reaching upstream
+is still asked) **and idle-work** (§2).
 
 *4 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### Never post outside our own repos without approval
 
-Never post to a venue outside NGE's own repositories without the user's explicit
-approval for that specific post — upstream GitHub issues and PR comments, mailing
-lists, forums, third-party trackers. **Drafting is welcome and expected**: write the
-comment, show it, wait. It is the sending that needs the word, because an upstream comment
-is published under the organisation's name, is indexed immediately, and cannot be
-unpublished.
+Never post to a venue outside NGE's own repositories (upstream GitHub issues and PR comments,
+mailing lists, forums, third-party trackers) without the user's explicit approval for that
+specific post. **Drafting is welcome and expected**: write the
+comment, show it, wait. The sending needs the word: an upstream comment is published under
+our name, indexed at once, and cannot be unpublished.
 
 - Our own repos are unaffected; filing and editing issues there needs no asking.
 - **Reading upstream is unrestricted and worth doing.**
-- Offer the draft in the reply, and say plainly that nothing has been posted when the work
-  obviously produced something postable.
+- Offer the draft in the reply, and say plainly that nothing has been posted.
 
 *4 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
-### An upstream PR is short, carries no session link, and needs no issue of its own
+### Upstream, we are guests: fork first, offer an issue, disclose AI
 
-Write it for a maintainer who knows the code (about 200 words: bug, repro, change, test table), and keep "Generated with Claude Code" but drop the session link and the commits' `Claude-Session:` trailers, which outsiders cannot open. File no upstream issue beside it: when we have the fix, the PR is the upstream report, and our own issue links it. Leave out the SRED cross-reference too. Posting it still needs the user's word (above).
+We build on other people's work, with gratitude and humility. Maintainers may read anything
+we write about their code: describe what we saw rather than diagnose their design, offer
+rather than propose (no imperative, a polite one included), and leave them every road to lead.
 
-*5 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+- **The finding session captures; a fork session fixes.** The finder files the reprex, versions,
+  exact lines and whether it blocks as an `upstream-draft` stub on our fork (in soul if none; the `upstream` track queues them),
+  never opens the fork, and files nothing that would not help their other users. The fork
+  session fixes, does the homework and drafts: one concern per branch from upstream's default
+  branch, no planning files, no `#N` in commits, no whitespace-only hunks (Edit drops trailing
+  spaces). Only a blocking defect is fixed the same day, the finder pinning the fork's
+  integration branch until upstream holds every fix.
+- **Upstream gets a short issue that offers:** thanks, a reprex, the options as we see them,
+  and a pull request if it helps; about 200 words besides an inline diff, no SRED line, a design
+  change as a question. Send one when asked, or first only where outside pull requests are
+  routinely merged. One open item per repo, timed around the maintainers' load.
+- **Smallest first, written their way.** When they ask for more, send the smallest fix alone
+  and offer the rest one at a time. Match their merged commits; leave their changelog to them
+  where their log shows they write it.
+- **A fix of a few lines (about 20) goes in the issue as its reviewed diff,** as what we tested, branch and test linked, pull request on offer; only the version that survived `/code-check`. A larger fix is described, linked and offered.
+- **Say plainly that Claude Code helped,** from the `upstream-draft` on, and offer an
+  `Assisted-by` reword in the pull request unless they have merged a Claude co-authored commit
+  (check their log). Where AI help is unwelcome, send no code.
+- **Never ping by accident:** in our repos' issues and pull requests an upstream item is
+  backticked, never a URL, link or bare `#N`, unless the user wants the ping; commit messages
+  name none. In a fork checkout `gh` targets upstream: pass
+  `--repo` for our fork.
+- **Homework before, notes after:** who contributes, policy, AI use, load, pace, kept in
+  soul's `research/upstream-projects.md`, revised after every reply.
+
+*37 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+
+### Credit Claude; a session link only on a cloud PR in a private repo
+
+In our repos, commits end with `Co-Authored-By`, PR bodies with "Generated with Claude Code",
+and issues carry no Claude line bar an `upstream-draft`'s sentence. A session link has one
+home: the PR body a **cloud** session opens in a **private** repo keeps the harness's footer;
+commits, local sessions and public repos carry none. The harness's attribution reminder asks
+for a `Claude-Session:` trailer and a URL, and defers to a repo's rule: this one.
+A cloud session reads no user settings, so in a public repo
+only this line guards it. `/gh-pr-merge` step 3b strips a public PR body's link; trailers stay.
+
+*13 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### Auto mode refuses a production write whatever the chat says
 
-Auto mode's classifier can refuse a command as a production write: a live store rewritten,
-a deploy, a publish. When it does, approval given in chat does not reach it, and in the
-recorded case a restart did not clear it either. On the **first** such refusal, say so once and offer two routes:
-the user leaves auto mode for that step (Shift+Tab) and approves the prompt, or runs the
-bare command themselves (below). Do not retry, and do not suggest a restart.
+Auto mode's classifier can refuse a command as a production write (a live store rewritten, a
+deploy, a publish), and approval given in chat does not reach it. On the **first** such
+refusal, say so once and offer two routes: the user leaves auto mode for that step (Shift+Tab)
+and approves the prompt, or runs the bare command themselves (below). Do not retry or suggest a restart.
 
-It is not the secret-read clamp (`newgraph.md`, "Reading a secret clamps the rest of the
-session"), which names *earlier conversation content* and needs a restart. This refusal
-names a **category** of action, such as "Production Deploy".
+It names a **category** ("Production Deploy"), not *earlier conversation content*, so it is
+not the secret-read clamp (`newgraph.md`), which needs a restart.
 
-*10 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+**It classifies the command text, so it also fires on a write the file tools can make
+safely.** Where what was refused is an edit to a tracked file rather than the publish itself,
+take Read and Edit first, as the denial text offers, and say the classification was wrong.
+Keep the two routes above for the command that really does publish.
+
+*23 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 ### Hand the user bare commands
 
-When the user must run a command themselves — an interactive login, a
-sudo-needs-TTY operation, anything the Bash tool is blocked from running — give the
-**bare command**, in a fenced block, ready to paste. Never prefix it with `!`: here it does
-not run, or runs from `$HOME`.
+When the user must run a command themselves (an interactive login, a sudo-needs-TTY
+operation, anything the Bash tool is blocked from running), give the **bare command** in a
+fenced block, ready to paste. Never prefix it with `!`: here it does not run, or runs from `$HOME`.
 
 - **Anchor every path**: absolute, or after `cd <repo-root> &&` on the same line.
-- Keep it paste-safe (`grep`/`awk` over a nested `python3 -c` in remote quotes), **short
-  enough not to wrap**, and say what the first output line must read (`PUBLISH run`), so a
+- Keep it paste-safe, **short enough not to wrap**, and say what the first output line must read (`PUBLISH run`), so a
   dropped flag shows before anything is written.
 - **Several commands go on one line.** A multi-line paste can run only its first line, with no
   error: join them with `&&` or a `for` loop over the list, still short enough not to wrap;
   past that, hand one per turn.
 
-**A file under `~/Downloads` may be unreadable by the agent process** (macOS folder
-protection, per app and per machine). Probe with
+**A file under `~/Downloads` may be unreadable by the agent process.** Probe with
 `ls ~/Downloads >/dev/null 2>&1 && echo readable || echo blocked`; Desktop and Documents are
 granted separately, so probe each. If blocked, ask for one copy into the repo, with absolute
-paths. Full Disk Access for the terminal app removes the block.
+paths.
 
 *13 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
+### Read a name for what it sounds like: the user dictates
+
+Messages often arrive by voice, so names come spelled by sound ("maxxam creek" was Maxan
+Creek). Resolve a place name against BC Geographic Names or the Freshwater Atlas before it
+lands in an issue, code or a query, and read an odd phrase for the word it sounds like
+before asking about it.
+
 ### Link every issue and PR you name to the user
 
-When a message to the user names an issue or a PR, make the number a link the user can
-click: `[repo#12](https://github.com/<owner>/<repo>/issues/12)`,
+When a message to the user names an issue or a PR, make the number a link:
+`[repo#12](https://github.com/<owner>/<repo>/issues/12)`,
 `[repo PR #13](https://github.com/<owner>/<repo>/pull/13)`.
 
-- Issues under `/issues/N`, pull requests under `/pull/N`; when unsure, ask `gh` for the URL.
+- **Say what each one is** in a few words, unless its sentence already does: a list of bare
+  links fails this. A `Stop` hook, `settings/hooks/reply_links-check.py`, holds a reply that
+  breaks either half; its no-context check is a heuristic, so a reply it misjudges may stand.
 - **Cross-repo references carry the repo** (`other#12`): a bare `#N` is a working link to the
   wrong repo, and naming the collision in prose afterwards does not fix it; re-qualify the link.
 - Before sending a report with many numbers, spot-check two or three through `gh`: the ones
   typed from memory or whose type you inferred.
 - Scope is messages to the user, and PR and issue bodies read from outside the repo; commit
-  messages autolink already.
+  messages autolink already. An upstream item in our repos' GitHub text is backticked (§4, pings).
 
-*7 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+*11 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
-### Surface upstream defects; do not work around them
+### Surface upstream defects and gaps; do not work around them
 
-When a dependency or an external API misbehaves, surface it and ask rather than
-coding around it: a workaround hides the defect from whoever could fix it, and most of the
-dependencies in question are **first-party**, so a local patch leaves the bug in place for
-every other consumer. Same instinct as `newgraph.md`'s "install missing packages, don't
-workaround", applied to a *broken* dependency.
+When a dependency or an external API misbehaves, or its contract lacks a concept you need,
+surface it and ask rather than coding around it: a workaround hides the defect from whoever
+could fix it, and most such dependencies are **first-party**, so a local patch leaves the bug
+for every other consumer.
 
-**How to apply:** reproduce it minimally, file an issue in the owning repo with the
-repro and the exact lines, report it, and carry on if it is not blocking. The rule is
-*do not hide it*, not *do not continue*.
+**How to apply:** first check an installed package is current (`check_pkg_stale.sh`, then our
+package's tag and `main`, a CRAN package's CRAN) and state the versions beside the diagnosis.
+Then reproduce it minimally, file an issue in the owning repo with the
+repro and the exact lines (a third party's: a fork stub, above), report it, and carry on if it is not blocking: *do not hide it*, not *do not continue*.
 
-*10 lines of evidence for this rule are in `conventions/agent-operations.md`.*
+**A gap is a change request:** file it with the contract's owner before coining a name, and
+bring the choice to the plan gate. Tell: you are explaining why your names are not the contract's.
+
+*17 lines of evidence for this rule are in `conventions/agent-operations.md`.*
 
 # Code Check — Python
 Traps in Python: the interpreter, pytest, the HTTP stack under pystac, and MkDocs.
@@ -1247,22 +1306,31 @@ Traps in Python: the interpreter, pytest, the HTTP stack under pystac, and MkDoc
 *Index only: each rule's heading and first sentence. The full text is soul's `conventions/code-check-python.md`; read it before writing or reviewing code in its area. `/code-check` loads it in full.*
 
 ### A script named after a stdlib module shadows that module when run by path
-Name a script so it cannot collide with the standard library (`enum_sites.py`, not `enum.py`): run by path, its directory is first on `sys.path`, so every `import enum` in the process, `re`'s included, gets the script.
+Name a script so it cannot collide with the standard library (`enum_sites.py`, not `enum.py`).
 
 ### Proxy variables do not take a pystac test offline: block at the socket
 To make Python tests network-proof, patch the socket layer to refuse every non-loopback lookup and connection, in `pytest_configure`, and clear the proxy variables with `NO_PROXY=*`.
 
 ### A conftest guard covers only the invocations that load it
-Put a session-wide guard in the repository's root `conftest.py`, and pin it by behaviour in a child process: pytest loads a conftest only for the paths it is given and their parents, so a guard in `tests/conftest.py` is absent from `pytest src/...`.
+Put a session-wide guard in the repository's root `conftest.py`, and pin it by behaviour in a child process.
 
 ### `mkdocs build --strict -q` passes a dead link
-Run `mkdocs build --strict` without `-q`, and set all seven `validation:` keys to `warn` in `mkdocs.yml`: `-q` raises the log level past WARNING, strict counts only the warnings it sees, and so it counts nothing.
+Run `mkdocs build --strict` without `-q`, and set all seven `validation:` keys to `warn` in `mkdocs.yml`.
 
 ### `tempfile.mkstemp` then `os.replace` leaves the target at mode 0600
 Set the temp file's mode before the rename: the target's own (`os.stat(path).st_mode & 0o7777`) when it exists, `0o666 & ~umask` when it does not.
 
 ### A line break inside an f-string's braces parses only on Python 3.12+
-Parse or test a script under its declared `requires-python` floor (`uv run --python 3.11 --script …`): PEP 701 (3.12) allows a newline inside an f-string's braces, so code that passes on 3.12 can be a SyntaxError on 3.11.
+Parse or test a script under its declared `requires-python` floor (`uv run --python 3.11 --script …`).
+
+### Drive LibreOffice over UNO as an `soffice` macro, not with its bundled Python
+Put the script in the private profile's `user/Scripts/python/` and start it as a macro, since on macOS LibreOffice's bundled interpreter run directly is killed at once.
+
+### `re.match` with `$` accepts a trailing newline
+Validate a whole string with `re.fullmatch()`, and write `[0-9]` for an ASCII digit.
+
+### `urllib.parse` normalises differently on different routes
+Remove dot segments yourself (RFC 3986 §5.2.4) and merge by hand before comparing a path from a URL with a key: `urljoin`, `urlsplit`, `urldefrag` and `posixpath.normpath` each normalise more, on some routes only.
 
 # Code Check — R
 Traps in R: the language and base/utils behaviour, package internals (`R CMD build`, `.Rbuildignore`, roxygen, lintr, `data-raw/`, testthat, pak), and the DBI/duckdb/arrow data layer.
@@ -1276,10 +1344,13 @@ A script that reads a file, transforms it, and writes it **back to the same path
 - Tools that scan an R Markdown document for prose — citation detection, cross-references, spell-check, word counts — skip code chunks.
 
 ### `fs::dir_ls(glob = )` matches the FULL path, so a bare filename pattern matches nothing
-- `fs::dir_ls(dir, glob = "form_*.gpkg")` returns **zero** for a directory full of `form_*.gpkg` files.
+Give `fs::dir_ls()` an anchored `regexp =`, never a `glob =`: a glob is matched against the whole path, and its `[...]` classes are escaped.
 
 ### `glue()` trims common leading whitespace
 - `glue::glue()` strips the common indentation of its input, so a template whose output must preserve exact indentation (XML, YAML, Makefiles, Python) comes out subtly wrong — valid-looking, wrongly indented.
+
+### A `glue()` named argument shadows caller variables in the arguments after it
+Compute each value before the call and pass the result.
 
 ### `f(g(x)) <- v` needs a `g<-`, not an evaluated `g(x)`
 - R parses **any** call on the left of `<-` as a replacement function, all the way down.
@@ -1293,14 +1364,17 @@ Read an HTTP status from `curl::curl_fetch_disk()`'s `status_code`, never from `
 ### A URL handed to a reader goes through R's 60 s connection timeout
 Download a large remote file to a `tempfile()` with httr2 or curl and read the copy, never `jsonlite::fromJSON(url)`, `readRDS(url(u))` or `read.csv(u)`.
 
+### A raw-accept `gh::gh()` result is bytes, and a GraphQL failure arrives with HTTP 200
+Read a raw-accept `gh::gh()` result with `rawToChar(unclass(x))`, and stop on a non-NULL `$errors` after `gh::gh_gql()`.
+
 ### `on.exit()` at a script's top level never fires
 - `on.exit()` registers a handler on the *current frame*.
 
 ### A `data-raw/` script must load the source tree, not the installed package
-- `requireNamespace("pkg")` succeeds whenever **any** version is installed, so a guard shaped like `if (!requireNamespace("pkg")) pkgload::load_all()` silently runs against the installed one.
+- `requireNamespace("pkg")` succeeds whenever **any** version is installed.
 
 ### `lintr` also resolves against the installed package, not the source tree
-A lint warning of `no visible binding` for a constant added on this branch is usually the installed package being stale; check `exists(name, asNamespace(pkg))` and reinstall before changing any code.
+For a `no visible binding` lint on a constant added on this branch, check `exists(name, asNamespace(pkg))` and reinstall before changing code.
 
 ### Regenerated binaries churn git even when nothing changed
 - Formats that embed a creation timestamp or other run-varying metadata produce a different file on every rebuild.
@@ -1309,13 +1383,13 @@ A lint warning of `no visible binding` for a constant added on this branch is us
 `expect_snapshot()` **skips on CRAN**, and `testthat` treats a non-interactive run as CRAN by default.
 
 ### testthat counts an uncaught error under `error`, not `failed`
-Count `r$failed > 0 | r$error` over `r <- as.data.frame(testthat::test_file(f))`, never `failed` alone.
+Count `r$failed > 0 | r$error` over `r <- as.data.frame(testthat::test_file(f))`, never `failed` alone, and count skips from a `ProgressReporter`'s `n_skip`, never from the frame.
 
 ### A `skip_if_not()` skips only its own `test_that()` block
 Before blaming a failure, or its absence, on a skip, find the `test_that()` block the skip sits in.
 
 ### `expect_gt()` and friends take no `info` argument
-`expect_true()`, `expect_false()` and `expect_equal()` accept `info =`; the comparison expectations — `expect_gt`, `expect_lt`, `expect_gte`, `expect_lte` — do not, and passing one is an **error**, not a warning:
+Passing `info =` to `expect_gt`, `expect_lt`, `expect_gte` or `expect_lte` is an **error**, not a warning.
 
 ### pak Behavior
 - pak stops on first unresolvable package — all subsequent packages are skipped
@@ -1331,6 +1405,9 @@ Chunk labels must be unique **within a document**.
 
 ### `R CMD build` ships the `.git` FILE when you build from a worktree
 A package built from a `git worktree` ships `.git` (a file holding the developer's absolute path), because R excludes only a `.git` directory; list `^\.git$` in `.Rbuildignore`.
+
+### Shiny serves a dependency's whole `src`
+Give an `htmlDependency` a `src` holding only its files: Shiny ignores `all_files`.
 
 ### `.Rbuildignore` has no comment syntax — every line is a live regex
 `tools:::inRbuildignore` loops over every non-empty line and ORs `grepl()` of it against the file list.
@@ -1384,10 +1461,10 @@ Keep `drop = FALSE` on the scale and give the layer a named `show.legend` that a
 Leading empties survive and trailing ones do not, which is what makes it hard to reason about from memory.
 
 ### `identical()` on two reader results tests the reader, not the file
-`identical(read_csv(f), read_csv(f))` can be **FALSE** for the same unchanged bytes: readr tibbles carry a `problems` attribute — an external pointer — that differs between reads (readr 2.2.0; `spec` is identical, measured).
+Compare the file itself (`tools::md5sum()`) to show it was not modified, never two reader results.
 
 ### Under `R CMD check`, tests run from a temp dir against the INSTALLED package
-Two shapes, both green under `devtools::test()` and broken under `R CMD check`, `devtools::check()`, a tarball check, or an installed-tests run — the direction that costs the most time.
+Two shapes, both green under `devtools::test()` and broken under `R CMD check`, the direction that costs the most time.
 
 ### `dbConnect(SQLite(), path)` CREATES the file, so a read has a write side effect
 SQLite creates a database on connect.
@@ -1395,17 +1472,20 @@ SQLite creates a database on connect.
 ### CSV whitespace: `trim_ws` and `strip.white` do not do what the name suggests
 - `readr::read_csv()` defaults to **`trim_ws = TRUE`** and silently strips leading and trailing whitespace.
 
+### readr crashes R on a byte its declared encoding does not define
+Before a `readr` read with a single-byte `locale(encoding = )`, refuse a file holding a byte that encoding leaves undefined.
+
 ### `R CMD check` rejects a filename containing a space
 - "checking for portable file names" fails on any file in the built package whose name has a space.
 
 ### `sort()` and `order()` collate by `LC_COLLATE`, so a canonical form is locale-dependent
-Character sorting in R is locale-sensitive by default, which makes any *canonical* string built by sorting — an XML node with its attributes ordered, a joined key, a manifest — a function of the session's locale rather than of the data:
+Sort with `method = "radix"` wherever the order builds a canonical string.
 
 ### A library call that dispatches on a global option is not a pure function
 A function whose *units* or *algorithm* are chosen by a session-wide setting behaves differently depending on what the caller did before reaching your code.
 
 ### `identical(-0, 0)` is TRUE in R, and the two still digest differently
-A hash over R's serialized bytes — which is what `digest::digest()` takes by default — separates positive and negative zero, even though every value comparison says they are the same.
+A hash over R's serialized bytes, as `digest::digest()` takes by default, separates positive and negative zero.
 
 ### Two repos pinning the same remote at different tags is an unsolvable install
 `Remotes:` pins are per-repo, but resolution is global.
@@ -1428,23 +1508,38 @@ A named `FUN.VALUE` looks like it guarantees row names on the returned matrix.
 ### One very long table cell hangs paged.js, and it presents as a Chrome timeout
 A ~600-character free-text field in a `kable` cell wedged `pagedown::chrome_print` indefinitely.
 
+### chromote waits on a private event loop, and a throw inside a paged.js hook hangs `chrome_print()`
+Serve a page chromote must load from a separate process, and never `throw` inside a paged.js hook.
+
+### `pagedown::chrome_print()` in a test leaves Chrome's scratch directories in `$TMPDIR`
+Run it under `withr::with_envvar(c(TMPDIR = tempdir()))`: on Linux R CMD check reports the leftover `com.google.Chrome.*` directories as detritus.
+
+### `kable()` with no `format` writes a pipe table, and `kable_styling()` rebuilds it without `table.attr`
+Pass `format = "html"` to `knitr::kable()` whenever its `table.attr` must reach the page through `kableExtra::kable_styling()`, and leave `label` at its default.
+
 ### `stats::aggregate()` has three separate silent behaviours, and each fails in a different direction
 All three measured on R 4.5, all three met inside one 800-line script (drift#67).
 
 ### `stats::mad()` is already scaled to an SD
-Use `stats::mad(x)` itself as the robust standard deviation, or `mad(x, constant = 1)` for the raw median absolute deviation: the default `constant = 1.4826` already scales it, so multiplying by 1.4826 again inflates the SD by half.
+Use `stats::mad(x)` itself as the robust standard deviation: its default `constant = 1.4826` already scales it, so multiplying by 1.4826 again inflates the SD by half.
+
+### A design matrix does not hold everything a formula says
+Refuse an `offset()` or `|` your design matrix loses (`attr(terms(f), "offset")`, `all.names(f)`), and say which covariate functions `predict()` re-evaluates.
 
 ### `deparse(body(f))` excludes formal defaults, so a body scan cannot see a default
 A guard that scans function bodies for a forbidden literal is blind to that literal in a **signature**.
 
 ### `deparse()` re-encodes non-ASCII, so it answers about itself rather than the file
-Scan R source for non-ASCII the way `R CMD check` does (`tools:::.check_package_ASCII_code()`: raw lines, comments skipped), not through `parse()` and `deparse()`, which turn `\uXXXX` escapes into literal characters and back.
+Scan R source for non-ASCII with `tools:::.check_package_ASCII_code()`, as `R CMD check` does, never through `parse()` and `deparse()`.
 
 ### `package_version()` errors on a pre-release version string
 `package_version("3.9.0beta1")` raises rather than returning `NA`, so strip a pre-release suffix before asserting a version floor.
 
+### `chk::chk_whole_number()` passes `Inf` and near-whole doubles
+Round the value after `chk::chk_whole_number()`, before arithmetic, and refuse non-finite values separately.
+
 ### `tryCatch(warning = )` DISCARDS the value the expression produced
-A `warning =` handler is not a filter — it replaces the whole expression, so a call that **succeeded** and merely warned returns the handler's value and the result is thrown away.
+A `warning =` handler is not a filter: it replaces the whole expression.
 
 ### Do not abort inside a handler for a warning raised from C++; note it and abort after the call returns
 Record a flag in the `withCallingHandlers()` handler, `invokeRestart("muffleWarning")`, and raise once the call has returned.
@@ -1456,7 +1551,7 @@ Record a flag in the `withCallingHandlers()` handler, `invokeRestart("muffleWarn
 testthat 3e captures the first message the expression emits and matches the regexp against **that one**.
 
 ### `pak` refuses to install a package that needs no compiler
-`pak::pak()` routes through `pkgbuild::check_build_tools()`, which fails with *"Could not find tools necessary to compile a package"* whenever `xcode-select -p` points at `/Applications/Xcode.app/...` while the Command Line Tools are what is actually installed — **regardless of whether the package has any compiled code**.
+Install a pure-R package with `R CMD INSTALL <checkout>` when `pak::pak()` reports missing build tools.
 
 ### `as.integer("NaN")` is `0`, and `as.integer(NaN)` is `NA`
 The string round trip is the bug.
@@ -1471,7 +1566,7 @@ Putting per-group results back in input order by naming them looks right and ret
 `expect_equal(x, 12.529, tolerance = 2e-2)` accepts anything within **two percent** — so a figure published to three decimals survives drifting to `12.629`.
 
 ### `cli` reads `{.name}` as a STYLE, not a variable, and a fold can swallow an interpolation
-Two ways a `cli` message loses a value.
+Three ways a `cli` message misleads: two lose a value, one runs code.
 
 ### `[[` on a named ATOMIC vector with an absent key is an error, not `NULL`
 A list returns `NULL` for a missing `[[` key.
@@ -1492,37 +1587,40 @@ Leave `<` and `>` unescaped when you build a pattern from data.
 R removes its session `tempdir()` on exit, including after `stop()`.
 
 ### R's `yaml` returns a mixed int/float sequence as a list, not a numeric vector
-`yaml::read_yaml()` simplifies a sequence to a vector only when every element has the same type, so `[0.164, 9999]` comes back as `list(0.164, 9999L)` while `[0.0, 9999.0]` is `c(0, 9999)`.
+Normalise a numeric YAML sequence at load.
 
 ### testthat's failure snapshots land in `tests/` and ride in on `git add -A`
 testthat 3e writes `tests/testthat/_problems/*.R` and `tests/testthat/testthat-problems.rds` when tests fail.
 
 ### Postgres row order is never fixed unless the query fixes it, so a pick, a float sum and a presence check can each depend on it
-End every `ORDER BY` on a unique key, order any fetch whose rows are summed, and ask whether a value is loaded with an index walk, not `DISTINCT` or `EXISTS`.
+End every `ORDER BY` on a unique key.
 
 ### `sprintf("%g", x)` writes `Inf` and `NA` into SQL as bare words, which Postgres reads as column names
 A numeric formatter such as `sprintf("%.10g", x)` has no SQL form for non-finite values.
+
+### Verify a float-formatting fix in its consumer, not through `as.numeric()`
+Compare where the literal is parsed, or compare IEEE 754 bytes, never through `as.numeric()`.
 
 ### An `information_schema` lookup by the literal table name misses what Postgres resolves
 `WHERE table_schema = 's' AND table_name = 'T'` compares the text you passed.
 
 ### Rscript reads a script as it runs, so never edit a script while a run of it is in flight
-Copy the script and run the copy (`cp scripts/x.R "${TMPDIR:-/tmp}/x_frozen.R" && Rscript "${TMPDIR:-/tmp}/x_frozen.R"`) for anything long-running, or leave the file alone until the run exits.
+Run a copy of the script for anything long-running, or leave the file alone until the run exits.
 
 ### A range total taken as the difference of two large running totals loses the small ranges
 Sum a range directly (segment tree, per-range `sum()`, or grouped sums) rather than as `cumsum[hi] - cumsum[lo]` when ranges are small relative to the running total.
 
 ### A `pkg::` call in a test passes `devtools::test()` and fails `R CMD check` if `pkg` is undeclared
-`R CMD check` warns "'::' or ':::' import not declared from" for any package a test reaches with `::` that `DESCRIPTION` does not list, and under `error-on: "warning"` that reddens every runner.
+List every package a test reaches with `::` in `DESCRIPTION`, and run `tools:::.check_packages_used_in_tests` on the source tree before pushing.
 
 ### Inside a dplyr verb, a column named like a local variable wins
 Inject a local value into a data-masked verb with `!!x` or `.env$x`, never a bare `x`.
 
 ### `earthdatalogin`'s search and download calls overwrite the netrc when they find no Earthdata entry
-Call NASA's CMR search with `curl` and download with `curl` given the netrc directly (`netrc = 1, netrc_file = <path>, cookiefile = ""` follows the URS redirect), or check `earthdatalogin:::has_edl_netrc()` yourself first.
+Search NASA's CMR and download with `curl` given the netrc directly, or check `earthdatalogin:::has_edl_netrc()` yourself first.
 
 ### A fetcher's test helper must make the network fail, not just mock the reader
-When a test mocks a downloader's reader and supplies fixture files, also mock the search and download functions to `stop()` by default, and re-mock them only in the tests that exercise that path.
+Where a test mocks a downloader's reader, mock its search and download functions to `stop()` too.
 
 ### testthat 3e `expect_message()` returns the condition, not the expression's value
 Assign inside the call, `expect_message(h <- f(x), "msg")`, never `h <- expect_message(f(x), "msg")`.
@@ -1542,6 +1640,9 @@ Read the exit status off the result: `st <- attr(out, "status")`, which is `NULL
 ### Forked `parallel::mclapply()` workers segfault in `glm.fit` under macOS Accelerate BLAS
 Fit models in parallel on socket workers (`parallel::makeCluster()` with `parLapply()`), not forks.
 
+### `clusterApply()` returns `NULL` for no tasks, not an empty list
+Guard an empty input before naming or indexing a `clusterApply()` or `clusterApplyLB()` result.
+
 ### `c(name = x)` keeps `x`'s own name, so a value from a named vector becomes `name.X`
 Strip the name before you label it: `c(axis = unname(v[1]))` or `c(axis = v[[1]])`.
 
@@ -1552,10 +1653,13 @@ Give `returnValue()` a default and check its length: `trace(f, exit = quote(rec(
 Write `Rscript -e 'expr' a b`, not `Rscript -e 'expr' --args a b`.
 
 ### `read.delim()` quotes by default, so a `"` in a field silently swallows rows
-Read a TSV you wrote unquoted with `quote = "", na.strings = character(), comment.char = ""`.
+Read a TSV you wrote unquoted with `quote = "", na.strings = character(), comment.char = "", fill = FALSE`.
 
 ### duckdb in R: the query that autoloads `icu` binds unreliably, so `LOAD icu` before it
-Run `LOAD icu` on the connection before any query that needs it (`epoch()`, `year()`, a cast to `DATE` on a `TIMESTAMPTZ`), or use a function that needs no extension (`epoch_ms()`).
+Run `LOAD icu` on the connection before any query that needs it, or use a function that needs no extension.
+
+### duckdb refuses a parent delete in the transaction that deleted its children
+Delete rows a foreign key still points at as separate autocommit statements, children first, never inside one `DBI::dbWithTransaction()`.
 
 ### `fs::path()` collapses the `//` after a URL scheme, so it cannot build URLs
 Join a URL with `paste(base, key, sep = "/")` or `file.path()`, never `fs::path()`.
@@ -1567,19 +1671,22 @@ Set a user-agent on every R fetch of a `canada.ca` page, because R's default fai
 Keep only the observed series (`DATASET == "<obs_ts_dataset>"`, four-digit `PERIOD`) before averaging climr output over years.
 
 ### A `function(...)` mock hides arguments the real callee no longer accepts
-Stubbing a callee with `function(...) invisible("mock")` accepts any argument name, so a wrapper still passing a parameter the callee dropped stays green while every real call errors with `unused argument`.
+Assert a `function(...)` mock's argument names against the real callee's `formals()`.
 
 ### `expect_message(regexp = "...$")` never matches, because `message()` appends `"\n"`
 The condition message carries the trailing newline, so an end anchor fails and the test reports "did not throw a message" even though the message printed.
 
 ### `load_all()` refuses an installed dependency below the `Imports:` floor, so measure old-against-new from a frozen worktree
-Run the old-dependency side of a before/after comparison from a `git worktree` of the pre-bump commit, and install the new version only after those runs finish.
+Run the old-dependency side of a before/after comparison from a `git worktree` of the pre-bump commit.
 
 ### `tryCatch()` nests its handlers, so a `stop()` in one is caught by a later one
 Record the condition in the handler (`hit <<- TRUE`) and raise after `tryCatch()` returns.
 
 ### `fs::file_move()` onto an existing directory nests the source inside it
 Move a directory into place with `base::file.rename()` and check its return value, which is FALSE where the target is a non-empty directory, a symlink or a file.
+
+### `normalizePath()` renames through a symlink and returns a missing path as it was
+Make a path absolute with `file.path(normalizePath(dirname(x), mustWork = TRUE), basename(x))`, which keeps its name.
 
 ### Base `file.info()` has no inode column, so `file.info(x)$ino` is NULL and any comparison of it passes
 Read an inode with `fs::file_info(x)$inode`.
@@ -1601,6 +1708,30 @@ Keep helper and ad hoc scripts out of `data/`, which pkgload treats as package d
 
 ### `ifelse()` with an all-NA test returns a logical vector, whatever `yes` and `no` are
 Resolve NA before an `ifelse()` whose result must keep a type (`blocked <- !is.na(blocked) & blocked`), or use `dplyr::if_else(..., missing = )`.
+
+### `sub()` takes one replacement, not one per element
+Paste a per-element suffix on instead (`paste0(sub("]$", "", x), suffix)`): a `replacement` longer than one is used as its first element everywhere, with only a warning.
+
+### `officer::body_replace_all_text()` misses a phrase that spans Word runs
+Replace whole paragraphs, not phrases inside them: officer matches within one text run, and Word splits a paragraph into runs wherever formatting or editing history changes.
+
+### Fill an xlsx template through its sheet XML, not openxlsx's `saveWorkbook()`
+Write the input cells into the sheet XML with xml2 and re-zip, so only the parts you edit change.
+
+### Copy a live SQLite database with its `-wal`
+Keep the pair only if both files' mtime and size held across the copy.
+
+### jsonlite writes an empty name as the element's position
+Write a JSON object with an empty key as text, not through `toJSON()`.
+
+### Probing a TMB objective can break `vcov()` on the fit
+Compute `vcov()` and `SE()` before probing a TMB objective, or save and restore `env$last.par.best` and `env$value.best` around the probe.
+
+### Numeric routines that err at their edge, and `round()`
+`besselI(x, nu, expon.scaled = TRUE)` returns 0 with no warning for large `x`.
+
+### knitr and pandoc rewrite a caption: `fig.cap` is evaluated late, and `alt` copies it
+Set `fig.alt` from a call, not from the caption's value.
 
 # Code Check — Shell
 Tool-level traps in bash, sed, git and `gh`, and in the host toolchain those commands depend on.
@@ -1656,7 +1787,7 @@ Give an outer heredoc a delimiter its body cannot contain, or run the script fro
 - macOS ships BSD `sed`/`grep`.
 
 ### On this Mac `stat` and `date` are GNU, so the same flag letter means something else
-Here Homebrew puts GNU coreutils ahead of `/usr/bin`, so BSD-style `stat -f` and `date -r <epoch>` mean something else; prefer a flavour-free form (`find -newermt`, `python3`), or call the binary by absolute path.
+Prefer a flavour-free form (`find -newermt`, `python3`), or call the binary by absolute path.
 
 ### `&` binds to the whole `&&` list, so assignments never reach the parent
 - `cmd1 && VAR=$(...) && nohup prog > "$VAR.log" & disown` backgrounds the **entire list**, not just `nohup`.
@@ -1668,13 +1799,16 @@ Here Homebrew puts GNU coreutils ahead of `/usr/bin`, so BSD-style `stat -f` and
 `gh api repos/ORG/REPO/compare/upstream:main...ORG:main` returning `ahead: 0, behind: 0, status: identical` reads as *"this fork has no local work"*.
 
 ### A destructive setup and its undo must not share one timeout-able command
-Never chain a destructive setup and its undo (`git stash && slow && git stash pop`) in one timeout-able command; compare with `git show HEAD:path`, or restore from one `trap … EXIT` handler guarded by a flag set once the setup happened.
+Never chain a destructive setup and its undo (`git stash && slow && git stash pop`) in one timeout-able command.
 
 ### `git checkout <path>` restores from the index, not from HEAD
 After a `git add`, `git checkout <path>` reinstates the broken *staged* copy — so the "fix" reproduces the failure and reads as though the edit was wrong.
 
+### Git plumbing calls whose default answers a different question
+Pass the flag that names the question you mean.
+
 ### A value validated with one numeric grammar and consumed with another
-Normalise a numeric string once (digits only and at most 9 of them, then `x=$((10#$x))`, then a bounded range): `test` reads base 10, `$(( ))` reads a leading zero as octal and wraps past 2^63.
+Normalise a numeric string once (digits only and at most 9 of them, then `x=$((10#$x))`, then a bounded range).
 
 ### `wait` with no argument waits for every background job in the shell
 Wait on the PIDs you started (`wait "$pid"`), because a bare `wait` also blocks on every other background job in the shell.
@@ -1682,17 +1816,17 @@ Wait on the PIDs you started (`wait "$pid"`), because a bare `wait` also blocks 
 ### `if ! cmd; then rc=$?` captures the negation, not the command
 Inside the branch, `$?` is the status of the `!` compound — which is **0 by construction**, because the negation succeeded.
 
-### A `pgrep -f` waiter matches its own command line, so it never exits
-Wait on a PID with `while kill -0 "$PID"; do sleep 30; done`, never on `pgrep -f "job"`, whose pattern matches the waiting loop's own command line so it never exits.
+### A `pgrep -f` waiter matches a waiter's command line, so it never exits
+Wait on a PID with `while ps -p "$PID" >/dev/null 2>&1; do sleep 30; done`, never on `pgrep -f "job"`, whose pattern matches a waiting loop's command line so it never exits.
 
 ### `timeout` is GNU coreutils — a portable deadline
 An assertion around something that might hang can only pass or hang, never fail (`code-check.md`, "Restore the bug and prove the guard fires").
 
 ### `aws s3 cp` cannot tell a missing key from a missing bucket
-`aws s3 cp` gives one exit 1 and 404 text for a missing key and a missing bucket, so probe `s3api head-bucket` then `head-object`: only a 404 from a reachable bucket means absent; a 403 is permissions.
+Probe `s3api head-bucket` then `head-object`: only a 404 from a reachable bucket means absent, and a 403 is permissions.
 
 ### An S3 multipart ETag depends on the uploader's part size, so try every size that gives its part count
-Verify an upload by comparing each object's ETag with its file, and for a multipart ETag (`<md5 of the part md5s>-N`) try every part size whose `ceiling(size / part) == N`: the size is the uploading machine's `multipart_chunksize`, which differs between machines.
+Verify an upload by comparing each object's ETag with its file, trying for a multipart ETag every part size that gives its part count.
 
 ### A verification command can be shadowed by a shell function or alias
 - The shell is initialized from the user's profile, so `diff`, `grep`, `ls`, `cat` and friends may resolve to a wrapper rather than the binary you assume.
@@ -1724,8 +1858,11 @@ Two traps from seeding one repo out of another's history (2026-09-02), both sile
 ### Assert capabilities, not versions — a tool upgrade can remove one silently
 A tool upgrade across the fleet can remove a capability without reporting failure.
 
+### An Excel save driven by AppleScript can report success while the file keeps the old version
+Read the saved file back from disk (readxl or openpyxl) before every commit, never trusting the save's return, and keep to one editor at a time.
+
 ### An amd64-only image needs `--platform`, and it works on your machine because it is cached
-`docker run` resolves from the local image store before it reaches a registry, so on an arm64 Mac an amd64-only image runs fine once pulled — **and the command that pulled it is not necessarily the one in the code.**
+Pass `--platform` to `docker run` for an amd64-only image.
 
 ### Headless Qt in a container needs `QT_QPA_PLATFORM=offscreen`, and without it the run hangs or crashes
 Pass `-e QT_QPA_PLATFORM=offscreen` to any `docker run` that starts QGIS or another Qt program with no display.
@@ -1734,13 +1871,16 @@ Pass `-e QT_QPA_PLATFORM=offscreen` to any `docker run` that starts QGIS or anot
 Query one path per `s3cmd ls` call, or `--recursive` on the prefix and `grep`: given several paths it lists only the first, with exit 0.
 
 ### `grep -c` prints the count AND exits 1 when it is zero
-Write `n=$(grep -c …) || n=0`, never `|| echo 0` inside the substitution: `grep -c` already prints `0` and exits 1, so that fallback appends a second line, while the bare assignment aborts a `set -e` script.
+Write `n=$(grep -c …) || n=0`, never `|| echo 0` inside the substitution.
 
 ### A failed `git fetch` leaves the comparison you make next reading stale refs
 `git fetch` and the check that follows it are two commands, and nothing links them.
 
 ### macOS `/usr/bin/awk` aborts when a regex meets a byte slice that cuts a multibyte character
-Test a `substr()` slice with `==`, never with `~`, `match()` or `sub()`: the stock macOS awk counts bytes in `substr()` but converts a regex operand to wide characters, and a partial UTF-8 sequence kills the whole program.
+Test a `substr()` slice with `==`, never with `~`, `match()` or `sub()`.
+
+### macOS `sed` dies on an invalid byte, and GNU sed misparses it
+Parse logs with `LC_ALL=C sed`: a regex that scans an invalid UTF-8 byte exits 1 on macOS and misparses silently with GNU sed.
 
 ### A variable in a sed replacement is parsed, so its `\` and `&` are not literal
 Never interpolate data into the replacement half of `sed "s#…#$var#"`: sed reads `\(` as `(`, and `&` as the whole match, so the line written is not the value held.
@@ -1761,25 +1901,28 @@ Supply a default ssh command only when `GIT_SSH_COMMAND`, `core.sshCommand` and 
 Count instead: `while :; do left=0; for i in $ids; do done_yet "$i" || left=$((left+1)); done; [ "$left" -eq 0 ] && break; sleep 90; done`.
 
 ### A failed `cd` lets every later command run in the directory you were already in
-Write `cd "$D" || exit 1` (or `cd "$D" && …`), never `cd "$D"; …`: without the guard, a missing directory prints one error and the rest of the line runs wherever the shell stood, including its file writes.
+Write `cd "$D" || exit 1` (or `cd "$D" && …`), never `cd "$D"; …`.
 
 ### macOS `/bin/bash` 3.2 quote-matches a heredoc inside `$( )`, so an apostrophe in the body is a syntax error
-Pass multi-line text through a file (`--body-file`, `-F`) rather than `"$(cat <<'EOF' … EOF)"`: bash 3.2 scans the command substitution for balanced quotes before it sees the heredoc, so `it's` in a quoted heredoc body fails with ``unexpected EOF while looking for matching `''``, while …`
+Pass multi-line text through a file (`--body-file`, `-F`), never a heredoc inside `$( )`, and open each `case` pattern inside `$( )` with `(`.
 
 ### A skill's bash blocks run as separate calls, and its `$` + digits are replaced by its arguments
 Open every block after the first with guards on what it inherits: re-set its variables, confirm the path is the expected tree, and refuse edits or commits the previous block did not check.
 
 ### An apostrophe in a `${VAR:?message}` inside double quotes is an unterminated quote
-Keep apostrophes out of the message of a `"${VAR:?…}"` guard (`the REL: line of step 5`, not `step 5's REL: line`): bash 3.2 and 5 both read the `'` as opening a quote, and the whole script fails to parse before the guard can run.
+Keep apostrophes out of the message of a `"${VAR:?…}"` guard.
+
+### An apostrophe in a comment inside a single-quoted program closes the program
+Keep apostrophes out of comments inside an `awk '…'`, `sed '…'` or `python3 -c '…'` program in a script.
 
 ### A `git push` can land and still report failure, so confirm the ref rather than the exit code
 After a rejected push, read the remote ref before concluding anything: `git fetch -q origin && git merge-base --is-ancestor HEAD origin/<branch>`.
 
 ### Over Tailscale SSH to a Mac, `ssh` exits 0 whatever the remote command returned
-Never branch on the exit status of `ssh <mac-host> cmd` when the host serves Tailscale SSH: test what the command prints (`ssh host 'test -e f && echo YES'` compared to `YES`), or move the loop to the remote side and gate on its output.
+Never branch on the exit status of `ssh <mac-host> cmd` when the host serves Tailscale SSH: test what the command prints, or move the loop to the remote side and gate on its output.
 
 ### awk `==` compares version strings as numbers, so `1.1` matches `1.10`
-Compare a field to a version as strings, `($i "") == (v "")`: awk gives `split()` fields, `$i` and `-v` values string-or-number status, so when both sides look numeric `==` compares numbers, and `1.1 == 1.10` and `2.0 == 2` are true.
+Compare a field to a version as strings, `($i "") == (v "")`.
 
 ### `gh api` prints an HTTP error's body on stdout and exits 1, ignoring `--jq`
 Branch on `gh api`'s exit status before reading its output.
@@ -1788,13 +1931,13 @@ Branch on `gh api`'s exit status before reading its output.
 Clean up temp files and worktrees in one EXIT handler that reads globals.
 
 ### `git worktree prune` deregisters every missing worktree in the repo, not only yours
-Remove only your own registration: `git worktree remove --force "$wt"`, and on failure delete only its admin dir (`git -C "$wt" rev-parse --absolute-git-dir`, captured right after `worktree add`).
+Remove only your own registration: `git worktree remove --force "$wt"`, and on failure delete only its admin dir.
 
 ### `git push --porcelain` ends with `Done` on a rejection, so `tail -1` names no reason
 Take the reason from the `!` row's third tab field, falling back to the last line that is not `Done`: `awk -F'\t' '$1 == "!" { print $3; exit }'`.
 
 ### In a Perl replacement, `$1` followed by a digit is a different group
-Write `${1}` whenever the text after a backreference starts with a digit: Perl reads `$1281399` as group 1281399, which does not exist, so the replacement is empty and the run exits 0.
+Write `${1}` whenever the text after a backreference starts with a digit.
 
 ### `for x in $(cmd | grep … || true)` hides a failing `cmd`
 Assign the command on its own line under `set -e` (`out=$(cmd)`), then filter `out` with `|| true`.
@@ -1803,10 +1946,22 @@ Assign the command on its own line under `set -e` (`out=$(cmd)`), then filter `o
 Never pipe a `sed`/`awk` range extract into an interpreter.
 
 ### A Python CLI redirected to a log writes nothing until it exits, so the log cannot show progress
-Run a long Python command with `PYTHONUNBUFFERED=1` (or `python -u`) when its output goes to a file: stdout to a file is block-buffered, so the log stays at 0 bytes for the whole run and an empty log reads as a stalled job.
+Run a long Python command with `PYTHONUNBUFFERED=1` (or `python -u`) when its output goes to a file.
 
 ### `aws s3` progress lines end in `\r`, so a line-based count of a saved log reads zero
 Translate before counting: `tr '\r' '\n' < log | grep -c '^upload:'`.
+
+### `a && b || c` runs `c` when any step before the `||` fails
+Give each setup step its own `|| exit 1` and branch with `if`.
+
+### An Actions `run:` step with no `shell:` has no `pipefail`
+Set `defaults: run: shell: bash` on the job, since a Linux step with no `shell:` runs `bash -e {0}`.
+
+### `git mv -k` on an untracked file exits 0 and moves nothing
+Rename an untracked file with `mv` and a tracked one with `git mv` without `-k`, then check the new path exists.
+
+### `pipefail` fails `cmd | head -N | grep -q` on SIGPIPE
+Capture the output first (`out=$(cmd 2>&1)`) and test the variable, or run the probe without `pipefail`.
 
 # Code Check — Spatial
 terra, sf, bcdata, GDAL/OGR CLIs.
@@ -1817,7 +1972,7 @@ terra, sf, bcdata, GDAL/OGR CLIs.
 - BC longitudes are all negative, so `--bounds -124.73 49.485 -124.595 49.565` fails with `Error: No such option: -1`.
 
 ### bcdata: an empty result raises AttributeError, it does not return an empty collection
-- A bbox query matching nothing exits non-zero with `AttributeError: You are calling a geospatial method on the GeoDataFrame, but the active geometry column to use has not been set.` — geopandas complaining about an empty frame, several layers below the query.
+- A bbox query matching nothing exits non-zero with an `AttributeError` from geopandas about an unset geometry column.
 
 ### bcdata: `filter()` translates the calls inside it, so build strings, value lists and transforms before the query
 Compute any query string, value list or transformed geometry into a variable before `bcdata::filter()`, or wrap the call in `local()`.
@@ -1850,7 +2005,7 @@ The obvious way to feed WKB into a canonicalizer is a `is.raw(x)` branch that he
 `st_join(largest = TRUE)` matches by intersection area whatever `join =` says, and drops zero-area geometries, so point and line overlays cannot use it.
 
 ### sf: name validation must account for the geometry column
-- The active geometry column is a named entry in `names(x)`, but its name is **not fixed** — `"geometry"` from `sf::st_read()` of some sources, `"geom"` from a GeoPackage/PostGIS layer, `"geometry"` or `"_ogr_geometry_"` elsewhere.
+- The active geometry column is a named entry in `names(x)`, but its name is **not fixed**.
 
 ### sf: `st_intersection()` / `st_difference()` return a GEOMETRYCOLLECTION that QGIS will not draw
 - Intersecting or differencing two polygon layers yields a `GEOMETRYCOLLECTION` wherever the inputs *also* touch along a line or at a point.
@@ -1859,7 +2014,7 @@ The obvious way to feed WKB into a canonicalizer is a `is.raw(x)` branch that he
 - To hand a geographic (EPSG:4326) bounding box to a bbox-filtered query (WFS/OGC features, `?bbox=`), reproject the whole AOI **geometry** then take its bbox: `sf::st_bbox(sf::st_transform(aoi, 4326))`.
 
 ### An offset regex must be anchored to a time, or a date looks like a zone
-- Refusing or stripping a trailing UTC offset with something like `[+-][0-9]{2}(:?[0-9]{2})?$` also matches the end of a plain ISO date: `"2026-08-15"` ends in `-15`, which reads as a −15 hour zone.
+- Refusing or stripping a trailing UTC offset with something like `[+-][0-9]{2}(:?[0-9]{2})?$` also matches the end of a plain ISO date.
 
 ### A reader that accepts a UTC offset may not be applying it
 GDAL accepts a UTC offset in a GeoPackage `DATETIME` and silently drops it, returning wall-clock digits that are then read in the machine's zone, so one file gives a different instant on every machine.
@@ -1869,6 +2024,9 @@ GDAL accepts a UTC offset in a GeoPackage `DATETIME` and silently drops it, retu
 
 ### QGIS embeds a layer's style in the `.qgs`, so rewriting the `.qml` sidecar changes nothing
 A `.qgs` carries each layer's style **inside** its `<maplayer>` node — the sidecar's children are copied in when the layer is declared.
+
+### A QGIS value map's empty choice is a fixed GUID value; its `<NULL>` label is editable
+When reading a value map's choices from a `.qml` or `.qgs`, drop QGIS's empty choice by its value, `{2839923C-8B7D-419E-B84B-CA2FE9B80EC7}`, not by its `<NULL>` label, which a form author can edit.
 
 ### A GeoPackage is a SQLite database, and that leaks in three ways
 Writing to one directly (a `layer_styles` row, an attribute fix) is a plain `INSERT` and needs no GDAL.
@@ -1886,7 +2044,7 @@ A spatial layer that also carries `LATITUDE` / `LONGITUDE` columns has the same 
 `sf::st_write()` and `ogr2ogr` will write GeoJSON from a projected object and emit a `crs` member naming it:
 
 ### `sf::st_perimeter()` needs lwgeom on projected data, and lwgeom is not a dependency of sf
-An exported sf function whose body branches on `requireNamespace("lwgeom")` is an undeclared dependency: `R CMD check` does not report it, and a test suite cannot see it on a machine that happens to have lwgeom installed.
+An exported sf function whose body branches on `requireNamespace("lwgeom")` is an undeclared dependency.
 
 ### terra keeps a result in memory whenever it fits, so a per-class loop over a large grid accumulates full-grid rasters
 `ifel()`, `focal()`, arithmetic and `rasterize()` return in-memory SpatRasters whenever the result fits under `memfrac` (60% of RAM by default).
@@ -1898,7 +2056,7 @@ A `NULL` `data` argument does not error and does not warn — the layer inherits
 Two contracts inside `terra::app()` that read as the opposite of what they are, both measured on terra 1.9.34 (drift#9, 2026-09-05):
 
 ### terra: `levels<-` and `coltab<-` copy first; `set.cats()` mutates in place, setting or stripping
-`terra::set.cats()` mutates the raster it is given whether it strips (`value = NULL`) or sets levels; `levels<-` and `coltab<-` deep-copy first, so on a caller's raster call `set.cats()` only on the copy one of them returned, or on a `deepcopy()` you own.
+`terra::set.cats()` mutates the raster it is given whether it strips (`value = NULL`) or sets levels.
 
 ### terra `metags()`: the empty case is `NULL`, and the sidecar is half the artefact
 Three measured facts about raster **container** metadata, all of which fail quietly (floodplains#83, 2026-09-05, terra 1.9.34 / GDAL 3.8.5).
@@ -1946,7 +2104,7 @@ GDAL's curl handles do not survive a fork.
 Two independent reasons a parallel raster job uses far more memory than its data, both measured 2026-09-20 on a 64 GB machine (fly#58) while a sweep was killed four times.
 
 ### `terra::distance(x, target = NA)` measures FROM the NA cells, so every data cell reads 0
-Reaching for it to answer "how far is each data cell from the nearest nodata" gives the opposite: `distance()` fills the **target** cells with their distance to the nearest non-target, so data cells come back `0` and any `dist < threshold` test is true everywhere.
+Reaching for it to answer "how far is each data cell from the nearest nodata" gives the opposite.
 
 ### `summarise()` on a grouped `sf` returns an `sf`, and the geometry rides into your CSV
 `dplyr::summarise()` dispatches to `summarise.sf` on an `sf` object.
@@ -2003,7 +2161,7 @@ Run it on the invalid rows only (`!st_is_valid(x)`), or keep the original geomet
 Drop Z with `sf::st_zm()` before any `st_union()` or `st_combine()` on data that may mix XY and XYZ rings and has been through `st_transform()`.
 
 ### terra: `unique()` and `freq()` on a factor return its labels, not its codes
-Read a factor raster's codes from a copy with its levels stripped (`levels(y) <- NULL`), never from `terra::unique(x)[, 1]` or `terra::freq(x)$value`, which on a factor return the active category's labels.
+Read a factor raster's codes from a copy with its levels stripped (`levels(y) <- NULL`), never from `terra::unique(x)[, 1]` or `terra::freq(x)$value`.
 
 ### A GDAL failure partway through `sf::st_read()` returns the rows read so far, with only a warning
 Treat any warning during a read whose completeness matters as a failed read: wrap it in `withCallingHandlers(st_read(...), warning = function(w) stop(...))`, retry, then stop.
@@ -2024,13 +2182,13 @@ Hold any raw WFS read to the server's own count.
 To tell a throttle from any other bcdata failure, record the status off the request itself (wrap `crul:::crul_fetch`), not from the message.
 
 ### sf and terra can link different GDALs, so a probe through one says nothing about the other
-Check `sf::sf_extSoftVersion()[["GDAL"]]` and `terra::gdal()` before concluding that "GDAL" cannot read something: one R session can hold two GDALs, and a driver or codec missing from one may be present in the other.
+Check `sf::sf_extSoftVersion()[["GDAL"]]` and `terra::gdal()` before concluding that "GDAL" cannot read something.
 
 ### `arrow::write_parquet()` of a geoarrow table is not GeoParquet
 Write GeoParquet with GDAL's Parquet driver (`ogr2ogr -f Parquet`), and check the file's schema metadata carries a `geo` key.
 
 ### `atan2(0, 0)` is 0, so two points at one place have a bearing of due north
-Treat a zero-length step as having no heading: test the step length before taking its azimuth, and return `NA` rather than a bearing when it is 0, because `atan2(0, 0)` returns 0 with no warning, and that reads as north.
+Treat a zero-length step as having no heading: test the step length before taking its azimuth, and return `NA` rather than a bearing when it is 0.
 
 ### gdalwarp writes INTO an existing destination and keeps its grid
 Delete the output before re-warping to the same path (`unlink(out)` before `sf::gdal_utils("warp", ...)`, or pass `-overwrite`).
@@ -2048,7 +2206,7 @@ Keep one row per licence, purpose, point of diversion, `QUANTITY_FLAG` and units
 Fetch Wayback imagery with GDAL or curl into a local raster, choosing the release by its **capture** date (from the release's `metadataLayerUrl`), never by its release date.
 
 ### A VRT composites over a source's mask band, so overlapping chips must be clipped with nodata
-Clip overlapping rasters bound for one VRT with a nodata value, not a mask band: a VRT honours a source's nodata when it composites and ignores its mask, so the source listed last overwrites its neighbour.
+Clip overlapping rasters bound for one VRT with a nodata value, not a mask band.
 
 ### Test HTTP range support by a 206, not by `Accept-Ranges`
 Trust a `Range` GET's `206`, not a HEAD's `Accept-Ranges`, and refuse a `200` (the whole object).
@@ -2075,7 +2233,13 @@ Subtract a local origin before `pdist::pdist()`: at BC Albers magnitudes it retu
 Take a segment's top from the next segment's `downstream_route_measure`, and compare measures from different sources within 1 mm.
 
 ### FWA main flow is not edge type 1000 alone
-Select main flow with `edge_type IN (1000, 1050, 1200, 1250, 1450)`, and test what the layer is for rather than that it is non-empty: 1000 is single-line stream only, so a filter built on it draws no large river.
+Select main flow with `edge_type IN (1000, 1050, 1200, 1250, 1450)`, and test what the layer is for rather than that it is non-empty.
+
+### FWA lookup area follows watershed codes, so side channels get the river's
+Never take a side channel's area (edge type 1100, 1150, 1300 or 1350) from `fwa_streams_watersheds_lut`, and check a mouth segment's polygon has its own `wscode_ltree`.
+
+### A relation between FWA watershed codes is not a place
+A placement derived from watershed codes needs an independent check before it is trusted: a relation between watershed codes says which watersheds are related, not which polygon a segment touches.
 
 ### terra: `focal(na.rm = TRUE)` drops NA cells from the vote, so where you fill NA around a filter changes its output
 Fill NA with the value you mean (`ifel(is.na(x), 0L, x)`) **before** a `focal()` majority or min/max filter, not after it, whenever those cells should count.
@@ -2088,6 +2252,15 @@ Pass `shape = "bbox"` (or a polygon) to `rasterize_terrain()` when the DTM must 
 
 ### A plain difference of two DEMs can hide a half-cell shift between them
 Before calling two DEMs the same surface, regress their difference on the reference's gradient, or difference them at each half-cell shift.
+
+### A nodata value written to PNG comes back from magick as alpha
+Read a PNG that terra or GDAL wrote with `magick::image_convert(magick::image_read(f), matte = FALSE)`: their nodata becomes a tRNS chunk, which magick reads as alpha.
+
+### An ogr2ogr load's column order depends on whether it was the database's first
+Set a loaded table's column order yourself when anything hashes its rows: the first load into a database puts the geometry last, every later one second.
+
+### Headless Chrome's `--screenshot` captures a MapLibre map before it draws
+Capture a mapgl or MapLibre page after a real wait (`chromote`, `Sys.sleep(15)`), never with Chrome's `--screenshot --virtual-time-budget`.
 
 # Code Check Conventions
 Structured checklist for reviewing diffs before commit.
@@ -2134,7 +2307,7 @@ When an ad-hoc probe reports that long-shipped code is broken, the prior belongs
 Changing the writer changes nothing already written.
 
 ### Serialization loses meaning silently
-Set `na=` and `null=` explicitly on every writer, because a serializer's default for no value is usually a valid-looking value (`"NA"`, `{}`, `'None'`) that every schema check accepts.
+Set `na=` and `null=` explicitly on every writer.
 
 ### One fact derived twice
 A count taken from one artifact and the things counted produced from another, with a guard comparing the two.
@@ -2146,13 +2319,13 @@ General, and not an instance of a mechanism above.
 - `devtools::test()` (and most runners) load each test file **when they reach it**, not at launch.
 
 ### Test a persistent change through its per-process override first
-A setting that is changed once and persists — `xcode-select -s`, a git config key, a registered default, an installed symlink — usually has an environment variable or flag that overrides it **for one process**.
+Try a persistent setting's per-process override before changing the setting.
 
 ### Adopting Existing Config
 When importing config from one location into a canonical one (legacy `~/.bash_profile` → dotfiles repo, old script's env → repo, another project's `settings.json` → soul):
 
 ### Test the cold/create path of idempotent code, not just the warm no-op
-- Idempotent provisioning code (a resolver-file writer, a config installer, a "create unless present" block) has two paths: the **cold** path that actually creates/writes, and the **warm** path that detects "already present" and skips.
+- Idempotent provisioning code has a **cold** path that creates and a **warm** path that finds the artifact present and skips.
 
 ### Fetch an expiring credential just before its first use, not at job start
 Put the step that fetches short-lived credentials immediately before the first step that uses them.
@@ -2202,7 +2375,7 @@ When the published site **is** the repository — GitHub Pages serving `docs/`, 
 Configuration patterns and false-positive handling for the `gitleaks` pre-commit hook (kdot's Brewfile ships `gitleaks` + `pre-commit`; cyclops standardizes the hook):
 
 ### "Public bucket" ≠ listable: GetObject vs ListBucket
-- A bucket policy granting only `s3:GetObject` on `bucket/*` makes exact-key fetches public but NOT listing — and dataset discovery (`arrow::open_dataset()`, duckdb globs, STAC `/vsicurl/` directory reads) requires `s3:ListBucket` on the **bucket ARN** (no `/*`; it's a bucket-level action).
+- A bucket policy granting only `s3:GetObject` on `bucket/*` makes exact-key fetches public but NOT listing.
 
 ## Spreadsheets and PDFs
 
@@ -2213,7 +2386,10 @@ Before reporting that a spreadsheet value is off by a factor, check the cell's *
 `pdftotext` returns anchor text, not the href.
 
 ### Extracted PDF text carries corrupted glyphs, and a tolerant parser turns them into wrong numbers
-Never strip non-digits to clean a number extracted from PDF text: corrupted glyphs (an `O` for a `0`, a Private Use Area micron sign) become plausible wrong values, so anchor on the label and check against an independent identity.
+Never strip non-digits to clean a number extracted from PDF text.
+
+### Merge PDFs with `qpdf`, and check the merged file
+Merge with `qpdf --empty --pages a.pdf b.pdf -- out.pdf`, not `pdfunite`, and run `qpdf --check` on the result.
 
 
 # NGE Feature Workflow
@@ -2227,7 +2403,7 @@ For non-trivial issue-driven work, follow this checklist. Each step exists for a
 3. **Name with intent** — functions, parameters, internal helpers carry the naming style of the package they live in. Look at existing exports as the guide; consistency over cleverness. For files rather than functions — shell scripts and operational R scripts under `scripts/` or `data-raw/` — the standard is the `noun_verb-detail` pattern in `newgraph.md`, noun first.
 4. **Examples that run** — every exported function gets a runnable `@examples` block. Pkgdown renders them; CI executes them. An example that doesn't run is documentation rot.
 5. **Code-check before it merges** — `/code-check` on the staged diff before each commit, or `/code-check branch` once over the branch before the PR ("When to Skip" below). Catches what tests miss: edge cases, hard-coded paths, unguarded variables, security issues.
-6. **Atomic commits** — each commit bundles code change + checkbox flip in `task_plan.md`. The diff and the progress live in the same commit; `git log -- planning/` tells the full story.
+6. **Atomic commits** — each commit bundles code change + checkbox flip in `task_plan.md`. The diff and the progress live in the same commit, a tick or review file with no code riding in the next one; `git log -- planning/` tells the full story.
 7. **`/planning-archive` when complete** — moves PWF to `archive/YYYY-MM-issue-N-slug/`, creates a fresh `active/`. Then `/gh-pr-push` opens the PR; `/gh-pr-merge` handles the release bookkeeping.
 
 ## Where the checkpoints are not
@@ -2253,10 +2429,10 @@ Before opening a PR, and again before merging:
 ```bash
 git fetch -q origin
 git log --oneline HEAD..origin/main          # what landed while you worked
-git diff origin/main -- DESCRIPTION NEWS.md  # a version you did not bump
+git diff origin/main -- DESCRIPTION NEWS.md  # a NEWS bullet you did not write
 ```
 
-**A version bump you did not make is the tell**, and usually the only one — the tree is
+**A release you did not make is the tell**, and usually the only one — the tree is
 clean, the branch is healthy, and nothing in git hints that someone solved your problem
 an hour ago.
 
@@ -2398,6 +2574,14 @@ something and the issue did not:
 Vigilance does not catch this, because the drift happens exactly when attention
 moves to the merge. `/gh-pr-merge` reconciles at that moment — see its step 3b.
 
+## Work owed between two open issues stays in both bodies
+
+A task whichever PR merges second must do stays in both issue bodies until it is done, and
+the merge that does it ticks both copies. Never write "moved to #M": a move bets on a merge
+order nobody has decided. `/gh-pr-merge` 3b re-reads the other issue before writing a pointer to it.
+
+*4 lines of evidence for this rule are in `conventions/feature-workflow.md`.*
+
 ## Public-repo text describes the package, and points nowhere private
 
 In a public repo, issues, PRs, comments, commit messages, NEWS and roxygen describe
@@ -2405,7 +2589,8 @@ behaviour **in terms of the package's own inputs and conditions**. Our machines,
 ports, local env files and private repos stay out, with the two exceptions below. Check
 where the text lands before you draft it, naming the destination: with no argument, `gh`
 reports the repo the session stands in, which reads private when you file from a private
-repo into a public one.
+repo into a public one. A `pre-public` repo (`.claude/visibility`) is held to it from its
+first commit.
 
 ```bash
 gh repo view <owner>/<repo> --json nameWithOwner,visibility --jq '"\(.nameWithOwner): \(.visibility)"'
@@ -2431,13 +2616,14 @@ organisation, and it names internal work as it does so.
   Describe the dependency in words ("work on a downstream estimate is in progress"), or
   leave it out.
 - **One exception: the R&D tracking cross-reference.** `/gh-pr-push` writes it into PR
-  bodies from the repo's `CLAUDE.md`, which is where its repo and issue number are
-  configured. Both stay: they are deliberate claim tagging, and they are the only private
-  pointers this rule allows.
+  bodies, resolved from the tracking issues' titles. It stays: it is deliberate claim
+  tagging, and the only private pointer this rule allows.
 - **A scrub covers the surfaces you were editing; re-grep the others before merging.** The
   issue body is drafted at plan time and the code later, so scrubbing the tree and the PR
   body leaves the body untouched. `/gh-pr-merge` step 3b is the moment to grep it, then
-  read it for the bare names a grep misses.
+  read it for the bare names a grep misses. It also refuses a branch whose diff adds a
+  private repo's URL, `name#N` or, for the names on its bare list, the bare name to tracked
+  files (`private_refs.sh`).
 - **A leaked body is recreated, not edited: GitHub shows its edit history to anyone.** A fresh
   issue with no discussion is deleted (`gh issue delete`, admin) and refiled clean, the private
   side in a private-repo issue. Where the number must stay, edit it, then delete each older
@@ -2550,10 +2736,12 @@ Skip planning for single-file edits, quick fixes, or tasks with obvious next ste
 2. **Plan to files** — Write the plan into 3 files in `planning/active/`:
    - `task_plan.md` — Phases with checkbox tasks
    - `findings.md` — Research, discoveries, technical analysis
-   - `progress.md` — Session log with timestamps and commit refs
+   - `progress.md` — One entry per phase, with commit refs
 3. **Plan-review with the Plan agent — concurrently, not as a gate** — Once `task_plan.md` is scaffolded, spawn the Plan subagent (`Agent({subagent_type: "Plan", prompt: "..."}`) and ask it to critically review the task_plan against the issue body + actual codebase. Categorize findings as Blocker / Gap / Ordering / Assumption / Scope / Acceptance. The agent reads files fresh — it catches what you miss when you've been thinking about the design too long.
 
-   **Do not wait for it.** Spawn, then start the lowest-risk phase. Background agents have repeatedly returned late — in one case after the entire issue had shipped — so treating the review as a precondition stalls the work for as long as the agent takes (see `agent-operations.md` §2). Fold findings in whenever they land: pre-baseline they edit the plan; mid-implementation they become follow-up commits — unless the finding is a stored-data fork of the kind `agent-operations.md` §4 reserves for the user. A review that arrives after the code is written is not wasted — the reviewer reads real code instead of a plan, which is how one late review still contributed three fixes that no earlier reading had found. If you genuinely cannot proceed without the result, run it with `run_in_background: false` so the blocking is explicit.
+   **Do not wait for it.** Spawn, then start the lowest-risk phase. Background agents have repeatedly returned late — in one case after the entire issue had shipped — so treating the review as a precondition stalls the work for as long as the agent takes (see `agent-operations.md` §2). Fold findings in whenever they land: pre-baseline they edit the plan; mid-implementation they become follow-up commits — unless the finding is a stored-data fork of the kind `agent-operations.md` §4 reserves for the user. If you genuinely cannot proceed without the result, run it with `run_in_background: false` so the blocking is explicit.
+
+   **On a plain park the review runs at the resume, beside Phase 1.** Keep it a review of the plan: read it against the issue, its comments and the code it names. One cheap probe (a grep, a listing) may settle a design fork; anything more becomes a checkbox in the phase that measures it.
 
    Verify before acting, in both directions. Findings have been confidently wrong (a "BLOCKER" disproved by a 30-second probe) and confidently right about things nobody suspected. Reproduce the claim first.
 
@@ -2565,13 +2753,7 @@ Skip planning for single-file edits, quick fixes, or tasks with obvious next ste
    definitional"* as a claim with an author, exactly like an issue asserting a
    question can only be answered by testing.
 
-   Corollary on when to stop: **convergence is not a reviewer saying you have
-   converged.** End on an enumeration of the complete candidate set showing nothing
-   sits above its source, not on another round.
-
-   **Spawn review agents UNNAMED.** Passing `name` to the `Agent` tool changes what you get: a named spawn becomes a persistent *teammate* that goes **idle** rather than completing, so there is no final report to auto-deliver and its output must be pulled with `SendMessage`. An unnamed spawn is a fire-and-return subagent whose report arrives on its own in the completion notification. Pass `name` only for a collaborator you intend to keep messaging, and shut it down when done — it pings indefinitely otherwise.
-
-   That mis-spawn produced one of the silent-delivery failures below, so check `name` before suspecting settings. Teammate mode (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + `teammateMode`, merged globally from `soul/settings/defaults.json`) shapes what a *named* spawn becomes; it is not by itself why findings go missing, and an unnamed spawn delivers fine with it enabled.
+   **Spawn review agents UNNAMED.** A named spawn becomes a *teammate* that goes **idle** rather than completing, so its report never arrives on its own; pass `name` only for a collaborator you will keep messaging, and shut it down when done.
 
    **Get the findings into a file — but check who is doing the writing.** Message delivery can fail silently, by idle pings with no content or by routing to another session. From this side an idle ping is indistinguishable from an agent that had nothing to say, so the loss is invisible. A file (`planning/active/review-<N>.md`) survives routing, survives the agent exiting, and is greppable later. One path per **spawn**: a replacement gets its own, because the original may still deliver into the one it was given, and a missing file reads as a lost review only after the completion notification or the deadline in `agent-operations.md` §2, "Don't trust status".
 
@@ -2580,14 +2762,13 @@ Skip planning for single-file edits, quick fixes, or tasks with obvious next ste
    - **Read-only agent** (`Plan`, `Explore`): ask for the findings **in the reply**, then write them to `planning/active/review-<N>.md` yourself. The file is still the deliverable; you are just the one creating it.
    - **Agent type that can write**: put the file-path instruction in the first prompt, not as a follow-up.
 
-   Asking for a file the agent cannot produce costs a round-trip, and — worse — sets you up to read an absent file as an absent review. Check the agent type's tools before writing the instruction.
-
    **A reviewer asked to prove a guard fires will patch your working tree, and that races
    your own test runs.** "Restore the defect and watch it go red" is the right instruction
    (`code-check.md`), and a subagent given it edits the same files the parent is testing.
    From the parent's side the result is a test run that reports failures belonging to
    nobody's code — the reviewer's planted defect, caught mid-flight. Tell reviewers to work
-   in a copy (`cp -r` to a temp dir, or a worktree) and say so in the prompt; they honour it
+   in a copy (`git worktree add --detach <tmp> <ref>` or `git clone`, never `cp -r` of a
+   checkout whose `.git` is a file) and say so in the prompt; they honour it
    when asked. Then snapshot the files you care about and `cmp` them before **and after**
    every run whose result you intend to act on, so "the tree was intact for this
    measurement" is a fact rather than an assumption. Same hazard as a mid-flight edit in
@@ -2602,25 +2783,22 @@ Skip planning for single-file edits, quick fixes, or tasks with obvious next ste
    **Review the fixes, not just the code.** The second pass is where the value concentrates, because a fix written under a wrong assumption reproduces the same defect. **Convergence is the signal to stop, not a fixed number of rounds.**
 
    Convergence is measured, not felt — a quiet round and an exhausted reviewer look
-   identical. What terminates a review is to **enumerate the
-   candidate set mechanically and show nothing sits above its source of truth**: parse
-   the files and walk every `cli_abort`/`warning`/`stop` rather than recalling them, so
-   "all of them are pinned" is a count. For the guards a fix introduced, the equivalent
-   instrument is a mutation table (`code-check.md`, "Restore the bug and prove the guard
-   fires"). `code-check.md` states the enumeration rule under "A guard's
-   scope, escape hatches, and remedies" — terminate by enumeration, not by a reviewer
-   saying you have converged. `/code-check` treats three rounds as the floor and keeps
-   going while a round finds a defect inside the previous fix.
+   identical, and a reviewer saying you have converged is a claim. End on a **mechanical
+   enumeration of the candidate set showing nothing sits above its source of truth**
+   (`code-check.md`, "A guard's scope, escape hatches, and remedies"), a mutation table for
+   the guards a fix introduced. `/code-check` treats three rounds as the floor and keeps
+   going while a round finds a defect inside the previous fix. In prose, where each round
+   rewords the last fix, cut back to the verified claims and end on a claim-by-evidence list.
 
    Ask for the **mechanism**, not more instances, such as an invariant enforced by two lists happening to agree.
 
    The thing reviewers catch that self-probing does not is **interop**. Ask the consumer.
 
-*31 lines of evidence for this rule are in `conventions/planning.md`.*
+*39 lines of evidence for this rule are in `conventions/planning.md`.*
 
 4. **Lock naming before the baseline** — If naming feedback surfaces during planning (legacy filename, inconsistency with an existing file family), fold the rename into the convention + task_plan BEFORE the baseline commit, not as a follow-up. Pre-baseline it's free; retrofitting after implementation cascades (measured: `build_exec_pdf.R` → `run_pagedown_exec_summary.R` locked in pre-baseline meant zero downstream rework).
 5. **Commit the plan** — After Plan-agent review + fixes. This is the baseline.
-6. **Work in atomic commits** — Each commit bundles code changes WITH checkbox updates in the planning files. The diff shows both what was done and the checkbox marking it done.
+6. **Work in atomic commits** — Each commit bundles code changes WITH their checkbox flips; bookkeeping rides with a neighbour (Atomic Commits, below).
 7. **Code check before commit** — Run `/code-check` on staged diffs before committing, or once over the branch with `/code-check branch` before the PR (`feature-workflow.md`, "When to Skip"). Per commit, don't mark a task done until its diff passes review. In branch mode each commit still carries its own checkbox flip (Atomic Commits, below), the Validation box for `/code-check` is the one that waits for the branch review, and its fixes land as follow-up commits.
 8. **Archive when complete** — Move `planning/active/` to `planning/archive/` via `/planning-archive`. Write a README.md in the archive directory with a one-paragraph outcome summary and closing commit/PR ref — future sessions scan these to catch up fast. Where the work produced measurements, that README is also the evidence record; see below.
 
@@ -2686,12 +2864,14 @@ Configuration blocks — that is the archive README's `Measurement` and `Evidenc
 the raw numbers (committed logs). A living document revised as knowledge moves is the shape
 that moves the state of knowledge; a dated run record duplicates the archive.
 
-*5 lines of evidence for this rule are in `conventions/planning.md`.*
+*7 lines of evidence for this rule are in `conventions/planning.md`.*
 
 ### One topic file, revised in place — git is the version record
 
-`research/<topic>.md`, noun-first, **no date in the filename**. A new measurement that
-changes what is known revises the topic file; it does not add a dated sibling.
+`research/<topic>.md`, noun-first, **no date in the filename**. A finding revises the statement
+it changes and deletes what it supersedes ("until #N, X" only where a reader needs it), adding
+no dated sibling and no section per issue. soul's `research_check.sh` flags a file grown into a log
+or gone stale; `/backlog-sweep` proposes the fix.
 `git log --follow research/<topic>.md` is the dated history, the archive README it cites
 is the *why*, and the logs are the numbers — everything an R&D claim needs, with no second
 copy of any of it.
@@ -2758,12 +2938,12 @@ public: report findings from internal work aggregated, never by the names of who
 
 ## Atomic Commits (Critical)
 
-Every commit that completes a planned task MUST include:
-- The code/script changes
-- The checkbox update in `task_plan.md` (`- [ ]` -> `- [x]`)
-- A progress entry in `progress.md` if meaningful
-
-This creates a git audit trail where `git log -- planning/` tells the full story. Each commit is self-documenting — you can backtrack with git and understand everything that happened.
+A commit that completes a planned task carries its code and its checkbox flip in `task_plan.md`,
+so `git log -- planning/` tells the full story. Bookkeeping rides with a neighbour: a box ticked
+with no code goes in the next code commit or the archive, a review round's file in the commit
+fixing its findings (after a clean round, the next commit). Only the baseline, the archive,
+`/compact-prep`'s session entry and `/planning-update` commit alone. `progress.md` gets one entry
+per phase.
 
 ## File Formats
 
@@ -2804,12 +2984,12 @@ Append-only research log. Discoveries, technical analysis, things learned.
 
 ### progress.md
 
-Session entries with commit references.
+One entry per phase, with commit references.
 
 ```markdown
 # Progress
 
-## Session YYYY-MM-DD
+## Phase N, YYYY-MM-DD
 - Completed: [items]
 - Commits: [refs]
 - Next: [items]
@@ -2935,6 +3115,41 @@ behaviour, the domain convention otherwise.
 | `/planning-update` | Mid-session — sync checkboxes and progress |
 | `/planning-archive` | Issue complete — archive and create fresh active/ |
 
+# Provenance
+How an output says what made it and what came out, and how a rebuild is judged against it.
+
+*Index only: each rule's heading and first sentence. The full text is soul's `conventions/provenance.md`; read it before writing or reviewing code in its area.*
+
+### One receipt per output, in one shape: output, recipe, result, context
+Once the receipt writer for its language ships (rule 4), write one `receipt.json` per output, replacing a `manifest.json` or `provenance.json` when the writer is next touched; until then, write the repo's current format and map its names (rule 10).
+
+### Keep what changes on every rebuild out of the output's bytes
+Write time, host and run id beside an output, never inside it, and pin what a format would stamp (GeoPackage `last_change`, layer order), so one recipe writes the same bytes: in new outputs, and in a writer when it is next touched.
+
+### A recipe identity and a result identity; the machine is context
+Hash code, config, seed and each input's **recipe** identity into one recipe hash (a receipt's `recipe_id`); never fold an input's result into it, and never let the host or toolchain into either identity, nor the host into a record that is published.
+
+### crate holds the contract; each language implements it once against its test vectors
+Write receipts through crate's contract (schema, RFC 8785 `recipe_id`, table fingerprint, test vectors): R packages call `crt_receipt_write()`, Python `stacs.receipt`, and any other writer passes the same vectors.
+
+### Compare two records to one of three verdicts, and name the side that differed
+Compare a rebuild with its reference copy and report `identical` (same recipe, same result), `equivalent` (same recipe, result within the declared tolerance) or `different` (another recipe, or past the tolerance), naming which of recipe or result differed and where.
+
+### Declare tolerances per output, beside the code that writes it
+State each output's tolerance where its writer lives: exact for a table of counts, a rounding for a floating sum, a declared spread or an invariant ("the same pick and region") for a model fitted with random draws.
+
+### A published output keeps its result and record as the reference copy
+Keep what is published, its bytes and its record, as the reference copy in the bucket; anything not published is rebuilt from its recipe and compared to that copy, never assumed equal.
+
+### Read a record to report a difference; refuse only on integrity or same-operation parity
+Read a provenance record to **report** what differs; refuse on one only when bytes received differ from what the sender listed, two parties in one operation must hold the same bytes now, or the record is older than its input.
+
+### A per-field register says what a difference in each field does
+Keep a register, one row per record field, saying whether a difference refuses, warns or is recorded, make it the comparison's input rather than a description of it, and test it with two records that differ in one field each.
+
+### Map existing names to the shared keys and to STAC's; converge forward-only
+Map each existing field name to its key in the receipt and, on a catalogue, to STAC's own (`file:checksum`, `file:size`, `processing:software`, `processing:datetime`), and rename only when the writer moves to a receipt (rule 1).
+
 # Python Conventions
 How New Graph Environment repos declare and run Python, the sibling of `r-packages.md`.
 
@@ -2958,7 +3173,7 @@ A README tells a stranger what a package is, why it is worth their time, and how
 *Index only: each rule's heading and first sentence. The full text is soul's `conventions/readme.md`; read it before writing or reviewing code in its area.*
 
 ### Open with what the package is and why it is valuable, not with a list of features
-Open with one to three sentences on what the package is, what data it works on, and why that is valuable, naming the restoration decision it informs where there is one.
+Open with one to three sentences on what the package is, what data it works on, and why that is valuable, naming the conservation or restoration decision it informs where there is one.
 
 ### Write the tagline, the description field, the GitHub About and the opening together
 Change the README tagline, the DESCRIPTION `Title` (or pyproject `description`) and the GitHub About text together so they say the same thing, and keep the `Description` field and the README opening in step.
@@ -2983,3 +3198,83 @@ Make every README figure of the package's output from a committed script that ru
 
 ### Leave out what another file already keeps
 Leave out roadmaps, changelogs, function tables, version strings in prose, counts of published things, and internal hosts or private repos, because each is kept elsewhere and goes stale in a README.
+
+# Writing for the Reader
+Anything an outside reader sees answers their questions in their order and carries nothing that served only its authors.
+
+*Index only: each rule's heading and first sentence. The full text is soul's `conventions/writing.md`; read it before writing or reviewing code in its area.*
+
+### Headings are the reader's questions, in the order they ask them
+Make each heading a question the reader brings, in their order, within any sections a report template fixes; in a data product's article, limits and validation go last.
+
+### Open with the answer
+State the finding, with its numbers, in a sentence or two before any method, so a reader who stops there has the right answer.
+
+### Orient the reader in one sentence per place
+Say where each place is by the river it joins and the nearest town with a compass direction, checked against the Freshwater Atlas, and show the places on regional maps with keymaps.
+
+### Write each article to stand alone
+Never use a sibling article as the reference point: describe each method, bar and comparison on its own terms, and carry the sentence the reader needs rather than the sibling's figure or paragraph.
+
+### A number says what it is of, in the sentence that carries it
+Write a difference of two shares in percentage points, and a transformed value as what it means.
+
+### Each section, bullet and caption reads alone
+Restate in a few words what a passage depends on, since a reader arrives from a link.
+
+### Define a term in its own place, before it is used
+Give a term the article depends on its own short section before its first use, with its rule, why it exists, and how many cases fall each way.
+
+### Prefer a plain phrase to a term
+Name a quantity by what it does for the reader ("the score; lower is better"), and keep a term only if the article reuses it, giving it its own place.
+
+### Species common names in lower case
+Write chinook salmon, coho and steelhead in lower case in prose and captions: it is our house style.
+
+### Choose the form that lands with the reader
+Pick a sentence, table, figure or map by which one tells the reader the story fastest, and judge it by its effect on the reader, not by a preference for prose.
+
+### A sentence beside a table says what it shows, never what it holds
+Say the pattern beside a figure or table and leave its values to it: restated medians, shares and month names are read twice, and a statistic the table does not hold has no source on the page.
+
+### A caption names every mark the figure draws
+When a figure gains a mark, its caption gains a phrase, or the new mark reads as one the caption already names.
+
+### Define, read and cite every statistic you name
+Give every statistic an article names, at the table that carries it, what it compares, how to read its values, a source, and a published rating scale beside the values where one exists.
+
+### Cut what serves the authors
+Remove what the authors needed and the reader does not: parity with superseded products, paths to internal research, and how a decision was reached.
+
+### State a weakness as what the product does, not what the reader should do
+Describe each weakness in one sentence about what the product does, with no advice on working around it beyond the product's own rule.
+
+### State each claim by the code's definition
+Describe a set the code defines by that definition, never by its best-known member or a nearby proxy, or the sentence and its guard cover the proxy, not the set.
+
+### Check that each guard covers the set its sentence names
+Give each claim a guard over the whole set its sentence names, at the precision written, and re-read the guard whenever the sentence moves or is reworded, as "State each claim by the code's definition" asks of the sentence.
+
+### When explaining a decision, list every check and the way it points
+Count the checks from the data, not the conclusion, give each its direction, and call a choice the evidence did not make a decision.
+
+### Name, link and cite the software
+Cite every package an article uses inline at its first mention, ours included, data to its publisher and each claim to the page that says it, from one `.bib` of Zotero entries and the packages' own `citation()`.
+
+### Measure the simplification
+Report word and line counts before and after a rewrite, against the forecast, and name what set the floor.
+
+### Lead with what the product does and why it matters
+Open every public piece with what the product does for the reader and why it matters, before anything about how it was made.
+
+### Let visuals carry the story where they land better
+Put the story in a map, figure or table whenever the reader takes it in faster there than from prose, and keep the prose to what the visual cannot say.
+
+### Show one case before the statistic that counts cases
+Show what an effect does in one case, a figure or a worked example, before the table that counts how often it happens, and say in the table's lead-in why the count matters.
+
+### Review a rendered article where the reader will read it
+Offer the rendered page in a form that opens on a phone, before the merge, without being asked.
+
+### Cut any number or caveat that does not change what the reader understands
+Drop a number, a precision or a caveat that leaves the reader's understanding of the product where it was, because detail the reader does not need walls them off.
